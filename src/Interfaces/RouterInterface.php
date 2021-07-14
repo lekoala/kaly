@@ -6,11 +6,12 @@ namespace Kaly\Interfaces;
 
 use Exception;
 use Stringable;
-use Kaly\Exceptions\RouterException;
+use Kaly\Router\RouterException;
 use Psr\Container\ContainerInterface;
 use Kaly\Exceptions\RedirectException;
 use Psr\Http\Message\ResponseInterface;
 use Kaly\Exceptions\ValidationException;
+use Kaly\Exceptions\AuthenticationException;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**
@@ -21,7 +22,8 @@ use Psr\Http\Message\ServerRequestInterface;
 interface RouterInterface
 {
     /**
-     * @throws RedirectException Will be converted to redirect
+     * @throws AuthenticationException Will be converted to 401 error
+     * @throws RedirectException Will be converted to 3xx redirect
      * @throws ValidationException Will be converted to 403 error
      * @throws RouterException Will be converted to 404 error
      * @throws Exception Will be converted to 500 error

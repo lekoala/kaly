@@ -130,7 +130,7 @@ class App
     /**
      * Init app state
      */
-    public function boot()
+    public function boot(): void
     {
         $this->loadEnv();
         $this->loadModules();
