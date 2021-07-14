@@ -4,21 +4,20 @@ declare(strict_types=1);
 
 namespace Kaly;
 
-use Exception;
-use Stringable;
 use RuntimeException;
-use Nyholm\Psr7\Response;
-use Kaly\Exceptions\RouterException;
-use Kaly\Exceptions\RedirectException;
-use Psr\Http\Message\ResponseInterface;
-use Kaly\Exceptions\ValidationException;
+use Kaly\Router\RouterInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\ResponseFactoryInterface;
 
 /**
  * A basic app that should be created from the entry file
  */
 class App
 {
+    use AppRouter;
+
+    public const MODULES_FOLDER = "modules";
+
     protected bool $debug;
     protected string $baseDir;
     /**
@@ -26,15 +25,25 @@ class App
      */
     protected array $modules;
 
+    /**
+     * Create a new instance of the application
+     * It only need the base directory that contains
+     * the system folders
+     */
     public function __construct(string $dir)
     {
         $this->baseDir = $dir;
     }
 
+    /**
+     * Load environment variable and init app settings
+     * based on them
+     */
     protected function loadEnv(): void
     {
         $envFile = $this->baseDir . '/.env';
         $result = [];
+        // This can be useful to avoid stat calls
         if (empty($_ENV['ignore_dot_env']) && is_file($envFile)) {
             $result = parse_ini_file($envFile);
             if (!$result) {
@@ -42,6 +51,7 @@ class App
             }
         }
         foreach ($result as $k => $v) {
+            // Make sure that we are not overwriting variables
             if (isset($_ENV[$k])) {
                 throw new RuntimeException("Could not redefine $k in ENV");
             }
@@ -59,29 +69,34 @@ class App
     }
 
     /**
-     * Load all modules in the basedir
+     * Load all modules in the modules folder
      *
      * @return array<string, mixed>
      */
     protected function loadModules(): array
     {
-        // Anything with a config.php file is a module
-        $files = glob($this->baseDir . "/*/config.php");
+        // Modules need a config.php file. This avoids having is_file checks in the loop
+        // Don't sort results as it is much faster
+        $files = glob($this->baseDir . "/" . self::MODULES_FOLDER . "/*/config.php", GLOB_NOSORT);
         if (!$files) {
-            return [];
+            $files = [];
         }
-
         $modules = [];
         $definitions = [];
+        // Modules can return definitions that will be passed to the Di container
         foreach ($files as $file) {
             $modules[] = basename(dirname($file));
-            $config = require $file;
-            if (is_array($config)) {
-                $definitions = array_merge_recursive($definitions, $config);
-            }
+            // Avoid leaking local variables from config files
+            $includer = function (string $file, array $definitions) {
+                $config = require $file;
+                if (is_array($config)) {
+                    $definitions = array_merge_recursive($definitions, $config);
+                }
+                return $definitions;
+            };
+            $definitions = $includer($file, $definitions);
         }
         $this->modules = $modules;
-
         return $definitions;
     }
 
@@ -97,29 +112,35 @@ class App
         if (self::class != get_called_class()) {
             $definitions[self::class] = get_called_class();
         }
-        // Register the request
+        // Register the global server request by class and name
         $definitions[ServerRequestInterface::class] = $request;
         $definitions['request'] = ServerRequestInterface::class;
-        // Register a router
+        // Register a response factory
+        $definitions[ResponseFactoryInterface::class] = ResponseFactory::class;
+        // Register a router if none defined
         if (!isset($definitions[RouterInterface::class])) {
-            $definitions[RouterInterface::class] = function () {
-                $classRouter = new ClassRouter();
-                $classRouter->setAllowedNamespaces($this->modules);
-                return $classRouter;
-            };
+            $definitions[RouterInterface::class] = $this->defineBaseRouter($this->modules);
         }
         return new Di($definitions);
     }
 
     /**
-     * @return Response|string|Stringable|array<string, mixed>
+     *  At the end of this process, we get a Di container and our modules are initialized
      */
-    protected function routeRequest(ServerRequestInterface $request, Di $di)
+    public function boot(ServerRequestInterface $request): Di
     {
-        /** @var RouterInterface $router */
-        $router = $di->get(RouterInterface::class);
-        $result = $router->match($request, $di);
-        return $result;
+        $this->loadEnv();
+        $definitions = $this->loadModules();
+        return $this->configureDi($definitions, $request);
+    }
+
+    /**
+     * Handle a request and send its response
+     */
+    public function handle(ServerRequestInterface $request, Di $di): void
+    {
+        $response = $this->processRequest($request, $di);
+        Http::sendResponse($response);
     }
 
     public function run(ServerRequestInterface $request = null): void
@@ -127,68 +148,26 @@ class App
         if (!$request) {
             $request = Http::createRequestFromGlobals();
         }
-
-        // boot
-        $this->loadEnv();
-        $definitions = $this->loadModules();
-        $di = $this->configureDi($definitions, $request);
-
-        // route request and deal with predefined exceptions
-        $code = 200;
-        $response = $body = null;
-        try {
-            $body = $this->routeRequest($request, $di);
-        } catch (RedirectException $ex) {
-            $response = Http::createRedirectResponse($ex->getUrl(), $ex->getCode(), $ex->getMessage());
-        } catch (ValidationException $ex) {
-            $code = 403;
-            $body = $this->getChainedMessages($ex);
-        } catch (RouterException $ex) {
-            $code = 404;
-            $body = $this->debug ? $this->getChainedMessages($ex) : 'The page could not be found';
-        } catch (Exception $ex) {
-            $code = 500;
-            $body = $this->debug ? $this->getChainedMessages($ex) : 'Server error';
-        }
-
-        // We have a response
-        if ($body instanceof ResponseInterface) {
-            $response = $body;
-        }
-
-        // We don't have a suitable response, transform body
-        if (!$response) {
-            $json = $request->getHeader('Accept') == Http::CONTENT_TYPE_JSON;
-            $forceJson = boolval($request->getQueryParams()['_json'] ?? false);
-            $json = $json || $forceJson;
-            $headers = [];
-
-            if ($json) {
-                $response = Http::createJsonResponse($code, $body, $headers);
-            } else {
-                $response = Http::createHtmlResponse($code, $body, $headers);
-            }
-        }
-
-        Http::sendResponse($response);
+        $di = $this->boot($request);
+        $this->handle($request, $di);
     }
 
     /**
-     * @return string[]
+     * @return array<string>
      */
-    protected function getChainedMessages(Exception $ex): array
+    public function getModules(): array
     {
-        $messages = [];
-        while ($ex) {
-            $line = $ex->getFile() . ":" . $ex->getLine();
-            $message = $ex->getMessage();
-            if ($this->debug) {
-                $message .= " ($line)";
-            }
-            $messages[] = $message;
-            $ex = $ex->getPrevious();
-        }
-        $messages = array_reverse($messages);
-        return $messages;
+        return $this->modules;
+    }
+
+    public function getDebug(): bool
+    {
+        return $this->debug;
+    }
+
+    public function setDebug(bool $debug): self
+    {
+        $this->debug = $debug;
+        return $this;
     }
 }

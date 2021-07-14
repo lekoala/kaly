@@ -19,6 +19,9 @@ use ReflectionFunction;
  * You can only initialize definitions with the constructor, after that
  * the container is "locked"
  * Any get call always provide the same result
+ *
+ * Credits to for inspiration
+ * @link https://github.com/devanych/di-container
  */
 class Di implements ContainerInterface
 {

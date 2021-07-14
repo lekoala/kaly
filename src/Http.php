@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly;
 
+use Exception;
 use RuntimeException;
-use Nyholm\Psr7\Response;
 use InvalidArgumentException;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -25,90 +25,130 @@ class Http
 
     /**
      * Create a request from $_SERVER globals
+     * @link https://github.com/Nyholm/psr7-server
+     * @link https://github.com/httpsoft/http-server-request
+     * @link https://docs.guzzlephp.org/en/stable/psr7.html#requests
      */
     public static function createRequestFromGlobals(): ServerRequestInterface
     {
-        $psr17Factory = new \Nyholm\Psr7\Factory\Psr17Factory();
-
-        $creator = new \Nyholm\Psr7Server\ServerRequestCreator(
-            $psr17Factory, // ServerRequestFactory
-            $psr17Factory, // UriFactory
-            $psr17Factory, // UploadedFileFactory
-            $psr17Factory  // StreamFactory
-        );
-
-        $serverRequest = $creator->fromGlobals();
-
-        return $serverRequest;
+        if (class_exists(\Nyholm\Psr7\Factory\Psr17Factory::class)) {
+            $psr17Factory = new \Nyholm\Psr7\Factory\Psr17Factory();
+            $creator = new \Nyholm\Psr7Server\ServerRequestCreator(
+                $psr17Factory, // ServerRequestFactory
+                $psr17Factory, // UriFactory
+                $psr17Factory, // UploadedFileFactory
+                $psr17Factory  // StreamFactory
+            );
+            $serverRequest = $creator->fromGlobals();
+            return $serverRequest;
+        }
+        if (class_exists(\HttpSoft\ServerRequest\ServerRequestCreator::class)) {
+            return \HttpSoft\ServerRequest\ServerRequestCreator::createFromGlobals();
+        }
+        if (class_exists(\GuzzleHttp\Psr7\ServerRequest::class)) {
+            return \GuzzleHttp\Psr7\ServerRequest::fromGlobals();
+        }
+        throw new Exception("No suitable ServerRequestInterface implementation found");
     }
 
-    public static function createRedirectResponse(string $url, int $code = 307, string $body = ''): Response
+    /**
+     * Finds a psr-7 response class that follows the status code, headers, body, version, reason convention
+     * @group Response-Factory
+     */
+    public static function resolveResponseClass(): string
+    {
+        if (class_exists(\Nyholm\Psr7\Response::class)) {
+            return \Nyholm\Psr7\Response::class;
+        } elseif (class_exists(\HttpSoft\Message\Response::class)) {
+            return \HttpSoft\Message\Response::class;
+        } elseif (class_exists(\GuzzleHttp\Psr7\Response::class)) {
+            return \GuzzleHttp\Psr7\Response::class;
+        }
+        throw new Exception("No suitable ResponseInterface implementation found");
+    }
+
+    /**
+     * @group Response-Factory
+     * @param string $body
+     * @param integer $code
+     * @param array<string, string> $headers
+     */
+    public static function createResponse(string $body = "", int $code = 200, array $headers = []): ResponseInterface
+    {
+        $class = self::resolveResponseClass();
+        return new $class($code, $headers, $body);
+    }
+
+    /**
+     * @group Response-Factory
+     */
+    public static function createRedirectResponse(string $url, int $code = 307, string $body = ''): ResponseInterface
     {
         if ($code < 300 || $code > 399) {
             throw new InvalidArgumentException("$code should be between 300 and 399");
         }
+        $headers = [];
         $headers['Location'] = $url;
         if (!$body) {
             $body = 'You are being redirected to ' . $url;
         }
-        return new Response($code, $headers, $body);
+        return self::createResponse($body, $code, $headers);
     }
 
     /**
      * Create a lightweight json response that minimize data transfer without adding
      * unnecessary stuff
      *
-     * The response contains:
-     * - a `data` key when it returns an array of data (data rows or struct)
-     * - a `message` key for simple messages (status messages)
-     * - a `errors` key with an array of errors (validation and errors)
+     * Strings are stored under the "message" key
      *
+     * Clients are expected to check http status code, not response body
+     *
+     * @group Response-Factory
+     * @param string|Stringable|array<string, mixed>|null $data
      * @param integer $code
-     * @param mixed $data
      * @param array<string, string> $headers
      */
-    public static function createJsonResponse(int $code, $data, array $headers = []): Response
+    public static function createJsonResponse($data, int $code = 200, array $headers = []): ResponseInterface
     {
-        $arr = [];
-        if (400 <= $code && $code <= 599) {
-            if (is_string($data)) {
-                $data = [$data];
-            }
-            $arr['errors'] = $data;
-        } else {
-            if (!is_array($data)) {
-                $arr['message'] = $data;
-            } else {
-                $arr['data'] = $data;
-            }
+        if (!$data) {
+            $data = [];
         }
-        $body = json_encode($arr);
-
+        if ($data instanceof Stringable) {
+            $data = (string)$data;
+        }
+        if (is_string($data)) {
+            $data = ["message" => $data];
+        }
+        $body = json_encode($data);
         // We couldn't encode the array, output errors
         if (!$body) {
             $code = 500;
-            $body = '{"errors":["' . json_last_error_msg() . '"]}';
+            $body = '{"message":"' . json_last_error_msg() . '"}';
         }
         $headers['Content-Type'] = self::CONTENT_TYPE_JSON;
-        return new Response($code, $headers, $body);
+        return self::createResponse($body, $code, $headers);
     }
 
     /**
+     * @group Response-Factory
+     * @param string|Stringable|array<string, mixed>|null $body
      * @param integer $code
-     * @param mixed $body
      * @param array<string, string> $headers
      */
-    public static function createHtmlResponse(int $code, $body, array $headers = []): Response
+    public static function createHtmlResponse($body, int $code = 200, array $headers = []): ResponseInterface
     {
         if ($body instanceof Stringable) {
             $body = (string)$body;
         } elseif (is_array($body)) {
-            $body = json_encode($body);
+            // Arrays are displayed as json
+            $body = "<pre>" . json_encode($body, JSON_PRETTY_PRINT) . "</pre>";
             if (!$body) {
                 $body = json_last_error_msg();
             }
+        } elseif ($body === null) {
+            $body = '';
         }
-        return new Response($code, $headers, $body);
+        return self::createResponse($body, $code, $headers);
     }
 
     /**
@@ -173,6 +213,7 @@ class Http
 
     /**
      * Emits a range of the message body.
+     * @group Content-Range
      */
     private static function emitBodyRange(StreamInterface $body, int $first, int $last, int $bufferLength = 4096): void
     {
@@ -200,6 +241,7 @@ class Http
     /**
      * Parse Content-Range header.
      *
+     * @group Content-Range
      * @link http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.16
      * @return array{"unit": mixed, "first": int, "last": int, "length": '*'|int}|null
      */

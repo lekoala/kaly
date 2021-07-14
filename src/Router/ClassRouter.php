@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaly;
+namespace Kaly\Router;
 
+use Kaly\Util;
 use Stringable;
 use ReflectionClass;
 use ReflectionNamedType;
-use Nyholm\Psr7\Response;
-use Kaly\Exceptions\RouterException;
 use Psr\Container\ContainerInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**
@@ -28,14 +28,15 @@ class ClassRouter implements RouterInterface
 
     /**
      * Match a request and resolves it
-     * @return Response|string|Stringable|array<string, mixed>
+     * @return ResponseInterface|string|Stringable|array<string, mixed>
      */
     public function match(ServerRequestInterface $request, ContainerInterface $di = null)
     {
         $uri = trim($request->getUri()->getPath(), '/');
-
         $parts = array_filter(explode("/", $uri));
 
+        // First we need to check if we have the controller
+        // Parts used to match controller are removed (module and/or controller)
         $class = $this->findController($parts);
         if (!class_exists($class)) {
             throw new RouterException("Route '$uri' not found. Class '$class' was not found.");
@@ -43,22 +44,14 @@ class ClassRouter implements RouterInterface
 
         $refl = new ReflectionClass($class);
 
+        // Then if the action exists
+        // Part used to match the action is removed (none for index)
         $action = $this->findAction($refl, $parts);
+
+        // Remaining parts are passed as arguments to the action
         $result = $this->callAction($refl, $action, $parts, $di);
 
         return $result;
-    }
-
-    protected static function camelize(string $str, bool $firstChar = true): string
-    {
-        if (!$str) {
-            return $str;
-        }
-        $str = str_replace(' ', '', ucwords(str_replace('-', ' ', $str)));
-        if (!$firstChar) {
-            $str[0] = strtolower($str[0]);
-        }
-        return $str;
     }
 
     /**
@@ -71,14 +64,14 @@ class ClassRouter implements RouterInterface
 
         // Check the first segment if it exists
         $part = array_shift($parts) ?? 'index';
-        $camelPart = self::camelize($part);
+        $camelPart = Util::camelize($part);
 
         // Does it match a specific namespace?
         // More specific namespaces always have priority over default
         if (in_array($camelPart, $this->allowedNamespaces)) {
             $namespace = $camelPart;
             $part = array_shift($parts) ?? 'index';
-            $camelPart = self::camelize($part);
+            $camelPart = Util::camelize($part);
         }
 
         // Does it match a controller ?
@@ -105,14 +98,18 @@ class ClassRouter implements RouterInterface
         $class = $refl->getName();
 
         // Index is used by default. If first parameter is a valid method, use that instead
-        $action = $params[0] ?? 'index';
-        $action = self::camelize($action, false);
-        if (count($params) && $refl->hasMethod($action)) {
-            array_shift($params);
-
+        $action = 'index';
+        if (count($params)) {
+            $testAction = Util::camelize($params[0], false);
             // Don't allow controller/index to be called directly because it would create duplicated urls
-            if ($action == 'index') {
+            if ($testAction == 'index') {
                 throw new RouterException("Action 'index' cannot be called directly on '$class'");
+            }
+
+            // Shift param if method is found
+            if ($refl->hasMethod($action)) {
+                array_shift($params);
+                $action = $testAction;
             }
         }
 
@@ -130,7 +127,7 @@ class ClassRouter implements RouterInterface
      * @param string $action
      * @param string[] $params
      * @param ContainerInterface $di
-     * @return Response|string|Stringable|array<string, mixed>
+     * @return ResponseInterface|string|Stringable|array<string, mixed>
      */
     protected function callAction(ReflectionClass $refl, string $action, array $params = [], ContainerInterface $di = null)
     {

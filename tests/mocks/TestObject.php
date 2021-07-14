@@ -2,6 +2,6 @@
 
 namespace Kaly\Tests\Mocks;
 
-class TestObject
+class TestObject implements TestInterface
 {
 }

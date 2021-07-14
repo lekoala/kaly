@@ -2,17 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Kaly;
+namespace Kaly\Router;
 
 use Exception;
 use Stringable;
-use Nyholm\Psr7\Response;
 use Kaly\Exceptions\RouterException;
 use Psr\Container\ContainerInterface;
 use Kaly\Exceptions\RedirectException;
+use Psr\Http\Message\ResponseInterface;
 use Kaly\Exceptions\ValidationException;
 use Psr\Http\Message\ServerRequestInterface;
 
+/**
+ * Routers should implement a simple "match" function
+ * that should return something that is processable
+ * by our app
+ */
 interface RouterInterface
 {
     /**
@@ -20,7 +25,7 @@ interface RouterInterface
      * @throws ValidationException Will be converted to 403 error
      * @throws RouterException Will be converted to 404 error
      * @throws Exception Will be converted to 500 error
-     * @return Response|string|Stringable|array<string, mixed>
+     * @return ResponseInterface|string|Stringable|array<string, mixed>
      */
     public function match(ServerRequestInterface $request, ContainerInterface $di = null);
 }

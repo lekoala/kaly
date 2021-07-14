@@ -52,14 +52,19 @@ Then we check our applications environment variables:
 
 ## Modules
 
-In a kaly app, all folders in the base dir with a `config.php` are considered to be modules.
+In a kaly app, all folders in the modules dir with a `config.php` are considered to be modules.
 Config files are executed during the bootstrap process and can return definitions
 to be injected in the DI container.
 
-> Convention: modules folder should match their namespace. We use uppercased folders for
-consistency. It also have a nice side effect to easily spot modules vs regular folders.
+> You still need to autoload your modules yourself in composer.json
 
-> The default module is `App`.
+> Convention: modules folder should match their namespace. We use uppercased folders for
+consistency.
+
+> The default namespace for the built-in router is `App` and it makes sense to have
+a module matching this.
+
+> Modules are not loaded in any particular order.
 
 ## The DI container
 

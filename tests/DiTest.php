@@ -105,4 +105,10 @@ class DiTest extends TestCase
         $this->expectException(ContainerExceptionInterface::class);
         $inst = $di->get('db.host');
     }
+
+    public function testReturnItself()
+    {
+        $di = new Di();
+        $this->assertEquals($di, $di->get(Di::class));
+    }
 }

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use Kaly\Http;
+use Kaly\ResponseFactory;
 use Nyholm\Psr7\Response;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
 class HttpTest extends TestCase
@@ -18,6 +20,23 @@ class HttpTest extends TestCase
         $request = Http::createRequestFromGlobals();
         $this->assertInstanceOf(ServerRequestInterface::class, $request);
         $this->assertEquals('GET', $request->getMethod());
+    }
+
+    public function testResolveResponseClass()
+    {
+        $this->assertNotEmpty(Http::resolveResponseClass());
+    }
+
+    public function testCreateResponse()
+    {
+        $response = Http::createResponse();
+        $this->assertInstanceOf(ResponseInterface::class, $response);
+    }
+
+    public function testResponseFactory()
+    {
+        $factory = new ResponseFactory();
+        $this->assertInstanceOf(ResponseInterface::class, $factory->createResponse());
     }
 
     public function testSendResponse()
