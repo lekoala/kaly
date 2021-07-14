@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Exceptions;
 
 use Kaly\Http;
+use Kaly\Interfaces\ResponseProviderInterface;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 use RuntimeException;
@@ -12,7 +13,7 @@ use RuntimeException;
 /**
  * Used by basic auth or your credentials system
  */
-class AuthenticationException extends RuntimeException implements ResponseExceptionInterface
+class AuthenticationException extends RuntimeException implements ResponseProviderInterface
 {
     public function __construct(string $message = "", int $code = 401, Throwable $previous = null)
     {

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Router;
+namespace Kaly\Interfaces;
 
 use Exception;
 use Stringable;

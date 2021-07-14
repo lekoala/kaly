@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaly;
 
 use RuntimeException;
-use Kaly\Router\RouterInterface;
+use Kaly\Interfaces\RouterInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 
@@ -24,6 +24,10 @@ class App
      * @var string[]
      */
     protected array $modules;
+    /**
+     * @var array<string, mixed>
+     */
+    protected array $definitions;
 
     /**
      * Create a new instance of the application
@@ -69,11 +73,9 @@ class App
     }
 
     /**
-     * Load all modules in the modules folder
-     *
-     * @return array<string, mixed>
+     * Load all modules in the modules folder and stores definitions
      */
-    protected function loadModules(): array
+    protected function loadModules(): void
     {
         // Modules need a config.php file. This avoids having is_file checks in the loop
         // Don't sort results as it is much faster
@@ -97,59 +99,62 @@ class App
             $definitions = $includer($file, $definitions);
         }
         $this->modules = $modules;
-        return $definitions;
+        $this->definitions = $definitions;
     }
 
     /**
-     * @param array<string, mixed> $definitions
      * @param ServerRequestInterface $request
      */
-    protected function configureDi(array $definitions = [], ServerRequestInterface $request = null): Di
+    public function configureDi(ServerRequestInterface $request): Di
     {
+        $definitions = $this->definitions;
         // Register the app itself
         $definitions[get_called_class()] = $this;
         // Create an alias if necessary
         if (self::class != get_called_class()) {
             $definitions[self::class] = get_called_class();
         }
-        // Register the global server request by class and name
-        $definitions[ServerRequestInterface::class] = $request;
-        $definitions['request'] = ServerRequestInterface::class;
         // Register a response factory
         $definitions[ResponseFactoryInterface::class] = ResponseFactory::class;
         // Register a router if none defined
         if (!isset($definitions[RouterInterface::class])) {
             $definitions[RouterInterface::class] = $this->defineBaseRouter($this->modules);
         }
+
+        // Register the global server request by class and name
+        $definitions[ServerRequestInterface::class] = $request;
+        $definitions['request'] = ServerRequestInterface::class;
         return new Di($definitions);
     }
 
     /**
-     *  At the end of this process, we get a Di container and our modules are initialized
+     * Init app state
      */
-    public function boot(ServerRequestInterface $request): Di
+    public function boot()
     {
         $this->loadEnv();
-        $definitions = $this->loadModules();
-        return $this->configureDi($definitions, $request);
+        $this->loadModules();
     }
 
     /**
      * Handle a request and send its response
      */
-    public function handle(ServerRequestInterface $request, Di $di): void
+    public function handle(ServerRequestInterface $request): void
     {
+        if (!$request) {
+            $request = Http::createRequestFromGlobals();
+        }
+        // We need to configure the di for each request since
+        // it can provide the request to the controller
+        $di = $this->configureDi($request);
         $response = $this->processRequest($request, $di);
         Http::sendResponse($response);
     }
 
     public function run(ServerRequestInterface $request = null): void
     {
-        if (!$request) {
-            $request = Http::createRequestFromGlobals();
-        }
-        $di = $this->boot($request);
-        $this->handle($request, $di);
+        $this->boot();
+        $this->handle($request);
     }
 
     /**

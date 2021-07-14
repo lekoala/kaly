@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Exceptions;
+namespace Kaly\Interfaces;
 
 use Psr\Http\Message\ResponseInterface;
 
-interface ResponseExceptionInterface
+interface ResponseProviderInterface
 {
     public function getResponse(): ResponseInterface;
 }

@@ -106,6 +106,15 @@ class DiTest extends TestCase
         $inst = $di->get('db.host');
     }
 
+    public function testList()
+    {
+        $di = new Di([
+            TestInterface::class => TestObject::class,
+        ]);
+
+        $this->assertContains(TestInterface::class, $di->listDefinitions());
+    }
+
     public function testReturnItself()
     {
         $di = new Di();

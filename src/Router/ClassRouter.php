@@ -8,6 +8,7 @@ use Kaly\Util;
 use Stringable;
 use ReflectionClass;
 use ReflectionNamedType;
+use Kaly\Interfaces\RouterInterface;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -107,7 +108,7 @@ class ClassRouter implements RouterInterface
             }
 
             // Shift param if method is found
-            if ($refl->hasMethod($action)) {
+            if ($refl->hasMethod($testAction)) {
                 array_shift($params);
                 $action = $testAction;
             }

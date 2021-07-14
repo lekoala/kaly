@@ -193,7 +193,7 @@ class Http
         // Or send by chunk
         flush();
 
-        // content-range support
+        // Content-Range support
         $range = self::parseContentRange($response->getHeaderLine('Content-Range'));
         if (isset($range['unit']) && $range['unit'] === 'bytes') {
             self::emitBodyRange($body, $range['first'], $range['last'], $bufferLength);

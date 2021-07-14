@@ -9,8 +9,9 @@ use Throwable;
 use RuntimeException;
 use InvalidArgumentException;
 use Psr\Http\Message\ResponseInterface;
+use Kaly\Interfaces\ResponseProviderInterface;
 
-class RedirectException extends RuntimeException implements ResponseExceptionInterface
+class RedirectException extends RuntimeException implements ResponseProviderInterface
 {
     /**
      * The URL of the requested resource has been changed permanently.

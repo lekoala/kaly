@@ -46,6 +46,14 @@ class Di implements ContainerInterface
     }
 
     /**
+     * @return string[]
+     */
+    public function listDefinitions(): array
+    {
+        return array_keys($this->definitions);
+    }
+
+    /**
      * @phpstan-ignore-next-line
      * @throws NotFoundExceptionInterface
      */

@@ -10,10 +10,10 @@ use Kaly\Http;
 use Stringable;
 use Kaly\Router\ClassRouter;
 use Kaly\Router\RouterException;
-use Kaly\Router\RouterInterface;
+use Kaly\Interfaces\RouterInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use Kaly\Exceptions\ResponseExceptionInterface;
+use Kaly\Interfaces\ResponseProviderInterface;
 
 trait AppRouter
 {
@@ -34,7 +34,7 @@ trait AppRouter
         $body = null;
         try {
             $body = $this->routeRequest($request, $di);
-        } catch (ResponseExceptionInterface $ex) {
+        } catch (ResponseProviderInterface $ex) {
             $body = $ex->getResponse();
         } catch (RouterException $ex) {
             $code = $ex->getCode();
