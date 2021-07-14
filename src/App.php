@@ -139,7 +139,7 @@ class App
     /**
      * Handle a request and send its response
      */
-    public function handle(ServerRequestInterface $request): void
+    public function handle(ServerRequestInterface $request = null): void
     {
         if (!$request) {
             $request = Http::createRequestFromGlobals();
