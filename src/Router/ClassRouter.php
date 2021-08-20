@@ -13,6 +13,7 @@ use Kaly\Interfaces\RouterInterface;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\UriInterface;
 
 /**
  * Takes an uri and map it to a class
@@ -35,17 +36,18 @@ class ClassRouter implements RouterInterface
      */
     public function match(ServerRequestInterface $request, ContainerInterface $di = null)
     {
-        $path = $request->getUri()->getPath();
+        $uri = $request->getUri();
+        $path = $uri->getPath();
 
         // Make sure we have a trailing slash
         if ($this->forceTrailingSlash) {
             if (!str_ends_with($path, '/')) {
-                $newUri = $request->getUri()->withPath($path . "/");
+                $newUri = $uri->withPath($path . "/");
                 throw new RedirectException($newUri);
             }
         } else {
             if (str_ends_with($path, '/')) {
-                $newUri = $request->getUri()->withPath(rtrim($path, '/'));
+                $newUri = $uri->withPath(rtrim($path, '/'));
                 throw new RedirectException($newUri);
             }
         }
@@ -64,7 +66,7 @@ class ClassRouter implements RouterInterface
 
         // Then if the action exists
         // Part used to match the action is removed (none for index)
-        $action = $this->findAction($refl, $parts);
+        $action = $this->findAction($refl, $parts, $uri);
 
         // Remaining parts are passed as arguments to the action
         $result = $this->callAction($refl, $action, $parts, $di);
@@ -111,7 +113,7 @@ class ClassRouter implements RouterInterface
      * @param ReflectionClass<object> $refl
      * @param string[] $params
      */
-    protected function findAction(ReflectionClass $refl, array &$params): string
+    protected function findAction(ReflectionClass $refl, array &$params, UriInterface $uri): string
     {
         $class = $refl->getName();
 
@@ -121,7 +123,8 @@ class ClassRouter implements RouterInterface
             $testAction = Util::camelize($params[0], false);
             // Don't allow controller/index to be called directly because it would create duplicated urls
             if ($testAction == 'index') {
-                throw new RouterException("Action 'index' cannot be called directly on '$class'");
+                $newUri = $uri->withPath(substr($uri->getPath(), -6));
+                throw new RedirectException($newUri);
             }
 
             // Shift param if method is found

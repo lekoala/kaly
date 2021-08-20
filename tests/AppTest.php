@@ -51,6 +51,16 @@ class AppTest extends TestCase
         $di = $app->configureDi($request);
         $response = $app->processRequest($request, $di);
         $this->assertEquals(307, $response->getStatusCode());
+
+        // Cannot call index directly
+        $request = $request->withUri(new Uri("/test-module/index/index/"));
+        $di = $app->configureDi($request);
+        $response = $app->processRequest($request, $di);
+        $this->assertEquals(307, $response->getStatusCode());
+        $request = $request->withUri(new Uri("/test-module/index/"));
+        $di = $app->configureDi($request);
+        $response = $app->processRequest($request, $di);
+        $this->assertNotEquals(307, $response->getStatusCode());
     }
 
     public function testAuth()
