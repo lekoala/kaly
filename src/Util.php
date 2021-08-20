@@ -12,18 +12,38 @@ class Util
 {
     /**
      * Gets sequential array of all previously-chained errors
-     * @param Throwable $error
      * @return Throwable[]
      */
     public static function getExceptionChain(Throwable $error): array
     {
         $chain = [];
-
         do {
             $chain[] = $error;
         } while ($error = $error->getPrevious());
-
         return $chain;
+    }
+
+    /**
+     * Gets sequential array of all previously-chained error messages
+     * @return Throwable[]
+     */
+    public static function getExceptionMessageChain(Throwable $error): array
+    {
+        $chain = [];
+        do {
+            $chain[] = $error->getMessage();
+        } while ($error = $error->getPrevious());
+        return $chain;
+    }
+
+    /**
+     * Gets sequential array of all previously-chained error messages
+     * @return Throwable[]
+     */
+    public static function getExceptionMessageChainAsString(Throwable $error): string
+    {
+        $chain = self::getExceptionMessageChain($error);
+        return implode("; ", $chain);
     }
 
     public static function camelize(string $str, bool $firstChar = true): string

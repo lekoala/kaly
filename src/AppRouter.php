@@ -38,10 +38,10 @@ trait AppRouter
             $body = $ex->getResponse();
         } catch (RouterException $ex) {
             $code = $ex->getCode();
-            $body = $this->debug ? $ex->getMessage() : 'The page could not be found';
+            $body = $this->debug ? Util::getExceptionMessageChainAsString($ex, true) : 'The page could not be found';
         } catch (Exception $ex) {
             $code = 500;
-            $body = $this->debug ? $ex->getMessage() : 'Server error';
+            $body = $this->debug ? Util::getExceptionMessageChainAsString($ex, true) : 'Server error';
         }
 
         // We have a response, return early
