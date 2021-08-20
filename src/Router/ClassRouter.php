@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
+use Kaly\Exceptions\RedirectException;
 use Kaly\Util;
 use Stringable;
 use ReflectionClass;
@@ -26,6 +27,7 @@ class ClassRouter implements RouterInterface
      * @var string[]
      */
     protected array $allowedNamespaces = [];
+    protected bool $forceTrailingSlash = true;
 
     /**
      * Match a request and resolves it
@@ -33,14 +35,29 @@ class ClassRouter implements RouterInterface
      */
     public function match(ServerRequestInterface $request, ContainerInterface $di = null)
     {
-        $uri = trim($request->getUri()->getPath(), '/');
-        $parts = array_filter(explode("/", $uri));
+        $path = $request->getUri()->getPath();
+
+        // Make sure we have a trailing slash
+        if ($this->forceTrailingSlash) {
+            if (!str_ends_with($path, '/')) {
+                $newUri = $request->getUri()->withPath($path . "/");
+                throw new RedirectException($newUri);
+            }
+        } else {
+            if (str_ends_with($path, '/')) {
+                $newUri = $request->getUri()->withPath(rtrim($path, '/'));
+                throw new RedirectException($newUri);
+            }
+        }
+
+        $trimmedPath = trim($path, '/');
+        $parts = array_filter(explode("/", $trimmedPath));
 
         // First we need to check if we have the controller
         // Parts used to match controller are removed (module and/or controller)
         $class = $this->findController($parts);
         if (!class_exists($class)) {
-            throw new RouterException("Route '$uri' not found. Class '$class' was not found.");
+            throw new RouterException("Route '$path' not found. Class '$class' was not found.");
         }
 
         $refl = new ReflectionClass($class);
@@ -274,6 +291,24 @@ class ClassRouter implements RouterInterface
     public function setDefaultControllerName(string $defaultControllerName)
     {
         $this->defaultControllerName = $defaultControllerName;
+        return $this;
+    }
+
+    /**
+     * Get the value of forceTrailingSlash
+     */
+    public function getForceTrailingSlash(): bool
+    {
+        return $this->forceTrailingSlash;
+    }
+
+    /**
+     * Set the value of forceTrailingSlash
+     * @return $this
+     */
+    public function setForceTrailingSlash(bool $forceTrailingSlash)
+    {
+        $this->forceTrailingSlash = $forceTrailingSlash;
         return $this;
     }
 }

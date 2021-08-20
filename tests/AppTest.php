@@ -16,7 +16,7 @@ class AppTest extends TestCase
     public function testAppInit()
     {
         $request = Http::createRequestFromGlobals();
-        $request = $request->withUri(new Uri("/test-module"));
+        $request = $request->withUri(new Uri("/test-module/"));
         $_ENV['DEBUG'] = true;
         $app = new App(__DIR__);
         $this->assertInstanceOf(App::class, $app);
@@ -45,7 +45,7 @@ class AppTest extends TestCase
     public function testRedirect()
     {
         $request = Http::createRequestFromGlobals();
-        $request = $request->withUri(new Uri("/test-module/redirect"));
+        $request = $request->withUri(new Uri("/test-module/redirect/"));
         $app = new App(__DIR__);
         $app->boot();
         $di = $app->configureDi($request);
@@ -56,7 +56,7 @@ class AppTest extends TestCase
     public function testAuth()
     {
         $request = Http::createRequestFromGlobals();
-        $request = $request->withUri(new Uri("/test-module/auth"));
+        $request = $request->withUri(new Uri("/test-module/auth/"));
         $app = new App(__DIR__);
         $app->boot();
         $di = $app->configureDi($request);
@@ -67,7 +67,7 @@ class AppTest extends TestCase
     public function testValidation()
     {
         $request = Http::createRequestFromGlobals();
-        $request = $request->withUri(new Uri("/test-module/validation"));
+        $request = $request->withUri(new Uri("/test-module/validation/"));
         $app = new App(__DIR__);
         $app->boot();
         $di = $app->configureDi($request);
@@ -83,26 +83,38 @@ class AppTest extends TestCase
         $app->boot();
         $app->setDebug(true);
         $request = Http::createRequestFromGlobals();
-        $request = $request->withUri(new Uri("/test-module/demo"));
+        $request = $request->withUri(new Uri("/test-module/demo/"));
         $di = $app->configureDi($request);
         $response = $app->processRequest($request, $di);
         $this->assertEquals("hello demo", (string)$response->getBody());
-        $request = $request->withUri(new Uri("/test-module/demo/test"));
+        $request = $request->withUri(new Uri("/test-module/demo/test/"));
         $di = $app->configureDi($request);
         $response = $app->processRequest($request, $di);
         $this->assertEquals("hello test", (string)$response->getBody());
-        $request = $request->withUri(new Uri("/test-module/demo/func"));
+        $request = $request->withUri(new Uri("/test-module/demo/func/"));
         $di = $app->configureDi($request);
         $response = $app->processRequest($request, $di);
         $this->assertEquals("hello func", (string)$response->getBody());
-        $request = $request->withUri(new Uri("/test-module/demo/arr/he/llo"));
+        $request = $request->withUri(new Uri("/test-module/demo/arr/he/llo/"));
         $di = $app->configureDi($request);
         $response = $app->processRequest($request, $di);
         $this->assertEquals("hello he,llo", (string)$response->getBody());
-        $request = $request->withUri(new Uri("/test-module/demo/func/he/llo"));
+        $request = $request->withUri(new Uri("/test-module/demo/func/he/llo/"));
         $di = $app->configureDi($request);
         $response = $app->processRequest($request, $di);
         $this->assertEquals("Too many parameters for action 'func' on 'TestModule\Controller\DemoController'", (string)$response->getBody());
+    }
+
+    public function testTrailingSlash()
+    {
+        $app = new App(__DIR__);
+        $app->boot();
+        $app->setDebug(true);
+        $request = Http::createRequestFromGlobals();
+        $request = $request->withUri(new Uri("/test-module/demo"));
+        $di = $app->configureDi($request);
+        $response = $app->processRequest($request, $di);
+        $this->assertEquals("You are being redirected to /test-module/demo/", (string)$response->getBody());
     }
 
     public function testWrongInit()

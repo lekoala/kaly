@@ -8,6 +8,7 @@ use Kaly\Http;
 use Throwable;
 use RuntimeException;
 use InvalidArgumentException;
+use Psr\Http\Message\UriInterface;
 use Psr\Http\Message\ResponseInterface;
 use Kaly\Interfaces\ResponseProviderInterface;
 
@@ -54,12 +55,15 @@ class RedirectException extends RuntimeException implements ResponseProviderInte
 
     protected string $url;
 
-    public function __construct(string $url, int $code = 307, Throwable $previous = null)
+    /**
+     * @param string|UriInterface $url
+     */
+    public function __construct($url, int $code = 307, Throwable $previous = null)
     {
         if ($code < 300 || $code > 399) {
             throw new InvalidArgumentException("$code should be between 300 and 399");
         }
-        $this->url = $url;
+        $this->url = (string)$url;
         $message = 'You are being redirected to ' . $url;
         parent::__construct($message, $code, $previous);
     }
