@@ -65,6 +65,9 @@ trait AppRouter
     }
 
     /**
+     * You can use this function to add a default router definition
+     * to the DI container
+     *
      * @param array<string> $modules
      * @return callable
      */

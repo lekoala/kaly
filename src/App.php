@@ -120,7 +120,6 @@ class App
         if (!isset($definitions[RouterInterface::class])) {
             $definitions[RouterInterface::class] = $this->defineBaseRouter($this->modules);
         }
-
         // Register the global server request by class and name
         $definitions[ServerRequestInterface::class] = $request;
         $definitions['request'] = ServerRequestInterface::class;
@@ -163,6 +162,14 @@ class App
     public function getModules(): array
     {
         return $this->modules;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getDefinitions(): array
+    {
+        return $this->definitions;
     }
 
     public function getDebug(): bool
