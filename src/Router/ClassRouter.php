@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
-use Kaly\Exceptions\RedirectException;
 use Kaly\Util;
 use Stringable;
 use ReflectionClass;
 use ReflectionNamedType;
+use Psr\Http\Message\UriInterface;
 use Kaly\Interfaces\RouterInterface;
 use Psr\Container\ContainerInterface;
+use Kaly\Exceptions\NotFoundException;
+use Kaly\Exceptions\RedirectException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\UriInterface;
 
 /**
  * Takes an uri and map it to a class
@@ -59,7 +60,7 @@ class ClassRouter implements RouterInterface
         // Parts used to match controller are removed (module and/or controller)
         $class = $this->findController($parts);
         if (!class_exists($class)) {
-            throw new RouterException("Route '$path' not found. Class '$class' was not found.");
+            throw new NotFoundException("Route '$path' not found. Class '$class' was not found.");
         }
 
         $refl = new ReflectionClass($class);
@@ -137,7 +138,7 @@ class ClassRouter implements RouterInterface
 
         // Is this action available ?
         if (!$refl->hasMethod($action)) {
-            throw new RouterException("Controller '$class' does not have an action '$action'");
+            throw new NotFoundException("Controller '$class' does not have an action '$action'");
         }
 
         return $action;
@@ -157,7 +158,7 @@ class ClassRouter implements RouterInterface
 
         $method = $refl->getMethod($action);
         if (!$method->isPublic()) {
-            throw new RouterException("Action '$action' is not public on '$class'");
+            throw new NotFoundException("Action '$action' is not public on '$class'");
         }
 
         // Verify parameters
@@ -167,7 +168,7 @@ class ClassRouter implements RouterInterface
         foreach ($actionParams as $actionParam) {
             $paramName = $actionParam->getName();
             if (!$actionParam->isOptional() && !isset($params[$i])) {
-                throw new RouterException("Param '$paramName' is required for action '$action' on '$class'");
+                throw new NotFoundException("Param '$paramName' is required for action '$action' on '$class'");
             }
             $value = $params[$i] ?? null;
             $type = $actionParam->getType();
@@ -180,7 +181,7 @@ class ClassRouter implements RouterInterface
                     case 'int':
                     case 'float':
                         if (!is_numeric($value)) {
-                            throw new RouterException("Param '$paramName' is invalid for action '$action' on '$class'");
+                            throw new NotFoundException("Param '$paramName' is invalid for action '$action' on '$class'");
                         }
                         break;
                 }
@@ -192,7 +193,7 @@ class ClassRouter implements RouterInterface
             $i++;
         }
         if (!$acceptMany && count($params) > count($actionParams)) {
-            throw new RouterException("Too many parameters for action '$action' on '$class'");
+            throw new NotFoundException("Too many parameters for action '$action' on '$class'");
         }
 
         // Use DI if available

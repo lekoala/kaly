@@ -96,7 +96,7 @@ class Util
             } else {
                 $message = "Please enter a username and password.";
             }
-            // This is catched by our App and should return AuthenticationException::getBasicAuthResponse
+            // This is catched by our App and should return AuthenticationException::getResponse
             throw new AuthenticationException($message);
         }
     }

@@ -13,7 +13,12 @@ use Psr\Http\Message\ServerRequestInterface;
 use Stringable;
 
 /**
- * Http
+ * Http helpers
+ *
+ * We support three psr 7 providers:
+ * - nyholm
+ * - httpsoft
+ * - guzzle
  */
 class Http
 {

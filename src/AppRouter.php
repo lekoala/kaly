@@ -9,8 +9,8 @@ use Exception;
 use Kaly\Http;
 use Stringable;
 use Kaly\Router\ClassRouter;
-use Kaly\Router\RouterException;
 use Kaly\Interfaces\RouterInterface;
+use Kaly\Exceptions\NotFoundException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Kaly\Interfaces\ResponseProviderInterface;
@@ -36,7 +36,7 @@ trait AppRouter
             $body = $this->routeRequest($request, $di);
         } catch (ResponseProviderInterface $ex) {
             $body = $ex->getResponse();
-        } catch (RouterException $ex) {
+        } catch (NotFoundException $ex) {
             $code = $ex->getCode();
             $body = $this->debug ? Util::getExceptionMessageChainAsString($ex, true) : 'The page could not be found';
         } catch (Exception $ex) {

@@ -103,6 +103,10 @@ class App
     }
 
     /**
+     * This should be done before handling each request
+     * We store the request as part of the definitions because it could
+     * be injected in the controller
+     *
      * @param ServerRequestInterface $request
      */
     public function configureDi(ServerRequestInterface $request): Di
