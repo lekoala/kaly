@@ -77,20 +77,31 @@ class Di implements ContainerInterface
         throw new $class($message);
     }
 
+    /**
+     * @return mixed
+     */
+    protected function getDefinitionById(string $id)
+    {
+        if (!isset($this->definitions[$id])) {
+            return null;
+        }
+        $definition = $this->definitions[$id];
+
+        // Can be defined as a closure
+        if ($definition instanceof Closure) {
+            return $definition($this);
+        }
+        return $definition;
+    }
+
     protected function build(string $id): ?object
     {
         $providedArguments = [];
         $namedArguments = false;
 
         // If we have a definition
-        if (isset($this->definitions[$id])) {
-            $definition = $this->definitions[$id];
-
-            // Can be defined as a closure
-            if ($definition instanceof Closure) {
-                return $definition($this);
-            }
-
+        $definition = $this->getDefinitionById($id);
+        if ($definition !== null) {
             // Can be an instance of something
             // eg: 'app' => $this
             if (is_object($definition)) {
@@ -135,16 +146,18 @@ class Di implements ContainerInterface
             $paramName =  $parameter->getName();
 
             // It is provided by definition, either named or positional
-            if ($namedArguments) {
-                if (isset($providedArguments[$paramName])) {
-                    $arguments[] = $providedArguments[$paramName];
-                    continue;
-                }
-            } else {
-                if (isset($providedArguments[$i])) {
-                    $arguments[] = $providedArguments[$i];
-                    continue;
-                }
+            $paramKey = $namedArguments ? $paramName : $i;
+            if (isset($providedArguments[$paramKey])) {
+                $arguments[] = $providedArguments[$paramKey];
+                continue;
+            }
+
+            // It is provided by parametrical syntax id:arg
+            $parametricalKey = "$id:$paramName";
+            $parametricalDefinition = $this->getDefinitionById($parametricalKey);
+            if ($parametricalDefinition !== null) {
+                $arguments[] = $parametricalDefinition;
+                continue;
             }
 
             // Fetch from container based on argument type

@@ -11,6 +11,7 @@ require_once __DIR__ . '/mocks/TestInterface.php';
 require_once __DIR__ . '/mocks/TestObject.php';
 require_once __DIR__ . '/mocks/TestObject2.php';
 require_once __DIR__ . '/mocks/TestObject3.php';
+require_once __DIR__ . '/mocks/TestObject4.php';
 require_once __DIR__ . "/modules/TestModule/src/Controller/IndexController.php";
 require_once __DIR__ . "/modules/TestModule/src/Controller/DemoController.php";
 

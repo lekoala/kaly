@@ -139,6 +139,41 @@ $host = $di->get('db.host');
 We do not support this since strings are expected to be class aliases. 
 This is also why our DI container enforce returning a nullable object as part of the `get` definition. 
 
+## Parametrical keys
+
+Maybe you find yourself needing to modify only part of a definition (one specific argument) without
+needing knowledge of the full definition.
+
+This is supported using parametrical keys like so.
+
+```php
+$def = [
+    PDO::class => function () {
+        $dsn = getenv("DB_DSN");
+        $username =  getenv("DB_USERNAME");
+        $password =  getenv("DB_PASSWORD");
+        return new PDO($dsn, $username, $password);
+    },
+    TestObject4::class . ":bar" => function () {
+        return 'bar-wrong';
+    },
+    TestObject4::class . ":baz" => function () {
+        return 'baz-right';
+    },
+];
+
+// Overload
+$def[TestObject4::class . ":bar"] = function () {
+    return 'bar-right';
+};
+
+$container = new Di($def);
+$foo = $container->get(TestObject4::class);
+```
+
+In this scenario, you can overload a specific argument (in this case `bar`) using the id:argumentName syntax in the container.
+Please note that this is not really recommended, but if you do need that level of flexibility, it is possible.
+
 ## Recommended keys convention
 
 In the same spirit, we don't recommend to use identifiers that don't map to php variables. So something like

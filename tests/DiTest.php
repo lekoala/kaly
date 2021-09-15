@@ -10,8 +10,10 @@ use Kaly\Tests\Mocks\TestObject;
 use Kaly\Tests\Mocks\TestObject2;
 use Kaly\Tests\Mocks\TestObject3;
 use Kaly\Tests\Mocks\TestInterface;
+use Kaly\Tests\Mocks\TestObject4;
 use Psr\Container\ContainerInterface;
 use Psr\Container\ContainerExceptionInterface;
+use PDO;
 
 class DiTest extends TestCase
 {
@@ -19,6 +21,7 @@ class DiTest extends TestCase
     {
         $di = new Di();
 
+        /** @var TestObject $TestObject  */
         $inst = $di->get(TestObject::class);
         $this->assertInstanceOf(TestObject::class, $inst);
     }
@@ -41,6 +44,7 @@ class DiTest extends TestCase
             TestObject2::class => ['somevalue']
         ]);
 
+        /** @var TestObject2 $TestObject2  */
         $inst = $di->get(TestObject2::class);
         $this->assertInstanceOf(TestObject2::class, $inst);
         $this->assertEquals("somevalue", $inst->v);
@@ -52,6 +56,7 @@ class DiTest extends TestCase
             TestObject2::class => ['v' => 'somevalue']
         ]);
 
+        /** @var TestObject2 $TestObject2  */
         $inst = $di->get(TestObject2::class);
         $this->assertInstanceOf(TestObject2::class, $inst);
         $this->assertEquals("somevalue", $inst->v);
@@ -63,6 +68,7 @@ class DiTest extends TestCase
             TestObject2::class => ['v' => 'somevalue']
         ]);
 
+        /** @var TestObject3 $TestObject3  */
         $inst = $di->get(TestObject3::class);
         $this->assertInstanceOf(TestObject3::class, $inst);
         $this->assertEquals("somevalue", $inst->obj2->v);
@@ -80,6 +86,7 @@ class DiTest extends TestCase
             }
         ]);
 
+        /** @var TestObject3 $inst  */
         $inst = $di->get(TestObject3::class);
         $this->assertInstanceOf(TestObject3::class, $inst);
         $this->assertEquals("somevalue", $inst->obj2->v);
@@ -119,5 +126,45 @@ class DiTest extends TestCase
     {
         $di = new Di();
         $this->assertEquals($di, $di->get(Di::class));
+    }
+
+    /**
+     * Support capsule scenarios
+     * @link https://github.com/capsulephp/comparison
+     */
+    public function testParametricalParams()
+    {
+        $def = [
+            PDO::class => function () {
+                $dsn = getenv("DB_DSN");
+                $username =  getenv("DB_USERNAME");
+                $password =  getenv("DB_PASSWORD");
+                return new PDO($dsn, $username, $password);
+            },
+            TestObject4::class . ":bar" => function () {
+                return 'bar-wrong';
+            },
+            TestObject4::class . ":baz" => function () {
+                return 'baz-right';
+            },
+        ];
+
+        // Overload
+        $def[TestObject4::class . ":bar"] = function () {
+            return 'bar-right';
+        };
+
+        $container = new Di($def);
+
+        putenv('DB_DSN=sqlite::memory:');
+        putenv('DB_USERNAME=dbuser');
+        putenv('DB_PASSWORD=dbpass');
+
+        /** @var TestObject4 $foo  */
+        $foo = $container->get(TestObject4::class);
+        $this->assertEquals(PDO::class, get_class($foo->pdo));
+        $this->assertEquals("bar-right", $foo->bar);
+        $this->assertEquals("baz-right", $foo->baz);
+        $this->assertNotEquals("baz-wrong", $foo->baz);
     }
 }

@@ -122,7 +122,8 @@ class ClassRouter implements RouterInterface
         if (count($params)) {
             $testAction = Util::camelize($params[0], false);
             // Don't allow controller/index to be called directly because it would create duplicated urls
-            if ($testAction == 'index') {
+            // This only applies if no other parameters is passed in the url
+            if ($testAction == 'index' && count($params) === 1) {
                 $newUri = $uri->withPath(substr($uri->getPath(), -6));
                 throw new RedirectException($newUri);
             }
