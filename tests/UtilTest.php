@@ -38,4 +38,37 @@ class UtilTest extends TestCase
         $ex = new Exception("test", 0, $prev);
         $this->assertCount(2, Util::getExceptionChain($ex));
     }
+
+    public function testMergeArray()
+    {
+        $arr1 = [
+            'one'
+        ];
+        $arr2 = [
+            'two'
+        ];
+
+        $res = Util::mergeArrays($arr1, $arr2);
+        $this->assertEquals(['one', 'two'], $res);
+
+        $arr1 = [
+            'key' => 'wrong'
+        ];
+        $arr2 = [
+            'key' => 'right'
+        ];
+
+        $res = Util::mergeArrays($arr1, $arr2);
+        $this->assertEquals(['key' => 'right'], $res);
+
+        $arr1 = [
+            'key' => ['one']
+        ];
+        $arr2 = [
+            'key' => ['two']
+        ];
+
+        $res = Util::mergeArrays($arr1, $arr2);
+        $this->assertEquals(['key' => ['one', 'two']], $res);
+    }
 }

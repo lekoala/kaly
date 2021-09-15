@@ -92,7 +92,7 @@ class App
             $includer = function (string $file, array $definitions) {
                 $config = require $file;
                 if (is_array($config)) {
-                    $definitions = array_merge_recursive($definitions, $config);
+                    $definitions = Util::mergeArrays($definitions, $config);
                 }
                 return $definitions;
             };
@@ -174,6 +174,11 @@ class App
     public function getDefinitions(): array
     {
         return $this->definitions;
+    }
+
+    public function hasDefinition($id): bool
+    {
+        return isset($this->definitions[$id]);
     }
 
     public function getDebug(): bool

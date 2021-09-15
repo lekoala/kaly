@@ -208,7 +208,37 @@ class Di implements ContainerInterface
             $this->throwError("Unable to create object `$id`. Unable to process parameter: `$paramName`.");
         }
 
-        return $reflection->newInstanceArgs($arguments);
+        $instance = $reflection->newInstanceArgs($arguments);
+
+        // Check if we need to call extra methods on the instance
+        $callsKey = "$id->";
+        $callsDefinition = $this->getDefinitionById($callsKey);
+        if ($callsDefinition !== null) {
+            if (!is_array($callsDefinition)) {
+                $type = get_debug_type($callsDefinition);
+                $this->throwError("Invalid calls definition for `$id`. It should be an array instead of: `$type`");
+            }
+            foreach ($callsDefinition as $callMethod => $callArguments) {
+                if (is_array($callArguments) && !array_is_list($callArguments)) {
+                    // Reorganize arguments according to definition
+                    // TODO: could be improved with named arguments
+                    $reflMethod = $reflection->getMethod($callMethod);
+                    $reflArguments = $reflMethod->getParameters();
+                    $newArguments = [];
+                    foreach ($reflArguments as $reflArgument) {
+                        $reflArgumentName = $reflArgument->getName();
+                        if (isset($callArguments[$reflArgumentName])) {
+                            $newArguments[] = $callArguments[$reflArgumentName];
+                        }
+                    }
+                    call_user_func_array([$instance, $callMethod], $newArguments);
+                } else {
+                    call_user_func([$instance, $callMethod], $callArguments);
+                }
+            }
+        }
+
+        return $instance;
     }
 
     /**

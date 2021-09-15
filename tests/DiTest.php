@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use PDO;
 use Kaly\Di;
+use Kaly\Util;
 use PHPUnit\Framework\TestCase;
 use Kaly\Tests\Mocks\TestObject;
 use Kaly\Tests\Mocks\TestObject2;
 use Kaly\Tests\Mocks\TestObject3;
-use Kaly\Tests\Mocks\TestInterface;
 use Kaly\Tests\Mocks\TestObject4;
+use Kaly\Tests\Mocks\TestInterface;
 use Psr\Container\ContainerInterface;
 use Psr\Container\ContainerExceptionInterface;
-use PDO;
 
 class DiTest extends TestCase
 {
@@ -148,16 +149,33 @@ class DiTest extends TestCase
                 return 'baz-right';
             },
             TestObject4::class . ":arr" => ['one'],
+            TestObject4::class . "->" => [
+                'testMethod' => 'one',
+                // note:  "val" must match parameter name
+                'testMethod2' => ['val' => ['one']],
+                // note: regular arrays are merged together
+                'testMethod3' => ['one'],
+            ],
         ];
 
         // Overload
         $def[TestObject4::class . ":bar"] = 'bar-right';
 
+        // Merge array values
         $merge = [
-            TestObject4::class . ":arr" => ['two']
+            TestObject4::class . ":arr" => ['two'],
+            TestObject4::class . "->" => [
+                // this will replace 'one' by 'two'
+                'testMethod' => 'two',
+                // this will be merged together under the 'val' key
+                // 'val' => ['one', 'two']
+                'testMethod2' => ['val' => ['two'], 'other' => 'test'],
+                // this will give ['one', 'two']
+                'testMethod3' => ['two'],
+            ],
         ];
 
-        $def = array_merge_recursive($def, $merge);
+        $def = Util::mergeArrays($def, $merge, true);
 
         $container = new Di($def);
 
@@ -172,5 +190,9 @@ class DiTest extends TestCase
         $this->assertEquals("baz-right", $foo->baz);
         $this->assertNotEquals("baz-wrong", $foo->baz);
         $this->assertEquals(['one', 'two'], $foo->arr);
+        $this->assertEquals(['two'], $foo->test);
+        $this->assertEquals(['one', 'two'], $foo->test2);
+        $this->assertEquals('test', $foo->other);
+        $this->assertEquals(['one', 'two'], $foo->test3);
     }
 }

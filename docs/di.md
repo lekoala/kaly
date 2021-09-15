@@ -171,8 +171,34 @@ $container = new Di($def);
 $foo = $container->get(TestObject4::class);
 ```
 
-In this scenario, you can overload a specific argument (in this case `bar`) using the id:argumentName syntax in the container.
+In this scenario, you can overload a specific argument (in this case `bar`) using the '{id}:{argumentName}' syntax in the container.
 Please note that this is not really recommended, but if you do need that level of flexibility, it is possible.
+
+## Method injection
+
+The Di container support calling methods after the class is created with a specific syntax.
+
+```php
+$def = [
+    TestObject4::class . "->" => [
+        'testMethod' => 'one',
+        // note:  "val" must match parameter name
+        'testMethod2' => ['val' => ['one']],
+        // note: regular arrays are merged together
+        'testMethod3' => ['one'],
+    ],
+];
+```
+
+By using the '{id}->' syntax, you can define a list of calls that need to be made after creation.
+
+The convention is as follow :
+- The key must be the name of the method that needs to be called
+- The value must be any variable. 
+
+Notes about arrays: 
+- Associative arrays will be treated as a list of arguments by name
+- Regular arrays ("lists") will be merged together
 
 ## Recommended keys convention
 
