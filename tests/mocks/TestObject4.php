@@ -14,6 +14,7 @@ class TestObject4
     public array $test2 = [];
     public array $test3 = [];
     public string $other;
+    public array $queue = [];
 
     public function __construct(
         PDO $pdo,
@@ -41,5 +42,10 @@ class TestObject4
     public function testMethod3(array $val)
     {
         $this->test3 = $val;
+    }
+
+    public function testQueue(string $val)
+    {
+        $this->queue[] = $val;
     }
 }

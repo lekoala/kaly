@@ -219,6 +219,14 @@ class Di implements ContainerInterface
                 $this->throwError("Invalid calls definition for `$id`. It should be an array instead of: `$type`");
             }
             foreach ($callsDefinition as $callMethod => $callArguments) {
+                // Calls can be queued
+                if (is_int($callMethod)) {
+                    $callMethod = key($callArguments);
+                    $callArguments = $callArguments[$callMethod];
+                }
+                if (!method_exists($instance, $callMethod)) {
+                    $this->throwError("Method `$callMethod` does not exist on `$id`");
+                }
                 if (is_array($callArguments) && !array_is_list($callArguments)) {
                     // Reorganize arguments according to definition
                     // TODO: could be improved with named arguments
@@ -227,9 +235,11 @@ class Di implements ContainerInterface
                     $newArguments = [];
                     foreach ($reflArguments as $reflArgument) {
                         $reflArgumentName = $reflArgument->getName();
-                        if (isset($callArguments[$reflArgumentName])) {
-                            $newArguments[] = $callArguments[$reflArgumentName];
+                        // We don't allow invalid definition
+                        if (!isset($callArguments[$reflArgumentName])) {
+                            $this->throwError("Method `$callMethod` does not have a parameter `$reflArgumentName`");
                         }
+                        $newArguments[] = $callArguments[$reflArgumentName];
                     }
                     call_user_func_array([$instance, $callMethod], $newArguments);
                 } else {

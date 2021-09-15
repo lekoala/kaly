@@ -200,6 +200,24 @@ Notes about arrays:
 - Associative arrays will be treated as a list of arguments by name
 - Regular arrays ("lists") will be merged together
 
+## Queueing method calls
+
+You can queue multiple calls to the same method by wrapping it in an array. The convention
+is the same as the one described above. Obviously, you cannot overload a queued call once set.
+
+```php
+$def = [
+    TestObject4::class . "->" => [
+        [
+            'testQueue' => 'one',
+        ],
+        [
+            'testQueue' => 'two',
+        ],
+    ],
+];
+```
+
 ## Recommended keys convention
 
 In the same spirit, we don't recommend to use identifiers that don't map to php variables. So something like

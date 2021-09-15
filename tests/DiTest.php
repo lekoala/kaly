@@ -155,6 +155,10 @@ class DiTest extends TestCase
                 'testMethod2' => ['val' => ['one']],
                 // note: regular arrays are merged together
                 'testMethod3' => ['one'],
+                // calls wrapped in an array are queued instead of being merged
+                [
+                    'testQueue' => 'one',
+                ]
             ],
         ];
 
@@ -172,6 +176,10 @@ class DiTest extends TestCase
                 'testMethod2' => ['val' => ['two'], 'other' => 'test'],
                 // this will give ['one', 'two']
                 'testMethod3' => ['two'],
+                // this will call twice testQueue
+                [
+                    'testQueue' => 'two',
+                ]
             ],
         ];
 
@@ -190,9 +198,17 @@ class DiTest extends TestCase
         $this->assertEquals("baz-right", $foo->baz);
         $this->assertNotEquals("baz-wrong", $foo->baz);
         $this->assertEquals(['one', 'two'], $foo->arr);
+
+        // not queued
         $this->assertEquals(['two'], $foo->test);
+        $this->assertNotEquals(['one', 'two'], $foo->test);
+
         $this->assertEquals(['one', 'two'], $foo->test2);
         $this->assertEquals('test', $foo->other);
         $this->assertEquals(['one', 'two'], $foo->test3);
+
+        // queued
+        $this->assertEquals(['one', 'two'], $foo->queue);
+        $this->assertNotEquals(['two'], $foo->queue);
     }
 }
