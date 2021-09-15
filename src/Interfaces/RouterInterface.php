@@ -29,5 +29,5 @@ interface RouterInterface
      * @throws Exception Will be converted to 500 error
      * @return ResponseInterface|string|Stringable|array<string, mixed>
      */
-    public function match(ServerRequestInterface $request, ContainerInterface $di = null);
+    public function match(ServerRequestInterface &$request, ContainerInterface $di = null);
 }

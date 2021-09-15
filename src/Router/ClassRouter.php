@@ -35,7 +35,7 @@ class ClassRouter implements RouterInterface
      * Match a request and resolves it
      * @return ResponseInterface|string|Stringable|array<string, mixed>
      */
-    public function match(ServerRequestInterface $request, ContainerInterface $di = null)
+    public function match(ServerRequestInterface &$request, ContainerInterface $di = null)
     {
         $uri = $request->getUri();
         $path = $uri->getPath();
@@ -58,7 +58,7 @@ class ClassRouter implements RouterInterface
 
         // First we need to check if we have the controller
         // Parts used to match controller are removed (module and/or controller)
-        $class = $this->findController($parts);
+        $class = $this->findController($parts, $request);
         if (!class_exists($class)) {
             throw new NotFoundException("Route '$path' not found. Class '$class' was not found.");
         }
@@ -72,6 +72,9 @@ class ClassRouter implements RouterInterface
         // Remaining parts are passed as arguments to the action
         $result = $this->callAction($refl, $action, $parts, $di);
 
+        $request = $request->withAttribute("class", $class);
+        $request = $request->withAttribute("action", $action);
+
         return $result;
     }
 
@@ -79,7 +82,7 @@ class ClassRouter implements RouterInterface
      * Find a controller based on the first two parts of the request
      * @param string[] $parts
      */
-    protected function findController(array &$parts): string
+    protected function findController(array &$parts, ServerRequestInterface &$request): string
     {
         $namespace = $this->defaultNamespace;
 
@@ -104,6 +107,12 @@ class ClassRouter implements RouterInterface
             $defaultController =  $this->defaultControllerName . $this->controllerSuffix;
             $class = $namespace . '\\' . $this->controllerNamespace . '\\' . $defaultController;
             array_unshift($parts, $part);
+
+            $request = $request->withAttribute("controller", 'index');
+            $request = $request->withAttribute("fallback", true);
+        } else {
+            $request = $request->withAttribute("controller", $part);
+            $request = $request->withAttribute("fallback", false);
         }
 
         return $class;
