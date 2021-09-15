@@ -147,12 +147,17 @@ class DiTest extends TestCase
             TestObject4::class . ":baz" => function () {
                 return 'baz-right';
             },
+            TestObject4::class . ":arr" => ['one'],
         ];
 
         // Overload
-        $def[TestObject4::class . ":bar"] = function () {
-            return 'bar-right';
-        };
+        $def[TestObject4::class . ":bar"] = 'bar-right';
+
+        $merge = [
+            TestObject4::class . ":arr" => ['two']
+        ];
+
+        $def = array_merge_recursive($def, $merge);
 
         $container = new Di($def);
 
@@ -166,5 +171,6 @@ class DiTest extends TestCase
         $this->assertEquals("bar-right", $foo->bar);
         $this->assertEquals("baz-right", $foo->baz);
         $this->assertNotEquals("baz-wrong", $foo->baz);
+        $this->assertEquals(['one', 'two'], $foo->arr);
     }
 }

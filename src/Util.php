@@ -96,7 +96,7 @@ class Util
             } else {
                 $message = "Please enter a username and password.";
             }
-            // This is catched by our App and should return AuthenticationException::getResponse
+            // This implements ResponseProvider interface and it's response will be served by our app
             throw new AuthenticationException($message);
         }
     }
