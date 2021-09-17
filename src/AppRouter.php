@@ -7,7 +7,6 @@ namespace Kaly;
 use Kaly\Di;
 use Exception;
 use Kaly\Http;
-use Stringable;
 use Kaly\Router\ClassRouter;
 use Kaly\Interfaces\RouterInterface;
 use Kaly\Exceptions\NotFoundException;
@@ -20,23 +19,15 @@ use Kaly\Interfaces\ResponseProviderInterface;
  */
 trait AppRouter
 {
-    /**
-     * @return ResponseInterface|string|Stringable|array<string, mixed>
-     */
-    protected function routeRequest(ServerRequestInterface &$request, Di $di)
-    {
-        /** @var RouterInterface $router */
-        $router = $di->get(RouterInterface::class);
-        $result = $router->match($request, $di);
-        return $result;
-    }
-
     public function processRequest(ServerRequestInterface $request, Di $di): ResponseInterface
     {
         $code = 200;
         $body = null;
+        $routeParams = [];
         try {
-            $body = $this->routeRequest($request, $di);
+            $router = $di->get(RouterInterface::class);
+            $body = $router->match($request, $di);
+            $routeParams = $router->getRouteParams($di);
         } catch (ResponseProviderInterface $ex) {
             // Will be converted to a response later
             $body = $ex;
@@ -53,7 +44,7 @@ trait AppRouter
         $json = $json || $forceJson;
 
         // We may want to return a view instead, check for twig interface
-        if ($request->getAttribute('controller')) {
+        if (!empty($routeParams)) {
             $hasTwig = $this->hasDefinition(\Twig\Loader\LoaderInterface::class);
             if ($hasTwig) {
                 /** @var \Twig\Environment $twig  */
@@ -63,7 +54,10 @@ trait AppRouter
                 }
 
                 if (!$json && (!$body || is_array($body))) {
-                    $viewName = $request->getAttribute('controller') . '/' . $request->getAttribute('action');
+                    $viewName = $routeParams['controller'] . '/' . $routeParams['action'];
+                    if ($routeParams['module'] !== 'default') {
+                        $viewName = '@' . $routeParams['module'] . '/' . $viewName;
+                    }
                     $viewFile = $viewName . ".twig";
                     if ($twig->getLoader()->exists($viewFile)) {
                         $context = $body ? $body : [];

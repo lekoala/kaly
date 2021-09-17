@@ -30,12 +30,18 @@ class ClassRouter implements RouterInterface
      */
     protected array $allowedNamespaces = [];
     protected bool $forceTrailingSlash = true;
+    protected array $routeParams = [];
+
+    public function getRouteParams(): array
+    {
+        return $this->routeParams;
+    }
 
     /**
      * Match a request and resolves it
      * @return ResponseInterface|string|Stringable|array<string, mixed>
      */
-    public function match(ServerRequestInterface &$request, ContainerInterface $di = null)
+    public function match(ServerRequestInterface $request, ContainerInterface $di = null)
     {
         $uri = $request->getUri();
         $path = $uri->getPath();
@@ -58,7 +64,7 @@ class ClassRouter implements RouterInterface
 
         // First we need to check if we have the controller
         // Parts used to match controller are removed (module and/or controller)
-        $class = $this->findController($parts, $request);
+        $class = $this->findController($parts, $uri);
         if (!class_exists($class)) {
             throw new NotFoundException("Route '$path' not found. Class '$class' was not found.");
         }
@@ -72,8 +78,8 @@ class ClassRouter implements RouterInterface
         // Remaining parts are passed as arguments to the action
         $result = $this->callAction($refl, $action, $parts, $di);
 
-        $request = $request->withAttribute("class", $class);
-        $request = $request->withAttribute("action", $action);
+        $this->routeParams["handler"] = $class;
+        $this->routeParams["action"] = $action;
 
         return $result;
     }
@@ -82,19 +88,33 @@ class ClassRouter implements RouterInterface
      * Find a controller based on the first two parts of the request
      * @param string[] $parts
      */
-    protected function findController(array &$parts, ServerRequestInterface &$request): string
+    protected function findController(array &$parts, UriInterface $uri): string
     {
         $namespace = $this->defaultNamespace;
 
         // Check the first segment if it exists
-        $part = array_shift($parts) ?? 'index';
+        $part = array_shift($parts) ?? '';
         $camelPart = Util::camelize($part);
 
         // Does it match a specific namespace?
         // More specific namespaces always have priority over default
         if (in_array($camelPart, $this->allowedNamespaces)) {
+            $this->routeParams["module"] = $part;
             $namespace = $camelPart;
-            $part = array_shift($parts) ?? 'index';
+            $part = array_shift($parts) ?? '';
+            $camelPart = Util::camelize($part);
+        } else {
+            $this->routeParams["module"] = 'default';
+        }
+
+        // Do not allow direct /index calls
+        if ($part === 'index') {
+            $newUri = $uri->withPath('/');
+            throw new RedirectException($newUri);
+        }
+
+        if (!$part) {
+            $part = 'index';
             $camelPart = Util::camelize($part);
         }
 
@@ -108,11 +128,11 @@ class ClassRouter implements RouterInterface
             $class = $namespace . '\\' . $this->controllerNamespace . '\\' . $defaultController;
             array_unshift($parts, $part);
 
-            $request = $request->withAttribute("controller", 'index');
-            $request = $request->withAttribute("fallback", true);
+            $this->routeParams["controller"] = 'index';
+            $this->routeParams["controller_fallback"] = true;
         } else {
-            $request = $request->withAttribute("controller", $part);
-            $request = $request->withAttribute("fallback", false);
+            $this->routeParams["controller"] = $part;
+            $this->routeParams["controller_fallback"] = false;
         }
 
         return $class;
@@ -204,6 +224,8 @@ class ClassRouter implements RouterInterface
         if (!$acceptMany && count($params) > count($actionParams)) {
             throw new NotFoundException("Too many parameters for action '$action' on '$class'");
         }
+
+        $this->routeParams["parameters"] = $params;
 
         // Use DI if available
         if ($di) {
