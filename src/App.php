@@ -23,6 +23,7 @@ class App
 {
     public const MODULES_FOLDER = "modules";
     public const DEFAULT_MODULE = "App";
+    public const CONTROLLER_SUFFIX = "Controller";
 
     protected bool $debug;
     protected bool $booted = false;
@@ -162,16 +163,16 @@ class App
      */
     protected function renderTemplate(Di $di, array $routeParams, $body = null): ?string
     {
+        // Check if we have a twig instance
+        if (!$this->hasDefinition(\Twig\Loader\LoaderInterface::class)) {
+            return null;
+        }
         // We only support empty body or a context array
         if ($body && !is_array($body)) {
             return null;
         }
         // We need at least two keys to find a template
         if (!isset($routeParams['controller']) || !isset($routeParams['action'])) {
-            return null;
-        }
-        $hasTwig = $this->hasDefinition(\Twig\Loader\LoaderInterface::class);
-        if (!$hasTwig) {
             return null;
         }
 
@@ -182,12 +183,13 @@ class App
         }
 
         // Build view path based on route parameters
-        $viewName = $routeParams['controller'] . '/' . $routeParams['action'];
+        $controllerFolder = mb_strtolower(get_class_name($routeParams['controller']));
+        $controllerFolder = mb_substr($controllerFolder, 0, - (strlen(self::CONTROLLER_SUFFIX)));
+        $viewName = $controllerFolder . '/' . $routeParams['action'];
         if (isset($routeParams['module']) && $routeParams['module'] !== self::DEFAULT_MODULE) {
             $viewName = '@' . $routeParams['module'] . '/' . $viewName;
         }
         $viewFile = $viewName . ".twig";
-
         // If we have a view, render with body as context
         if (!$twig->getLoader()->exists($viewFile)) {
             return null;
@@ -216,7 +218,6 @@ class App
             $body = $this->debug ? Util::getExceptionMessageChainAsString($ex) : 'The page could not be found';
         } catch (Exception $ex) {
             $code = 500;
-            dd($ex);
             $body = $this->debug ? Util::getExceptionMessageChainAsString($ex) : 'Server error';
         }
 
@@ -269,6 +270,7 @@ class App
             $classRouter = new ClassRouter();
             $classRouter->setAllowedNamespaces($modules);
             $classRouter->setDefaultNamespace(self::DEFAULT_MODULE);
+            $classRouter->setControllerSuffix(self::CONTROLLER_SUFFIX);
             return $classRouter;
         };
     }

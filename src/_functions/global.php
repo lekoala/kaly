@@ -36,8 +36,18 @@ function array_merge_distinct(array &$arr1, array &$arr2, bool $deep = true): ar
 }
 
 /**
+ * Convert the first character of each word to uppercase
+ * and all the other characters to lowercase
+ */
+function strtotitle(string $str): string
+{
+    return mb_convert_case($str, MB_CASE_TITLE, "UTF-8");
+}
+
+/**
  * Transform a string to camel case
- * Preserves _, it only replaces -
+ * Preserves _, it only replaces - because the could be
+ * valid class or method names
  */
 function camelize(string $str, bool $firstChar = true): string
 {
@@ -45,7 +55,7 @@ function camelize(string $str, bool $firstChar = true): string
         return $str;
     }
     $str = str_replace('-', ' ', $str);
-    $str = mb_convert_case($str, MB_CASE_TITLE, "UTF-8");
+    $str = strtotitle($str);
     $str = str_replace(' ', '', $str);
     if (!$firstChar) {
         $str[0] = mb_strtolower($str[0]);
@@ -53,16 +63,26 @@ function camelize(string $str, bool $firstChar = true): string
     return $str;
 }
 
+/**
+ * Does the opposite of camelize
+ */
 function decamelize(string $str): string
 {
     if ($str === '') {
         return $str;
     }
-    $str = (string)preg_replace(['/([a-z\d])([A-Z])/', '/([^-])([A-Z][a-z])/'], '$1-$2', $str);
-    return mb_strtolower($str);
+    $str = preg_replace(['/([a-z\d])([A-Z])/', '/([^-_])([A-Z][a-z])/'], '$1-$2', $str);
+    $str = mb_strtolower($str);
+    return $str;
 }
 
 function esc(string $content): string
 {
     return htmlspecialchars($content, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', true);
+}
+
+function get_class_name(string $class): string
+{
+    $parts = explode('\\', $class);
+    return end($parts);
 }

@@ -31,6 +31,7 @@ class FunctionsTest extends TestCase
     public function testDecamelize()
     {
         $arr = [
+            'My_String' => 'my_string',
             'myString' => 'my-string',
             'mySTRING' => 'my-string',
             'my_STR_ing' => 'my_str_ing',
@@ -44,6 +45,13 @@ class FunctionsTest extends TestCase
         foreach ($arr as $str => $expected) {
             $this->assertEquals($expected, decamelize($str, false));
         }
+    }
+
+    public function testStrtotitle()
+    {
+        $str = "\"or else it doesn't, you know. the name of the song is called 'haddocks' eyes.'\"";
+        $expected = "\"Or Else It Doesn't, You Know. The Name Of The Song Is Called 'Haddocks' Eyes.'\"";
+        $this->assertEquals($expected, strtotitle($str));
     }
 
     public function testExceptionChain()
