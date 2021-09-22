@@ -29,13 +29,13 @@ class HttpTest extends TestCase
 
     public function testCreateResponse()
     {
-        $response = Http::createResponse();
+        $response = Http::respond();
         $this->assertInstanceOf(ResponseInterface::class, $response);
     }
 
     public function testResponseFactory()
     {
-        $factory = new ResponseFactory();
+        $factory = new Http();
         $this->assertInstanceOf(ResponseInterface::class, $factory->createResponse());
     }
 

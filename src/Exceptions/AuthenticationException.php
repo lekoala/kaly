@@ -26,7 +26,7 @@ class AuthenticationException extends RuntimeException implements ResponseProvid
     public function getResponse(): ResponseInterface
     {
         $realm = "Enter your credentials";
-        $response = Http::createResponse($this->getMessage(), $this->getCode());
+        $response = Http::respond($this->getMessage(), $this->getCode());
         $response = $response->withAddedHeader('WWW-Authenticate', "Basic realm=\"$realm\"");
         return $response;
     }

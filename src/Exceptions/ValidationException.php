@@ -24,6 +24,6 @@ class ValidationException extends RuntimeException implements ResponseProviderIn
 
     public function getResponse(): ResponseInterface
     {
-        return Http::createResponse($this->getMessage(), $this->getCode());
+        return Http::respond($this->getMessage(), $this->getCode());
     }
 }

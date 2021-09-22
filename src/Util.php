@@ -12,7 +12,7 @@ class Util
 {
     /**
      * Gets sequential array of all previously-chained errors
-     * @return Throwable[]
+     * @return array<Throwable>
      */
     public static function getExceptionChain(Throwable $error): array
     {
@@ -25,7 +25,7 @@ class Util
 
     /**
      * Gets sequential array of all previously-chained error messages
-     * @return Throwable[]
+     * @return array<array-key, string>
      */
     public static function getExceptionMessageChain(Throwable $error): array
     {
@@ -38,51 +38,11 @@ class Util
 
     /**
      * Gets sequential array of all previously-chained error messages
-     * @return Throwable[]
      */
     public static function getExceptionMessageChainAsString(Throwable $error): string
     {
         $chain = self::getExceptionMessageChain($error);
         return implode("; ", $chain);
-    }
-
-    public static function camelize(string $str, bool $firstChar = true): string
-    {
-        if (!$str) {
-            return $str;
-        }
-        $str = str_replace(' ', '', ucwords(str_replace('-', ' ', $str)));
-        if (!$firstChar) {
-            $str[0] = strtolower($str[0]);
-        }
-        return $str;
-    }
-
-    /**
-     * This function replaces array_merge_recursive which transforms string
-     * keys into arrays
-     * Arguments are passed as reference for performance reason
-     */
-    public static function mergeArrays(array &$arr1, array &$arr2, bool $deep = true): array
-    {
-        foreach ($arr2 as $k => $v) {
-            // regular array values are appended
-            if (is_int($k)) {
-                $arr1[] = $v;
-                continue;
-            }
-            // associative arrays work by keys
-            if (isset($arr1[$k]) && is_array($arr1[$k])) {
-                if ($deep) {
-                    $arr1[$k] = self::mergeArrays($arr1[$k], $v, $deep);
-                } else {
-                    $arr1[$k] = array_merge($arr1[$k], $v);
-                }
-            } else {
-                $arr1[$k] = $v;
-            }
-        }
-        return $arr1;
     }
 
     /**

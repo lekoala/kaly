@@ -21,6 +21,11 @@ class IndexController
         return 'hello';
     }
 
+    public function foo()
+    {
+        return 'foo';
+    }
+
     public function redirect()
     {
         throw new RedirectException("/test-module");

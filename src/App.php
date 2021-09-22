@@ -4,9 +4,16 @@ declare(strict_types=1);
 
 namespace Kaly;
 
+use Kaly\Di;
+use Exception;
+use Kaly\Http;
 use RuntimeException;
+use Kaly\Router\ClassRouter;
 use Kaly\Interfaces\RouterInterface;
+use Kaly\Exceptions\NotFoundException;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Kaly\Interfaces\ResponseProviderInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 
 /**
@@ -14,11 +21,11 @@ use Psr\Http\Message\ResponseFactoryInterface;
  */
 class App
 {
-    use AppRouter;
-
     public const MODULES_FOLDER = "modules";
+    public const DEFAULT_MODULE = "App";
 
     protected bool $debug;
+    protected bool $booted = false;
     protected string $baseDir;
     /**
      * @var string[]
@@ -92,7 +99,7 @@ class App
             $includer = function (string $file, array $definitions) {
                 $config = require $file;
                 if (is_array($config)) {
-                    $definitions = Util::mergeArrays($definitions, $config);
+                    $definitions = array_merge_distinct($definitions, $config);
                 }
                 return $definitions;
             };
@@ -119,7 +126,7 @@ class App
             $definitions[self::class] = get_called_class();
         }
         // Register a response factory
-        $definitions[ResponseFactoryInterface::class] = ResponseFactory::class;
+        $definitions[ResponseFactoryInterface::class] = Http::class;
         // Register a router if none defined
         if (!isset($definitions[RouterInterface::class])) {
             $definitions[RouterInterface::class] = $this->defineBaseRouter($this->modules);
@@ -131,33 +138,181 @@ class App
     }
 
     /**
-     * Init app state
+     * @param Di $di
+     * @param array<string, mixed> $params
+     * @return mixed
      */
-    public function boot(): void
+    public function dispatch(Di $di, array $params)
     {
-        $this->loadEnv();
-        $this->loadModules();
+        $class = $params['controller'] ?? '';
+        if (!$class) {
+            throw new RuntimeException("Route parameters must include a 'controller' key");
+        }
+        $inst = $di->get($class);
+        $action = $params['action'] ?? '__invoke';
+        $arguments = (array)$params['params'] ?? [];
+        /** @var callable $callable  */
+        $callable = [$inst, $action];
+        return call_user_func_array($callable, $arguments);
     }
 
     /**
-     * Handle a request and send its response
+     * @param array<string, mixed> $routeParams
+     * @param mixed $body
      */
-    public function handle(ServerRequestInterface $request = null): void
+    protected function renderTemplate(Di $di, array $routeParams, $body = null): ?string
+    {
+        // We only support empty body or a context array
+        if ($body && !is_array($body)) {
+            return null;
+        }
+        // We need at least two keys to find a template
+        if (!isset($routeParams['controller']) || !isset($routeParams['action'])) {
+            return null;
+        }
+        $hasTwig = $this->hasDefinition(\Twig\Loader\LoaderInterface::class);
+        if (!$hasTwig) {
+            return null;
+        }
+
+        /** @var \Twig\Environment $twig  */
+        $twig = $di->get(\Twig\Environment::class);
+        if ($this->debug) {
+            $twig->enableDebug();
+        }
+
+        // Build view path based on route parameters
+        $viewName = $routeParams['controller'] . '/' . $routeParams['action'];
+        if (isset($routeParams['module']) && $routeParams['module'] !== self::DEFAULT_MODULE) {
+            $viewName = '@' . $routeParams['module'] . '/' . $viewName;
+        }
+        $viewFile = $viewName . ".twig";
+
+        // If we have a view, render with body as context
+        if (!$twig->getLoader()->exists($viewFile)) {
+            return null;
+        }
+        $context = $body ? $body : [];
+        $body = $twig->render($viewFile, $context);
+
+        return $body;
+    }
+
+    public function processRequest(ServerRequestInterface $request, Di $di): ResponseInterface
+    {
+        $code = 200;
+        $body = null;
+        $routeParams = [];
+        try {
+            /** @var RouterInterface $router  */
+            $router = $di->get(RouterInterface::class);
+            $routeParams = $router->match($request);
+            $body = $this->dispatch($di, $routeParams);
+        } catch (ResponseProviderInterface $ex) {
+            // Will be converted to a response later
+            $body = $ex;
+        } catch (NotFoundException $ex) {
+            $code = $ex->getCode();
+            $body = $this->debug ? Util::getExceptionMessageChainAsString($ex) : 'The page could not be found';
+        } catch (Exception $ex) {
+            $code = 500;
+            dd($ex);
+            $body = $this->debug ? Util::getExceptionMessageChainAsString($ex) : 'Server error';
+        }
+
+        $json = $request->getHeader('Accept') == Http::CONTENT_TYPE_JSON;
+        $forceJson = boolval($request->getQueryParams()['_json'] ?? false);
+        $json = $json || $forceJson;
+
+        // We may want to return a template that matches route params if possible
+        if (!$json && !empty($routeParams)) {
+            $renderedBody = $this->renderTemplate($di, $routeParams, $body);
+            if ($renderedBody) {
+                $body = $renderedBody;
+            }
+        }
+
+        if ($body) {
+            // We have a response provider
+            if ($body instanceof ResponseProviderInterface) {
+                $body = $body->getResponse();
+            }
+
+            // We have a response, return early
+            if ($body instanceof ResponseInterface) {
+                return $body;
+            }
+        }
+
+        // We don't have a suitable response, transform body
+        $headers = [];
+
+        // We want and can return a json response
+        if ($json && is_array($body)) {
+            $response = Http::createJsonResponse($body, $code, $headers);
+        } else {
+            $response = Http::createHtmlResponse($body, $code, $headers);
+        }
+        return $response;
+    }
+
+    /**
+     * You can use this function to add a default router definition
+     * to the DI container
+     *
+     * @param array<string> $modules
+     * @return callable
+     */
+    protected function defineBaseRouter(array $modules): callable
+    {
+        return function () use ($modules) {
+            $classRouter = new ClassRouter();
+            $classRouter->setAllowedNamespaces($modules);
+            $classRouter->setDefaultNamespace(self::DEFAULT_MODULE);
+            return $classRouter;
+        };
+    }
+
+    /**
+     * Init app state
+     * - reads .env files or $_ENV
+     * - load modules from "modules" folder
+     */
+    public function boot(): void
+    {
+        if ($this->booted) {
+            throw new RuntimeException("Already booted");
+        }
+        $this->loadEnv();
+        $this->loadModules();
+        $this->booted = true;
+    }
+
+    /**
+     * Handle a request and returns its response
+     */
+    public function handle(ServerRequestInterface $request = null): ResponseInterface
     {
         if (!$request) {
             $request = Http::createRequestFromGlobals();
         }
+
         // We need to configure the di for each request since
         // it can provide the request to the controller
         $di = $this->configureDi($request);
         $response = $this->processRequest($request, $di);
-        Http::sendResponse($response);
+        return $response;
     }
 
+    /**
+     * This utility method can be used for index scripts
+     * It will send the response
+     */
     public function run(ServerRequestInterface $request = null): void
     {
         $this->boot();
-        $this->handle($request);
+        $response = $this->handle($request);
+        Http::sendResponse($response);
     }
 
     /**
@@ -176,7 +331,7 @@ class App
         return $this->definitions;
     }
 
-    public function hasDefinition($id): bool
+    public function hasDefinition(string $id): bool
     {
         return isset($this->definitions[$id]);
     }

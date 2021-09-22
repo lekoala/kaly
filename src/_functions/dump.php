@@ -3,9 +3,15 @@
 // This file need to be included before vendor/autoload.php
 
 if (!function_exists('dump')) {
-    function dump(...$vars)
+    /**
+     * @param array<mixed> ...$vars
+     */
+    function dump(...$vars): void
     {
-        $placeholder = "vscode://file/{file}:{line}:0";
+        // You can override with your own settings
+        if (!defined('DUMP_IDE_PLACEHOLDER')) {
+            define('DUMP_IDE_PLACEHOLDER', 'vscode://file/{file}:{line}:0');
+        }
         // Get caller info
         $file = '';
         $basefile = "unknown";
@@ -22,14 +28,19 @@ if (!function_exists('dump')) {
             $basefile = basename($file);
         }
         // Extract arguments
+        $arguments = [];
         if ($file) {
             $src = file($file);
-            $srcLine = $src[$line - 1];
-            // Find all arguments, ignore variables within parenthesis
-            preg_match("/d\((.+)\)/", $srcLine, $matches);
-            $arguments = [];
-            if (!empty($matches[1])) {
-                $arguments = array_map('trim', preg_split("/(?![^(]*\)),/", $matches[1]));
+            if ($src) {
+                $srcLine = $src[$line - 1];
+                // Find all arguments, ignore variables within parenthesis
+                preg_match("/d\((.+)\)/", $srcLine, $matches);
+                if (!empty($matches[1])) {
+                    $split = preg_split("/(?![^(]*\)),/", $matches[1]);
+                    if ($split) {
+                        $arguments = array_map('trim', $split);
+                    }
+                }
             }
         }
         // Display vars
@@ -39,17 +50,19 @@ if (!function_exists('dump')) {
             if (in_array(\PHP_SAPI, ['cli', 'phpdbg'])) {
                 echo "$name in $basefile:$line\n";
             } else {
-                $ideLink = str_replace(['{file}', '{line}'], [$file, $line], $placeholder);
+                $ideLink = str_replace(['{file}', '{line}'], [$file, $line], DUMP_IDE_PLACEHOLDER);
                 echo "<pre>$name in <a href=\"$ideLink\">$basefile:$line</a></pre>";
             }
             \Symfony\Component\VarDumper\VarDumper::dump($v);
             $i++;
         }
-        return $vars;
     }
 }
 if (!function_exists('dd')) {
-    function dd(...$vars)
+    /**
+     * @param array<mixed> ...$vars
+     */
+    function dd(...$vars): void
     {
         call_user_func_array("dump", $vars);
         exit(1);

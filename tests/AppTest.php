@@ -13,11 +13,16 @@ use Psr\Http\Message\ServerRequestInterface;
 
 class AppTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        $_ENV['DEBUG'] = true;
+    }
+
     public function testAppInit()
     {
         $request = Http::createRequestFromGlobals();
         $request = $request->withUri(new Uri("/test-module/"));
-        $_ENV['DEBUG'] = true;
+
         $app = new App(__DIR__);
         $this->assertInstanceOf(App::class, $app);
         $app->boot();
@@ -28,8 +33,8 @@ class AppTest extends TestCase
 
         $this->assertCount(1, $app->getModules());
         $this->expectOutputString("hello");
-        $app->handle($request);
-        unset($_ENV['DEBUG']);
+        $response = $app->handle($request);
+        Http::sendResponse($response);
     }
 
     public function testDi()
@@ -52,15 +57,28 @@ class AppTest extends TestCase
         $response = $app->processRequest($request, $di);
         $this->assertEquals(307, $response->getStatusCode());
 
-        // Cannot call index directly
-        $request = $request->withUri(new Uri("/test-module/index/index/"));
+        // Cannot call index controller directly => it should call /test-module/foo/
+        $request = $request->withUri(new Uri("/test-module/index/foo/"));
         $di = $app->configureDi($request);
         $response = $app->processRequest($request, $di);
         $this->assertEquals(307, $response->getStatusCode());
+
+        // Cannot call index action directly => it should call /test-module/
         $request = $request->withUri(new Uri("/test-module/index/"));
         $di = $app->configureDi($request);
         $response = $app->processRequest($request, $di);
-        $this->assertNotEquals(307, $response->getStatusCode());
+        $this->assertEquals(307, $response->getStatusCode());
+
+        // Cannot call camel style url
+        $request = $request->withUri(new Uri("/test-module/Index/"));
+        $di = $app->configureDi($request);
+        $response = $app->processRequest($request, $di);
+        $this->assertEquals(307, $response->getStatusCode());
+        $request = $request->withUri(new Uri("/Test-Module/"));
+        $di = $app->configureDi($request);
+        $response = $app->processRequest($request, $di);
+        $this->assertEquals(307, $response->getStatusCode());
+        $this->assertEquals('/test-module/', $response->getHeaderLine('Location'));
     }
 
     public function testAuth()
@@ -125,16 +143,5 @@ class AppTest extends TestCase
         $di = $app->configureDi($request);
         $response = $app->processRequest($request, $di);
         $this->assertEquals("You are being redirected to /test-module/demo/", (string)$response->getBody());
-    }
-
-    public function testWrongInit()
-    {
-        $request = Http::createRequestFromGlobals();
-        $_ENV['debug'] = true;
-        $app = new App(__DIR__);
-        $this->assertInstanceOf(App::class, $app);
-        $app->boot();
-        $this->assertFalse($app->getDebug(), "debug must be lowercase");
-        unset($_ENV['debug']);
     }
 }

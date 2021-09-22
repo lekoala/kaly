@@ -16,9 +16,13 @@ use ReflectionFunction;
 
 /**
  * A dead simple container that implements strictly the container interface
- * You can only initialize definitions with the constructor, after that
- * the container is "locked"
- * Any get call always provide the same result
+ * You can only initialize definitions with the constructor, after that the container is "locked"
+ *
+ * Any get call always provide the same result because we serve cached instance
+ * If you need new instances, get a factory from the container
+ *
+ * Keys matching the class:name pattern will be used to feed parameters to the constructor
+ * Keys matching the class-> pattern will be used to call methods on the new instance
  *
  * Credits to for inspiration
  * @link https://github.com/devanych/di-container
@@ -94,7 +98,7 @@ class Di implements ContainerInterface
         return $definition;
     }
 
-    protected function build(string $id): ?object
+    protected function build(string $id): object
     {
         $providedArguments = [];
         $namedArguments = false;
@@ -126,10 +130,11 @@ class Di implements ContainerInterface
 
         if (!class_exists($id)) {
             $this->throwError("Unable to create object `$id`. Class does not exist.");
-            return null;
         }
 
-        $reflection = new ReflectionClass($id);
+        /** @var class-string $class  */
+        $class = $id;
+        $reflection = new ReflectionClass($class);
         $constructor = $reflection->getConstructor();
 
         // There is no constructor, return
@@ -224,8 +229,14 @@ class Di implements ContainerInterface
                     $callMethod = key($callArguments);
                     $callArguments = $callArguments[$callMethod];
                 }
+                $callMethod = (string) $callMethod;
                 if (!method_exists($instance, $callMethod)) {
                     $this->throwError("Method `$callMethod` does not exist on `$id`");
+                }
+                /** @var callable $callable  */
+                $callable = [$instance, $callMethod];
+                if (!is_callable($callable)) {
+                    $this->throwError("Method `$callMethod` is not callable on `$id`");
                 }
                 if (is_array($callArguments) && !array_is_list($callArguments)) {
                     // Reorganize arguments according to definition
@@ -241,9 +252,10 @@ class Di implements ContainerInterface
                         }
                         $newArguments[] = $callArguments[$reflArgumentName];
                     }
-                    call_user_func_array([$instance, $callMethod], $newArguments);
+                    call_user_func_array($callable, $newArguments);
                 } else {
-                    call_user_func([$instance, $callMethod], $callArguments);
+                    // This allow passing an array as the first argument if necessary
+                    call_user_func($callable, $callArguments);
                 }
             }
         }
@@ -259,9 +271,9 @@ class Di implements ContainerInterface
      * @throws NotFoundExceptionInterface  No entry was found for **this** identifier.
      * @phpstan-ignore-next-line
      * @throws ContainerExceptionInterface Error while retrieving the entry.
-     * @return object|null Entry.
+     * @return object Entry.
      */
-    public function get(string $id): ?object
+    public function get(string $id): object
     {
         if (!$this->has($id)) {
             $this->throwNotFound("Unable to create object `$id` because it does not exist");

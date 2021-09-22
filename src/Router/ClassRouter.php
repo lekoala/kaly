@@ -4,16 +4,12 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
-use Kaly\Util;
-use Stringable;
 use ReflectionClass;
 use ReflectionNamedType;
 use Psr\Http\Message\UriInterface;
 use Kaly\Interfaces\RouterInterface;
-use Psr\Container\ContainerInterface;
 use Kaly\Exceptions\NotFoundException;
 use Kaly\Exceptions\RedirectException;
-use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**
@@ -21,6 +17,11 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 class ClassRouter implements RouterInterface
 {
+    public const MODULE = "module";
+    public const CONTROLLER = "controller";
+    public const ACTION = "action";
+    public const PARAMS = "params";
+
     protected string $defaultNamespace = 'App';
     protected string $controllerNamespace = 'Controller';
     protected string $controllerSuffix = 'Controller';
@@ -30,21 +31,17 @@ class ClassRouter implements RouterInterface
      */
     protected array $allowedNamespaces = [];
     protected bool $forceTrailingSlash = true;
-    protected array $routeParams = [];
-
-    public function getRouteParams(): array
-    {
-        return $this->routeParams;
-    }
 
     /**
-     * Match a request and resolves it
-     * @return ResponseInterface|string|Stringable|array<string, mixed>
+     * Match a request and returns an array of parameters
+     * @return array<string, mixed>
      */
-    public function match(ServerRequestInterface $request, ContainerInterface $di = null)
+    public function match(ServerRequestInterface $request)
     {
         $uri = $request->getUri();
         $path = $uri->getPath();
+
+        $routeParams = [];
 
         // Make sure we have a trailing slash
         if ($this->forceTrailingSlash) {
@@ -62,77 +59,115 @@ class ClassRouter implements RouterInterface
         $trimmedPath = trim($path, '/');
         $parts = array_filter(explode("/", $trimmedPath));
 
+        // Do we have a specific module ?
+        $module = $this->findModule($parts, $uri);
+
         // First we need to check if we have the controller
-        // Parts used to match controller are removed (module and/or controller)
-        $class = $this->findController($parts, $uri);
-        if (!class_exists($class)) {
-            throw new NotFoundException("Route '$path' not found. Class '$class' was not found.");
-        }
+        $controller = $this->findController($module, $parts, $uri);
 
-        $refl = new ReflectionClass($class);
+        // We need a reflection for next methods
+        $refl = new ReflectionClass($controller);
 
-        // Then if the action exists
-        // Part used to match the action is removed (none for index)
+        // If the action exists (or index if set)
         $action = $this->findAction($refl, $parts, $uri);
 
         // Remaining parts are passed as arguments to the action
-        $result = $this->callAction($refl, $action, $parts, $di);
+        $params = $this->collectParameters($refl, $action, $parts);
 
-        $this->routeParams["handler"] = $class;
-        $this->routeParams["action"] = $action;
+        $routeParams[self::MODULE] = $module;
+        $routeParams[self::CONTROLLER] = $controller;
+        $routeParams[self::ACTION] = $action;
+        $routeParams[self::PARAMS] = $params;
 
-        return $result;
+        return $routeParams;
+    }
+
+    protected function getRedirectUri(UriInterface $uri, string $remove, string $replace = ''): UriInterface
+    {
+        $path = $uri->getPath();
+        if ($replace) {
+            $replace = '/' . $replace;
+        }
+        $path = str_replace('/' . $remove, $replace, $path);
+        $path = rtrim($path, '/');
+        if ($this->forceTrailingSlash) {
+            $path .= '/';
+        }
+        return $uri->withPath($path);
+    }
+
+    /**
+     * @param array<mixed> $parts
+     */
+    protected function findModule(array &$parts, UriInterface $uri): string
+    {
+        $module = $this->defaultNamespace;
+
+        // Check the first segment if it exists
+        $part = $parts[0] ?? '';
+        $camelPart = camelize($part);
+
+        // Don't allow calling camelized parts, we use lowercase
+        if ($part && $part !== strtolower($part)) {
+            $newUri = $this->getRedirectUri($uri, $part, decamelize($part));
+            throw new RedirectException($newUri);
+        }
+
+        // Does it match a specific namespace? (not the default one)
+        // More specific namespaces always have priority over default
+        if (in_array($camelPart, $this->allowedNamespaces)) {
+            $module = $camelPart;
+            // Remove from parts
+            array_shift($parts);
+        }
+        return $module;
     }
 
     /**
      * Find a controller based on the first two parts of the request
      * @param string[] $parts
+     * @return class-string
      */
-    protected function findController(array &$parts, UriInterface $uri): string
+    protected function findController(string $namespace, array &$parts, UriInterface $uri): string
     {
-        $namespace = $this->defaultNamespace;
+        $path = $uri->getPath();
 
         // Check the first segment if it exists
-        $part = array_shift($parts) ?? '';
-        $camelPart = Util::camelize($part);
+        $part = $parts[0] ?? '';
+        $camelPart = camelize($part);
 
-        // Does it match a specific namespace?
-        // More specific namespaces always have priority over default
-        if (in_array($camelPart, $this->allowedNamespaces)) {
-            $this->routeParams["module"] = $part;
-            $namespace = $camelPart;
-            $part = array_shift($parts) ?? '';
-            $camelPart = Util::camelize($part);
-        } else {
-            $this->routeParams["module"] = 'default';
+        // Don't allow calling camelized parts, we use lowercase
+        if ($part && $part === $camelPart) {
+            $newUri = $this->getRedirectUri($uri, $camelPart, $part);
+            throw new RedirectException($newUri);
         }
 
         // Do not allow direct /index calls
         if ($part === 'index') {
-            $newUri = $uri->withPath('/');
+            $newUri = $this->getRedirectUri($uri, 'index', '');
             throw new RedirectException($newUri);
         }
 
+        // Default to index
         if (!$part) {
             $part = 'index';
-            $camelPart = Util::camelize($part);
+            $camelPart = camelize($part);
         }
 
         // Does it match a controller ?
         $controller = $camelPart . $this->controllerSuffix;
         $class = $namespace . '\\' . $this->controllerNamespace . '\\' . $controller;
 
-        // Does controller exists ? Otherwise fallback to index and restore segment
+        // Does controller exists ? Otherwise fallback to index
         if (!class_exists($class)) {
             $defaultController =  $this->defaultControllerName . $this->controllerSuffix;
             $class = $namespace . '\\' . $this->controllerNamespace . '\\' . $defaultController;
-            array_unshift($parts, $part);
-
-            $this->routeParams["controller"] = 'index';
-            $this->routeParams["controller_fallback"] = true;
         } else {
-            $this->routeParams["controller"] = $part;
-            $this->routeParams["controller_fallback"] = false;
+            // Class exist, shift param
+            array_shift($parts);
+        }
+        if (!class_exists($class)) {
+            throw new NotFoundException("Route '$path' not found.");
         }
 
         return $class;
@@ -147,14 +182,17 @@ class ClassRouter implements RouterInterface
     {
         $class = $refl->getName();
 
-        // Index is used by default. If first parameter is a valid method, use that instead
-        $action = 'index';
-        if (count($params)) {
-            $testAction = Util::camelize($params[0], false);
+        $testPart = $params[0] ?? '';
+
+        // Index or __invoke is used by default. If first parameter is a valid method, use that instead
+        $action = $refl->hasMethod('index') ? 'index' : '__invoke';
+        if ($testPart) {
+            // Action should be lowercase camelcase
+            $testAction = camelize($testPart, false);
             // Don't allow controller/index to be called directly because it would create duplicated urls
             // This only applies if no other parameters is passed in the url
             if ($testAction == 'index' && count($params) === 1) {
-                $newUri = $uri->withPath(substr($uri->getPath(), -6));
+                $newUri = $this->getRedirectUri($uri, 'index', '');
                 throw new RedirectException($newUri);
             }
 
@@ -178,10 +216,9 @@ class ClassRouter implements RouterInterface
      * @param ReflectionClass<object> $refl
      * @param string $action
      * @param string[] $params
-     * @param ContainerInterface $di
-     * @return ResponseInterface|string|Stringable|array<string, mixed>
+     * @return array<string, mixed>
      */
-    protected function callAction(ReflectionClass $refl, string $action, array $params = [], ContainerInterface $di = null)
+    protected function collectParameters(ReflectionClass $refl, string $action, array $params = [])
     {
         $class = $refl->getName();
 
@@ -225,16 +262,7 @@ class ClassRouter implements RouterInterface
             throw new NotFoundException("Too many parameters for action '$action' on '$class'");
         }
 
-        $this->routeParams["parameters"] = $params;
-
-        // Use DI if available
-        if ($di) {
-            $inst = $di->get($class);
-        } else {
-            $inst = $refl->newInstance();
-        }
-
-        return $method->invokeArgs($inst, $params);
+        return $params;
     }
 
     /**

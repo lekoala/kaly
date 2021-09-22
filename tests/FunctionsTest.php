@@ -8,27 +8,41 @@ use Exception;
 use Kaly\Util;
 use PHPUnit\Framework\TestCase;
 
-class UtilTest extends TestCase
+class FunctionsTest extends TestCase
 {
     public function testCamelize()
     {
         $arr = [
-            'my_string' => "My_string",
+            'my_string' => "My_String",
             'my-string' => "MyString",
             'mystring' => "Mystring",
             'Mystring' => "Mystring",
+            'MYSTRING' => "Mystring",
+            'MySTRING' => "Mystring",
+            // utf 8 support
+            'MySTRINGÜ' => "Mystringü",
+            'üstring' => "Üstring",
         ];
         foreach ($arr as $str => $expected) {
-            $this->assertEquals($expected, Util::camelize($str));
+            $this->assertEquals($expected, camelize($str));
         }
+    }
+
+    public function testDecamelize()
+    {
         $arr = [
-            'my_string' => "my_string",
-            'my-string' => "myString",
-            'mystring' => "mystring",
-            'Mystring' => "mystring",
+            'myString' => 'my-string',
+            'mySTRING' => 'my-string',
+            'my_STR_ing' => 'my_str_ing',
+            'mystring' => 'mystring',
+            'Mystring' => 'mystring',
+            'my-string' => 'my-string',
+            // utf 8 support
+            'my-stringÜ' => 'my-stringü',
+            'ümy-string' => 'ümy-string',
         ];
         foreach ($arr as $str => $expected) {
-            $this->assertEquals($expected, Util::camelize($str, false));
+            $this->assertEquals($expected, decamelize($str, false));
         }
     }
 
@@ -39,7 +53,7 @@ class UtilTest extends TestCase
         $this->assertCount(2, Util::getExceptionChain($ex));
     }
 
-    public function testMergeArray()
+    public function testArrayMergeDistinct()
     {
         $arr1 = [
             'one'
@@ -48,7 +62,7 @@ class UtilTest extends TestCase
             'two'
         ];
 
-        $res = Util::mergeArrays($arr1, $arr2);
+        $res = array_merge_distinct($arr1, $arr2);
         $this->assertEquals(['one', 'two'], $res);
 
         $arr1 = [
@@ -58,7 +72,7 @@ class UtilTest extends TestCase
             'key' => 'right'
         ];
 
-        $res = Util::mergeArrays($arr1, $arr2);
+        $res = array_merge_distinct($arr1, $arr2);
         $this->assertEquals(['key' => 'right'], $res);
 
         $arr1 = [
@@ -68,7 +82,7 @@ class UtilTest extends TestCase
             'key' => ['two']
         ];
 
-        $res = Util::mergeArrays($arr1, $arr2);
+        $res = array_merge_distinct($arr1, $arr2);
         $this->assertEquals(['key' => ['one', 'two']], $res);
     }
 }

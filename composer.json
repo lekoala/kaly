@@ -16,7 +16,10 @@
     "autoload": {
         "psr-4": {
             "Kaly\\": "kaly/src"
-        }
+        },
+        "files": [
+            "src/_functions/global.php"
+        ]
     },
     "require-dev": {
         "nyholm/psr7": "^1.4",

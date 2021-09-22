@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace Kaly;
 
 use Exception;
+use Stringable;
 use RuntimeException;
 use InvalidArgumentException;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use Stringable;
+use Psr\Http\Message\ResponseFactoryInterface;
 
 /**
  * Http helpers
@@ -19,8 +20,10 @@ use Stringable;
  * - nyholm
  * - httpsoft
  * - guzzle
+ *
+ * Also acts as a ResponseFactoryInterface if needed
  */
-class Http
+class Http implements ResponseFactoryInterface
 {
     public const CONTENT_TYPE_HTML = 'text/html';
     public const CONTENT_TYPE_CSS = 'text/css';
@@ -72,13 +75,19 @@ class Http
         throw new Exception("No suitable ResponseInterface implementation found");
     }
 
+    public function createResponse(int $code = 200, string $reasonPhrase = ''): ResponseInterface
+    {
+        $class = self::resolveResponseClass();
+        return new $class($code, [], '', '1.1', $reasonPhrase);
+    }
+
     /**
      * @group Response-Factory
      * @param string $body
      * @param integer $code
      * @param array<string, string> $headers
      */
-    public static function createResponse(string $body = "", int $code = 200, array $headers = []): ResponseInterface
+    public static function respond(string $body = "", int $code = 200, array $headers = []): ResponseInterface
     {
         $class = self::resolveResponseClass();
         return new $class($code, $headers, $body);
@@ -97,7 +106,7 @@ class Http
         if (!$body) {
             $body = 'You are being redirected to ' . $url;
         }
-        return self::createResponse($body, $code, $headers);
+        return self::respond($body, $code, $headers);
     }
 
     /**
@@ -131,7 +140,7 @@ class Http
             $body = '{"message":"' . json_last_error_msg() . '"}';
         }
         $headers['Content-Type'] = self::CONTENT_TYPE_JSON;
-        return self::createResponse($body, $code, $headers);
+        return self::respond($body, $code, $headers);
     }
 
     /**
@@ -146,14 +155,15 @@ class Http
             $body = (string)$body;
         } elseif (is_array($body)) {
             // Arrays are displayed as json
-            $body = "<pre>" . json_encode($body, JSON_PRETTY_PRINT) . "</pre>";
-            if (!$body) {
-                $body = json_last_error_msg();
+            $json = json_encode($body, JSON_PRETTY_PRINT);
+            if (!$json) {
+                $json = json_last_error_msg();
             }
+            $body = "<pre>" . $json . "</pre>";
         } elseif ($body === null) {
             $body = '';
         }
-        return self::createResponse($body, $code, $headers);
+        return self::respond($body, $code, $headers);
     }
 
     /**

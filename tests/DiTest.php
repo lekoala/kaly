@@ -137,9 +137,9 @@ class DiTest extends TestCase
     {
         $def = [
             PDO::class => function () {
-                $dsn = getenv("DB_DSN");
-                $username =  getenv("DB_USERNAME");
-                $password =  getenv("DB_PASSWORD");
+                $dsn = getenv("DB_DSN") ?? 'sqlite::memory:';
+                $username =  getenv("DB_USERNAME") ?? 'root';
+                $password =  getenv("DB_PASSWORD") ?? '';
                 return new PDO($dsn, $username, $password);
             },
             TestObject4::class . ":bar" => function () {
@@ -179,11 +179,18 @@ class DiTest extends TestCase
                 // this will call twice testQueue
                 [
                     'testQueue' => 'two',
-                ]
+                ],
+                // this will call a third time testQuue
+                // it's always better to pass explicit list of arguments by name
+                [
+                    'testQueue' => [
+                        'val' => 'three'
+                    ],
+                ],
             ],
         ];
 
-        $def = Util::mergeArrays($def, $merge, true);
+        $def = array_merge_distinct($def, $merge, true);
 
         $container = new Di($def);
 
@@ -208,7 +215,7 @@ class DiTest extends TestCase
         $this->assertEquals(['one', 'two'], $foo->test3);
 
         // queued
-        $this->assertEquals(['one', 'two'], $foo->queue);
+        $this->assertEquals(['one', 'two', 'three'], $foo->queue);
         $this->assertNotEquals(['two'], $foo->queue);
     }
 }
