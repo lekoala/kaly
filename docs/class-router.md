@@ -95,10 +95,14 @@ if defined.
 Will be matched to App\Controller\UserController::read and pass 1 if you have a function accepting a number
 as the first parameter.
 
-## Attributes
+## Dispatching actions
 
-The router injects the following attributes:
+The router itself will not dispatch the action. Instead, it will return an array of parameters
+that you can use to do it yourself.
 
-- class: the request handler class
-- controller: the matched controller name
-- action : the matched action
+These parameters are:
+- module
+- controller
+- action
+- params
+- locale

@@ -164,6 +164,12 @@ class DiTest extends TestCase
 
         // Overload
         $def[TestObject4::class . ":bar"] = 'bar-right';
+        // You can also queue closures
+        $def[PDO::class . "->"] = [
+            function (PDO $pdo) {
+                $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            }
+        ];
 
         // Merge array values
         $merge = [

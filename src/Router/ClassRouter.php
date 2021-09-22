@@ -21,6 +21,7 @@ class ClassRouter implements RouterInterface
     public const CONTROLLER = "controller";
     public const ACTION = "action";
     public const PARAMS = "params";
+    public const LOCALE = "locale";
 
     protected string $defaultNamespace = 'App';
     protected string $controllerNamespace = 'Controller';
@@ -30,6 +31,10 @@ class ClassRouter implements RouterInterface
      * @var string[]
      */
     protected array $allowedNamespaces = [];
+    /**
+     * @var string[]
+     */
+    protected array $allowedLocales = [];
     protected bool $forceTrailingSlash = true;
 
     /**
@@ -59,6 +64,9 @@ class ClassRouter implements RouterInterface
         $trimmedPath = trim($path, '/');
         $parts = array_filter(explode("/", $trimmedPath));
 
+        // Maybe we have a locale as a prefix
+        $locale = $this->findLocale($parts);
+
         // Do we have a specific module ?
         $module = $this->findModule($parts, $uri);
 
@@ -74,6 +82,7 @@ class ClassRouter implements RouterInterface
         // Remaining parts are passed as arguments to the action
         $params = $this->collectParameters($refl, $action, $parts);
 
+        $routeParams[self::LOCALE] = $locale;
         $routeParams[self::MODULE] = $module;
         $routeParams[self::CONTROLLER] = $controller;
         $routeParams[self::ACTION] = $action;
@@ -96,6 +105,23 @@ class ClassRouter implements RouterInterface
         return $uri->withPath($path);
     }
 
+    protected function findLocale(array &$parts): ?string
+    {
+        if (!isset($parts[0]) || empty($this->allowedLocales)) {
+            return null;
+        }
+        $part = strtolower($parts[0]);
+
+
+        $locale = null;
+        if ($part && in_array($part, $this->allowedLocales)) {
+            array_shift($parts);
+            $locale = $part;
+        }
+
+        return $locale;
+    }
+
     /**
      * @param array<mixed> $parts
      */
@@ -107,15 +133,15 @@ class ClassRouter implements RouterInterface
         $part = $parts[0] ?? '';
         $camelPart = camelize($part);
 
-        // Don't allow calling camelized parts, we use lowercase
-        if ($part && $part !== strtolower($part)) {
-            $newUri = $this->getRedirectUri($uri, $part, decamelize($part));
-            throw new RedirectException($newUri);
-        }
-
         // Does it match a specific namespace? (not the default one)
         // More specific namespaces always have priority over default
         if (in_array($camelPart, $this->allowedNamespaces)) {
+            // Don't allow calling camelized parts, we use lowercase
+            if ($part && $part !== strtolower($part)) {
+                $newUri = $this->getRedirectUri($uri, $part, decamelize($part));
+                throw new RedirectException($newUri);
+            }
+
             $module = $camelPart;
             // Remove from parts
             array_shift($parts);
@@ -373,6 +399,26 @@ class ClassRouter implements RouterInterface
     public function setForceTrailingSlash(bool $forceTrailingSlash)
     {
         $this->forceTrailingSlash = $forceTrailingSlash;
+        return $this;
+    }
+
+    /**
+     * Get the value of allowedLocales
+     * @return string[]
+     */
+    public function getAllowedLocales(): array
+    {
+        return $this->allowedLocales;
+    }
+
+    /**
+     * Set the value of allowedLocales
+     * @param string[] $allowedLocales
+     * @return $this
+     */
+    public function setAllowedLocales(array $allowedLocales)
+    {
+        $this->allowedLocales = $allowedLocales;
         return $this;
     }
 }

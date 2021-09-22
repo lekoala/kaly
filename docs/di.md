@@ -61,15 +61,16 @@ that `get` results are predictable and always return the same thing and cannot b
 by application state. It is recommended to create or load your definitions during the app startup.
 
 Typical definitions are:
-- Aliases: this will allow you to bind interface to actual implementation or to define a shortcut based on a convention (note: the container
-does not check that the class actually implements the interface, since it's considered as a string alias like any other).
-- Arguments: for a given class, define basic arguments that should be passed to the constructor. You can either
-use the actual name of the variables in an associative array, or passed them as a sequential list. Any missing argument will be resolved
-by the DI container if available.
-- Closure: probably the most useful form of definition is the Closure. It allows executing a callback to provide the object
-you want to get. Very useful to read env variable for instance. Closure only get one (optional) argument : the DI container itself.
-Please note that the Closure result will be cached : it is executed only once. The DI container should not be used as some kind
-of factory, please implement them yourself.
+
+-   Aliases: this will allow you to bind interface to actual implementation or to define a shortcut based on a convention (note: the container
+    does not check that the class actually implements the interface, since it's considered as a string alias like any other).
+-   Arguments: for a given class, define basic arguments that should be passed to the constructor. You can either
+    use the actual name of the variables in an associative array, or passed them as a sequential list. Any missing argument will be resolved
+    by the DI container if available.
+-   Closure: probably the most useful form of definition is the Closure. It allows executing a callback to provide the object
+    you want to get. Very useful to read env variable for instance. Closure only get one (optional) argument : the DI container itself.
+    Please note that the Closure result will be cached : it is executed only once. The DI container should not be used as some kind
+    of factory, please implement them yourself.
 
 Useful tip : when using Closure definitions, you can specify a return type. This will allow to resolve arguments by name
 provided that they match the actual type.
@@ -93,7 +94,7 @@ class MyController {
 $class = $di->get(MyController::class);
 ```
 
-This behaviour allows to have multiple definitions for the same class. 
+This behaviour allows to have multiple definitions for the same class.
 Aliased definitions are only used over regular classes if a PDO class is not registered.
 
 ```php
@@ -130,14 +131,15 @@ Please note that this enforce variable naming convention across your codebase, b
 Even if you could technically store anything in a PSR container, for instance env variable like this:
 
 ```php
+// Do not do this, it doesn't work
 $di = new Di([
     'db.host' => $_ENV['DB_HOST'] ?? 'localhost',
 ]);
 $host = $di->get('db.host');
 ```
 
-We do not support this since strings are expected to be class aliases. 
-This is also why our DI container enforce returning a nullable object as part of the `get` definition. 
+We do not support this since strings are expected to be class aliases.
+This is also why our DI container enforce returning an object as part of the `get` definition.
 
 ## Parametrical keys
 
@@ -174,12 +176,19 @@ $foo = $container->get(TestObject4::class);
 In this scenario, you can overload a specific argument (in this case `bar`) using the '{id}:{argumentName}' syntax in the container.
 Please note that this is not really recommended, but if you do need that level of flexibility, it is possible.
 
+Note: parameters are only looked for actual class implementation, not if the class is called through interface binding.
+
 ## Method injection
 
 The Di container support calling methods after the class is created with a specific syntax.
 
 ```php
 $def = [
+    TestObjectInterface::class . '->' [
+        function(TestObjectInterface $obj) {
+            $obj->doSomething();
+        }
+    ],
     TestObject4::class . "->" => [
         'testMethod' => 'one',
         // note:  "val" must match parameter name
@@ -193,12 +202,17 @@ $def = [
 By using the '{id}->' syntax, you can define a list of calls that need to be made after creation.
 
 The convention is as follow :
-- The key must be the name of the method that needs to be called
-- The value must be any variable. 
 
-Notes about arrays: 
-- Associative arrays will be treated as a list of arguments by name
-- Regular arrays ("lists") will be merged together
+-   The key must be the name of the method that needs to be called
+-   The value must be any variable.
+
+Notes about arrays:
+
+-   Associative arrays will be treated as a list of arguments by name
+-   Regular arrays ("lists") will be merged together
+
+Calls will be looked for interface and class implementation. You can also use
+closures for calls, they will get the object instance as the first argument.
 
 ## Queueing method calls
 
@@ -217,11 +231,6 @@ $def = [
     ],
 ];
 ```
-
-## Recommended keys convention
-
-In the same spirit, we don't recommend to use identifiers that don't map to php variables. So something like
-`db.host` in our previous example would be better expressed as `db_host` or `dbHost`.
 
 ## Exceptions
 

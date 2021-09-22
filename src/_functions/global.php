@@ -72,6 +72,9 @@ function decamelize(string $str): string
         return $str;
     }
     $str = preg_replace(['/([a-z\d])([A-Z])/', '/([^-_])([A-Z][a-z])/'], '$1-$2', $str);
+    if (!$str) {
+        return '';
+    }
     $str = mb_strtolower($str);
     return $str;
 }

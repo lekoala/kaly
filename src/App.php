@@ -205,10 +205,15 @@ class App
         $code = 200;
         $body = null;
         $routeParams = [];
+
+        $request = $request->withAttribute("locale", Http::getPreferredLanguage($request));
         try {
             /** @var RouterInterface $router  */
             $router = $di->get(RouterInterface::class);
             $routeParams = $router->match($request);
+            if (!empty($routeParams['locale'])) {
+                $request = $request->withAttribute("locale", $routeParams['locale']);
+            }
             $body = $this->dispatch($di, $routeParams);
         } catch (ResponseProviderInterface $ex) {
             // Will be converted to a response later

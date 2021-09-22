@@ -8,6 +8,7 @@ use Exception;
 use Stringable;
 use RuntimeException;
 use InvalidArgumentException;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -164,6 +165,27 @@ class Http implements ResponseFactoryInterface
             $body = '';
         }
         return self::respond($body, $code, $headers);
+    }
+
+    public static function getPreferredLanguage(ServerRequestInterface $request): string
+    {
+        return key(self::parseAcceptedLanguages($request));
+    }
+
+    /**
+     * @param ServerRequestInterface $request
+     * @return array<string, float>
+     */
+    public static function parseAcceptedLanguages(ServerRequestInterface $request): array
+    {
+        $header = $request->getServerParams()['HTTP_ACCEPT_LANGUAGE'] ?? 'en';
+        $arr = [];
+        foreach (explode(',', $header) as $part) {
+            $subpart = explode(";q=", $part);
+            $arr[$subpart[0]] = floatval($subpart[1] ?? 1);
+        }
+        arsort($arr);
+        return $arr;
     }
 
     /**

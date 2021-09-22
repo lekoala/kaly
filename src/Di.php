@@ -13,6 +13,7 @@ use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
 use Psr\Container\ContainerExceptionInterface;
 use ReflectionFunction;
+use ReflectionMethod;
 
 /**
  * A dead simple container that implements strictly the container interface
@@ -84,18 +85,34 @@ class Di implements ContainerInterface
     /**
      * @return mixed
      */
-    protected function getDefinitionById(string $id)
+    protected function expandDefinition(string $key)
     {
-        if (!isset($this->definitions[$id])) {
-            return null;
-        }
-        $definition = $this->definitions[$id];
-
-        // Can be defined as a closure
-        if ($definition instanceof Closure) {
-            return $definition($this);
+        $definition = $this->definitions[$key] ?? null;
+        if ($definition && $definition instanceof Closure) {
+            $definition = $definition($this);
         }
         return $definition;
+    }
+
+    protected function getConfigCalls(string $id): ?array
+    {
+        return $this->expandDefinition($id . '->');
+    }
+
+    /**
+     * @return mixed
+     */
+    protected function getParameter(string $id, string $param)
+    {
+        return $this->expandDefinition($id . ':' . $param);
+    }
+
+    /**
+     * @return mixed
+     */
+    protected function getDefinitionById(string $id)
+    {
+        return $this->expandDefinition($id);
     }
 
     protected function build(string $id): object
@@ -107,8 +124,9 @@ class Di implements ContainerInterface
         $definition = $this->getDefinitionById($id);
         if ($definition !== null) {
             // Can be an instance of something
-            // eg: 'app' => $this
+            // eg: 'app' => $this or 'app' => function() { return $someObject; }
             if (is_object($definition)) {
+                $this->configure($definition, $id);
                 return $definition;
             }
             if (is_string($definition) && class_exists($definition)) {
@@ -137,15 +155,14 @@ class Di implements ContainerInterface
         $reflection = new ReflectionClass($class);
         $constructor = $reflection->getConstructor();
 
-        // There is no constructor, return
-        if ($constructor === null) {
-            return $reflection->newInstance();
-        }
-
         // Collect the arguments
+        $constructorParameters = [];
+        if ($constructor) {
+            $constructorParameters = $constructor->getParameters();
+        }
         $arguments = [];
         $i = -1;
-        foreach ($constructor->getParameters() as $parameter) {
+        foreach ($constructorParameters as $parameter) {
             $i++;
 
             $paramName =  $parameter->getName();
@@ -158,10 +175,9 @@ class Di implements ContainerInterface
             }
 
             // It is provided by parametrical syntax id:arg
-            $parametricalKey = "$id:$paramName";
-            $parametricalDefinition = $this->getDefinitionById($parametricalKey);
-            if ($parametricalDefinition !== null) {
-                $arguments[] = $parametricalDefinition;
+            $parameterValue = $this->getParameter($id, $paramName);
+            if ($parameterValue !== null) {
+                $arguments[] = $parameterValue;
                 continue;
             }
 
@@ -214,53 +230,75 @@ class Di implements ContainerInterface
         }
 
         $instance = $reflection->newInstanceArgs($arguments);
-
-        // Check if we need to call extra methods on the instance
-        $callsKey = "$id->";
-        $callsDefinition = $this->getDefinitionById($callsKey);
-        if ($callsDefinition !== null) {
-            if (!is_array($callsDefinition)) {
-                $type = get_debug_type($callsDefinition);
-                $this->throwError("Invalid calls definition for `$id`. It should be an array instead of: `$type`");
-            }
-            foreach ($callsDefinition as $callMethod => $callArguments) {
-                // Calls can be queued
-                if (is_int($callMethod)) {
-                    $callMethod = key($callArguments);
-                    $callArguments = $callArguments[$callMethod];
-                }
-                $callMethod = (string) $callMethod;
-                if (!method_exists($instance, $callMethod)) {
-                    $this->throwError("Method `$callMethod` does not exist on `$id`");
-                }
-                /** @var callable $callable  */
-                $callable = [$instance, $callMethod];
-                if (!is_callable($callable)) {
-                    $this->throwError("Method `$callMethod` is not callable on `$id`");
-                }
-                if (is_array($callArguments) && !array_is_list($callArguments)) {
-                    // Reorganize arguments according to definition
-                    // TODO: could be improved with named arguments
-                    $reflMethod = $reflection->getMethod($callMethod);
-                    $reflArguments = $reflMethod->getParameters();
-                    $newArguments = [];
-                    foreach ($reflArguments as $reflArgument) {
-                        $reflArgumentName = $reflArgument->getName();
-                        // We don't allow invalid definition
-                        if (!isset($callArguments[$reflArgumentName])) {
-                            $this->throwError("Method `$callMethod` does not have a parameter `$reflArgumentName`");
-                        }
-                        $newArguments[] = $callArguments[$reflArgumentName];
-                    }
-                    call_user_func_array($callable, $newArguments);
-                } else {
-                    // This allow passing an array as the first argument if necessary
-                    call_user_func($callable, $callArguments);
-                }
-            }
-        }
+        $this->configure($instance, $id);
 
         return $instance;
+    }
+
+    /**
+     * Call additionnal methods after instantiation if registered
+     * under the {class}-> convention in the definitions
+     */
+    protected function configure(object $instance, string $id): void
+    {
+        $instanceClass = get_class($instance);
+        $configCalls = $this->getConfigCalls($id);
+        // If $id is an interface, we may also have implementation calls
+        if ($instanceClass !== $id) {
+            $instanceCalls = $this->getConfigCalls($instanceClass);
+            if (!$configCalls) {
+                $configCalls = $instanceCalls;
+            } elseif ($instanceCalls) {
+                $configCalls = array_merge($configCalls, $instanceCalls);
+            }
+        }
+        if ($configCalls === null) {
+            return;
+        }
+        if (!is_array($configCalls)) {
+            $type = get_debug_type($configCalls);
+            $this->throwError("Invalid calls definition for `$id`. It should be an array instead of: `$type`");
+        }
+        foreach ($configCalls as $callMethod => $callArguments) {
+            // Calls can be closures
+            if ($callArguments instanceof Closure) {
+                $callArguments($instance);
+                continue;
+            }
+            // Calls can be queued
+            if (is_int($callMethod)) {
+                $callMethod = key($callArguments);
+                $callArguments = $callArguments[$callMethod];
+            }
+            $callMethod = (string) $callMethod;
+            if (!method_exists($instance, $callMethod)) {
+                $this->throwError("Method `$callMethod` does not exist on `$id`");
+            }
+            /** @var callable $callable  */
+            $callable = [$instance, $callMethod];
+            if (!is_callable($callable)) {
+                $this->throwError("Method `$callMethod` is not callable on `$id`");
+            }
+            if (is_array($callArguments) && !array_is_list($callArguments)) {
+                // Reorganize arguments according to definition
+                // TODO: could be improved with named arguments
+                $reflMethod = new ReflectionMethod($instance, $callMethod);
+                $reflArguments = $reflMethod->getParameters();
+                $newArguments = [];
+                foreach ($reflArguments as $reflArgument) {
+                    $reflArgumentName = $reflArgument->getName();
+                    // We don't allow invalid definition
+                    if (!isset($callArguments[$reflArgumentName])) {
+                        $this->throwError("Method `$callMethod` does not have a parameter `$reflArgumentName`");
+                    }
+                    $newArguments[] = $callArguments[$reflArgumentName];
+                }
+                call_user_func_array($callable, $newArguments);
+            } else {
+                // This allow passing an array as the first argument if necessary
+                call_user_func($callable, $callArguments);
+            }
+        }
     }
 
     /**
