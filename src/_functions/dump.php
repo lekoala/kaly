@@ -68,3 +68,18 @@ if (!function_exists('dd')) {
         exit(1);
     }
 }
+if (!function_exists('l')) {
+    /**
+     * @param mixed $message
+     * @param array<string, mixed> $context
+     */
+    function l($message, array $context): void
+    {
+        if (!is_string($message)) {
+            $message = json_encode($message, JSON_THROW_ON_ERROR);
+        }
+        /** @var \Psr\Log\LoggerInterface $logger  */
+        $logger = \Kaly\App::inst()->getDi()->get("debug_logger");
+        $logger->log(\Psr\Log\LogLevel::DEBUG, $message, $context);
+    }
+}

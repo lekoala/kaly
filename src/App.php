@@ -8,7 +8,8 @@ use Kaly\Di;
 use Exception;
 use Kaly\Http;
 use RuntimeException;
-use Kaly\Router\ClassRouter;
+use Psr\Log\NullLogger;
+use Psr\Log\LoggerInterface;
 use Kaly\Interfaces\RouterInterface;
 use Kaly\Exceptions\NotFoundException;
 use Psr\Http\Message\ResponseInterface;
@@ -32,10 +33,8 @@ class App
      * @var string[]
      */
     protected array $modules;
-    /**
-     * @var array<string, mixed>
-     */
-    protected array $definitions;
+    protected Di $di;
+    protected static App $instance;
 
     /**
      * Create a new instance of the application
@@ -45,6 +44,13 @@ class App
     public function __construct(string $dir)
     {
         $this->baseDir = $dir;
+
+        self::$instance = $this;
+    }
+
+    public static function inst(): self
+    {
+        return self::$instance;
     }
 
     /**
@@ -107,24 +113,21 @@ class App
             $definitions = $includer($file, $definitions);
         }
         $this->modules = $modules;
-        $this->definitions = $definitions;
+        $this->di = $this->configureDi($definitions);
     }
 
     /**
-     * This should be done before handling each request
-     * We store the request as part of the definitions because it could
-     * be injected in the controller
-     *
-     * @param ServerRequestInterface $request
+     * The di container is only configured once on app load.
+     * For request specific services, use the State class
+     * @param array<string, mixed> $definitions
      */
-    public function configureDi(ServerRequestInterface $request): Di
+    public function configureDi(array $definitions): Di
     {
-        $definitions = $this->definitions;
         // Register the app itself
-        $definitions[get_called_class()] = $this;
+        $definitions[static::class] = $this;
         // Create an alias if necessary
-        if (self::class != get_called_class()) {
-            $definitions[self::class] = get_called_class();
+        if (self::class !== static::class) {
+            $definitions[self::class] = static::class;
         }
         // Register a response factory
         $definitions[ResponseFactoryInterface::class] = Http::class;
@@ -132,10 +135,31 @@ class App
         if (!isset($definitions[RouterInterface::class])) {
             $definitions[RouterInterface::class] = $this->defineBaseRouter($this->modules);
         }
-        // Register the global server request by class and name
-        $definitions[ServerRequestInterface::class] = $request;
+        // If no logger, register a null logger
+        if (!isset($definitions[LoggerInterface::class])) {
+            $definitions[LoggerInterface::class] = NullLogger::class;
+        }
+        // Register a debug logger (null logger if debug is disabled)
+        if (!isset($definitions['debug_logger'])) {
+            $definitions["debug_logger"] = NullLogger::class;
+            if ($this->debug) {
+                $definitions["debug_logger"] = new Logger($this->baseDir . "/debug.log");
+            }
+        }
+        // A simple alias to easily access request per state
+        $definitions[ServerRequestInterface::class] = function (Di $di) {
+            /** @var State $state  */
+            $state = $di->get(State::class);
+            return $state->getRequest();
+        };
         $definitions['request'] = ServerRequestInterface::class;
-        return new Di($definitions);
+
+        // Some classes need true definitions, not only being available
+        $strictDefinitions = [
+            App::class,
+            \Twig\Loader\LoaderInterface::class,
+        ];
+        return new Di($definitions, $strictDefinitions);
     }
 
     /**
@@ -164,7 +188,7 @@ class App
     protected function renderTemplate(Di $di, array $routeParams, $body = null): ?string
     {
         // Check if we have a twig instance
-        if (!$this->hasDefinition(\Twig\Loader\LoaderInterface::class)) {
+        if (!$di->has(\Twig\Loader\LoaderInterface::class)) {
             return null;
         }
         // We only support empty body or a context array
@@ -200,30 +224,73 @@ class App
         return $body;
     }
 
-    public function processRequest(ServerRequestInterface $request, Di $di): ResponseInterface
+    /**
+     * You can use this function to add a default router definition
+     * to the DI container
+     *
+     * @param array<string> $modules
+     * @return callable
+     */
+    protected function defineBaseRouter(array $modules): callable
     {
+        return function () use ($modules) {
+            $classRouter = new ClassRouter();
+            $classRouter->setAllowedNamespaces($modules);
+            $classRouter->setDefaultNamespace(self::DEFAULT_MODULE);
+            $classRouter->setControllerSuffix(self::CONTROLLER_SUFFIX);
+            return $classRouter;
+        };
+    }
+
+    /**
+     * Init app state
+     * - reads .env files or $_ENV
+     * - load modules from "modules" folder
+     * - configure the Di container
+     */
+    public function boot(): void
+    {
+        if ($this->booted) {
+            throw new RuntimeException("Already booted");
+        }
+        $this->loadEnv();
+        $this->loadModules();
+        $this->booted = true;
+    }
+
+    /**
+     * Handle a request and returns its response
+     */
+    public function handle(ServerRequestInterface $request = null): ResponseInterface
+    {
+        if (!$request) {
+            $request = Http::createRequestFromGlobals();
+        }
         $code = 200;
         $body = null;
         $routeParams = [];
 
-        $request = $request->withAttribute("locale", Http::getPreferredLanguage($request));
+        /** @var State $state */
+        $state = $this->di->get(State::class);
+        $state->setRequest($request);
+        $state->setLocaleFromRequest();
         try {
             /** @var RouterInterface $router  */
-            $router = $di->get(RouterInterface::class);
+            $router = $this->di->get(RouterInterface::class);
             $routeParams = $router->match($request);
             if (!empty($routeParams['locale'])) {
-                $request = $request->withAttribute("locale", $routeParams['locale']);
+                $state->setLocale($routeParams['locale']);
             }
-            $body = $this->dispatch($di, $routeParams);
+            $body = $this->dispatch($this->di, $routeParams);
         } catch (ResponseProviderInterface $ex) {
             // Will be converted to a response later
             $body = $ex;
         } catch (NotFoundException $ex) {
             $code = $ex->getCode();
-            $body = $this->debug ? Util::getExceptionMessageChainAsString($ex) : 'The page could not be found';
+            $body = $this->debug ? $ex->getMessage() : 'The page could not be found';
         } catch (Exception $ex) {
             $code = 500;
-            $body = $this->debug ? Util::getExceptionMessageChainAsString($ex) : 'Server error';
+            $body = $this->debug ? $ex->getMessage() : 'Server error';
         }
 
         $json = $request->getHeader('Accept') == Http::CONTENT_TYPE_JSON;
@@ -232,7 +299,7 @@ class App
 
         // We may want to return a template that matches route params if possible
         if (!$json && !empty($routeParams)) {
-            $renderedBody = $this->renderTemplate($di, $routeParams, $body);
+            $renderedBody = $this->renderTemplate($this->di, $routeParams, $body);
             if ($renderedBody) {
                 $body = $renderedBody;
             }
@@ -263,55 +330,6 @@ class App
     }
 
     /**
-     * You can use this function to add a default router definition
-     * to the DI container
-     *
-     * @param array<string> $modules
-     * @return callable
-     */
-    protected function defineBaseRouter(array $modules): callable
-    {
-        return function () use ($modules) {
-            $classRouter = new ClassRouter();
-            $classRouter->setAllowedNamespaces($modules);
-            $classRouter->setDefaultNamespace(self::DEFAULT_MODULE);
-            $classRouter->setControllerSuffix(self::CONTROLLER_SUFFIX);
-            return $classRouter;
-        };
-    }
-
-    /**
-     * Init app state
-     * - reads .env files or $_ENV
-     * - load modules from "modules" folder
-     */
-    public function boot(): void
-    {
-        if ($this->booted) {
-            throw new RuntimeException("Already booted");
-        }
-        $this->loadEnv();
-        $this->loadModules();
-        $this->booted = true;
-    }
-
-    /**
-     * Handle a request and returns its response
-     */
-    public function handle(ServerRequestInterface $request = null): ResponseInterface
-    {
-        if (!$request) {
-            $request = Http::createRequestFromGlobals();
-        }
-
-        // We need to configure the di for each request since
-        // it can provide the request to the controller
-        $di = $this->configureDi($request);
-        $response = $this->processRequest($request, $di);
-        return $response;
-    }
-
-    /**
      * This utility method can be used for index scripts
      * It will send the response
      */
@@ -330,17 +348,9 @@ class App
         return $this->modules;
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    public function getDefinitions(): array
+    public function getDi(): Di
     {
-        return $this->definitions;
-    }
-
-    public function hasDefinition(string $id): bool
-    {
-        return isset($this->definitions[$id]);
+        return $this->di;
     }
 
     public function getDebug(): bool

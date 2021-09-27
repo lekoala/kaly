@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Router;
+namespace Kaly;
 
 use ReflectionClass;
 use ReflectionNamedType;
@@ -36,6 +36,7 @@ class ClassRouter implements RouterInterface
      */
     protected array $allowedLocales = [];
     protected bool $forceTrailingSlash = true;
+    protected int $localeLength = 2;
 
     /**
      * Match a request and returns an array of parameters
@@ -105,18 +106,29 @@ class ClassRouter implements RouterInterface
         return $uri->withPath($path);
     }
 
+    /**
+     * @param array<mixed> $parts
+     */
     protected function findLocale(array &$parts): ?string
     {
-        if (!isset($parts[0]) || empty($this->allowedLocales)) {
+        if (empty($this->allowedLocales)) {
             return null;
         }
+        // Use first allowed as fallback
+        if (empty($parts[0])) {
+            return $this->allowedLocales[0];
+        }
+
         $part = strtolower($parts[0]);
 
-
         $locale = null;
-        if ($part && in_array($part, $this->allowedLocales)) {
+        if (in_array($part, $this->allowedLocales)) {
             array_shift($parts);
             $locale = $part;
+        } elseif (strlen($part) <= $this->localeLength) {
+            throw new NotFoundException("Invalid locale '$part'");
+        } else {
+            $locale = $this->allowedLocales[0];
         }
 
         return $locale;

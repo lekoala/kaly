@@ -7,15 +7,55 @@ namespace Kaly\Tests;
 use Kaly\App;
 use Kaly\Http;
 use Nyholm\Psr7\Uri;
+use Kaly\ClassRouter;
+use Kaly\Tests\Mocks\TestApp;
 use PHPUnit\Framework\TestCase;
-use Kaly\Tests\Mocks\TestInterface;
-use Psr\Http\Message\ServerRequestInterface;
 
 class AppTest extends TestCase
 {
     protected function setUp(): void
     {
         $_ENV['DEBUG'] = true;
+    }
+
+    public function testAppExtension()
+    {
+        $app = new TestApp(__DIR__);
+        $app->boot();
+        $di = $app->getDi();
+
+        $this->assertTrue($di->has(App::class));
+        $this->assertTrue($di->has(TestApp::class));
+    }
+
+    /**
+     * @group only
+     */
+    public function testLocaleDetection()
+    {
+        $app = new TestApp(__DIR__);
+        $app->boot();
+
+        /** @var ClassRouter $router  */
+        $router = $app->getDi()->get(ClassRouter::class);
+
+        // first one is the fallback locale
+        $this->assertEquals(["en", "fr"], $router->getAllowedLocales());
+
+        $request = Http::createRequestFromGlobals();
+        $request = $request->withUri(new Uri("/fr/test-module/demo/getlang/"));
+        $response = (string)$app->handle($request)->getBody();
+        $this->assertEquals("fr", $response);
+        // no lang should default to fallback lang
+        $request = $request->withUri(new Uri("/test-module/demo/getlang/"));
+        $response = (string)$app->handle($request)->getBody();
+        $this->assertEquals("en", $response);
+        $request = $request->withUri(new Uri("/en/test-module/demo/getlang/"));
+        $response = (string)$app->handle($request)->getBody();
+        $this->assertEquals("en", $response);
+        $request = $request->withUri(new Uri("/ja/test-module/demo/getlang/"));
+        $response = (string)$app->handle($request)->getBody();
+        $this->assertEquals("Invalid locale 'ja'", $response);
     }
 
     public function testAppInit()
@@ -37,46 +77,31 @@ class AppTest extends TestCase
         Http::sendResponse($response);
     }
 
-    public function testDi()
-    {
-        $request = Http::createRequestFromGlobals();
-        $app = new App(__DIR__);
-        $app->boot();
-        $di = $app->configureDi($request);
-        $this->assertInstanceOf(ServerRequestInterface::class, $di->get(ServerRequestInterface::class));
-        $this->assertInstanceOf(TestInterface::class, $di->get(TestInterface::class));
-    }
-
     public function testRedirect()
     {
         $request = Http::createRequestFromGlobals();
         $request = $request->withUri(new Uri("/test-module/redirect/"));
         $app = new App(__DIR__);
         $app->boot();
-        $di = $app->configureDi($request);
-        $response = $app->processRequest($request, $di);
+        $response = $app->handle($request);
         $this->assertEquals(307, $response->getStatusCode());
 
         // Cannot call index controller directly => it should call /test-module/foo/
         $request = $request->withUri(new Uri("/test-module/index/foo/"));
-        $di = $app->configureDi($request);
-        $response = $app->processRequest($request, $di);
+        $response = $app->handle($request);
         $this->assertEquals(307, $response->getStatusCode());
 
         // Cannot call index action directly => it should call /test-module/
         $request = $request->withUri(new Uri("/test-module/index/"));
-        $di = $app->configureDi($request);
-        $response = $app->processRequest($request, $di);
+        $response = $app->handle($request);
         $this->assertEquals(307, $response->getStatusCode());
 
         // Cannot call camel style url
         $request = $request->withUri(new Uri("/test-module/Index/"));
-        $di = $app->configureDi($request);
-        $response = $app->processRequest($request, $di);
+        $response = $app->handle($request);
         $this->assertEquals(307, $response->getStatusCode());
         $request = $request->withUri(new Uri("/Test-Module/"));
-        $di = $app->configureDi($request);
-        $response = $app->processRequest($request, $di);
+        $response = $app->handle($request);
         $this->assertEquals(307, $response->getStatusCode());
         $this->assertEquals('/test-module/', $response->getHeaderLine('Location'));
     }
@@ -87,8 +112,7 @@ class AppTest extends TestCase
         $request = $request->withUri(new Uri("/test-module/auth/"));
         $app = new App(__DIR__);
         $app->boot();
-        $di = $app->configureDi($request);
-        $response = $app->processRequest($request, $di);
+        $response = $app->handle($request);
         $this->assertEquals(401, $response->getStatusCode());
     }
 
@@ -98,8 +122,7 @@ class AppTest extends TestCase
         $request = $request->withUri(new Uri("/test-module/validation/"));
         $app = new App(__DIR__);
         $app->boot();
-        $di = $app->configureDi($request);
-        $response = $app->processRequest($request, $di);
+        $response = $app->handle($request);
         $this->assertEquals(403, $response->getStatusCode());
     }
 
@@ -112,24 +135,19 @@ class AppTest extends TestCase
         $app->setDebug(true);
         $request = Http::createRequestFromGlobals();
         $request = $request->withUri(new Uri("/test-module/demo/"));
-        $di = $app->configureDi($request);
-        $response = $app->processRequest($request, $di);
+        $response = $app->handle($request);
         $this->assertEquals("hello demo", (string)$response->getBody());
         $request = $request->withUri(new Uri("/test-module/demo/test/"));
-        $di = $app->configureDi($request);
-        $response = $app->processRequest($request, $di);
+        $response = $app->handle($request);
         $this->assertEquals("hello test", (string)$response->getBody());
         $request = $request->withUri(new Uri("/test-module/demo/func/"));
-        $di = $app->configureDi($request);
-        $response = $app->processRequest($request, $di);
+        $response = $app->handle($request);
         $this->assertEquals("hello func", (string)$response->getBody());
         $request = $request->withUri(new Uri("/test-module/demo/arr/he/llo/"));
-        $di = $app->configureDi($request);
-        $response = $app->processRequest($request, $di);
+        $response = $app->handle($request);
         $this->assertEquals("hello he,llo", (string)$response->getBody());
         $request = $request->withUri(new Uri("/test-module/demo/func/he/llo/"));
-        $di = $app->configureDi($request);
-        $response = $app->processRequest($request, $di);
+        $response = $app->handle($request);
         $this->assertEquals("Too many parameters for action 'func' on 'TestModule\Controller\DemoController'", (string)$response->getBody());
     }
 
@@ -140,8 +158,7 @@ class AppTest extends TestCase
         $app->setDebug(true);
         $request = Http::createRequestFromGlobals();
         $request = $request->withUri(new Uri("/test-module/demo"));
-        $di = $app->configureDi($request);
-        $response = $app->processRequest($request, $di);
+        $response = $app->handle($request);
         $this->assertEquals("You are being redirected to /test-module/demo/", (string)$response->getBody());
     }
 }

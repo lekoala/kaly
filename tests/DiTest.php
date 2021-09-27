@@ -6,7 +6,6 @@ namespace Kaly\Tests;
 
 use PDO;
 use Kaly\Di;
-use Kaly\Util;
 use PHPUnit\Framework\TestCase;
 use Kaly\Tests\Mocks\TestObject;
 use Kaly\Tests\Mocks\TestObject2;
@@ -114,19 +113,22 @@ class DiTest extends TestCase
         $inst = $di->get('db.host');
     }
 
-    public function testList()
-    {
-        $di = new Di([
-            TestInterface::class => TestObject::class,
-        ]);
-
-        $this->assertContains(TestInterface::class, $di->listDefinitions());
-    }
-
     public function testReturnItself()
     {
         $di = new Di();
         $this->assertEquals($di, $di->get(Di::class));
+    }
+
+    public function testStrictDefinitions()
+    {
+        $def = [
+            TestInterface::class => TestObject::class
+        ];
+        $strict = [TestObject2::class];
+        $di = new Di($def, $strict);
+        $this->assertTrue($di->has(TestInterface::class));
+        $this->assertTrue($di->has(TestObject::class));
+        $this->assertFalse($di->has(TestObject2::class));
     }
 
     /**

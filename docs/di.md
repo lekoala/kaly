@@ -232,6 +232,15 @@ $def = [
 ];
 ```
 
+## Strict definitions
+
+The Di container is very permissive by default, because it will allow you to create
+any existing class.
+
+But sometimes, you need actual definitions in order to be able to create useful classes. This
+is where strict definitions come into play. You can pass an array of definitions ids that will
+need actual definitions instead of simple class_exists calls.
+
 ## Exceptions
 
 NotFound and Error exceptions are implemented as anonymous classes. You can still use regular try/catch

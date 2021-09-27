@@ -4,47 +4,11 @@ declare(strict_types=1);
 
 namespace Kaly;
 
-use Throwable;
 use Kaly\Exceptions\AuthenticationException;
 use Psr\Http\Message\ServerRequestInterface;
 
-class Util
+class Auth
 {
-    /**
-     * Gets sequential array of all previously-chained errors
-     * @return array<Throwable>
-     */
-    public static function getExceptionChain(Throwable $error): array
-    {
-        $chain = [];
-        do {
-            $chain[] = $error;
-        } while ($error = $error->getPrevious());
-        return $chain;
-    }
-
-    /**
-     * Gets sequential array of all previously-chained error messages
-     * @return array<array-key, string>
-     */
-    public static function getExceptionMessageChain(Throwable $error): array
-    {
-        $chain = [];
-        do {
-            $chain[] = $error->getMessage();
-        } while ($error = $error->getPrevious());
-        return $chain;
-    }
-
-    /**
-     * Gets sequential array of all previously-chained error messages
-     */
-    public static function getExceptionMessageChainAsString(Throwable $error): string
-    {
-        $chain = self::getExceptionMessageChain($error);
-        return implode("; ", $chain);
-    }
-
     /**
      * @throws AuthenticationException
      */

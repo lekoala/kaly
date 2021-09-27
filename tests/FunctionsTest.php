@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Exception;
-use Kaly\Util;
 use PHPUnit\Framework\TestCase;
 
 class FunctionsTest extends TestCase
@@ -52,13 +50,6 @@ class FunctionsTest extends TestCase
         $str = "\"or else it doesn't, you know. the name of the song is called 'haddocks' eyes.'\"";
         $expected = "\"Or Else It Doesn't, You Know. The Name Of The Song Is Called 'Haddocks' Eyes.'\"";
         $this->assertEquals($expected, strtotitle($str));
-    }
-
-    public function testExceptionChain()
-    {
-        $prev = new Exception("prev");
-        $ex = new Exception("test", 0, $prev);
-        $this->assertCount(2, Util::getExceptionChain($ex));
     }
 
     public function testArrayMergeDistinct()

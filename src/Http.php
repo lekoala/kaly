@@ -167,18 +167,17 @@ class Http implements ResponseFactoryInterface
         return self::respond($body, $code, $headers);
     }
 
-    public static function getPreferredLanguage(ServerRequestInterface $request): string
+    public static function getPreferredLanguage(ServerRequestInterface $request): ?string
     {
         return key(self::parseAcceptedLanguages($request));
     }
 
     /**
-     * @param ServerRequestInterface $request
      * @return array<string, float>
      */
     public static function parseAcceptedLanguages(ServerRequestInterface $request): array
     {
-        $header = $request->getServerParams()['HTTP_ACCEPT_LANGUAGE'] ?? 'en';
+        $header = $request->getServerParams()['HTTP_ACCEPT_LANGUAGE'] ?? '';
         $arr = [];
         foreach (explode(',', $header) as $part) {
             $subpart = explode(";q=", $part);

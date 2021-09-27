@@ -37,6 +37,12 @@ class Di implements ContainerInterface
     protected array $definitions;
 
     /**
+     * List services that require actual definitions, not simple class_exists calls
+     * @var array<int, string>
+     */
+    protected array $strictDefinitions;
+
+    /**
      * Store all requested instances by id
      * @var array<string, object|null>
      */
@@ -44,18 +50,12 @@ class Di implements ContainerInterface
 
     /**
      * @param array<string, mixed> $definitions
+     * @param array<int, string> $strictDefinitions
      */
-    public function __construct(array $definitions = [])
+    public function __construct(array $definitions = [], array $strictDefinitions = [])
     {
         $this->definitions = $definitions;
-    }
-
-    /**
-     * @return string[]
-     */
-    public function listDefinitions(): array
-    {
-        return array_keys($this->definitions);
+        $this->strictDefinitions = $strictDefinitions;
     }
 
     /**
@@ -94,6 +94,9 @@ class Di implements ContainerInterface
         return $definition;
     }
 
+    /**
+     * @return array<mixed>|null
+     */
     protected function getConfigCalls(string $id): ?array
     {
         return $this->expandDefinition($id . '->');
@@ -107,21 +110,13 @@ class Di implements ContainerInterface
         return $this->expandDefinition($id . ':' . $param);
     }
 
-    /**
-     * @return mixed
-     */
-    protected function getDefinitionById(string $id)
-    {
-        return $this->expandDefinition($id);
-    }
-
     protected function build(string $id): object
     {
         $providedArguments = [];
         $namedArguments = false;
 
         // If we have a definition
-        $definition = $this->getDefinitionById($id);
+        $definition = $this->expandDefinition($id);
         if ($definition !== null) {
             // Can be an instance of something
             // eg: 'app' => $this or 'app' => function() { return $someObject; }
@@ -318,7 +313,7 @@ class Di implements ContainerInterface
         }
 
         // Di can return itself
-        if ($id == __CLASS__) {
+        if ($id === __CLASS__) {
             return $this;
         }
 
@@ -340,6 +335,9 @@ class Di implements ContainerInterface
      */
     public function has(string $id): bool
     {
-        return isset($this->definitions[$id]) || class_exists($id);
+        if (isset($this->definitions[$id])) {
+            return true;
+        }
+        return !in_array($id, $this->strictDefinitions) && class_exists($id);
     }
 }

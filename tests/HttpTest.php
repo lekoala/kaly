@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use Kaly\Http;
-use Kaly\ResponseFactory;
 use Nyholm\Psr7\Response;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;

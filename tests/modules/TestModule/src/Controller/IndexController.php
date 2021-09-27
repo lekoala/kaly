@@ -2,7 +2,7 @@
 
 namespace TestModule\Controller;
 
-use Kaly\Util;
+use Kaly\Auth;
 use Kaly\Exceptions\RedirectException;
 use Kaly\Exceptions\ValidationException;
 use Psr\Http\Message\ServerRequestInterface;
@@ -38,6 +38,6 @@ class IndexController
 
     public function auth()
     {
-        Util::basicAuth($this->request, "unit", "test");
+        Auth::basicAuth($this->request, "unit", "test");
     }
 }
