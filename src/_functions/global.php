@@ -89,3 +89,15 @@ function get_class_name(string $class): string
     $parts = explode('\\', $class);
     return end($parts);
 }
+
+if (!function_exists('t')) {
+    /**
+     * @param array<string, mixed> $parameters
+     */
+    function t(string $message, array $parameters = [], string $domain = null, string $locale = null): string
+    {
+        /** @var \Kaly\Translator $translator  */
+        $translator = \Kaly\App::inst()->getDi()->get(\Kaly\Translator::class);
+        return $translator->translate($message, $parameters, $domain, $locale);
+    }
+}

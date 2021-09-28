@@ -14,6 +14,10 @@ use Psr\Http\Message\ServerRequestInterface;
 
 /**
  * Takes an uri and map it to a class
+ *
+ * - Handles multiple namespaces (default one if omitted)
+ * - Check for locale as a prefix (can be restricted to a set of namespaces)
+ * - Collect url parameters based on method signature
  */
 class ClassRouter implements RouterInterface
 {
@@ -22,6 +26,7 @@ class ClassRouter implements RouterInterface
     public const ACTION = "action";
     public const PARAMS = "params";
     public const LOCALE = "locale";
+    public const SEGMENTS = "segments";
 
     protected string $defaultNamespace = 'App';
     protected string $controllerNamespace = 'Controller';
@@ -35,6 +40,7 @@ class ClassRouter implements RouterInterface
      * @var string[]
      */
     protected array $allowedLocales = [];
+    protected array $restrictLocaleToNamespaces = [];
     protected bool $forceTrailingSlash = true;
     protected int $localeLength = 2;
 
@@ -64,32 +70,63 @@ class ClassRouter implements RouterInterface
 
         $trimmedPath = trim($path, '/');
         $parts = array_filter(explode("/", $trimmedPath));
+        $routeParams[self::SEGMENTS] = $parts;
 
         // Maybe we have a locale as a prefix
         $locale = $this->findLocale($parts);
+        $routeParams[self::LOCALE] = $locale;
 
         // Do we have a specific module ?
         $module = $this->findModule($parts, $uri);
+        $routeParams[self::MODULE] = $module;
+
+        $this->enforceLocaleModuleUri($routeParams, $uri);
 
         // First we need to check if we have the controller
         $controller = $this->findController($module, $parts, $uri);
-
+        $routeParams[self::CONTROLLER] = $controller;
         // We need a reflection for next methods
         $refl = new ReflectionClass($controller);
 
         // If the action exists (or index if set)
         $action = $this->findAction($refl, $parts, $uri);
+        $routeParams[self::ACTION] = $action;
 
         // Remaining parts are passed as arguments to the action
         $params = $this->collectParameters($refl, $action, $parts);
-
-        $routeParams[self::LOCALE] = $locale;
-        $routeParams[self::MODULE] = $module;
-        $routeParams[self::CONTROLLER] = $controller;
-        $routeParams[self::ACTION] = $action;
         $routeParams[self::PARAMS] = $params;
 
         return $routeParams;
+    }
+
+    protected function enforceLocaleModuleUri(array &$routeParams, UriInterface $uri): void
+    {
+        $module = $routeParams[self::MODULE];
+        $locale = $routeParams[self::LOCALE];
+        $parts = $routeParams[self::SEGMENTS];
+
+        $isRestricted = true;
+        if (!empty($this->restrictLocaleToNamespaces)) {
+            $isRestricted = in_array($module, $this->restrictLocaleToNamespaces);
+        }
+
+        // Is there a locale when it shouldn't be ?
+        if ($module && $locale && !$isRestricted) {
+            $newUri = $this->getRedirectUri($uri, $locale);
+            throw new RedirectException($newUri);
+        }
+        // If we have a multilingual setup, the locale is required except for restrict namespaces
+        if (count($this->allowedLocales) > 1 && !$locale && $isRestricted) {
+            // Except on the home page
+            if (count($parts) > 0) {
+                $newUri = $uri->withPath($this->allowedLocales[0] . $uri->getPath());
+                throw new RedirectException($newUri);
+            }
+        }
+        // Single language is forced through the router
+        if (!$locale && !empty($this->allowedLocales)) {
+            $routeParams[self::LOCALE] = $this->allowedLocales[0];
+        }
     }
 
     protected function getRedirectUri(UriInterface $uri, string $remove, string $replace = ''): UriInterface
@@ -111,14 +148,9 @@ class ClassRouter implements RouterInterface
      */
     protected function findLocale(array &$parts): ?string
     {
-        if (empty($this->allowedLocales)) {
+        if (empty($this->allowedLocales) || empty($parts[0])) {
             return null;
         }
-        // Use first allowed as fallback
-        if (empty($parts[0])) {
-            return $this->allowedLocales[0];
-        }
-
         $part = strtolower($parts[0]);
 
         $locale = null;
@@ -127,8 +159,6 @@ class ClassRouter implements RouterInterface
             $locale = $part;
         } elseif (strlen($part) <= $this->localeLength) {
             throw new NotFoundException("Invalid locale '$part'");
-        } else {
-            $locale = $this->allowedLocales[0];
         }
 
         return $locale;
@@ -205,7 +235,7 @@ class ClassRouter implements RouterInterface
             array_shift($parts);
         }
         if (!class_exists($class)) {
-            throw new NotFoundException("Route '$path' not found.");
+            throw new NotFoundException("Route '$path' not found. '$class' doesn't exists.");
         }
 
         return $class;
@@ -426,11 +456,53 @@ class ClassRouter implements RouterInterface
     /**
      * Set the value of allowedLocales
      * @param string[] $allowedLocales
+     * @param string[] $namespaces
      * @return $this
      */
-    public function setAllowedLocales(array $allowedLocales)
+    public function setAllowedLocales(array $allowedLocales, ?array $namespaces = null)
     {
         $this->allowedLocales = $allowedLocales;
+        if ($namespaces !== null) {
+            $this->restrictLocaleToNamespaces = $namespaces;
+        }
+        return $this;
+    }
+
+    /**
+     * Get the value of restrictLocaleToNamespaces
+     * @return string[]
+     */
+    public function getRestrictLocaleToNamespaces(): array
+    {
+        return $this->restrictLocaleToNamespaces;
+    }
+
+    /**
+     * Set the value of restrictLocaleToNamespaces
+     * @param string[] $restrictLocaleToNamespaces
+     * @return $this
+     */
+    public function setRestrictLocaleToNamespaces(array $restrictLocaleToNamespaces)
+    {
+        $this->restrictLocaleToNamespaces = $restrictLocaleToNamespaces;
+        return $this;
+    }
+
+    /**
+     * Get the value of localeLength
+     */
+    public function getLocaleLength(): int
+    {
+        return $this->localeLength;
+    }
+
+    /**
+     * Set the value of localeLength
+     * @return $this
+     */
+    public function setLocaleLength(int $localeLength)
+    {
+        $this->localeLength = $localeLength;
         return $this;
     }
 }

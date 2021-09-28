@@ -43,17 +43,17 @@ class AppTest extends TestCase
         $this->assertEquals(["en", "fr"], $router->getAllowedLocales());
 
         $request = Http::createRequestFromGlobals();
-        $request = $request->withUri(new Uri("/fr/test-module/demo/getlang/"));
+        $request = $request->withUri(new Uri("/fr/lang-module/getlang/"));
         $response = (string)$app->handle($request)->getBody();
         $this->assertEquals("fr", $response);
-        // no lang should default to fallback lang
-        $request = $request->withUri(new Uri("/test-module/demo/getlang/"));
+        // no lang should redirect to a lang
+        $request = $request->withUri(new Uri("/lang-module/getlang/"));
+        $response = $app->handle($request);
+        $this->assertEquals(307, $response->getStatusCode());
+        $request = $request->withUri(new Uri("/en/lang-module/getlang/"));
         $response = (string)$app->handle($request)->getBody();
         $this->assertEquals("en", $response);
-        $request = $request->withUri(new Uri("/en/test-module/demo/getlang/"));
-        $response = (string)$app->handle($request)->getBody();
-        $this->assertEquals("en", $response);
-        $request = $request->withUri(new Uri("/ja/test-module/demo/getlang/"));
+        $request = $request->withUri(new Uri("/ja/lang-module/getlang/"));
         $response = (string)$app->handle($request)->getBody();
         $this->assertEquals("Invalid locale 'ja'", $response);
     }
@@ -71,7 +71,7 @@ class AppTest extends TestCase
         $declaredVars = array_keys(get_defined_vars());
         $this->assertNotContains("value_is_not_leaked", $declaredVars);
 
-        $this->assertCount(1, $app->getModules());
+        $this->assertCount(2, $app->getModules());
         $this->expectOutputString("hello");
         $response = $app->handle($request);
         Http::sendResponse($response);

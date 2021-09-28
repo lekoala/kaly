@@ -16,6 +16,7 @@ require_once __DIR__ . '/mocks/TestObject3.php';
 require_once __DIR__ . '/mocks/TestObject4.php';
 require_once __DIR__ . "/modules/TestModule/src/Controller/IndexController.php";
 require_once __DIR__ . "/modules/TestModule/src/Controller/DemoController.php";
+require_once __DIR__ . "/modules/LangModule/src/Controller/IndexController.php";
 
 // Mock functions that will get called instead of regular php function due to namespace
 

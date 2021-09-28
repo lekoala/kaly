@@ -184,8 +184,9 @@ The Di container support calling methods after the class is created with a speci
 
 ```php
 $def = [
-    TestObjectInterface::class . '->' [
-        function(TestObjectInterface $obj) {
+    TestObjectInterface::class . '->' => [
+        // This is the recommended way to do things
+        function(TestObjectInterface $obj, Di $di) {
             $obj->doSomething();
         }
     ],
@@ -201,7 +202,10 @@ $def = [
 
 By using the '{id}->' syntax, you can define a list of calls that need to be made after creation.
 
-The convention is as follow :
+The recommended way to use this feature is to pass an array of closures. The closure will get
+the object instance as the first argument, and the Di container as the second argument.
+
+You can also use string based calls to allow overloading configuration, following this convention:
 
 -   The key must be the name of the method that needs to be called
 -   The value must be any variable.
@@ -211,8 +215,7 @@ Notes about arrays:
 -   Associative arrays will be treated as a list of arguments by name
 -   Regular arrays ("lists") will be merged together
 
-Calls will be looked for interface and class implementation. You can also use
-closures for calls, they will get the object instance as the first argument.
+Calls will be looked for interface and class implementation.
 
 ## Queueing method calls
 

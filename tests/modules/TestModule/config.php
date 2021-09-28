@@ -13,7 +13,7 @@ return [
     },
     ClassRouter::class . "->" => [
         function (ClassRouter $router) {
-            $router->setAllowedLocales(["en", "fr"]);
+            $router->setAllowedLocales(["en", "fr"], ["LangModule"]);
         }
     ],
     // Register a dedicated logger for tests

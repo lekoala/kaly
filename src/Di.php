@@ -124,16 +124,18 @@ class Di implements ContainerInterface
                 $this->configure($definition, $id);
                 return $definition;
             }
+            // Can be an alias or interface binding
+            // eg: somealias => MyClass::class or SomeInterface::class => MyClass::class
             if (is_string($definition) && class_exists($definition)) {
-                // Can be an alias or interface binding
-                // eg: somealias => MyClass::class or SomeInterface::class => MyClass::class
-                $id = $definition;
-            } elseif (is_array($definition)) {
-                // Can be an array of argument to feed to the constructor
+                return $this->build($definition);
+            }
+            // Can be an array of argument to feed to the constructor
+            if (is_array($definition)) {
+                // Positional arguments
                 // eg: MyClass::class => ["arg", "arg2"]
                 $providedArguments = $definition;
 
-                // Arguments can be an associative array, otherwise they will be passed by order
+                // Or associative arguments
                 // eg: MyClass::class => ["arg" => "val", "arg2" => "val2"]
                 if ($providedArguments !== array_values($providedArguments)) {
                     $namedArguments = true;
@@ -257,7 +259,7 @@ class Di implements ContainerInterface
         foreach ($configCalls as $callMethod => $callArguments) {
             // Calls can be closures
             if ($callArguments instanceof Closure) {
-                $callArguments($instance);
+                $callArguments($instance, $this);
                 continue;
             }
             // Calls can be queued

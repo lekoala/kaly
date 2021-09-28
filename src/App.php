@@ -154,6 +154,25 @@ class App
         };
         $definitions['request'] = ServerRequestInterface::class;
 
+        // A twig loader has been defined
+        if (isset($definitions[\Twig\Loader\LoaderInterface::class])) {
+            if ($this->debug) {
+                $definitions[\Twig\Environment::class . '->'] = [
+                    function (\Twig\Environment $twig) {
+                        $twig->enableDebug();
+                    }
+                ];
+            }
+            $definitions[\Twig\Environment::class . '->'] = [
+                function (\Twig\Environment $twig) {
+                    $function = new \Twig\TwigFunction('t', function (string $message, array $parameters = [], string $domain = null) {
+                        return t($message, $parameters, $domain);
+                    });
+                    $twig->addFunction($function);
+                }
+            ];
+        }
+
         // Some classes need true definitions, not only being available
         $strictDefinitions = [
             App::class,
@@ -202,9 +221,6 @@ class App
 
         /** @var \Twig\Environment $twig  */
         $twig = $di->get(\Twig\Environment::class);
-        if ($this->debug) {
-            $twig->enableDebug();
-        }
 
         // Build view path based on route parameters
         $controllerFolder = mb_strtolower(get_class_name($routeParams['controller']));
@@ -272,6 +288,10 @@ class App
 
         /** @var State $state */
         $state = $this->di->get(State::class);
+
+        /** @var Translator $translator  */
+        $translator = $this->di->get(Translator::class);
+        $state->setTranslator($translator);
         $state->setRequest($request);
         $state->setLocaleFromRequest();
         try {

@@ -97,10 +97,18 @@ class DiTest extends TestCase
     {
         $di = new Di([
             TestInterface::class => TestObject::class,
+            // aliases should be properly expanded to closure result
+            TestObject::class => function (): TestObject {
+                $inst = new TestObject();
+                $inst->setVal("closure");
+                return $inst;
+            }
         ]);
 
+        /** @var TestObject $inst  */
         $inst = $di->get(TestInterface::class);
         $this->assertInstanceOf(TestObject::class, $inst);
+        $this->assertEquals("closure", $inst->val);
     }
 
     public function testInvalidDefinition()

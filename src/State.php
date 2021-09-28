@@ -12,6 +12,7 @@ use Psr\Http\Message\ServerRequestInterface;
 class State
 {
     protected ServerRequestInterface $request;
+    protected ?Translator $translator;
     protected string $locale;
 
     public function setLocaleFromRequest(): void
@@ -21,7 +22,7 @@ class State
         }
         $locale = Http::getPreferredLanguage($this->request);
         if ($locale) {
-            $this->locale = $locale;
+            $this->setLocale($locale);
         }
     }
 
@@ -30,9 +31,13 @@ class State
         return $this->locale;
     }
 
-    public function setLocale(string $locale): self
+    public function setLocale(string $locale, bool $updateTranslator = true): self
     {
         $this->locale = $locale;
+        // Based on current request, we need to adjust our translator
+        if ($updateTranslator && $this->translator) {
+            $this->translator->setCurrentLocale($locale);
+        }
         return $this;
     }
 
@@ -44,6 +49,17 @@ class State
     public function setRequest(ServerRequestInterface $request): self
     {
         $this->request = $request;
+        return $this;
+    }
+
+    public function getTranslator(): ?Translator
+    {
+        return $this->translator;
+    }
+
+    public function setTranslator(Translator $translator = null): self
+    {
+        $this->translator = $translator;
         return $this;
     }
 }
