@@ -24,9 +24,14 @@ class DemoController
         return "hello demo";
     }
 
-    public function getlang()
+    public function methodGet()
     {
-        return $this->state->getLocale();
+        return 'get';
+    }
+
+    public function methodPost()
+    {
+        return 'post';
     }
 
     public function func()

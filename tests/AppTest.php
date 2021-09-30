@@ -43,17 +43,17 @@ class AppTest extends TestCase
         $this->assertEquals(["en", "fr"], $router->getAllowedLocales());
 
         $request = Http::createRequestFromGlobals();
-        $request = $request->withUri(new Uri("/fr/lang-module/getlang/"));
+        $request = $request->withUri(new Uri("/fr/lang-module/index/getlang/"));
         $response = (string)$app->handle($request)->getBody();
         $this->assertEquals("fr", $response);
         // no lang should redirect to a lang
-        $request = $request->withUri(new Uri("/lang-module/getlang/"));
+        $request = $request->withUri(new Uri("/lang-module/index/getlang/"));
         $response = $app->handle($request);
         $this->assertEquals(307, $response->getStatusCode());
-        $request = $request->withUri(new Uri("/en/lang-module/getlang/"));
+        $request = $request->withUri(new Uri("/en/lang-module/index/getlang/"));
         $response = (string)$app->handle($request)->getBody();
         $this->assertEquals("en", $response);
-        $request = $request->withUri(new Uri("/ja/lang-module/getlang/"));
+        $request = $request->withUri(new Uri("/ja/lang-module/index/getlang/"));
         $response = (string)$app->handle($request)->getBody();
         $this->assertEquals("Invalid locale 'ja'", $response);
     }
@@ -80,16 +80,16 @@ class AppTest extends TestCase
     public function testRedirect()
     {
         $request = Http::createRequestFromGlobals();
-        $request = $request->withUri(new Uri("/test-module/redirect/"));
+        $request = $request->withUri(new Uri("/test-module/index/redirect/"));
         $app = new App(__DIR__);
         $app->boot();
         $response = $app->handle($request);
         $this->assertEquals(307, $response->getStatusCode());
 
-        // Cannot call index controller directly => it should call /test-module/foo/
+        // Deep calls to index should be allowed
         $request = $request->withUri(new Uri("/test-module/index/foo/"));
         $response = $app->handle($request);
-        $this->assertEquals(307, $response->getStatusCode());
+        $this->assertNotEquals(307, $response->getStatusCode());
 
         // Cannot call index action directly => it should call /test-module/
         $request = $request->withUri(new Uri("/test-module/index/"));
@@ -109,7 +109,7 @@ class AppTest extends TestCase
     public function testAuth()
     {
         $request = Http::createRequestFromGlobals();
-        $request = $request->withUri(new Uri("/test-module/auth/"));
+        $request = $request->withUri(new Uri("/test-module/index/auth/"));
         $app = new App(__DIR__);
         $app->boot();
         $response = $app->handle($request);
@@ -119,7 +119,7 @@ class AppTest extends TestCase
     public function testValidation()
     {
         $request = Http::createRequestFromGlobals();
-        $request = $request->withUri(new Uri("/test-module/validation/"));
+        $request = $request->withUri(new Uri("/test-module/index/validation/"));
         $app = new App(__DIR__);
         $app->boot();
         $response = $app->handle($request);
@@ -149,6 +149,16 @@ class AppTest extends TestCase
         $request = $request->withUri(new Uri("/test-module/demo/func/he/llo/"));
         $response = $app->handle($request);
         $this->assertEquals("Too many parameters for action 'func' on 'TestModule\Controller\DemoController'", (string)$response->getBody());
+
+        // Test method specific routing
+        $request = $request->withUri(new Uri("/test-module/demo/method/"));
+        $request = $request->withMethod("GET");
+        $response = $app->handle($request);
+        $this->assertEquals("get", (string)$response->getBody());
+        $request = $request->withUri(new Uri("/test-module/demo/method/"));
+        $request = $request->withMethod("POST");
+        $response = $app->handle($request);
+        $this->assertEquals("post", (string)$response->getBody());
     }
 
     public function testTrailingSlash()

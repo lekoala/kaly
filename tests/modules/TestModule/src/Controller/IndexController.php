@@ -26,6 +26,16 @@ class IndexController
         return 'foo';
     }
 
+    public function methodGet()
+    {
+        return 'get';
+    }
+
+    public function methodPost()
+    {
+        return 'post';
+    }
+
     public function redirect()
     {
         throw new RedirectException("/test-module");

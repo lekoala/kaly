@@ -215,7 +215,7 @@ class App
             return null;
         }
         // We need at least two keys to find a template
-        if (!isset($routeParams['controller']) || !isset($routeParams['action'])) {
+        if (!isset($routeParams['template'])) {
             return null;
         }
 
@@ -223,12 +223,7 @@ class App
         $twig = $di->get(\Twig\Environment::class);
 
         // Build view path based on route parameters
-        $controllerFolder = mb_strtolower(get_class_name($routeParams['controller']));
-        $controllerFolder = mb_substr($controllerFolder, 0, - (strlen(self::CONTROLLER_SUFFIX)));
-        $viewName = $controllerFolder . '/' . $routeParams['action'];
-        if (isset($routeParams['module']) && $routeParams['module'] !== self::DEFAULT_MODULE) {
-            $viewName = '@' . $routeParams['module'] . '/' . $viewName;
-        }
+        $viewName = $routeParams['template'];
         $viewFile = $viewName . ".twig";
         // If we have a view, render with body as context
         if (!$twig->getLoader()->exists($viewFile)) {

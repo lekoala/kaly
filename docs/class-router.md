@@ -43,57 +43,28 @@ up to the caller's class to properly handle these.
 
 By default, the class router automatically redirect to a path with a trailing slash
 
-## Double index
+## Double index and duplicated urls
 
 By default, you cannot call /index/index/ (index method on index controller) as this causes duplicate urls.
 It will redirect to /index/ instead.
 
 /index/index/someparam/ is allowed.
 
-## Examples
+In the same spirit, you cannot call index method directly or only have the default locale.
 
-    /
+## Routing process
 
-Will be matched to App\Controller\IndexController::index
+This is how the process of routing works. Segments of the path are examined one by one.
 
-    /contact/
+- First, we check for a locale based on allowed locales.
+    - In a multilingual setup, the locale is required, except for the base path / where the default locale is assumed
+- We check for a module. This is optional, default module is assumed if nothing matches.
+- We check for a controller. If no segment (passing / or /module/), index is assumed.
+    - Note: calling other methods on index require using the /index prefix (eg: /index/myaction)
+- We look for an action. It will look for 'actionMethod' or 'action'. If none, index or __invoke is assumed
+- We collect remaining parameters based on action signature
 
-Will be matched to App\Controller\ContactController::index if it exists.
-Otherwise, it would map to App\Controller\IndexController::contact.
-
-    /contact-send/
-
-Will be matched to App\Controller\ContactSendController::index if it exists.
-Otherwise, it would map to App\Controller\IndexController::contactSend.
-
-    /contact/index/
-
-Is invalid for App\Controller\ContactController::index if it exists.
-Otherwise, it would map to App\Controller\IndexController::contact and pass "index" as the first arg.
-
-    /admin/login/
-
-Will be matched to Admin\Controller\LoginController::index if the Admin module exists.
-Otherwise it would map to App\Controller\AdminController::login.
-
-    /app/contact/
-
-Will be matched to App\Controller\AppController::index
-Default module is never matched as a segment.
-
-    /contact/send/
-
-Will be matched to App\Controller\ContactController::send
-
-    /contact/send/myemail@test.com/
-
-Will be matched to App\Controller\ContactController::send and pass myemail@test.com as a parameter
-if defined.
-
-    /user/read/1/
-
-Will be matched to App\Controller\UserController::read and pass 1 if you have a function accepting a number
-as the first parameter.
+Finally, the router will also compute a default template path based on the matched module/class/action.
 
 ## Dispatching actions
 
@@ -106,3 +77,4 @@ These parameters are:
 - action
 - params
 - locale
+- template
