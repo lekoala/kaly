@@ -13,18 +13,21 @@ use Psr\Log\LoggerInterface;
 use Kaly\Interfaces\RouterInterface;
 use Kaly\Exceptions\NotFoundException;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 use Kaly\Interfaces\ResponseProviderInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 
 /**
  * A basic app that should be created from the entry file
  */
-class App
+class App implements RequestHandlerInterface
 {
     public const MODULES_FOLDER = "modules";
     public const DEFAULT_MODULE = "App";
     public const CONTROLLER_SUFFIX = "Controller";
+    public const DEBUG_LOGGER = "debug_logger";
 
     protected bool $debug;
     protected bool $booted = false;
@@ -35,6 +38,10 @@ class App
     protected array $modules;
     protected Di $di;
     protected static App $instance;
+    /**
+     * @var array<string|MiddlewareInterface>
+     */
+    protected array $middlewares = [];
 
     /**
      * Create a new instance of the application
@@ -140,10 +147,10 @@ class App
             $definitions[LoggerInterface::class] = NullLogger::class;
         }
         // Register a debug logger (null logger if debug is disabled)
-        if (!isset($definitions['debug_logger'])) {
-            $definitions["debug_logger"] = NullLogger::class;
+        if (!isset($definitions[self::DEBUG_LOGGER])) {
+            $definitions[self::DEBUG_LOGGER] = NullLogger::class;
             if ($this->debug) {
-                $definitions["debug_logger"] = new Logger($this->baseDir . "/debug.log");
+                $definitions[self::DEBUG_LOGGER] = new Logger($this->baseDir . "/debug.log");
             }
         }
         // A simple alias to easily access request per state
@@ -186,13 +193,16 @@ class App
      * @param array<string, mixed> $params
      * @return mixed
      */
-    public function dispatch(Di $di, array $params)
+    public function dispatch(Di $di, array &$params)
     {
         $class = $params['controller'] ?? '';
         if (!$class) {
             throw new RuntimeException("Route parameters must include a 'controller' key");
         }
         $inst = $di->get($class);
+        if (method_exists($inst, "updateRouteParameters")) {
+            $inst->updateRouteParameters($params);
+        }
         $action = $params['action'] ?? '__invoke';
         $arguments = (array)$params['params'] ?? [];
         /** @var callable $callable  */
@@ -223,8 +233,10 @@ class App
         $twig = $di->get(\Twig\Environment::class);
 
         // Build view path based on route parameters
-        $viewName = $routeParams['template'];
-        $viewFile = $viewName . ".twig";
+        $viewFile = $routeParams['template'];
+        if (str_ends_with($viewFile, '.twig')) {
+            $viewFile .= ".twig";
+        }
         // If we have a view, render with body as context
         if (!$twig->getLoader()->exists($viewFile)) {
             return null;
@@ -238,6 +250,7 @@ class App
     /**
      * You can use this function to add a default router definition
      * to the DI container
+     * You can further configure this with -> config calls
      *
      * @param array<string> $modules
      * @return callable
@@ -269,14 +282,42 @@ class App
         $this->booted = true;
     }
 
+    protected function resolveMiddleware(): ?MiddlewareInterface
+    {
+        $middleware = current($this->middlewares);
+        if (!$middleware) {
+            return null;
+        }
+        if (is_string($middleware)) {
+            if (!$this->di->has($middleware)) {
+                throw new RuntimeException("Invalid middleware definition '$middleware'");
+            }
+            $middleware = $this->di->get($middleware);
+        }
+        next($this->middlewares);
+        return $middleware;
+    }
+
     /**
      * Handle a request and returns its response
+     * This may be called back by middlewares
      */
     public function handle(ServerRequestInterface $request = null): ResponseInterface
     {
         if (!$request) {
             $request = Http::createRequestFromGlobals();
         }
+
+        // This will return null once looped over all middlewares
+        $middleware = $this->resolveMiddleware();
+
+        if ($middleware) {
+            return $middleware->process($request, $this);
+        }
+
+        // Reset so that next incoming request will run through all the middlewares
+        reset($this->middlewares);
+
         $code = 200;
         $body = null;
         $routeParams = [];
@@ -308,12 +349,13 @@ class App
             $body = $this->debug ? $ex->getMessage() : 'Server error';
         }
 
-        $json = $request->getHeader('Accept') == Http::CONTENT_TYPE_JSON;
+        $acceptHtml = Http::getPreferredContentType($request) == Http::CONTENT_TYPE_HTML;
+        $acceptJson = Http::getPreferredContentType($request) == Http::CONTENT_TYPE_JSON;
         $forceJson = boolval($request->getQueryParams()['_json'] ?? false);
-        $json = $json || $forceJson;
+        $requestedJson = $acceptJson || $forceJson;
 
         // We may want to return a template that matches route params if possible
-        if (!$json && !empty($routeParams)) {
+        if ($acceptHtml && empty($routeParams['json']) && !empty($routeParams['template'])) {
             $renderedBody = $this->renderTemplate($this->di, $routeParams, $body);
             if ($renderedBody) {
                 $body = $renderedBody;
@@ -336,7 +378,7 @@ class App
         $headers = [];
 
         // We want and can return a json response
-        if ($json && is_array($body)) {
+        if ($requestedJson && !empty($routeParams['json'])) {
             $response = Http::createJsonResponse($body, $code, $headers);
         } else {
             $response = Http::createHtmlResponse($body, $code, $headers);
@@ -377,5 +419,13 @@ class App
     {
         $this->debug = $debug;
         return $this;
+    }
+
+    /**
+     * @param string|MiddlewareInterface $middleware
+     */
+    public function addMiddleware($middleware)
+    {
+        $this->middlewares[] = $middleware;
     }
 }

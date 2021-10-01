@@ -8,6 +8,7 @@ use Exception;
 use Stringable;
 use RuntimeException;
 use InvalidArgumentException;
+use JsonSerializable;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -119,7 +120,7 @@ class Http implements ResponseFactoryInterface
      * Clients are expected to check http status code, not response body
      *
      * @group Response-Factory
-     * @param string|Stringable|array<string, mixed>|null $data
+     * @param string|Stringable|JsonSerializable|array<string, mixed>|null $data
      * @param integer $code
      * @param array<string, string> $headers
      */
@@ -167,9 +168,21 @@ class Http implements ResponseFactoryInterface
         return self::respond($body, $code, $headers);
     }
 
-    public static function getPreferredLanguage(ServerRequestInterface $request): ?string
+    /**
+     * @param array<string>|null $allowed
+     */
+    public static function getPreferredLanguage(ServerRequestInterface $request, array $allowed = null): ?string
     {
-        return key(self::parseAcceptedLanguages($request));
+        $arr = self::parseAcceptedLanguages($request);
+        if ($allowed === null) {
+            return key($arr);
+        }
+        foreach ($arr as $k => $v) {
+            if (in_array($k, $allowed)) {
+                return $k;
+            }
+        }
+        return $allowed[0];
     }
 
     /**
@@ -177,13 +190,43 @@ class Http implements ResponseFactoryInterface
      */
     public static function parseAcceptedLanguages(ServerRequestInterface $request): array
     {
-        $header = $request->getServerParams()['HTTP_ACCEPT_LANGUAGE'] ?? '';
+        $header = $request->getHeader('Accept-Language')[0] ?? '';
+        if (!$header) {
+            $header = $request->getServerParams()['HTTP_ACCEPT_LANGUAGE'] ?? '';
+        }
         $arr = [];
         foreach (explode(',', $header) as $part) {
-            $subpart = explode(";q=", $part);
-            $arr[$subpart[0]] = floatval($subpart[1] ?? 1);
+            $subparts = explode(";q=", $part);
+            $arr[$subparts[0]] = floatval($subparts[1] ?? 1);
         }
         arsort($arr);
+        return $arr;
+    }
+
+    public static function getPreferredContentType(ServerRequestInterface $request, string $default = "text/plain"): ?string
+    {
+        return self::parseAcceptHeader($request)[0] ?? $default;
+    }
+
+    /**
+     * @return array<string>
+     */
+    public static function parseAcceptHeader(ServerRequestInterface $request): array
+    {
+        $header = $request->getHeader('Accept')[0] ?? '';
+        $arr = [];
+        foreach (explode(',', $header) as $part) {
+            $subparts = explode(';', $part);
+            $mime = $subparts[0] ?? '';
+            $types = explode('/', $mime);
+
+            // Ignore invalid mimetypes
+            if (!isset($types[1])) {
+                continue;
+            }
+
+            $arr[] = $mime;
+        }
         return $arr;
     }
 

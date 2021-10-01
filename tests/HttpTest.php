@@ -6,6 +6,7 @@ namespace Kaly\Tests;
 
 use Kaly\Http;
 use Nyholm\Psr7\Response;
+use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -13,6 +14,39 @@ use Psr\Http\Message\ServerRequestInterface;
 class HttpTest extends TestCase
 {
     public static array $mockResponse = [];
+
+    public function testParseLanguage()
+    {
+        /** @var ServerRequestInterface $request  */
+        $request = new ServerRequest("GET", "/");
+        $request = $request->withHeader('Accept-Language', 'en-US,en;q=0.9,fr;q=0.8');
+
+        $result = Http::parseAcceptedLanguages($request);
+        $this->assertArrayHasKey("en-US", $result);
+        $this->assertArrayHasKey("en", $result);
+        $this->assertArrayHasKey("fr", $result);
+        $this->assertEquals(0.8, $result["fr"]);
+
+        $preferred = Http::getPreferredLanguage($request);
+        $this->assertEquals("en-US", $preferred);
+
+        $preferred = Http::getPreferredLanguage($request, ['en', 'fr']);
+        $this->assertEquals("en", $preferred);
+    }
+
+    public function testParseAccept()
+    {
+        /** @var ServerRequestInterface $request  */
+        $request = new ServerRequest("GET", "/");
+        $v = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9';
+        $request = $request->withHeader('Accept', $v);
+        $result = Http::parseAcceptHeader($request);
+        $this->assertContains("text/html", $result);
+        $this->assertContains("image/webp", $result);
+
+        $preferred = Http::getPreferredContentType($request);
+        $this->assertEquals("text/html", $preferred);
+    }
 
     public function testCreateRequest()
     {

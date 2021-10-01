@@ -7,10 +7,8 @@ namespace Kaly;
 use RuntimeException;
 
 /**
- * This basic translator supports a limited subset
- * of symfony translator features.
- * It's php storage format is mostly similar so they
- * are interchangeable.
+ * This basic translator supports a limited subset of symfony translator features.
+ * It's php storage format is mostly similar so they are interchangeable.
  */
 class Translator
 {
