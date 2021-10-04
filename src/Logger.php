@@ -53,18 +53,7 @@ class Logger extends AbstractLogger
     {
         $replace = [];
         foreach ($context as $key => $val) {
-            if (is_array($val)) {
-                $val = json_encode($val, JSON_THROW_ON_ERROR);
-            } elseif (is_object($val)) {
-                if ($val instanceof Stringable) {
-                    $val = (string)$val;
-                } else {
-                    $val = get_class($val);
-                }
-            } elseif (!is_string($val)) {
-                $val = get_debug_type($val);
-            }
-            $replace['{' . $key . '}'] = $val;
+            $replace['{' . $key . '}'] = stringify($val);
         }
         return strtr($message, $replace);
     }

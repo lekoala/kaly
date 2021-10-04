@@ -9,6 +9,7 @@ use Kaly\Tests\HttpTest;
 require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../src/_functions/dump.php';
 require_once __DIR__ . '/mocks/TestApp.php';
+require_once __DIR__ . '/mocks/TestMiddleware.php';
 require_once __DIR__ . '/mocks/TestInterface.php';
 require_once __DIR__ . '/mocks/TestObject.php';
 require_once __DIR__ . '/mocks/TestObject2.php';

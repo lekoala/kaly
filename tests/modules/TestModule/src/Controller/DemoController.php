@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TestModule\Controller;
 
 use Kaly\State;
@@ -10,10 +12,16 @@ class DemoController
     protected ServerRequestInterface $request;
     protected State $state;
 
-    public function __construct(ServerRequestInterface $request, State $state)
+    public function __construct(State $state)
     {
-        $this->request = $request;
         $this->state = $state;
+        $this->request = $state->getRequest();
+    }
+
+    public function isRequestDifferent()
+    {
+        $curr = $this->state->getRequest();
+        return $curr !== $this->request ? 'yes' : 'no';
     }
 
     public function index($param = "")
@@ -37,6 +45,11 @@ class DemoController
     public function func()
     {
         return "hello func";
+    }
+
+    public function hello_func()
+    {
+        return "hello underscore";
     }
 
     public function arr(...$args)

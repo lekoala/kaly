@@ -90,6 +90,27 @@ function get_class_name(string $class): string
     return end($parts);
 }
 
+/**
+ * @param mixed $val
+ */
+function stringify($val): string
+{
+    if (is_array($val)) {
+        $val = json_encode($val, JSON_THROW_ON_ERROR);
+    } elseif (is_object($val)) {
+        if ($val instanceof Stringable) {
+            $val = (string)$val;
+        } else {
+            $val = get_class($val);
+        }
+    } elseif (is_bool($val)) {
+        $val = $val ? "(bool) true" : "(bool) false";
+    } elseif (!is_string($val)) {
+        $val = get_debug_type($val);
+    }
+    return $val;
+}
+
 if (!function_exists('t')) {
     /**
      * @param array<string, mixed> $parameters

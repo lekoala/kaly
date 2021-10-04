@@ -14,6 +14,7 @@ use Kaly\Interfaces\RouterInterface;
 use Kaly\Exceptions\NotFoundException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\MiddlewareInterface;
+use Kaly\Exceptions\AuthenticationException;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Kaly\Interfaces\ResponseProviderInterface;
@@ -24,6 +25,7 @@ use Psr\Http\Message\ResponseFactoryInterface;
  */
 class App implements RequestHandlerInterface
 {
+    public const IGNORE_DOT_ENV = "IGNORE_DOT_ENV";
     public const MODULES_FOLDER = "modules";
     public const DEFAULT_MODULE = "App";
     public const CONTROLLER_SUFFIX = "Controller";
@@ -32,12 +34,17 @@ class App implements RequestHandlerInterface
 
     protected bool $debug;
     protected bool $booted = false;
+    protected bool $hasErrorHandler = false;
     protected string $baseDir;
     /**
      * @var string[]
      */
     protected array $modules;
     protected Di $di;
+    /**
+     * The currently running instance
+     * @var App
+     */
     protected static App $instance;
     /**
      * @var array<string|MiddlewareInterface>
@@ -46,18 +53,25 @@ class App implements RequestHandlerInterface
 
     /**
      * Create a new instance of the application
-     * It only need the base directory that contains
-     * the system folders
+     *
+     * It only need the base directory that contains the system folders
+     *
+     * It will look for a .env file in the base directory except
+     * if the IGNORE_DOT_ENV env flag is set
      */
     public function __construct(string $dir)
     {
         $this->baseDir = $dir;
+        $this->loadEnv();
 
         self::$instance = $this;
     }
 
     public static function inst(): self
     {
+        if (!self::$instance) {
+            self::$instance = new static(__DIR__);
+        }
         return self::$instance;
     }
 
@@ -70,7 +84,7 @@ class App implements RequestHandlerInterface
         $envFile = $this->baseDir . '/.env';
         $result = [];
         // This can be useful to avoid stat calls
-        if (empty($_ENV['ignore_dot_env']) && is_file($envFile)) {
+        if (empty($_ENV[self::IGNORE_DOT_ENV]) && is_file($envFile)) {
             $result = parse_ini_file($envFile);
             if (!$result) {
                 die("Failed to parse $envFile");
@@ -96,8 +110,9 @@ class App implements RequestHandlerInterface
 
     /**
      * Load all modules in the modules folder and stores definitions
+     * @return array<string, mixed>
      */
-    protected function loadModules(): void
+    protected function loadModules(): array
     {
         // Modules need a config.php file. This avoids having is_file checks in the loop
         // Don't sort results as it is much faster
@@ -121,7 +136,7 @@ class App implements RequestHandlerInterface
             $definitions = $includer($file, $definitions);
         }
         $this->modules = $modules;
-        $this->di = $this->configureDi($definitions);
+        return $definitions;
     }
 
     /**
@@ -154,14 +169,6 @@ class App implements RequestHandlerInterface
                 $definitions[self::DEBUG_LOGGER] = new Logger($this->baseDir . "/debug.log");
             }
         }
-        // A simple alias to easily access request per state
-        $definitions[ServerRequestInterface::class] = function (Di $di) {
-            /** @var State $state  */
-            $state = $di->get(State::class);
-            return $state->getRequest();
-        };
-        $definitions['request'] = ServerRequestInterface::class;
-
         // A twig loader has been defined
         if (isset($definitions[\Twig\Loader\LoaderInterface::class])) {
             if ($this->debug) {
@@ -180,7 +187,6 @@ class App implements RequestHandlerInterface
                 }
             ];
         }
-
         // Some classes need true definitions, not only being available
         $strictDefinitions = [
             App::class,
@@ -269,17 +275,24 @@ class App implements RequestHandlerInterface
 
     /**
      * Init app state
-     * - reads .env files or $_ENV
      * - load modules from "modules" folder
      * - configure the Di container
+     * - add global error handler if none set
      */
     public function boot(): void
     {
         if ($this->booted) {
             throw new RuntimeException("Already booted");
         }
-        $this->loadEnv();
-        $this->loadModules();
+        $definitions = $this->loadModules();
+        $this->di = $this->configureDi($definitions);
+
+        // If there was no error handler registered, register our default handler
+        if (!$this->hasErrorHandler) {
+            $errorHandler = new ErrorHandler($this);
+            array_unshift($this->middlewares, $errorHandler);
+        }
+
         $this->booted = true;
     }
 
@@ -301,6 +314,20 @@ class App implements RequestHandlerInterface
         return $middleware;
     }
 
+    protected function processMiddlewares(ServerRequestInterface $request): ?ResponseInterface
+    {
+        // This will return null once looped over all middlewares
+        $middleware = $this->resolveMiddleware();
+        if ($middleware) {
+            return $middleware->process($request, $this);
+        }
+
+        // Reset so that next incoming request will run through all the middlewares
+        reset($this->middlewares);
+
+        return null;
+    }
+
     protected function updateRequest(ServerRequestInterface &$request): void
     {
         if (!$request->getAttribute('client-ip')) {
@@ -318,21 +345,10 @@ class App implements RequestHandlerInterface
             $request = Http::createRequestFromGlobals();
         }
 
-        // This will return null once looped over all middlewares
-        $middleware = $this->resolveMiddleware();
-
-        try {
-            if ($middleware) {
-                return $middleware->process($request, $this);
-            }
-        } catch (Exception $ex) {
-            // Let error handler middlewares act first
-            $code = 500;
-            $body = $this->debug ? $ex->getMessage() : 'Server error';
+        $response = $this->processMiddlewares($request);
+        if ($response) {
+            return $response;
         }
-
-        // Reset so that next incoming request will run through all the middlewares
-        reset($this->middlewares);
 
         $this->updateRequest($request);
 
@@ -364,6 +380,12 @@ class App implements RequestHandlerInterface
             $body = $this->debug ? $ex->getMessage() : 'The page could not be found';
         }
 
+        $response = $this->prepareResponse($request, $routeParams, $body, $code);
+        return $response;
+    }
+
+    public function prepareResponse(ServerRequestInterface $request, array $routeParams, $body = '', int $code = 200): ResponseInterface
+    {
         $acceptHtml = Http::getPreferredContentType($request) == Http::CONTENT_TYPE_HTML;
         $acceptJson = Http::getPreferredContentType($request) == Http::CONTENT_TYPE_JSON;
         $forceJson = boolval($request->getQueryParams()['_json'] ?? false);
@@ -441,11 +463,31 @@ class App implements RequestHandlerInterface
     /**
      * @param string|MiddlewareInterface $middleware
      */
-    public function addMiddleware($middleware, bool $debugOnly = false): void
+    public function addMiddleware($middleware, bool $debugOnly = false): bool
     {
+        if ($this->booted) {
+            throw new RuntimeException("Cannot add middlewares once booted");
+        }
         if ($debugOnly && !$this->debug) {
-            return;
+            return false;
         }
         $this->middlewares[] = $middleware;
+        return true;
+    }
+
+    /**
+     * This should probably be called before any other middleware
+     * @param string|MiddlewareInterface $middleware
+     */
+    public function addErrorHandler($middleware, bool $debugOnly = false): bool
+    {
+        if ($this->hasErrorHandler) {
+            throw new RuntimeException("Error handler already set");
+        }
+        $result = $this->addMiddleware($middleware, $debugOnly);
+        if ($result) {
+            $this->hasErrorHandler = true;
+        }
+        return $result;
     }
 }

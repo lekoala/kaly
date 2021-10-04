@@ -17,7 +17,7 @@ return [
         }
     ],
     // Register a dedicated logger for tests
-    'debug_logger' => function (): Logger {
+    Kaly\App::DEBUG_LOGGER => function (): Logger {
         $script = $_SERVER['SCRIPT_NAME'] ?? '';
         $basePath = substr($script, 0, strpos($script, 'vendor' . DIRECTORY_SEPARATOR . 'bin'));
         return new Logger("$basePath/tests.log");

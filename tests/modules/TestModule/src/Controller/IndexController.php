@@ -1,19 +1,21 @@
 <?php
 
+declare(strict_types=1);
+
 namespace TestModule\Controller;
 
 use Kaly\Auth;
 use Kaly\Exceptions\RedirectException;
 use Kaly\Exceptions\ValidationException;
-use Psr\Http\Message\ServerRequestInterface;
+use Kaly\State;
 
 class IndexController
 {
-    protected ServerRequestInterface $request;
+    protected State $state;
 
-    public function __construct(ServerRequestInterface $request)
+    public function __construct(State $state)
     {
-        $this->request = $request;
+        $this->state = $state;
     }
 
     public function index()
@@ -36,6 +38,17 @@ class IndexController
         return 'post';
     }
 
+    public function middleware()
+    {
+        $attr = $this->state->getRequest()->getAttribute("test-attribute");
+        return $attr;
+    }
+
+    public function getip()
+    {
+        return $this->state->getRequest()->getAttribute("client-ip");
+    }
+
     public function redirect()
     {
         throw new RedirectException("/test-module");
@@ -48,6 +61,6 @@ class IndexController
 
     public function auth()
     {
-        Auth::basicAuth($this->request, "unit", "test");
+        Auth::basicAuth($this->state->getRequest(), "unit", "test");
     }
 }

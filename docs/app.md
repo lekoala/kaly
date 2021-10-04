@@ -8,6 +8,12 @@ A kaly app is a simple class that wraps execution of your application.
 
 It takes one parameter : the base path.
 
+Note: the app kernel will look by default for a .env file (see "env variables" below).
+
+```
+DEBUG=true
+```
+
 ## Index file
 
 Here is a sample file to get you started
@@ -57,15 +63,9 @@ while ($req = $worker->waitRequest()) {
 ## Bootstrap
 
 The `run` method will do a couple of things. It will:
-- create a request object if none is passed
-- load env variables
-- load your modules
-- configure the di container
-- route the request and handle exceptions if necessary
-- controller result is then converted to a proper response
-  1. use provided response if available
-  2. or convert body to json response if header is set or using _json get variable
-  3. or convert body to html response
+- it will boot the app if not already done
+- it will handle the request (from globals if none passed)
+- and it will output the response
 
 ## Using middlewares
 
@@ -74,7 +74,6 @@ they all run on each request. They get instantiated by the DI container.
 
 ```php
 $app = new Kaly\App(dirname(__DIR__));
-$app->boot();
 // add a debug only middleware
 $app->addMiddleware(Whoops::class, true);
 // add client ip for all requests
@@ -90,7 +89,7 @@ Any env variables should be defined in the application server.
 Otherwise, you can also have an `.env` in the root of your folder.
 `.env` file are simply passed to `parse_ini_file` method.
 You can avoid the filesystem call (checking if .env exists) by setting
-a `ignore_dot_env` environment variable.
+a `IGNORE_DOT_ENV` environment variable.
 
 The only processing we do is converting "true" and "false" strings to actual booleans.
 
@@ -117,10 +116,14 @@ a module matching this.
 
 All definitions provided by the config modules are then loaded up in the Di container.
 
-Some convention based keys are also added:
-- The application itself is added to the container (and the base App class as well if you extend it)
-- The request is also stored (under its class name and the "request" alias)
-- The default router is registered if not provided
+Look into the App::configureDi method to see what's being done here.
+
+Please note the the Di container is only instantiated ONCE, when the application is booted.
+This means that subsequent requests on the same app instance will use the same Di container.
+
+As a result, we do not have direct access to the request object, as it would be cached.
+Instead, it is recommended to use our State object that get updated with the latest request instance
+each time.
 
 ## Routing
 

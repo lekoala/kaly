@@ -9,6 +9,7 @@ use Kaly\Http;
 use Nyholm\Psr7\Uri;
 use Kaly\ClassRouter;
 use Kaly\Tests\Mocks\TestApp;
+use Kaly\Tests\Mocks\TestMiddleware;
 use PHPUnit\Framework\TestCase;
 
 class AppTest extends TestCase
@@ -28,9 +29,6 @@ class AppTest extends TestCase
         $this->assertTrue($di->has(TestApp::class));
     }
 
-    /**
-     * @group only
-     */
     public function testLocaleDetection()
     {
         $app = new TestApp(__DIR__);
@@ -116,6 +114,37 @@ class AppTest extends TestCase
         $this->assertEquals(401, $response->getStatusCode());
     }
 
+    public function testMiddleware()
+    {
+        $middlewareInst = new TestMiddleware();
+
+        $request = Http::createRequestFromGlobals();
+        $request = $request->withUri(new Uri("/test-module/index/middleware/"));
+        $app = new App(__DIR__);
+        $app->addMiddleware($middlewareInst);
+        $app->boot();
+        $response = $app->handle($request);
+        $body = (string)$response->getBody();
+        $this->assertEquals($middlewareInst->getValue(), $body);
+
+        // updating the middleware will reflect in the new request
+        $middlewareInst->setValue("new");
+        $response = $app->handle($request);
+        $body = (string)$response->getBody();
+        $this->assertEquals("new", $body);
+    }
+
+    public function testRequestHasIp()
+    {
+        $request = Http::createRequestFromGlobals();
+        $request = $request->withUri(new Uri("/test-module/index/getip/"));
+        $app = new App(__DIR__);
+        $app->boot();
+        $response = $app->handle($request);
+        $body = (string)$response->getBody();
+        $this->assertNotEmpty($body);
+    }
+
     public function testValidation()
     {
         $request = Http::createRequestFromGlobals();
@@ -124,6 +153,29 @@ class AppTest extends TestCase
         $app->boot();
         $response = $app->handle($request);
         $this->assertEquals(403, $response->getStatusCode());
+    }
+
+    public function testRequestIsCached()
+    {
+        $app = new App(__DIR__);
+        $app->boot();
+        $app->setDebug(true);
+        $request = Http::createRequestFromGlobals();
+        $request = $request->withUri(new Uri("/test-module/demo/is-request-different/"));
+        $response = $app->handle($request);
+        $body = (string)$response->getBody();
+
+        $this->assertEquals('no', $body);
+
+        // Since our controller is cached, a new request is passed
+        // The initially set "request" object will not be the same as the one from our State class
+        // => always use state class
+        $request = Http::createRequestFromGlobals();
+        $request = $request->withUri(new Uri("/test-module/demo/is-request-different/"));
+        $response = $app->handle($request);
+        $body = (string)$response->getBody();
+
+        $this->assertEquals('yes', $body);
     }
 
     public function testDemoController()
@@ -143,6 +195,10 @@ class AppTest extends TestCase
         $request = $request->withUri(new Uri("/test-module/demo/func/"));
         $response = $app->handle($request);
         $this->assertEquals("hello func", (string)$response->getBody());
+        // Only dashes are converted to camel case. Underscores are valid methods.
+        $request = $request->withUri(new Uri("/test-module/demo/hello_func/"));
+        $response = $app->handle($request);
+        $this->assertEquals("hello underscore", (string)$response->getBody());
         $request = $request->withUri(new Uri("/test-module/demo/arr/he/llo/"));
         $response = $app->handle($request);
         $this->assertEquals("hello he,llo", (string)$response->getBody());
