@@ -232,7 +232,7 @@ class App implements RequestHandlerInterface
             return null;
         }
         // We need at least two keys to find a template
-        if (!isset($routeParams['template'])) {
+        if (empty($routeParams['template'])) {
             return null;
         }
 
@@ -241,7 +241,7 @@ class App implements RequestHandlerInterface
 
         // Build view path based on route parameters
         $viewFile = $routeParams['template'];
-        if (str_ends_with($viewFile, '.twig')) {
+        if (!str_ends_with($viewFile, '.twig')) {
             $viewFile .= ".twig";
         }
         // If we have a view, render with body as context
