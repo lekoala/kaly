@@ -79,7 +79,7 @@ if (!function_exists('l')) {
             $message = json_encode($message, JSON_THROW_ON_ERROR);
         }
         /** @var \Psr\Log\LoggerInterface $logger  */
-        $logger = \Kaly\App::inst()->getDi()->get("debug_logger");
+        $logger = \Kaly\App::inst()->getDi()->get(\Kaly\App::DEBUG_LOGGER);
         $logger->log(\Psr\Log\LogLevel::DEBUG, $message, $context);
     }
 }

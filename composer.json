@@ -9,19 +9,11 @@
         }
     ],
     "require": {
-        "psr/container": "^1.1|^2.0",
+        "psr/container": "^1.0|^2.0",
         "psr/log": "^1.1",
         "psr/http-server-middleware": "^1.0",
         "symfony/polyfill-php80": "^1.23",
         "symfony/polyfill-php81": "^1.23"
-    },
-    "autoload": {
-        "psr-4": {
-            "Kaly\\": "kaly/src"
-        },
-        "files": [
-            "src/_functions/global.php"
-        ]
     },
     "require-dev": {
         "nyholm/psr7": "^1.4",
@@ -30,6 +22,17 @@
         "phpstan/phpstan": "^0.12.83",
         "symfony/var-dumper": "^5.3",
         "squizlabs/php_codesniffer": "^3.6"
+    },
+    "suggest": {
+        "spiral/roadrunner": "Handle more requests with this server"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kaly\\": "kaly/src"
+        },
+        "files": [
+            "src/_functions/global.php"
+        ]
     },
     "config": {
         "sort-packages": true

@@ -23,6 +23,37 @@ $app = new Kaly\App(dirname(__DIR__));
 $app->run();
 ```
 
+## Using Road Runner
+
+You can also use RoadRunner to handle requests. Since the boot process
+happens only once, you get a really minimal overhead to handle requests.
+
+```php
+<?php
+
+use Spiral\RoadRunner;
+use Nyholm\Psr7;
+
+require "vendor/autoload.php";
+
+$worker = RoadRunner\Worker::create();
+$psrFactory = new Psr7\Factory\Psr17Factory();
+
+$worker = new RoadRunner\Http\PSR7Worker($worker, $psrFactory, $psrFactory, $psrFactory);
+
+$app = new Kaly\App(dirname(__DIR__));
+$app->boot();
+
+while ($req = $worker->waitRequest()) {
+    try {
+        $response = $app->handle($req);
+        $worker->respond($response);
+    } catch (\Throwable $e) {
+        $worker->getWorker()->error((string)$e);
+    }
+}
+```
+
 ## Bootstrap
 
 The `run` method will do a couple of things. It will:
@@ -35,6 +66,22 @@ The `run` method will do a couple of things. It will:
   1. use provided response if available
   2. or convert body to json response if header is set or using _json get variable
   3. or convert body to html response
+
+## Using middlewares
+
+It is possible to use middlewares like this. Middleware support is really simple:
+they all run on each request. They get instantiated by the DI container.
+
+```php
+$app = new Kaly\App(dirname(__DIR__));
+$app->boot();
+// add a debug only middleware
+$app->addMiddleware(Whoops::class, true);
+// add client ip for all requests
+$app->addMiddleware(ClientIp::class);
+$app->run();
+
+```
 
 ## Env variables
 
@@ -64,7 +111,7 @@ consistency.
 > The default namespace for the built-in router is `App` and it makes sense to have
 a module matching this.
 
-> Modules are not loaded in any particular order.
+> Modules are not loaded in any particular order by default.
 
 ## The DI container
 

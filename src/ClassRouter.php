@@ -41,6 +41,9 @@ class ClassRouter implements RouterInterface
      * @var string[]
      */
     protected array $allowedLocales = [];
+    /**
+     * @var string[]
+     */
     protected array $restrictLocaleToNamespaces = [];
     protected bool $forceTrailingSlash = true;
     protected int $localeLength = 2;
@@ -104,6 +107,9 @@ class ClassRouter implements RouterInterface
         return $routeParams;
     }
 
+    /**
+     * @param array<string, mixed> $routeParams
+     */
     protected function matchTemplate(array $routeParams, string $method): string
     {
         $controllerFolder = mb_strtolower(get_class_name($routeParams['controller']));
@@ -122,6 +128,9 @@ class ClassRouter implements RouterInterface
         return $viewName;
     }
 
+    /**
+     * @param array<string, mixed> $routeParams
+     */
     protected function enforceLocaleModuleUri(array &$routeParams, UriInterface $uri): void
     {
         $module = $routeParams[self::MODULE];
@@ -135,7 +144,7 @@ class ClassRouter implements RouterInterface
 
         // Is there a locale when it shouldn't be ?
         if ($module && $locale && !$isRestricted) {
-            $newUri = $this->getRedirectUri($uri, $locale);
+            $newUri = $this->getRedirectUri($uri, $locale, '');
             throw new RedirectException($newUri);
         }
         // If we have a multilingual setup, the locale is required except for restrict namespaces
@@ -185,8 +194,8 @@ class ClassRouter implements RouterInterface
         }
 
         // Don't allow the default locale as the only parameter
-        if (count($parts) === 0 && $locale == $this->allowedLocales[0]) {
-            $newUri = $this->getRedirectUri($uri, $locale);
+        if ($locale && count($parts) === 0 && $locale == $this->allowedLocales[0]) {
+            $newUri = $this->getRedirectUri($uri, $locale, '');
             throw new RedirectException($newUri);
         }
 
@@ -338,7 +347,7 @@ class ClassRouter implements RouterInterface
             // getName is only available for ReflectionNamedType
             if ($type instanceof ReflectionNamedType) {
                 // It's a default type
-                if ($type->isBuiltin()) {
+                if ($value && $type->isBuiltin()) {
                     switch ($type->getName()) {
                         case 'bool':
                             // We expect only 1 and 0

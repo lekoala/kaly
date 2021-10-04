@@ -103,6 +103,14 @@ class Di implements ContainerInterface
     }
 
     /**
+     * Check if a param is defined, even if it has a null value
+     */
+    protected function hasParameter(string $id, string $param): bool
+    {
+        return array_key_exists($id . ':' . $param, $this->definitions);
+    }
+
+    /**
      * @return mixed
      */
     protected function getParameter(string $id, string $param)
@@ -172,9 +180,8 @@ class Di implements ContainerInterface
             }
 
             // It is provided by parametrical syntax id:arg
-            $parameterValue = $this->getParameter($id, $paramName);
-            if ($parameterValue !== null) {
-                $arguments[] = $parameterValue;
+            if ($this->hasParameter($id, $paramName)) {
+                $arguments[] = $this->getParameter($id, $paramName);
                 continue;
             }
 

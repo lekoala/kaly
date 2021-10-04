@@ -27,7 +27,8 @@ class App implements RequestHandlerInterface
     public const MODULES_FOLDER = "modules";
     public const DEFAULT_MODULE = "App";
     public const CONTROLLER_SUFFIX = "Controller";
-    public const DEBUG_LOGGER = "debug_logger";
+    public const DEBUG_LOGGER = "debugLogger";
+    public const IP_REQUEST_ATTR = "client-ip";
 
     protected bool $debug;
     protected bool $booted = false;
@@ -289,13 +290,22 @@ class App implements RequestHandlerInterface
             return null;
         }
         if (is_string($middleware)) {
-            if (!$this->di->has($middleware)) {
-                throw new RuntimeException("Invalid middleware definition '$middleware'");
+            $middlewareName = (string)$middleware;
+            if (!$this->di->has($middlewareName)) {
+                throw new RuntimeException("Invalid middleware definition '$middlewareName'");
             }
-            $middleware = $this->di->get($middleware);
+            /** @var MiddlewareInterface $middleware  */
+            $middleware = $this->di->get($middlewareName);
         }
         next($this->middlewares);
         return $middleware;
+    }
+
+    protected function updateRequest(ServerRequestInterface &$request): void
+    {
+        if (!$request->getAttribute('client-ip')) {
+            $request = $request->withAttribute('client-ip', Http::getIp($request));
+        }
     }
 
     /**
@@ -311,12 +321,20 @@ class App implements RequestHandlerInterface
         // This will return null once looped over all middlewares
         $middleware = $this->resolveMiddleware();
 
-        if ($middleware) {
-            return $middleware->process($request, $this);
+        try {
+            if ($middleware) {
+                return $middleware->process($request, $this);
+            }
+        } catch (Exception $ex) {
+            // Let error handler middlewares act first
+            $code = 500;
+            $body = $this->debug ? $ex->getMessage() : 'Server error';
         }
 
         // Reset so that next incoming request will run through all the middlewares
         reset($this->middlewares);
+
+        $this->updateRequest($request);
 
         $code = 200;
         $body = null;
@@ -344,9 +362,6 @@ class App implements RequestHandlerInterface
         } catch (NotFoundException $ex) {
             $code = $ex->getCode();
             $body = $this->debug ? $ex->getMessage() : 'The page could not be found';
-        } catch (Exception $ex) {
-            $code = 500;
-            $body = $this->debug ? $ex->getMessage() : 'Server error';
         }
 
         $acceptHtml = Http::getPreferredContentType($request) == Http::CONTENT_TYPE_HTML;
@@ -392,7 +407,9 @@ class App implements RequestHandlerInterface
      */
     public function run(ServerRequestInterface $request = null): void
     {
-        $this->boot();
+        if (!$this->booted) {
+            $this->boot();
+        }
         $response = $this->handle($request);
         Http::sendResponse($response);
     }
@@ -424,8 +441,11 @@ class App implements RequestHandlerInterface
     /**
      * @param string|MiddlewareInterface $middleware
      */
-    public function addMiddleware($middleware)
+    public function addMiddleware($middleware, bool $debugOnly = false): void
     {
+        if ($debugOnly && !$this->debug) {
+            return;
+        }
         $this->middlewares[] = $middleware;
     }
 }

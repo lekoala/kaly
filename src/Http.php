@@ -169,6 +169,14 @@ class Http implements ResponseFactoryInterface
     }
 
     /**
+     * Use middlewares/client-ip for a more complete solution
+     */
+    public static function getIp(ServerRequestInterface $request): string
+    {
+        return $request->getServerParams()['REMOTE_ADDR'] ?? '0.0.0.0';
+    }
+
+    /**
      * @param array<string>|null $allowed
      */
     public static function getPreferredLanguage(ServerRequestInterface $request, array $allowed = null): ?string

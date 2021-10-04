@@ -32,11 +32,17 @@ class Translator
         $this->currentLocale = $currentLocale;
     }
 
+    /**
+     * @return array<string>
+     */
     public function getPaths(): array
     {
         return $this->paths;
     }
 
+    /**
+     * @param array<string> $paths
+     */
     public function setPaths(array $paths): self
     {
         $this->paths = $paths;
@@ -49,7 +55,10 @@ class Translator
         return $this;
     }
 
-    protected function getCatalog(string $name, string $locale)
+    /**
+     * @return array<string, mixed>
+     */
+    protected function getCatalog(string $name, string $locale): array
     {
         if (!isset($this->catalogs[$name][$locale])) {
             $this->buildCatalog($name, $locale);
@@ -57,7 +66,7 @@ class Translator
         return $this->catalogs[$name][$locale];
     }
 
-    protected function buildCatalog(string $name, string $locale)
+    protected function buildCatalog(string $name, string $locale): void
     {
         foreach ($this->paths as $path) {
             if (!isset($this->catalogs[$name])) {
@@ -78,6 +87,9 @@ class Translator
         }
     }
 
+    /**
+     * @param array<string, mixed> $parameters
+     */
     public function translate(string $message, array $parameters = [], string $domain = null, string $locale = null): string
     {
         if (!$domain) {
@@ -85,6 +97,9 @@ class Translator
         }
         if (!$locale) {
             $locale = $this->currentLocale;
+        }
+        if (!$locale) {
+            throw new RuntimeException("No locale set for translation");
         }
         $catalog = $this->getCatalog($domain, $locale);
 
@@ -123,7 +138,7 @@ class Translator
         return $translation;
     }
 
-    public function getDefaultLocale(): string
+    public function getDefaultLocale(): ?string
     {
         return $this->defaultLocale;
     }
@@ -134,7 +149,7 @@ class Translator
         return $this;
     }
 
-    public function getCurrentLocale(): string
+    public function getCurrentLocale(): ?string
     {
         return $this->currentLocale;
     }
