@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kaly;
 
 use Kaly\Di;
-use Exception;
 use Kaly\Http;
 use RuntimeException;
 use Psr\Log\NullLogger;
@@ -14,7 +13,6 @@ use Kaly\Interfaces\RouterInterface;
 use Kaly\Exceptions\NotFoundException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\MiddlewareInterface;
-use Kaly\Exceptions\AuthenticationException;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Kaly\Interfaces\ResponseProviderInterface;
