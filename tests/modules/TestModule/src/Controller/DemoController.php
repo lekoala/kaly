@@ -47,6 +47,7 @@ class DemoController
         return "hello func";
     }
 
+    //@codingStandardsIgnoreLine
     public function hello_func()
     {
         return "hello underscore";
