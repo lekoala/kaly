@@ -41,11 +41,7 @@ class App implements RequestHandlerInterface
      */
     protected array $modules;
     protected Di $di;
-    /**
-     * The currently running instance
-     * @var App
-     */
-    protected static App $instance;
+    protected static ?App $instance = null;
     /**
      * @var array<string|MiddlewareInterface>
      */
@@ -59,7 +55,7 @@ class App implements RequestHandlerInterface
      * It will look for a .env file in the base directory except
      * if the IGNORE_DOT_ENV env flag is set
      */
-    public function __construct(string $dir)
+    final public function __construct(string $dir)
     {
         $this->baseDir = $dir;
         $this->loadEnv();
@@ -69,7 +65,7 @@ class App implements RequestHandlerInterface
 
     public static function inst(): self
     {
-        if (!self::$instance) {
+        if (self::$instance === null) {
             self::$instance = new static(__DIR__);
         }
         return self::$instance;
@@ -384,6 +380,10 @@ class App implements RequestHandlerInterface
         return $response;
     }
 
+    /**
+     * @param array<string, mixed> $routeParams
+     * @param mixed $body
+     */
     public function prepareResponse(ServerRequestInterface $request, array $routeParams, $body = '', int $code = 200): ResponseInterface
     {
         $acceptHtml = Http::getPreferredContentType($request) == Http::CONTENT_TYPE_HTML;
