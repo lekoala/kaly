@@ -150,7 +150,7 @@ class App implements RequestHandlerInterface
         $definitions[ResponseFactoryInterface::class] = Http::class;
         // Register a router if none defined
         if (!isset($definitions[RouterInterface::class])) {
-            $definitions[RouterInterface::class] = $this->defineBaseRouter($this->modules);
+            $definitions[RouterInterface::class] = ClassRouter::class;
         }
         // If no logger, register a null logger
         if (!isset($definitions[LoggerInterface::class])) {
@@ -179,8 +179,15 @@ class App implements RequestHandlerInterface
                     return t($message, $parameters, $domain);
                 });
                 $twig->addFunction($function);
+                // We define early to make sure they are compiled
+                $twig->addGlobal("_state", null);
+                $twig->addGlobal("_route", null);
+                $twig->addGlobal("_controller", null);
             };
         }
+        // Sort definitions as it is much cleaner to debug
+        ksort($definitions);
+
         // Some classes need true definitions, not only being available
         $strictDefinitions = [
             App::class,
@@ -232,7 +239,9 @@ class App implements RequestHandlerInterface
         $twig = $di->get(\Twig\Environment::class);
 
         // Set some globals to allow pulling data from our controller or state
+        // Defaults globals are _self, _context, _charset
         $twig->addGlobal("_state", $di->get(State::class));
+        $twig->addGlobal("_route", $routeParams);
         if (!empty($routeParams['controller'])) {
             $twig->addGlobal("_controller", $di->get($routeParams['controller']));
         }
@@ -250,25 +259,6 @@ class App implements RequestHandlerInterface
         $body = $twig->render($viewFile, $context);
 
         return $body;
-    }
-
-    /**
-     * You can use this function to add a default router definition
-     * to the DI container
-     * You can further configure this with -> config calls
-     *
-     * @param array<string> $modules
-     * @return callable
-     */
-    protected function defineBaseRouter(array $modules): callable
-    {
-        return function () use ($modules) {
-            $classRouter = new ClassRouter();
-            $classRouter->setAllowedNamespaces($modules);
-            $classRouter->setDefaultNamespace(self::DEFAULT_MODULE);
-            $classRouter->setControllerSuffix(self::CONTROLLER_SUFFIX);
-            return $classRouter;
-        };
     }
 
     /**

@@ -22,6 +22,7 @@ use Psr\Http\Message\ServerRequestInterface;
 class ClassRouter implements RouterInterface
 {
     public const MODULE = "module";
+    public const NAMESPACE = "namespace";
     public const CONTROLLER = "controller";
     public const ACTION = "action";
     public const PARAMS = "params";
@@ -34,7 +35,7 @@ class ClassRouter implements RouterInterface
     protected string $controllerSuffix = 'Controller';
     protected string $defaultControllerName = 'Index';
     /**
-     * @var string[]
+     * @var array<string, string>
      */
     protected array $allowedNamespaces = [];
     /**
@@ -83,11 +84,12 @@ class ClassRouter implements RouterInterface
         // Do we have a specific module ?
         $module = $this->findModule($parts, $uri);
         $routeParams[self::MODULE] = $module;
+        $routeParams[self::NAMESPACE] = $this->allowedNamespaces[$module] ?? $module;
 
         $this->enforceLocaleModuleUri($routeParams, $uri);
 
         // First we need to check if we have the controller
-        $controller = $this->findController($module, $parts, $uri);
+        $controller = $this->findController($routeParams[self::NAMESPACE], $parts, $uri);
         $routeParams[self::CONTROLLER] = $controller;
         // We need a reflection for next methods
         $refl = new ReflectionClass($controller);
@@ -215,7 +217,7 @@ class ClassRouter implements RouterInterface
 
         // Does it match a specific namespace? (not the default one)
         // More specific namespaces always have priority over default
-        if (in_array($camelPart, $this->allowedNamespaces)) {
+        if (array_key_exists($camelPart, $this->allowedNamespaces)) {
             // Don't allow calling camelized parts, we use lowercase
             if ($part && $part !== strtolower($part)) {
                 $newUri = $this->getRedirectUri($uri, $part, decamelize($part));
@@ -410,13 +412,20 @@ class ClassRouter implements RouterInterface
 
     /**
      * Set the value of allowedNamespaces
-     * @param string[] $allowedNamespaces
-     * @return $this
+     * @param array<string, string> $allowedNamespaces
      */
-    public function setAllowedNamespaces(array $allowedNamespaces)
+    public function setAllowedNamespaces(array $allowedNamespaces): self
     {
-        $allowedNamespaces = array_diff($allowedNamespaces, [$this->defaultNamespace]);
         $this->allowedNamespaces = $allowedNamespaces;
+        return $this;
+    }
+
+    public function addAllowedNamespace(string $namespace, string $mapping = null): self
+    {
+        if (!$mapping) {
+            $mapping = $namespace;
+        }
+        $this->allowedNamespaces[$mapping] = $namespace;
         return $this;
     }
 
@@ -430,11 +439,11 @@ class ClassRouter implements RouterInterface
 
     /**
      * Set the value of defaultNamespace
-     * @return $this
      */
-    public function setDefaultNamespace(string $defaultNamespace)
+    public function setDefaultNamespace(string $defaultNamespace, string $mapping = null): self
     {
         $this->defaultNamespace = $defaultNamespace;
+        $this->addAllowedNamespace($defaultNamespace, $mapping);
         return $this;
     }
 
@@ -448,9 +457,8 @@ class ClassRouter implements RouterInterface
 
     /**
      * Set the value of controllerNamespace
-     * @return $this
      */
-    public function setControllerNamespace(string $controllerNamespace)
+    public function setControllerNamespace(string $controllerNamespace): self
     {
         $this->controllerNamespace = $controllerNamespace;
         return $this;
@@ -466,9 +474,8 @@ class ClassRouter implements RouterInterface
 
     /**
      * Set the value of controllerSuffix
-     * @return $this
      */
-    public function setControllerSuffix(string $controllerSuffix)
+    public function setControllerSuffix(string $controllerSuffix): self
     {
         $this->controllerSuffix = $controllerSuffix;
         return $this;
@@ -484,9 +491,8 @@ class ClassRouter implements RouterInterface
 
     /**
      * Set the value of defaultControllerName
-     * @return $this
      */
-    public function setDefaultControllerName(string $defaultControllerName)
+    public function setDefaultControllerName(string $defaultControllerName): self
     {
         $this->defaultControllerName = $defaultControllerName;
         return $this;
@@ -502,9 +508,8 @@ class ClassRouter implements RouterInterface
 
     /**
      * Set the value of forceTrailingSlash
-     * @return $this
      */
-    public function setForceTrailingSlash(bool $forceTrailingSlash)
+    public function setForceTrailingSlash(bool $forceTrailingSlash): self
     {
         $this->forceTrailingSlash = $forceTrailingSlash;
         return $this;
@@ -523,9 +528,8 @@ class ClassRouter implements RouterInterface
      * Set the value of allowedLocales
      * @param string[] $allowedLocales
      * @param string[] $namespaces
-     * @return $this
      */
-    public function setAllowedLocales(array $allowedLocales, ?array $namespaces = null)
+    public function setAllowedLocales(array $allowedLocales, ?array $namespaces = null): self
     {
         $this->allowedLocales = $allowedLocales;
         if ($namespaces !== null) {
@@ -546,9 +550,8 @@ class ClassRouter implements RouterInterface
     /**
      * Set the value of restrictLocaleToNamespaces
      * @param string[] $restrictLocaleToNamespaces
-     * @return $this
      */
-    public function setRestrictLocaleToNamespaces(array $restrictLocaleToNamespaces)
+    public function setRestrictLocaleToNamespaces(array $restrictLocaleToNamespaces): self
     {
         $this->restrictLocaleToNamespaces = $restrictLocaleToNamespaces;
         return $this;
@@ -564,9 +567,8 @@ class ClassRouter implements RouterInterface
 
     /**
      * Set the value of localeLength
-     * @return $this
      */
-    public function setLocaleLength(int $localeLength)
+    public function setLocaleLength(int $localeLength): self
     {
         $this->localeLength = $localeLength;
         return $this;

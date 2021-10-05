@@ -14,6 +14,7 @@ return [
     ClassRouter::class . "->" => [
         function (ClassRouter $router) {
             $router->setAllowedLocales(["en", "fr"], ["LangModule"]);
+            $router->addAllowedNamespace("TestModule");
         }
     ],
     // Register a dedicated logger for tests
