@@ -18,13 +18,13 @@ class DemoController
         $this->request = $state->getRequest();
     }
 
-    public function isRequestDifferent()
+    public function isRequestDifferent(ServerRequestInterface $request)
     {
         $curr = $this->state->getRequest();
         return $curr !== $this->request ? 'yes' : 'no';
     }
 
-    public function index($param = "")
+    public function index(ServerRequestInterface $request, $param = "")
     {
         if ($param) {
             return "hello $param";
@@ -32,28 +32,28 @@ class DemoController
         return "hello demo";
     }
 
-    public function methodGet()
+    public function methodGet(ServerRequestInterface $request)
     {
         return 'get';
     }
 
-    public function methodPost()
+    public function methodPost(ServerRequestInterface $request)
     {
         return 'post';
     }
 
-    public function func()
+    public function func(ServerRequestInterface $request)
     {
         return "hello func";
     }
 
     //@codingStandardsIgnoreLine
-    public function hello_func()
+    public function hello_func(ServerRequestInterface $request)
     {
         return "hello underscore";
     }
 
-    public function arr(...$args)
+    public function arr(ServerRequestInterface $request, ...$args)
     {
         return "hello " . implode(",", $args);
     }

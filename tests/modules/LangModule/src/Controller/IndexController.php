@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LangModule\Controller;
 
 use Kaly\State;
+use Psr\Http\Message\ServerRequestInterface;
 
 class IndexController
 {
@@ -15,7 +16,7 @@ class IndexController
         $this->state = $state;
     }
 
-    public function getlang()
+    public function getlang(ServerRequestInterface $request)
     {
         return $this->state->getLocale();
     }

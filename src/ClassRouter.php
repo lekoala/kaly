@@ -286,15 +286,14 @@ class ClassRouter implements RouterInterface
 
         $testPart = $params[0] ?? '';
 
-        // Index or __invoke is used by default. If first parameter is a valid method, use that instead
+        // Index or __invoke is used by default
         $action = $refl->hasMethod('__invoke') ? '__invoke' : 'index';
-        if ($testPart) {
-            if (str_starts_with($testPart, "_")) {
-                throw new NotFoundException("Action '$testPart' is not allowed");
-            }
 
+        // If first parameter is a valid method, use that instead
+        if ($testPart) {
             // Action should be lowercase camelcase
             $testAction = camelize($testPart, false);
+            // Rest style routing
             $testActionWithMethod = $testAction . ucfirst(strtolower($method));
 
             // Don't allow controller/index to be called directly because it would create duplicated urls
@@ -312,6 +311,8 @@ class ClassRouter implements RouterInterface
                 array_shift($params);
                 $action = $testAction;
             }
+
+            // More validation will take place in collectParameters
         }
 
         // Is this action available ?
@@ -340,6 +341,20 @@ class ClassRouter implements RouterInterface
 
         // Verify parameters
         $actionParams = $method->getParameters();
+
+        // First parameter must accept a request object to show it's a valid action
+        $firstParam = array_shift($actionParams);
+        if (!$firstParam) {
+            throw new NotFoundException("Action '$action' cannot handle a request");
+        }
+        $firstParamType = $firstParam->getType();
+        if (!$firstParamType instanceof ReflectionNamedType) {
+            throw new NotFoundException("Action '$action' cannot handle a request");
+        }
+        if ($firstParamType->getName() !== ServerRequestInterface::class) {
+            throw new NotFoundException("Action '$action' cannot handle a request");
+        }
+
         $i = 0;
         $acceptMany = false;
         foreach ($actionParams as $actionParam) {
@@ -350,7 +365,7 @@ class ClassRouter implements RouterInterface
             $value = $params[$i] ?? null;
             $type = $actionParam->getType();
 
-            // getName is only available for ReflectionNamedType
+            // getName is only available for ReflectionNamedType and __toString is deprecated
             if ($type instanceof ReflectionNamedType) {
                 // It's a default type
                 if ($value && $type->isBuiltin()) {

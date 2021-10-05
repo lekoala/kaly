@@ -8,6 +8,7 @@ use Kaly\Auth;
 use Kaly\Exceptions\RedirectException;
 use Kaly\Exceptions\ValidationException;
 use Kaly\State;
+use Psr\Http\Message\ServerRequestInterface;
 
 class IndexController
 {
@@ -18,48 +19,53 @@ class IndexController
         $this->state = $state;
     }
 
-    public function index()
+    public function index(ServerRequestInterface $request)
     {
         return 'hello';
     }
 
-    public function foo()
+    public function isinvalid()
+    {
+        return 'never returns';
+    }
+
+    public function foo(ServerRequestInterface $request)
     {
         return 'foo';
     }
 
-    public function methodGet()
+    public function methodGet(ServerRequestInterface $request)
     {
         return 'get';
     }
 
-    public function methodPost()
+    public function methodPost(ServerRequestInterface $request)
     {
         return 'post';
     }
 
-    public function middleware()
+    public function middleware(ServerRequestInterface $request)
     {
         $attr = $this->state->getRequest()->getAttribute("test-attribute");
         return $attr;
     }
 
-    public function getip()
+    public function getip(ServerRequestInterface $request)
     {
         return $this->state->getRequest()->getAttribute("client-ip");
     }
 
-    public function redirect()
+    public function redirect(ServerRequestInterface $request)
     {
         throw new RedirectException("/test-module");
     }
 
-    public function validation()
+    public function validation(ServerRequestInterface $request)
     {
         throw new ValidationException("This is invalid");
     }
 
-    public function auth()
+    public function auth(ServerRequestInterface $request)
     {
         Auth::basicAuth($this->state->getRequest(), "unit", "test");
     }

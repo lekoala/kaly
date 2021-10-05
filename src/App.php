@@ -197,11 +197,10 @@ class App implements RequestHandlerInterface
     }
 
     /**
-     * @param Di $di
      * @param array<string, mixed> $params
      * @return mixed
      */
-    public function dispatch(Di $di, array &$params)
+    public function dispatch(Di $di, ServerRequestInterface $request, array &$params)
     {
         $class = $params['controller'] ?? '';
         if (!$class) {
@@ -213,6 +212,8 @@ class App implements RequestHandlerInterface
         }
         $action = $params['action'] ?? '__invoke';
         $arguments = (array)$params['params'] ?? [];
+        // The request is always the first argument
+        array_unshift($arguments, $request);
         return $inst->{$action}(...$arguments);
     }
 
@@ -359,7 +360,7 @@ class App implements RequestHandlerInterface
             if (!empty($routeParams['locale'])) {
                 $state->setLocale($routeParams['locale']);
             }
-            $body = $this->dispatch($this->di, $routeParams);
+            $body = $this->dispatch($this->di, $request, $routeParams);
         } catch (ResponseProviderInterface $ex) {
             // Will be converted to a response later
             $body = $ex;

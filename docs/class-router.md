@@ -15,7 +15,7 @@ If the controller does not exists, the default controller is called (`IndexContr
 
 ## Calling actions
 
-Any unmatched part will be passed on the action. Only public methods can be called.
+Any unmatched part will be passed on the action. Only public methods accepting a `ServerRequestInterface` object can be called.
 
 Methods argument are validated by their type.
 
@@ -28,8 +28,9 @@ Works with
 ```php
 class SomeController
 {
-    function url(...$args) { ... }
-    ...
+    function url(ServerRequestInterface $request, ...$args)
+    {
+    }
 ```
 
 Extra parameters will otherwise throw errors by default.
@@ -56,13 +57,13 @@ In the same spirit, you cannot call index method directly or only have the defau
 
 This is how the process of routing works. Segments of the path are examined one by one.
 
-- First, we check for a locale based on allowed locales.
-    - In a multilingual setup, the locale is required, except for the base path / where the default locale is assumed
-- We check for a module. This is optional, default module is assumed if nothing matches.
-- We check for a controller. If no segment (passing / or /module/), index is assumed.
-    - Note: calling other methods on index require using the /index prefix (eg: /index/myaction)
-- We look for an action. It will look for 'actionMethod' or 'action'. If none, index or __invoke is assumed
-- We collect remaining parameters based on action signature
+-   First, we check for a locale based on allowed locales.
+    -   In a multilingual setup, the locale is required, except for the base path / where the default locale is assumed
+-   We check for a module. This is optional, default module is assumed if nothing matches.
+-   We check for a controller. If no segment (passing / or /module/), index is assumed.
+    -   Note: calling other methods on index require using the /index prefix (eg: /index/myaction)
+-   We look for an action. It will look for 'actionMethod' or 'action'. If none, index or \_\_invoke is assumed
+-   We collect remaining parameters based on action signature
 
 Finally, the router will also compute a default template path based on the matched module/class/action.
 
@@ -72,9 +73,10 @@ The router itself will not dispatch the action. Instead, it will return an array
 that you can use to do it yourself.
 
 These parameters are:
-- module
-- controller
-- action
-- params
-- locale
-- template
+
+-   module
+-   controller
+-   action
+-   params
+-   locale
+-   template

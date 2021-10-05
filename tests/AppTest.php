@@ -104,6 +104,19 @@ class AppTest extends TestCase
         $this->assertEquals('/test-module/', $response->getHeaderLine('Location'));
     }
 
+    public function testInvalidHandler()
+    {
+        $request = Http::createRequestFromGlobals();
+        $app = new App(__DIR__);
+        $app->boot();
+        $request = $request->withUri(new Uri("/test-module/index/isinvalid/"));
+        $response = $app->handle($request);
+        $this->assertEquals(404, $response->getStatusCode());
+        $request = $request->withUri(new Uri("/test-module/index/isinvalid"));
+        $response = $app->handle($request);
+        $this->assertEquals(307, $response->getStatusCode());
+    }
+
     public function testAuth()
     {
         $request = Http::createRequestFromGlobals();
