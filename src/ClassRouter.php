@@ -362,6 +362,7 @@ class ClassRouter implements RouterInterface
             if (!$actionParam->isOptional() && !isset($params[$i])) {
                 throw new NotFoundException("Param '$paramName' is required for action '$action' on '$class'");
             }
+            /** @var string $value  */
             $value = $params[$i] ?? null;
             $type = $actionParam->getType();
 

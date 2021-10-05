@@ -135,3 +135,9 @@ The router is also responsible to call your controllers in any way you see fit.
 
 Result of the controller call should be a `Response` object or a string/Stringable object.
 An array is also valid for json responses.
+
+## Json responses
+
+Any request accept json responses or using the ?_json flag can get a json response.
+
+This is only triggered if the route parameters have a json flag set to true.

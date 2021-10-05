@@ -117,6 +117,19 @@ class AppTest extends TestCase
         $this->assertEquals(307, $response->getStatusCode());
     }
 
+    public function testArrayParams()
+    {
+        $request = Http::createRequestFromGlobals();
+        $app = new App(__DIR__);
+        $app->boot();
+        $request = $request->withUri(new Uri("/test-module/index/arr/here,is,my/"));
+        $response = $app->handle($request);
+        $body = (string)$response->getBody();
+        $this->assertStringContainsString('"here"', $body);
+        $this->assertStringContainsString('"is"', $body);
+        $this->assertStringContainsString('"my"', $body);
+    }
+
     public function testAuth()
     {
         $request = Http::createRequestFromGlobals();

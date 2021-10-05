@@ -11,6 +11,7 @@ use Psr\Log\NullLogger;
 use Psr\Log\LoggerInterface;
 use Kaly\Interfaces\RouterInterface;
 use Kaly\Exceptions\NotFoundException;
+use Kaly\Interfaces\FaviconProviderInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -29,6 +30,18 @@ class App implements RequestHandlerInterface
     public const CONTROLLER_SUFFIX = "Controller";
     public const DEBUG_LOGGER = "debugLogger";
     public const IP_REQUEST_ATTR = "client-ip";
+    public const JSON_ROUTE_PARAM = "json";
+
+    protected const DEFAULT_IMPLEMENTATIONS = [
+        FaviconProviderInterface::class => SiteConfig::class,
+        ResponseFactoryInterface::class => Http::class,
+        LoggerInterface::class => NullLogger::class,
+        RouterInterface::class => ClassRouter::class,
+    ];
+    protected const STRICT_DEFINITIONS = [
+        App::class,
+        \Twig\Loader\LoaderInterface::class,
+    ];
 
     protected bool $debug;
     protected bool $booted = false;
@@ -146,16 +159,14 @@ class App implements RequestHandlerInterface
         if (self::class !== static::class) {
             $definitions[self::class] = static::class;
         }
-        // Register a response factory
-        $definitions[ResponseFactoryInterface::class] = Http::class;
-        // Register a router if none defined
-        if (!isset($definitions[RouterInterface::class])) {
-            $definitions[RouterInterface::class] = ClassRouter::class;
+
+        // Register our default implementations if none are provided
+        foreach (self::DEFAULT_IMPLEMENTATIONS as $interface => $className) {
+            if (!isset($definitions[$interface])) {
+                $definitions[$interface] = $className;
+            }
         }
-        // If no logger, register a null logger
-        if (!isset($definitions[LoggerInterface::class])) {
-            $definitions[LoggerInterface::class] = NullLogger::class;
-        }
+
         // Register a debug logger (null logger if debug is disabled)
         if (!isset($definitions[self::DEBUG_LOGGER])) {
             $definitions[self::DEBUG_LOGGER] = NullLogger::class;
@@ -163,6 +174,7 @@ class App implements RequestHandlerInterface
                 $definitions[self::DEBUG_LOGGER] = new Logger($this->baseDir . "/debug.log");
             }
         }
+
         // A twig loader has been defined
         // Twig has CoreExtension, EscaperExtension and OptimizerExtension loaded by default
         if (isset($definitions[\Twig\Loader\LoaderInterface::class])) {
@@ -181,19 +193,16 @@ class App implements RequestHandlerInterface
                 $twig->addFunction($function);
                 // We define early to make sure they are compiled
                 $twig->addGlobal("_state", null);
+                $twig->addGlobal("_config", null);
                 $twig->addGlobal("_route", null);
                 $twig->addGlobal("_controller", null);
             };
         }
+
         // Sort definitions as it is much cleaner to debug
         ksort($definitions);
 
-        // Some classes need true definitions, not only being available
-        $strictDefinitions = [
-            App::class,
-            \Twig\Loader\LoaderInterface::class,
-        ];
-        return new Di($definitions, $strictDefinitions);
+        return new Di($definitions, self::STRICT_DEFINITIONS);
     }
 
     /**
@@ -242,6 +251,7 @@ class App implements RequestHandlerInterface
         // Set some globals to allow pulling data from our controller or state
         // Defaults globals are _self, _context, _charset
         $twig->addGlobal("_state", $di->get(State::class));
+        $twig->addGlobal("_config", $di->get(SiteConfig::class));
         $twig->addGlobal("_route", $routeParams);
         if (!empty($routeParams['controller'])) {
             $twig->addGlobal("_controller", $di->get($routeParams['controller']));
@@ -334,6 +344,15 @@ class App implements RequestHandlerInterface
             $request = Http::createRequestFromGlobals();
         }
 
+        // Prevent generic favicon.ico requests to go through
+        if ($request->getUri()->getPath() === "/favicon.ico") {
+            /** @var FaviconProviderInterface $provider  */
+            $provider = $this->di->get(FaviconProviderInterface::class);
+            return Http::respond($provider->getSvgIcon(), 200, [
+                'Content-type' => 'image/svg+xml'
+            ]);
+        }
+
         $response = $this->processMiddlewares($request);
         if ($response) {
             return $response;
@@ -379,13 +398,14 @@ class App implements RequestHandlerInterface
      */
     public function prepareResponse(ServerRequestInterface $request, array $routeParams, $body = '', int $code = 200): ResponseInterface
     {
-        $acceptHtml = Http::getPreferredContentType($request) == Http::CONTENT_TYPE_HTML;
-        $acceptJson = Http::getPreferredContentType($request) == Http::CONTENT_TYPE_JSON;
+        $preferredType = Http::getPreferredContentType($request);
+        $acceptHtml = $preferredType == Http::CONTENT_TYPE_HTML;
+        $acceptJson = $preferredType == Http::CONTENT_TYPE_JSON;
         $forceJson = boolval($request->getQueryParams()['_json'] ?? false);
         $requestedJson = $acceptJson || $forceJson;
 
         // We may want to return a template that matches route params if possible
-        if ($acceptHtml && empty($routeParams['json']) && !empty($routeParams['template'])) {
+        if ($acceptHtml && empty($routeParams[self::JSON_ROUTE_PARAM]) && !empty($routeParams['template'])) {
             $renderedBody = $this->renderTemplate($this->di, $routeParams, $body);
             if ($renderedBody) {
                 $body = $renderedBody;
@@ -408,7 +428,7 @@ class App implements RequestHandlerInterface
         $headers = [];
 
         // We want and can return a json response
-        if ($requestedJson && !empty($routeParams['json'])) {
+        if ($requestedJson && !empty($routeParams[self::JSON_ROUTE_PARAM])) {
             $response = Http::createJsonResponse($body, $code, $headers);
         } else {
             $response = Http::createHtmlResponse($body, $code, $headers);

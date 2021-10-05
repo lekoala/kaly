@@ -34,6 +34,11 @@ class IndexController
         return 'foo';
     }
 
+    public function arr(ServerRequestInterface $request, array $arr)
+    {
+        return $arr;
+    }
+
     public function methodGet(ServerRequestInterface $request)
     {
         return 'get';
