@@ -65,7 +65,7 @@ if (!function_exists('dd')) {
      */
     function dd(...$vars): void
     {
-        call_user_func_array("dump", $vars);
+        dump(...$vars);
         exit(1);
     }
 }

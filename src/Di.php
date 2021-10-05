@@ -278,11 +278,6 @@ class Di implements ContainerInterface
             if (!method_exists($instance, $callMethod)) {
                 $this->throwError("Method `$callMethod` does not exist on `$id`");
             }
-            /** @var callable $callable  */
-            $callable = [$instance, $callMethod];
-            if (!is_callable($callable)) {
-                $this->throwError("Method `$callMethod` is not callable on `$id`");
-            }
             if (is_array($callArguments) && !array_is_list($callArguments)) {
                 // Reorganize arguments according to definition
                 // TODO: could be improved with named arguments
@@ -297,10 +292,10 @@ class Di implements ContainerInterface
                     }
                     $newArguments[] = $callArguments[$reflArgumentName];
                 }
-                call_user_func_array($callable, $newArguments);
+                $instance->{$callMethod}(...$newArguments);
             } else {
                 // This allow passing an array as the first argument if necessary
-                call_user_func($callable, $callArguments);
+                $instance->{$callMethod}($callArguments);
             }
         }
     }

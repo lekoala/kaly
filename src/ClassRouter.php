@@ -364,14 +364,24 @@ class ClassRouter implements RouterInterface
                             $value = filter_var($value, FILTER_SANITIZE_STRING);
                             break;
                         case 'int':
+                            if (!is_numeric($value)) {
+                                throw new NotFoundException("Param '$paramName' is not a valid int for action '$action' on '$class'");
+                            }
+                            $value = intval($value);
+                            break;
                         case 'float':
                             if (!is_numeric($value)) {
-                                throw new NotFoundException("Param '$paramName' is invalid for action '$action' on '$class'");
+                                throw new NotFoundException("Param '$paramName' is not a valid float for action '$action' on '$class'");
                             }
+                            $value = floatval($value);
                             break;
                     }
+
+                    // Update value
+                    $params[$i] = $value;
                 }
             }
+
             // Extra parameters are accepted for ...args type of parameters
             if ($actionParam->isVariadic()) {
                 $acceptMany = true;

@@ -81,7 +81,7 @@ class App implements RequestHandlerInterface
         if (empty($_ENV[self::IGNORE_DOT_ENV]) && is_file($envFile)) {
             $result = parse_ini_file($envFile);
             if (!$result) {
-                die("Failed to parse $envFile");
+                throw new RuntimeException("Failed to parse $envFile");
             }
         }
         foreach ($result as $k => $v) {
@@ -206,9 +206,7 @@ class App implements RequestHandlerInterface
         }
         $action = $params['action'] ?? '__invoke';
         $arguments = (array)$params['params'] ?? [];
-        /** @var callable $callable  */
-        $callable = [$inst, $action];
-        return call_user_func_array($callable, $arguments);
+        return $inst->{$action}(...$arguments);
     }
 
     /**
