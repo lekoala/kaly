@@ -9,7 +9,6 @@ use Stringable;
 use RuntimeException;
 use InvalidArgumentException;
 use JsonSerializable;
-use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;

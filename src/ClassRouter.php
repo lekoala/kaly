@@ -287,6 +287,10 @@ class ClassRouter implements RouterInterface
         // Index or __invoke is used by default. If first parameter is a valid method, use that instead
         $action = $refl->hasMethod('__invoke') ? '__invoke' : 'index';
         if ($testPart) {
+            if (str_starts_with($testPart, "_")) {
+                throw new NotFoundException("Action '$testPart' is not allowed");
+            }
+
             // Action should be lowercase camelcase
             $testAction = camelize($testPart, false);
             $testActionWithMethod = $testAction . ucfirst(strtolower($method));

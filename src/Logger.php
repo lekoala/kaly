@@ -7,7 +7,6 @@ namespace Kaly;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LogLevel;
 use RuntimeException;
-use Stringable;
 
 /**
  * A dead simple logger

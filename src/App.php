@@ -164,22 +164,22 @@ class App implements RequestHandlerInterface
             }
         }
         // A twig loader has been defined
+        // Twig has CoreExtension, EscaperExtension and OptimizerExtension loaded by default
         if (isset($definitions[\Twig\Loader\LoaderInterface::class])) {
             if ($this->debug) {
-                $definitions[\Twig\Environment::class . '->'] = [
-                    function (\Twig\Environment $twig) {
-                        $twig->enableDebug();
-                    }
-                ];
+                // @link https://twig.symfony.com/doc/3.x/functions/dump.html
+                $definitions[\Twig\Environment::class . '->'][] = function (\Twig\Environment $twig) {
+                    $twig->enableDebug();
+                    // Adds dump function to templates
+                    $twig->addExtension(new \Twig\Extension\DebugExtension());
+                };
             }
-            $definitions[\Twig\Environment::class . '->'] = [
-                function (\Twig\Environment $twig) {
-                    $function = new \Twig\TwigFunction('t', function (string $message, array $parameters = [], string $domain = null) {
-                        return t($message, $parameters, $domain);
-                    });
-                    $twig->addFunction($function);
-                }
-            ];
+            $definitions[\Twig\Environment::class . '->'][] = function (\Twig\Environment $twig) {
+                $function = new \Twig\TwigFunction('t', function (string $message, array $parameters = [], string $domain = null) {
+                    return t($message, $parameters, $domain);
+                });
+                $twig->addFunction($function);
+            };
         }
         // Some classes need true definitions, not only being available
         $strictDefinitions = [
@@ -230,6 +230,12 @@ class App implements RequestHandlerInterface
 
         /** @var \Twig\Environment $twig  */
         $twig = $di->get(\Twig\Environment::class);
+
+        // Set some globals to allow pulling data from our controller or state
+        $twig->addGlobal("_state", $di->get(State::class));
+        if (!empty($routeParams['controller'])) {
+            $twig->addGlobal("_controller", $di->get($routeParams['controller']));
+        }
 
         // Build view path based on route parameters
         $viewFile = $routeParams['template'];

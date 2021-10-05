@@ -233,6 +233,10 @@ $def = [
         ],
     ],
 ];
+
+// But actually, recommended way would be. [] operator works even for undefined indexes
+$def[TestObject4::class . '->'][] = ['testQueue' => 'one'];
+$def[TestObject4::class . '->'][] = ['testQueue' => 'two'];
 ```
 
 ## Strict definitions
