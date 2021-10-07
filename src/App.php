@@ -24,13 +24,14 @@ use Psr\Http\Message\ResponseFactoryInterface;
  */
 class App implements RequestHandlerInterface
 {
-    public const IGNORE_DOT_ENV = "IGNORE_DOT_ENV";
     public const MODULES_FOLDER = "modules";
+    public const PUBLIC_FOLDER = "public";
     public const DEFAULT_MODULE = "App";
     public const CONTROLLER_SUFFIX = "Controller";
     public const DEBUG_LOGGER = "debugLogger";
     public const IP_REQUEST_ATTR = "client-ip";
     public const JSON_ROUTE_PARAM = "json";
+    public const IGNORE_DOT_ENV = "IGNORE_DOT_ENV";
     public const ENV_DEBUG = "APP_DEBUG";
 
     protected const DEFAULT_IMPLEMENTATIONS = [
@@ -47,6 +48,7 @@ class App implements RequestHandlerInterface
     protected bool $debug;
     protected bool $booted = false;
     protected bool $hasErrorHandler = false;
+    protected bool $serveFile = false;
     protected string $baseDir;
     /**
      * @var string[]
@@ -67,10 +69,12 @@ class App implements RequestHandlerInterface
      * It will look for a .env file in the base directory except
      * if the IGNORE_DOT_ENV env flag is set
      */
-    final public function __construct(string $dir)
+    final public function __construct(string $dir, bool $loadEnv = true)
     {
         $this->baseDir = $dir;
-        $this->loadEnv();
+        if ($loadEnv) {
+            $this->loadEnv();
+        }
 
         self::$instance = $this;
     }
@@ -349,6 +353,16 @@ class App implements RequestHandlerInterface
             $request = Http::createRequestFromGlobals();
         }
 
+        // Serve public files... this should really be handled by your webserver instead
+        if ($this->serveFile) {
+            $filePath = $this->baseDir . '/' . self::PUBLIC_FOLDER . $request->getUri()->getPath();
+            if (is_file($filePath)) {
+                return Http::respond(file_get_contents($filePath), 200, [
+                    "Content-type" => mime_content_type($filePath)
+                ]);
+            }
+        }
+
         // Prevent generic favicon.ico requests to go through
         if ($request->getUri()->getPath() === "/favicon.ico") {
             /** @var FaviconProviderInterface $provider  */
@@ -393,8 +407,7 @@ class App implements RequestHandlerInterface
             $body = $this->debug ? $ex->getMessage() : 'The page could not be found';
         }
 
-        $response = $this->prepareResponse($request, $routeParams, $body, $code);
-        return $response;
+        return $this->prepareResponse($request, $routeParams, $body, $code);
     }
 
     /**
@@ -507,5 +520,16 @@ class App implements RequestHandlerInterface
             $this->hasErrorHandler = true;
         }
         return $result;
+    }
+
+    public function getServeFile(): bool
+    {
+        return $this->serveFile;
+    }
+
+    public function setServeFile(bool $serveFile): self
+    {
+        $this->serveFile = $serveFile;
+        return $this;
     }
 }
