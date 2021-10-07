@@ -16,7 +16,7 @@ class AppTest extends TestCase
 {
     protected function setUp(): void
     {
-        $_ENV['DEBUG'] = true;
+        $_ENV[App::ENV_DEBUG] = true;
     }
 
     public function testAppExtension()

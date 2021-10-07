@@ -10,8 +10,10 @@ It takes one parameter : the base path.
 
 Note: the app kernel will look by default for a .env file (see "env variables" below).
 
+The env variables are following the same conventions as Laravel or Symfony.
+
 ```
-DEBUG=true
+APP_DEBUG=true
 ```
 
 ## Index file

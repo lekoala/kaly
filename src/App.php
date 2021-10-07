@@ -31,6 +31,7 @@ class App implements RequestHandlerInterface
     public const DEBUG_LOGGER = "debugLogger";
     public const IP_REQUEST_ATTR = "client-ip";
     public const JSON_ROUTE_PARAM = "json";
+    public const ENV_DEBUG = "APP_DEBUG";
 
     protected const DEFAULT_IMPLEMENTATIONS = [
         FaviconProviderInterface::class => SiteConfig::class,
@@ -112,7 +113,7 @@ class App implements RequestHandlerInterface
         }
 
         // Initialize our app variables based on env conventions
-        $this->debug = boolval($_ENV['DEBUG'] ?? false);
+        $this->debug = boolval($_ENV[self::ENV_DEBUG] ?? false);
     }
 
     /**
