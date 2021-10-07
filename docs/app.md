@@ -76,8 +76,8 @@ they all run on each request. They get instantiated by the DI container.
 
 ```php
 $app = new Kaly\App(dirname(__DIR__));
-// add a debug only middleware
-$app->addMiddleware(Whoops::class, true);
+// add a debug only middleware as error handler
+$app->addErrorHandler(Whoops::class, true);
 // add client ip for all requests
 $app->addMiddleware(ClientIp::class);
 $app->run();

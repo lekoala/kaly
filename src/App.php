@@ -83,9 +83,13 @@ class App implements RequestHandlerInterface
         return self::$instance;
     }
 
+    public function relativePath(string $path): string
+    {
+        return str_replace($this->baseDir, '', $path);
+    }
+
     /**
-     * Load environment variable and init app settings
-     * based on them
+     * Load environment variable and init app settings based on them
      */
     protected function loadEnv(): void
     {

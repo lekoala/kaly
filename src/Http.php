@@ -242,8 +242,11 @@ class Http implements ResponseFactoryInterface
      */
     public static function sendResponse(ResponseInterface $response, int $bufferLength = null): void
     {
-        if (headers_sent()) {
-            throw new RuntimeException("Headers already sent");
+        /** @var string $filename  */
+        $filename = $line = null;
+        if (headers_sent($filename, $line)) {
+            $filename = basename($filename);
+            throw new RuntimeException("Headers already sent in $filename on line $line");
         }
 
         if (ob_get_level() > 0 && ob_get_length() > 0) {

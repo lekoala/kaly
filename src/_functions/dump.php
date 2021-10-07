@@ -9,9 +9,7 @@ if (!function_exists('dump')) {
     function dump(...$vars): void
     {
         // You can override with your own settings
-        if (!defined('DUMP_IDE_PLACEHOLDER')) {
-            define('DUMP_IDE_PLACEHOLDER', 'vscode://file/{file}:{line}:0');
-        }
+        $idePlaceholder = $_ENV['DUMP_IDE_PLACEHOLDER'] ?? 'vscode://file/{file}:{line}:0';
         // Get caller info
         $file = '';
         $basefile = "unknown";
@@ -50,7 +48,7 @@ if (!function_exists('dump')) {
             if (in_array(\PHP_SAPI, ['cli', 'phpdbg'])) {
                 echo "$name in $basefile:$line\n";
             } else {
-                $ideLink = str_replace(['{file}', '{line}'], [$file, $line], DUMP_IDE_PLACEHOLDER);
+                $ideLink = str_replace(['{file}', '{line}'], [$file, $line], $idePlaceholder);
                 echo "<pre>$name in <a href=\"$ideLink\">$basefile:$line</a></pre>";
             }
             \Symfony\Component\VarDumper\VarDumper::dump($v);
