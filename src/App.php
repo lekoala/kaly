@@ -26,6 +26,7 @@ class App implements RequestHandlerInterface
 {
     public const MODULES_FOLDER = "modules";
     public const PUBLIC_FOLDER = "public";
+    public const TEMP_FOLDER = "temp";
     public const DEFAULT_MODULE = "App";
     public const CONTROLLER_SUFFIX = "Controller";
     public const DEBUG_LOGGER = "debugLogger";
@@ -90,6 +91,15 @@ class App implements RequestHandlerInterface
     public function relativePath(string $path): string
     {
         return str_replace($this->baseDir, '', $path);
+    }
+
+    public function makeTempFolder(string $folder): string
+    {
+        $dir = $this->baseDir . '/' . self::TEMP_FOLDER . '/' . $folder;
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755);
+        }
+        return $dir;
     }
 
     /**
@@ -205,6 +215,10 @@ class App implements RequestHandlerInterface
                 $twig->addGlobal("_config", null);
                 $twig->addGlobal("_route", null);
                 $twig->addGlobal("_controller", null);
+                //
+                if (!$this->debug) {
+                    $twig->setCache($this->makeTempFolder('twig'));
+                }
             };
         }
 
@@ -292,6 +306,12 @@ class App implements RequestHandlerInterface
         if ($this->booted) {
             throw new RuntimeException("Already booted");
         }
+
+        $tempDir = $this->baseDir . '/' . self::TEMP_FOLDER;
+        if (!is_dir($tempDir)) {
+            mkdir($tempDir, 0755);
+        }
+
         $definitions = $this->loadModules();
         $this->di = $this->configureDi($definitions);
 
@@ -465,6 +485,11 @@ class App implements RequestHandlerInterface
         }
         $response = $this->handle($request);
         Http::sendResponse($response);
+    }
+
+    public function getBaseDir(): string
+    {
+        return $this->baseDir;
     }
 
     /**
