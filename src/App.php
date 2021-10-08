@@ -32,6 +32,8 @@ class App implements RequestHandlerInterface
     public const DEBUG_LOGGER = "debugLogger";
     public const IP_REQUEST_ATTR = "client-ip";
     public const JSON_ROUTE_PARAM = "json";
+    public const VIEW_TWIG = "twig";
+    public const VIEW_PLATES = "plates";
     public const IGNORE_DOT_ENV = "IGNORE_DOT_ENV";
     public const ENV_DEBUG = "APP_DEBUG";
 
@@ -41,15 +43,12 @@ class App implements RequestHandlerInterface
         LoggerInterface::class => NullLogger::class,
         RouterInterface::class => ClassRouter::class,
     ];
-    protected const STRICT_DEFINITIONS = [
-        App::class,
-        \Twig\Loader\LoaderInterface::class,
-    ];
 
     protected bool $debug;
     protected bool $booted = false;
     protected bool $hasErrorHandler = false;
     protected bool $serveFile = false;
+    protected ?string $viewEngine = null;
     protected string $baseDir;
     /**
      * @var string[]
@@ -172,6 +171,9 @@ class App implements RequestHandlerInterface
      */
     public function configureDi(array $definitions): Di
     {
+        $strictDefinitions = [
+            App::class,
+        ];
         // Register the app itself
         $definitions[static::class] = $this;
         // Create an alias if necessary
@@ -194,38 +196,21 @@ class App implements RequestHandlerInterface
             }
         }
 
-        // A twig loader has been defined
-        // Twig has CoreExtension, EscaperExtension and OptimizerExtension loaded by default
+        // Check for a view engine
         if (isset($definitions[\Twig\Loader\LoaderInterface::class])) {
-            if ($this->debug) {
-                // @link https://twig.symfony.com/doc/3.x/functions/dump.html
-                $definitions[\Twig\Environment::class . '->'][] = function (\Twig\Environment $twig) {
-                    $twig->enableDebug();
-                    // Adds dump function to templates
-                    $twig->addExtension(new \Twig\Extension\DebugExtension());
-                };
-            }
-            $definitions[\Twig\Environment::class . '->'][] = function (\Twig\Environment $twig) {
-                $function = new \Twig\TwigFunction('t', function (string $message, array $parameters = [], string $domain = null) {
-                    return t($message, $parameters, $domain);
-                });
-                $twig->addFunction($function);
-                // We define early to make sure they are compiled
-                $twig->addGlobal("_state", null);
-                $twig->addGlobal("_config", null);
-                $twig->addGlobal("_route", null);
-                $twig->addGlobal("_controller", null);
-                //
-                if (!$this->debug) {
-                    $twig->setCache($this->makeTempFolder('twig'));
-                }
-            };
+            $strictDefinitions[] = \Twig\Loader\LoaderInterface::class;
+            ViewBridge::configureTwig($this, $definitions);
+            $this->viewEngine = self::VIEW_TWIG;
+        } elseif (isset($definitions[\League\Plates\Engine::class])) {
+            $strictDefinitions[] = \League\Plates\Engine::class;
+            ViewBridge::configurePlates($this, $definitions);
+            $this->viewEngine = self::VIEW_PLATES;
         }
 
         // Sort definitions as it is much cleaner to debug
         ksort($definitions);
 
-        return new Di($definitions, self::STRICT_DEFINITIONS);
+        return new Di($definitions, $strictDefinitions);
     }
 
     /**
@@ -243,7 +228,10 @@ class App implements RequestHandlerInterface
             $inst->updateRouteParameters($params);
         }
         $action = $params['action'] ?? '__invoke';
-        $arguments = (array)$params['params'] ?? [];
+        $arguments = $params['params'] ?? [];
+        if (!is_array($arguments)) {
+            throw new RuntimeException("Arguments must be a valid array");
+        }
         // The request is always the first argument
         array_unshift($arguments, $request);
         return $inst->{$action}(...$arguments);
@@ -255,10 +243,6 @@ class App implements RequestHandlerInterface
      */
     protected function renderTemplate(Di $di, array $routeParams, $body = null): ?string
     {
-        // Check if we have a twig instance
-        if (!$di->has(\Twig\Loader\LoaderInterface::class)) {
-            return null;
-        }
         // We only support empty body or a context array
         if ($body && !is_array($body)) {
             return null;
@@ -268,29 +252,14 @@ class App implements RequestHandlerInterface
             return null;
         }
 
-        /** @var \Twig\Environment $twig  */
-        $twig = $di->get(\Twig\Environment::class);
-
-        // Set some globals to allow pulling data from our controller or state
-        // Defaults globals are _self, _context, _charset
-        $twig->addGlobal("_state", $di->get(State::class));
-        $twig->addGlobal("_config", $di->get(SiteConfig::class));
-        $twig->addGlobal("_route", $routeParams);
-        if (!empty($routeParams['controller'])) {
-            $twig->addGlobal("_controller", $di->get($routeParams['controller']));
+        switch ($this->viewEngine) {
+            case self::VIEW_TWIG:
+                $body = ViewBridge::renderTwig($di, $routeParams, $body);
+                break;
+            case self::VIEW_PLATES:
+                $body = ViewBridge::renderPlates($di, $routeParams, $body);
+                break;
         }
-
-        // Build view path based on route parameters
-        $viewFile = $routeParams['template'];
-        if (!str_ends_with($viewFile, '.twig')) {
-            $viewFile .= ".twig";
-        }
-        // If we have a view, render with body as context
-        if (!$twig->getLoader()->exists($viewFile)) {
-            return null;
-        }
-        $context = $body ? $body : [];
-        $body = $twig->render($viewFile, $context);
 
         return $body;
     }
@@ -377,8 +346,16 @@ class App implements RequestHandlerInterface
         if ($this->serveFile) {
             $filePath = $this->baseDir . '/' . self::PUBLIC_FOLDER . $request->getUri()->getPath();
             if (is_file($filePath)) {
-                return Http::respond(file_get_contents($filePath), 200, [
-                    "Content-type" => mime_content_type($filePath)
+                $contents = file_get_contents($filePath);
+                if (!$contents) {
+                    throw new RuntimeException("Failed to read file");
+                }
+                $contentType = mime_content_type($filePath);
+                if (!$contentType) {
+                    $contentType = Http::CONTENT_TYPE_STREAM;
+                }
+                return Http::respond($contents, 200, [
+                    "Content-type" => $contentType
                 ]);
             }
         }

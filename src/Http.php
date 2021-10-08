@@ -26,11 +26,13 @@ use Psr\Http\Message\ResponseFactoryInterface;
  */
 class Http implements ResponseFactoryInterface
 {
+    public const CONTENT_TYPE_PLAIN = 'text/plain';
     public const CONTENT_TYPE_HTML = 'text/html';
     public const CONTENT_TYPE_CSS = 'text/css';
     public const CONTENT_TYPE_FORM = 'multipart/form-data';
     public const CONTENT_TYPE_JSON = 'application/json';
     public const CONTENT_TYPE_JS = 'application/javascript';
+    public const CONTENT_TYPE_STREAM = 'application/octet-stream';
 
     /**
      * Create a request from $_SERVER globals
