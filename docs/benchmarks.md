@@ -64,12 +64,13 @@ You might be wondering what is the impact of using RoadRunner vs a regular setup
 
 Using a similar setup as the one described above, here is what we get.
 
-| Item         | Req/s     | Notes                                     |
-|--------------|-----------|-------------------------------------------|
-| Baseline     | 2332      |                                           |
-| Kaly         | 124       |                                           |
-| Kaly + RR    | 947       | We can also serve static assets if needed |
-| Kaly + RR    | 1897      | Plain hello world                         |
+| Item               | Req/s     |
+|--------------------|-----------|
+| Baseline           | 2332      |
+| Kaly               | 124       |
+| Kaly Hello         | 458       |
+| Kaly + RR          | 947       |
+| Kaly Hello + RR    | 1897      |
 
 Using RoadRunner gives 5 to 10 times more req/s on average, which is impressive.
 
