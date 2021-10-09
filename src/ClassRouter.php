@@ -7,6 +7,7 @@ namespace Kaly;
 use ReflectionClass;
 use ReflectionNamedType;
 use Psr\Http\Message\UriInterface;
+use Kaly\Interfaces\RouteInterface;
 use Kaly\Interfaces\RouterInterface;
 use Kaly\Exceptions\NotFoundException;
 use Kaly\Exceptions\RedirectException;
@@ -21,14 +22,6 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 class ClassRouter implements RouterInterface
 {
-    public const MODULE = "module";
-    public const NAMESPACE = "namespace";
-    public const CONTROLLER = "controller";
-    public const ACTION = "action";
-    public const PARAMS = "params";
-    public const LOCALE = "locale";
-    public const SEGMENTS = "segments";
-    public const TEMPLATE = "template";
 
     protected string $defaultNamespace = 'App';
     protected string $controllerNamespace = 'Controller';
@@ -75,36 +68,36 @@ class ClassRouter implements RouterInterface
 
         $trimmedPath = trim($path, '/');
         $parts = array_filter(explode("/", $trimmedPath));
-        $routeParams[self::SEGMENTS] = $parts;
+        $routeParams[RouteInterface::SEGMENTS] = $parts;
 
         // Maybe we have a locale as a prefix
         $locale = $this->findLocale($parts, $uri);
-        $routeParams[self::LOCALE] = $locale;
+        $routeParams[RouteInterface::LOCALE] = $locale;
 
         // Do we have a specific module ?
         $module = $this->findModule($parts, $uri);
-        $routeParams[self::MODULE] = $module;
-        $routeParams[self::NAMESPACE] = $this->allowedNamespaces[$module] ?? $module;
+        $routeParams[RouteInterface::MODULE] = $module;
+        $routeParams[RouteInterface::NAMESPACE] = $this->allowedNamespaces[$module] ?? $module;
 
         $this->enforceLocaleModuleUri($routeParams, $uri);
 
         // First we need to check if we have the controller
-        $controller = $this->findController($routeParams[self::NAMESPACE], $parts, $uri);
-        $routeParams[self::CONTROLLER] = $controller;
+        $controller = $this->findController($routeParams[RouteInterface::NAMESPACE], $parts, $uri);
+        $routeParams[RouteInterface::CONTROLLER] = $controller;
         // We need a reflection for next methods
         $refl = new ReflectionClass($controller);
 
         // If the action exists (or index if set)
         $action = $this->findAction($refl, $parts, $uri, $request->getMethod());
-        $routeParams[self::ACTION] = $action;
+        $routeParams[RouteInterface::ACTION] = $action;
 
         // Remaining parts are passed as arguments to the action
         $params = $this->collectParameters($refl, $action, $parts);
-        $routeParams[self::PARAMS] = $params;
+        $routeParams[RouteInterface::PARAMS] = $params;
 
         // This will allow us to find a matching template to render controller's result
         $template = $this->matchTemplate($routeParams, $request->getMethod());
-        $routeParams[self::TEMPLATE] = $template;
+        $routeParams[RouteInterface::TEMPLATE] = $template;
 
         return $routeParams;
     }
@@ -114,17 +107,17 @@ class ClassRouter implements RouterInterface
      */
     protected function matchTemplate(array $routeParams, string $method): string
     {
-        $controllerFolder = mb_strtolower(get_class_name($routeParams['controller']));
+        $controllerFolder = mb_strtolower(get_class_name($routeParams[RouteInterface::CONTROLLER]));
         $controllerFolder = mb_substr($controllerFolder, 0, - (strlen($this->controllerSuffix)));
 
-        $action = $routeParams['action'];
+        $action = $routeParams[RouteInterface::ACTION];
         // Remove method from action
         if (str_ends_with($action, ucfirst(strtolower($method)))) {
             $action = substr($action, 0, strlen($action) - strlen($method));
         }
         $viewName = $controllerFolder . '/' . $action;
-        if (isset($routeParams['module']) && $routeParams['module'] !== $this->defaultNamespace) {
-            $viewName = '@' . $routeParams['module'] . '/' . $viewName;
+        if (isset($routeParams[RouteInterface::MODULE]) && $routeParams[RouteInterface::MODULE] !== $this->defaultNamespace) {
+            $viewName = '@' . $routeParams[RouteInterface::MODULE] . '/' . $viewName;
         }
 
         return $viewName;
@@ -135,9 +128,9 @@ class ClassRouter implements RouterInterface
      */
     protected function enforceLocaleModuleUri(array &$routeParams, UriInterface $uri): void
     {
-        $module = $routeParams[self::MODULE];
-        $locale = $routeParams[self::LOCALE];
-        $parts = $routeParams[self::SEGMENTS];
+        $module = $routeParams[RouteInterface::MODULE];
+        $locale = $routeParams[RouteInterface::LOCALE];
+        $parts = $routeParams[RouteInterface::SEGMENTS];
 
         $isRestricted = true;
         if (!empty($this->restrictLocaleToNamespaces)) {
@@ -159,7 +152,7 @@ class ClassRouter implements RouterInterface
         }
         // Single language is forced through the router
         if (!$locale && !empty($this->allowedLocales)) {
-            $routeParams[self::LOCALE] = $this->allowedLocales[0];
+            $routeParams[RouteInterface::LOCALE] = $this->allowedLocales[0];
         }
     }
 
