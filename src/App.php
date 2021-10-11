@@ -101,11 +101,14 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         return str_replace($this->baseDir, '', $path);
     }
 
-    public function makeTempFolder(string $folder): string
+    public function makeTemp(string $folder, string $file = null): string
     {
-        $dir = $this->baseDir . '/' . self::TEMP_FOLDER . '/' . $folder;
+        $dir = $this->baseDir . DIRECTORY_SEPARATOR . self::TEMP_FOLDER . DIRECTORY_SEPARATOR . $folder;
         if (!is_dir($dir)) {
             mkdir($dir, 0755);
+        }
+        if ($file) {
+            $dir .= DIRECTORY_SEPARATOR . $file;
         }
         return $dir;
     }
@@ -322,7 +325,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         if (!$this->debug) {
             /** @var Translator $translator  */
             $translator = $this->di->get(Translator::class);
-            $translator->setCacheFile($this->makeTempFolder("translator") . "/catalogs.php");
+            $translator->setCacheFile($this->makeTemp("translator", "catalogs.php"));
         }
 
         $this->booted = true;

@@ -35,7 +35,7 @@ class ViewBridge
             $twig->addGlobal("_controller", null);
             //
             if (!$app->getDebug()) {
-                $twig->setCache($app->makeTempFolder('twig'));
+                $twig->setCache($app->makeTemp('twig'));
             }
         };
     }
