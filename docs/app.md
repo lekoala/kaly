@@ -72,17 +72,26 @@ The `run` method will do a couple of things. It will:
 ## Using middlewares
 
 It is possible to use middlewares like this. Middleware support is really simple:
-they all run on each request. They get instantiated by the DI container.
+they run on each request if their matching condition is met. 
+They get instantiated by the DI container.
 
 ```php
-$app = new Kaly\App(dirname(__DIR__));
-// add a debug only middleware as error handler
-$app->addErrorHandler(Whoops::class, true);
-// add client ip for all requests
-$app->addMiddleware(ClientIp::class);
+$app = new App(dirname(__DIR__));
+$app
+    ->addErrorHandler(Whoops::class, function (App $app) {
+        return $app->getDebug();
+    })
+    ->addMiddleware(BasicAuthentication::class, function (State $state) {
+        return str_starts_with($state->getRequest()->getUri()->getPath(), '/admin');
+    })
+    ->addMiddleware(ClientIp::class);
+
 $app->run();
 
 ```
+
+Note: remember that the di container does NOT contain a reference to the request
+and that you need to use our state class.
 
 ## Env variables
 

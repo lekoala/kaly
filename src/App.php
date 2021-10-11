@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace Kaly;
 
-use ErrorException;
+use Closure;
 use Kaly\Di;
+use Exception;
 use Kaly\Http;
+use ErrorException;
 use RuntimeException;
 use Psr\Log\NullLogger;
+use ReflectionFunction;
+use ReflectionNamedType;
 use Psr\Log\LoggerInterface;
 use Kaly\Interfaces\RouterInterface;
 use Kaly\Exceptions\NotFoundException;
@@ -59,7 +63,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     protected Di $di;
     protected static ?App $instance = null;
     /**
-     * @var array<class-string|MiddlewareInterface>
+     * @var array<mixed>
      */
     protected array $middlewares = [];
 
@@ -309,7 +313,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         // If there was no error handler registered, register our default handler
         if (!$this->hasErrorHandler) {
             $errorHandler = new ErrorHandler($this);
-            array_unshift($this->middlewares, $errorHandler);
+            array_unshift($this->middlewares, ['middleware' => $errorHandler, 'condition' => null]);
         }
 
         $this->booted = true;
@@ -318,7 +322,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     /**
      * @param class-string|MiddlewareInterface $middleware
      */
-    protected function resolveMiddleware($middleware): ?MiddlewareInterface
+    protected function resolveMiddleware($middleware): MiddlewareInterface
     {
         if (is_string($middleware)) {
             $middlewareName = (string)$middleware;
@@ -368,6 +372,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
+        // After all others middlewares are called, update request if necessary with required attributes
         $this->updateRequest($request);
 
         $code = 200;
@@ -411,6 +416,11 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             $request = Http::createRequestFromGlobals();
         }
 
+        // We need to set the request in case we use it in our middleware conditions
+        /** @var State $state */
+        $state = $this->di->get(State::class);
+        $state->setRequest($request);
+
         // Serve public files... this should really be handled by your webserver instead
         if ($this->serveFile) {
             $fileResponse = $this->serveFile($request->getUri()->getPath());
@@ -424,21 +434,52 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             return $this->serveFavicon();
         }
 
+
+
         // Keep this into handle function to avoid spamming the stack with method calls
-        $middleware = current($this->middlewares);
+        $opts = current($this->middlewares);
         next($this->middlewares);
 
-        if ($middleware) {
-            $middleware = $this->resolveMiddleware($middleware);
-            if ($middleware) {
-                return $middleware->process($request, $this);
+        if ($opts) {
+            /** @var Closure|null $condition  */
+            $condition = $opts['condition'];
+            if ($condition) {
+                $result = (bool)$this->inject($condition);
+                if (!$result) {
+                    return $this->handle($request);
+                }
             }
+
+            /** @var class-string|MiddlewareInterface $handler  */
+            $handler = $opts['middleware'];
+            $middleware = $this->resolveMiddleware($handler);
+            return $middleware->process($request, $this);
         }
 
         // Reset so that next incoming request will run through all the middlewares
         reset($this->middlewares);
 
         return $this->process($request, $this);
+    }
+
+    /**
+     * @param Closure $callable
+     * @return mixed
+     */
+    public function inject($callable)
+    {
+        $refl = new ReflectionFunction($callable);
+        $reflParameters = $refl->getParameters();
+        $params = [];
+        foreach ($reflParameters as $reflParameter) {
+            $type = $reflParameter->getType();
+            if (!$type instanceof ReflectionNamedType) {
+                throw new Exception("Parameter has no name");
+            }
+            $params[] = $this->di->get($type->getName());
+        }
+        $result = $callable(...$params);
+        return $result;
     }
 
     /**
@@ -530,32 +571,29 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     /**
      * @param class-string|MiddlewareInterface $middleware
      */
-    public function addMiddleware($middleware, bool $debugOnly = false): bool
+    public function addMiddleware($middleware, Closure $condition = null): self
     {
         if ($this->booted) {
             throw new RuntimeException("Cannot add middlewares once booted");
         }
-        if ($debugOnly && !$this->debug) {
-            return false;
-        }
-        $this->middlewares[] = $middleware;
-        return true;
+        $this->middlewares[] = [
+            'middleware' => $middleware,
+            'condition' => $condition,
+        ];
+        return $this;
     }
 
     /**
      * This should probably be called before any other middleware
      * @param class-string|MiddlewareInterface $middleware
      */
-    public function addErrorHandler($middleware, bool $debugOnly = false): bool
+    public function addErrorHandler($middleware, Closure $condition = null): self
     {
         if ($this->hasErrorHandler) {
             throw new RuntimeException("Error handler already set");
         }
-        $result = $this->addMiddleware($middleware, $debugOnly);
-        if ($result) {
-            $this->hasErrorHandler = true;
-        }
-        return $result;
+        $this->hasErrorHandler = true;
+        return $this->addMiddleware($middleware, $condition);
     }
 
     public function getServeFile(): bool
