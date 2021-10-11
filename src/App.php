@@ -5,17 +5,18 @@ declare(strict_types=1);
 namespace Kaly;
 
 use Kaly\Di;
+use Exception;
 use Kaly\Http;
 use RuntimeException;
 use Psr\Log\NullLogger;
 use Psr\Log\LoggerInterface;
 use Kaly\Interfaces\RouterInterface;
 use Kaly\Exceptions\NotFoundException;
-use Kaly\Interfaces\FaviconProviderInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Kaly\Interfaces\FaviconProviderInterface;
 use Kaly\Interfaces\ResponseProviderInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 
@@ -36,6 +37,7 @@ class App implements RequestHandlerInterface
     public const VIEW_PLATES = "plates";
     public const IGNORE_DOT_ENV = "IGNORE_DOT_ENV";
     public const ENV_DEBUG = "APP_DEBUG";
+    public const ENV_TIMEZONE = "APP_TIMEZONE";
 
     protected const DEFAULT_IMPLEMENTATIONS = [
         FaviconProviderInterface::class => SiteConfig::class,
@@ -75,6 +77,7 @@ class App implements RequestHandlerInterface
         if ($loadEnv) {
             $this->loadEnv();
         }
+        $this->configureEnv();
 
         self::$instance = $this;
     }
@@ -120,17 +123,36 @@ class App implements RequestHandlerInterface
             if (isset($_ENV[$k])) {
                 throw new RuntimeException("Could not redefine $k in ENV");
             }
-            // Make sure that true/false will be converted to proper bool
+            // Convert to proper types
             if ($v === 'true') {
                 $v = true;
             } elseif ($v === 'false') {
                 $v = false;
+            } elseif ($v === 'null') {
+                $v = null;
             }
             $_ENV[$k] = $v;
         }
+    }
 
+    protected function configureEnv(): void
+    {
         // Initialize our app variables based on env conventions
         $this->debug = boolval($_ENV[self::ENV_DEBUG] ?? false);
+
+        // Configure errors
+        $level = $this->debug ? -1 : 0;
+        error_reporting($level);
+        set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline) {
+            if (error_reporting() === 0) {
+                return false;
+            }
+            throw new Exception($errstr, $errno);
+        });
+
+        // Dates
+        $timezoneId = $_ENV[self::ENV_TIMEZONE] ?? 'UTC';
+        date_default_timezone_set($timezoneId);
     }
 
     /**
