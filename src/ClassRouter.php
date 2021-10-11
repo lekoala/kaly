@@ -40,7 +40,10 @@ class ClassRouter implements RouterInterface
      */
     protected array $restrictLocaleToNamespaces = [];
     protected bool $forceTrailingSlash = true;
-    protected int $localeLength = 2;
+    /**
+     * ISO 639 2 or 3, or 4 for future use, alpha
+     */
+    protected int $localeLength = 4;
 
     /**
      * Match a request and returns an array of parameters

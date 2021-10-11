@@ -191,7 +191,7 @@ class Http implements ResponseFactoryInterface
                 return $k;
             }
         }
-        return $allowed[0];
+        return $allowed[0] ?? null;
     }
 
     /**
@@ -204,6 +204,9 @@ class Http implements ResponseFactoryInterface
             $header = $request->getServerParams()['HTTP_ACCEPT_LANGUAGE'] ?? '';
         }
         $arr = [];
+        if (!$header) {
+            return $arr;
+        }
         foreach (explode(',', $header) as $part) {
             $subparts = explode(";q=", $part);
             $arr[$subparts[0]] = floatval($subparts[1] ?? 1);

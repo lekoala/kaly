@@ -12,6 +12,15 @@ use RuntimeException;
  */
 class Translator
 {
+    public const DEFAULT_DOMAIN = "messages";
+    // ISO 639 2 or 3, or 4 for future use, alpha
+    public const LOCALE_LANGUAGE = "language";
+    // ISO 15924 4 alpha
+    public const LOCALE_SCRIPT = "script";
+    // ISO 3166-1 2 alpha or 3 digit
+    public const LOCALE_COUNTRY = "country";
+    public const LOCALE_PRIVATE = "private";
+
     /**
      * @var array<string, mixed>
      */
@@ -20,16 +29,43 @@ class Translator
      * @var array<string>
      */
     protected array $paths = [];
-    protected ?string $defaultLocale;
-    protected ?string $currentLocale;
+    protected ?string $defaultLocale = null;
+    protected ?string $currentLocale = null;
 
     public function __construct(string $defaultLocale = null, string $currentLocale = null)
     {
         if (!$currentLocale) {
             $currentLocale = $defaultLocale;
         }
-        $this->defaultLocale = $defaultLocale;
-        $this->currentLocale = $currentLocale;
+        if ($defaultLocale) {
+            $this->setDefaultLocale($defaultLocale);
+        }
+        if ($currentLocale) {
+            $this->setCurrentLocale($currentLocale);
+        }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function parseLocale(string $locale): array
+    {
+        $pattern = "/^(?<language>[A-Za-z]{2,4})([_-](?<script>[A-Za-z]{4}|[0-9]{3}))?([_-](?<country>[A-Za-z]{2}|[0-9]{3}))?([_-]x[_-](?<private>[A-Za-z0-9-_]+))?$/";
+        $matches = [];
+        $results = preg_match($pattern, $locale, $matches);
+        if (!$results) {
+            throw new RuntimeException("Failed to parse locale string '$locale'");
+        }
+        $matches = array_filter($matches, "is_string", ARRAY_FILTER_USE_KEY);
+        $matches['script'] = $matches['script'] ?? '';
+        $matches['country'] = $matches['country'] ?? '';
+        $matches['private'] = $matches['private'] ?? '';
+        return $matches;
+    }
+
+    public static function getLangFromLocale(string $locale): string
+    {
+        return strtolower(explode("-", str_replace("_", "-", $locale))[0]);
     }
 
     /**
@@ -66,6 +102,18 @@ class Translator
         return $this->catalogs[$name][$locale];
     }
 
+    /**
+     * @param array<string, string|array> $strings
+     */
+    public function addToCatalog(string $name, string $locale, array $strings): self
+    {
+        if (!isset($this->catalogs[$name][$locale])) {
+            $this->buildCatalog($name, $locale);
+        }
+        $this->catalogs[$name][$locale] = array_merge_distinct($this->catalogs[$name][$locale], $strings);
+        return $this;
+    }
+
     protected function buildCatalog(string $name, string $locale): void
     {
         foreach ($this->paths as $path) {
@@ -93,7 +141,7 @@ class Translator
     public function translate(string $message, array $parameters = [], string $domain = null, string $locale = null): string
     {
         if (!$domain) {
-            $domain = "messages";
+            $domain = self::DEFAULT_DOMAIN;
         }
         if (!$locale) {
             $locale = $this->currentLocale;
@@ -118,9 +166,15 @@ class Translator
             }
         } while (isset($translation[$parts[$index]]));
 
-        // Not found in array
+        // Not found in nested array
         if (is_array($translation)) {
             $translation = '';
+        }
+
+        // Attempt fallback to lang
+        $lang = self::getLangFromLocale($locale);
+        if (!$translation && $locale != $lang) {
+            return $this->translate($message, $parameters, $domain, $lang);
         }
 
         // Attempt fallback in default locale
@@ -128,10 +182,50 @@ class Translator
             return $this->translate($message, $parameters, $domain, $this->defaultLocale);
         }
 
+        // Handling plurals in a minimalistic yet powerful fashion
+        if (isset($parameters['%count%'])) {
+            $c = floatval($parameters['%count%']);
+            // This could be a simple convention singular|plural
+            // Or have specific rules if starts with { or ][
+            $parts = explode("|", $translation);
+            // The last one is the valid one by default
+            $translation = end($parts);
+            foreach ($parts as $idx => $part) {
+                $char = $part[0];
+                $matches = [];
+                if ($char == '{') {
+                    $results = preg_match('/{([0-9]*)}(.*)/u', $part, $matches);
+                    if ($results && $matches[1] == $c) {
+                        $translation = $matches[2];
+                        break;
+                    }
+                } elseif ($char == ']') {
+                    // We don't parse these, consider it's a good one
+                    $results = preg_match('/\](.*)\[(.*)/u', $part, $matches);
+                    if ($results) {
+                        $translation = $matches[2];
+                        break;
+                    }
+                } else {
+                    if ($c <= 1 && $idx == 0) {
+                        $translation = $part;
+                        break;
+                    } elseif ($c > 1 && $idx == 1) {
+                        $translation = $part;
+                        break;
+                    }
+                }
+            }
+        }
+
         // Replace context
         $replace = [];
         foreach ($parameters as $key => $val) {
-            $replace['{' . $key . '}'] = $val;
+            if (str_starts_with($key, '%')) {
+                $replace[$key] = $val;
+            } else {
+                $replace['{' . $key . '}'] = $val;
+            }
         }
         $translation = strtr($translation, $replace);
 

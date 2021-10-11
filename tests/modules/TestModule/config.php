@@ -4,6 +4,7 @@ use Kaly\Logger;
 use Kaly\ClassRouter;
 use Kaly\Tests\Mocks\TestObject;
 use Kaly\Tests\Mocks\TestInterface;
+use Kaly\Translator;
 
 $value_is_not_leaked = "test";
 

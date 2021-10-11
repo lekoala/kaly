@@ -22,6 +22,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Kaly\Interfaces\FaviconProviderInterface;
 use Kaly\Interfaces\ResponseProviderInterface;
+use Kaly\Interfaces\RouteInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 
 /**
@@ -36,6 +37,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     public const CONTROLLER_SUFFIX = "Controller";
     public const DEBUG_LOGGER = "debugLogger";
     public const IP_REQUEST_ATTR = "client-ip";
+    public const LOCALE_ATTR = "locale";
     public const JSON_ROUTE_PARAM = "json";
     public const VIEW_TWIG = "twig";
     public const VIEW_PLATES = "plates";
@@ -379,20 +381,18 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         $body = null;
         $routeParams = [];
 
-        /** @var State $state */
+        /** @var State $state  */
         $state = $this->di->get(State::class);
-
-        /** @var Translator $translator  */
-        $translator = $this->di->get(Translator::class);
-        $state->setTranslator($translator);
+        // Set the request again as it might have been changed by middlewares
         $state->setRequest($request);
         $state->setLocaleFromRequest();
+
         try {
             /** @var RouterInterface $router  */
             $router = $this->di->get(RouterInterface::class);
             $routeParams = $router->match($request);
-            if (!empty($routeParams['locale'])) {
-                $state->setLocale($routeParams['locale']);
+            if (!empty($routeParams[RouteInterface::LOCALE])) {
+                $state->getTranslator()->setCurrentLocale($routeParams[RouteInterface::LOCALE]);
             }
             $body = $this->dispatch($this->di, $request, $routeParams);
         } catch (ResponseProviderInterface $ex) {
@@ -433,8 +433,6 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         if ($request->getUri()->getPath() === "/favicon.ico") {
             return $this->serveFavicon();
         }
-
-
 
         // Keep this into handle function to avoid spamming the stack with method calls
         $opts = current($this->middlewares);

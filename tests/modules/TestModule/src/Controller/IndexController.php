@@ -51,11 +51,16 @@ class IndexController
 
     public function middleware(ServerRequestInterface $request)
     {
-        $attr = $this->state->getRequest()->getAttribute("test-attribute");
+        $attr = $request->getAttribute("test-attribute");
         return $attr;
     }
 
     public function getip(ServerRequestInterface $request)
+    {
+        return $request->getAttribute("client-ip");
+    }
+
+    public function getipstate(ServerRequestInterface $request)
     {
         return $this->state->getRequest()->getAttribute("client-ip");
     }
@@ -72,6 +77,6 @@ class IndexController
 
     public function auth(ServerRequestInterface $request)
     {
-        Auth::basicAuth($this->state->getRequest(), "unit", "test");
+        Auth::basicAuth($request, "unit", "test");
     }
 }

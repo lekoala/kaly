@@ -169,6 +169,13 @@ class AppTest extends TestCase
         $response = $app->handle($request);
         $body = (string)$response->getBody();
         $this->assertNotEmpty($body);
+
+        $request = $request->withUri(new Uri("/test-module/index/getipstate/"));
+        $app = new App(__DIR__);
+        $app->boot();
+        $response = $app->handle($request);
+        $body = (string)$response->getBody();
+        $this->assertNotEmpty($body);
     }
 
     public function testValidation()

@@ -11,37 +11,34 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 class State
 {
-    protected ServerRequestInterface $request;
-    protected ?Translator $translator;
-    protected string $locale;
+    protected ?ServerRequestInterface $request = null;
+    protected Translator $translator;
+
+    public function __construct(Translator $translator)
+    {
+        $this->translator = $translator;
+    }
 
     public function setLocaleFromRequest(): void
     {
         if ($this->request == null) {
             return;
         }
-        $locale = Http::getPreferredLanguage($this->request);
-        if ($locale) {
-            $this->setLocale($locale);
+        $locale = $this->request->getAttribute("locale");
+        if (!$locale) {
+            $locale = Http::getPreferredLanguage($this->request);
         }
-    }
-
-    public function getLocale(): string
-    {
-        return $this->locale;
-    }
-
-    public function setLocale(string $locale, bool $updateTranslator = true): self
-    {
-        $this->locale = $locale;
-        // Based on current request, we need to adjust our translator
-        if ($updateTranslator && $this->translator) {
+        if ($locale) {
             $this->translator->setCurrentLocale($locale);
         }
-        return $this;
     }
 
-    public function getRequest(): ServerRequestInterface
+    public function getLocale(): ?string
+    {
+        return $this->getTranslator()->getCurrentLocale();
+    }
+
+    public function getRequest(): ?ServerRequestInterface
     {
         return $this->request;
     }
@@ -52,12 +49,12 @@ class State
         return $this;
     }
 
-    public function getTranslator(): ?Translator
+    public function getTranslator(): Translator
     {
         return $this->translator;
     }
 
-    public function setTranslator(Translator $translator = null): self
+    public function setTranslator(Translator $translator): self
     {
         $this->translator = $translator;
         return $this;
