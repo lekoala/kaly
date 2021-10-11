@@ -320,9 +320,6 @@ class App implements RequestHandlerInterface, MiddlewareInterface
      */
     protected function resolveMiddleware($middleware): ?MiddlewareInterface
     {
-        if (!$middleware) {
-            return null;
-        }
         if (is_string($middleware)) {
             $middlewareName = (string)$middleware;
             if (!$this->di->has($middlewareName)) {
@@ -431,9 +428,11 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         $middleware = current($this->middlewares);
         next($this->middlewares);
 
-        $middleware = $this->resolveMiddleware($middleware);
         if ($middleware) {
-            return $middleware->process($request, $this);
+            $middleware = $this->resolveMiddleware($middleware);
+            if ($middleware) {
+                return $middleware->process($request, $this);
+            }
         }
 
         // Reset so that next incoming request will run through all the middlewares

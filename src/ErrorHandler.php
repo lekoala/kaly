@@ -11,9 +11,14 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Log\LoggerInterface;
 
+/**
+ * This handle all exceptions not handled by the App itself
+ * It could be replaced by a more friendly error handler like Whoops
+ */
 class ErrorHandler implements MiddlewareInterface
 {
     protected App $app;
+
     public function __construct(App $app)
     {
         $this->app = $app;
