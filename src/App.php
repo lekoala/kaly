@@ -23,7 +23,7 @@ use Psr\Http\Message\ResponseFactoryInterface;
 /**
  * A basic app that should be created from the entry file
  */
-class App implements RequestHandlerInterface
+class App implements RequestHandlerInterface, MiddlewareInterface
 {
     public const MODULES_FOLDER = "modules";
     public const PUBLIC_FOLDER = "public";
@@ -320,6 +320,9 @@ class App implements RequestHandlerInterface
      */
     protected function resolveMiddleware($middleware): ?MiddlewareInterface
     {
+        if (!$middleware) {
+            return null;
+        }
         if (is_string($middleware)) {
             $middlewareName = (string)$middleware;
             if (!$this->di->has($middlewareName)) {
@@ -366,41 +369,8 @@ class App implements RequestHandlerInterface
         ]);
     }
 
-    /**
-     * Handle a request and returns its response
-     * This may be called back by middlewares
-     */
-    public function handle(ServerRequestInterface $request = null): ResponseInterface
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        if (!$request) {
-            $request = Http::createRequestFromGlobals();
-        }
-
-        // Serve public files... this should really be handled by your webserver instead
-        if ($this->serveFile) {
-            $fileResponse = $this->serveFile($request->getUri()->getPath());
-            if ($fileResponse) {
-                return $fileResponse;
-            }
-        }
-
-        // Prevent generic favicon.ico requests to go through
-        if ($request->getUri()->getPath() === "/favicon.ico") {
-            return $this->serveFavicon();
-        }
-
-        // Inline this into a function to avoid spamming the stack with method calls
-        $middleware = current($this->middlewares);
-        next($this->middlewares);
-
-        $middleware = $this->resolveMiddleware($middleware);
-        if ($middleware) {
-            return $middleware->process($request, $this);
-        }
-
-        // Reset so that next incoming request will run through all the middlewares
-        reset($this->middlewares);
-
         $this->updateRequest($request);
 
         $code = 200;
@@ -432,6 +402,44 @@ class App implements RequestHandlerInterface
         }
 
         return $this->prepareResponse($request, $routeParams, $body, $code);
+    }
+
+    /**
+     * Handle a request and returns its response
+     * This may be called back by middlewares
+     */
+    public function handle(ServerRequestInterface $request = null): ResponseInterface
+    {
+        if (!$request) {
+            $request = Http::createRequestFromGlobals();
+        }
+
+        // Serve public files... this should really be handled by your webserver instead
+        if ($this->serveFile) {
+            $fileResponse = $this->serveFile($request->getUri()->getPath());
+            if ($fileResponse) {
+                return $fileResponse;
+            }
+        }
+
+        // Prevent generic favicon.ico requests to go through
+        if ($request->getUri()->getPath() === "/favicon.ico") {
+            return $this->serveFavicon();
+        }
+
+        // Keep this into handle function to avoid spamming the stack with method calls
+        $middleware = current($this->middlewares);
+        next($this->middlewares);
+
+        $middleware = $this->resolveMiddleware($middleware);
+        if ($middleware) {
+            return $middleware->process($request, $this);
+        }
+
+        // Reset so that next incoming request will run through all the middlewares
+        reset($this->middlewares);
+
+        return $this->process($request, $this);
     }
 
     /**
