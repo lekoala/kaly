@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly;
 
+use ErrorException;
 use Kaly\Di;
 use Exception;
 use Kaly\Http;
@@ -143,11 +144,11 @@ class App implements RequestHandlerInterface
         // Configure errors
         $level = $this->debug ? -1 : 0;
         error_reporting($level);
-        set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline) {
-            if (error_reporting() === 0) {
-                return false;
+        set_error_handler(function (int $severity, string $message, string $file, int $line) {
+            if (!(error_reporting() & $severity)) {
+                return;
             }
-            throw new Exception($errstr, $errno);
+            throw new ErrorException($message, 0, $severity, $file, $line);
         });
 
         // Dates
