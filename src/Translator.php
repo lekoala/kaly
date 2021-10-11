@@ -31,6 +31,7 @@ class Translator
     protected array $paths = [];
     protected ?string $defaultLocale = null;
     protected ?string $currentLocale = null;
+    protected ?string $cacheFile = null;
 
     public function __construct(string $defaultLocale = null, string $currentLocale = null)
     {
@@ -132,6 +133,11 @@ class Translator
                 throw new RuntimeException("Translation file '$file' must return an array");
             }
             $this->catalogs[$name][$locale] = $result;
+        }
+        // Update cache file if set
+        if ($this->cacheFile) {
+            $export = var_export($this->catalogs, true);
+            file_put_contents($this->cacheFile, "<?php return $export;");
         }
     }
 
@@ -251,6 +257,23 @@ class Translator
     public function setCurrentLocale(string $currentLocale): self
     {
         $this->currentLocale = $currentLocale;
+        return $this;
+    }
+
+    public function getCacheFile(): ?string
+    {
+        return $this->cacheFile;
+    }
+
+    public function setCacheFile(string $cacheFile): self
+    {
+        $this->cacheFile = $cacheFile;
+
+        // Load data from cache
+        if (is_file($this->cacheFile)) {
+            $this->catalogs = require $this->cacheFile;
+        }
+
         return $this;
     }
 }

@@ -318,6 +318,13 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             array_unshift($this->middlewares, ['middleware' => $errorHandler, 'condition' => null]);
         }
 
+        // Enable translation cache for prod
+        if (!$this->debug) {
+            /** @var Translator $translator  */
+            $translator = $this->di->get(Translator::class);
+            $translator->setCacheFile($this->makeTempFolder("translator") . "/catalogs.php");
+        }
+
         $this->booted = true;
     }
 

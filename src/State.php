@@ -29,6 +29,9 @@ class State
             $locale = Http::getPreferredLanguage($this->request);
         }
         if ($locale) {
+            // Make sure it's valid
+            Translator::parseLocale($locale);
+
             $this->translator->setCurrentLocale($locale);
         }
     }
