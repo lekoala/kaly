@@ -315,12 +315,11 @@ class App implements RequestHandlerInterface
         $this->booted = true;
     }
 
-    protected function resolveMiddleware(): ?MiddlewareInterface
+    /**
+     * @param class-string|MiddlewareInterface $middleware
+     */
+    protected function resolveMiddleware($middleware): ?MiddlewareInterface
     {
-        $middleware = current($this->middlewares);
-        if (!$middleware) {
-            return null;
-        }
         if (is_string($middleware)) {
             $middlewareName = (string)$middleware;
             if (!$this->di->has($middlewareName)) {
@@ -329,22 +328,7 @@ class App implements RequestHandlerInterface
             /** @var MiddlewareInterface $middleware  */
             $middleware = $this->di->get($middlewareName);
         }
-        next($this->middlewares);
         return $middleware;
-    }
-
-    protected function processMiddlewares(ServerRequestInterface $request): ?ResponseInterface
-    {
-        // This will return null once looped over all middlewares
-        $middleware = $this->resolveMiddleware();
-        if ($middleware) {
-            return $middleware->process($request, $this);
-        }
-
-        // Reset so that next incoming request will run through all the middlewares
-        reset($this->middlewares);
-
-        return null;
     }
 
     protected function updateRequest(ServerRequestInterface &$request): void
@@ -405,10 +389,17 @@ class App implements RequestHandlerInterface
             return $this->serveFavicon();
         }
 
-        $response = $this->processMiddlewares($request);
-        if ($response) {
-            return $response;
+        // Inline this into a function to avoid spamming the stack with method calls
+        $middleware = current($this->middlewares);
+        next($this->middlewares);
+
+        $middleware = $this->resolveMiddleware($middleware);
+        if ($middleware) {
+            return $middleware->process($request, $this);
         }
+
+        // Reset so that next incoming request will run through all the middlewares
+        reset($this->middlewares);
 
         $this->updateRequest($request);
 
