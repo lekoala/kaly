@@ -6,7 +6,6 @@ namespace Kaly;
 
 use ErrorException;
 use Kaly\Di;
-use Exception;
 use Kaly\Http;
 use RuntimeException;
 use Psr\Log\NullLogger;
@@ -60,7 +59,7 @@ class App implements RequestHandlerInterface
     protected Di $di;
     protected static ?App $instance = null;
     /**
-     * @var array<string|MiddlewareInterface>
+     * @var array<class-string|MiddlewareInterface>
      */
     protected array $middlewares = [];
 
@@ -355,6 +354,34 @@ class App implements RequestHandlerInterface
         }
     }
 
+    protected function serveFile(string $path): ?ResponseInterface
+    {
+        $filePath = $this->baseDir . '/' . self::PUBLIC_FOLDER . $path;
+        if (!is_file($filePath)) {
+            return null;
+        }
+        $contents = file_get_contents($filePath);
+        if (!$contents) {
+            throw new RuntimeException("Failed to read file");
+        }
+        $contentType = mime_content_type($filePath);
+        if (!$contentType) {
+            $contentType = Http::CONTENT_TYPE_STREAM;
+        }
+        return Http::respond($contents, 200, [
+            "Content-type" => $contentType
+        ]);
+    }
+
+    protected function serveFavicon(): ResponseInterface
+    {
+        /** @var FaviconProviderInterface $provider  */
+        $provider = $this->di->get(FaviconProviderInterface::class);
+        return Http::respond($provider->getSvgIcon(), 200, [
+            'Content-type' => 'image/svg+xml'
+        ]);
+    }
+
     /**
      * Handle a request and returns its response
      * This may be called back by middlewares
@@ -367,29 +394,15 @@ class App implements RequestHandlerInterface
 
         // Serve public files... this should really be handled by your webserver instead
         if ($this->serveFile) {
-            $filePath = $this->baseDir . '/' . self::PUBLIC_FOLDER . $request->getUri()->getPath();
-            if (is_file($filePath)) {
-                $contents = file_get_contents($filePath);
-                if (!$contents) {
-                    throw new RuntimeException("Failed to read file");
-                }
-                $contentType = mime_content_type($filePath);
-                if (!$contentType) {
-                    $contentType = Http::CONTENT_TYPE_STREAM;
-                }
-                return Http::respond($contents, 200, [
-                    "Content-type" => $contentType
-                ]);
+            $fileResponse = $this->serveFile($request->getUri()->getPath());
+            if ($fileResponse) {
+                return $fileResponse;
             }
         }
 
         // Prevent generic favicon.ico requests to go through
         if ($request->getUri()->getPath() === "/favicon.ico") {
-            /** @var FaviconProviderInterface $provider  */
-            $provider = $this->di->get(FaviconProviderInterface::class);
-            return Http::respond($provider->getSvgIcon(), 200, [
-                'Content-type' => 'image/svg+xml'
-            ]);
+            return $this->serveFavicon();
         }
 
         $response = $this->processMiddlewares($request);
@@ -517,7 +530,7 @@ class App implements RequestHandlerInterface
     }
 
     /**
-     * @param string|MiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface $middleware
      */
     public function addMiddleware($middleware, bool $debugOnly = false): bool
     {
@@ -533,7 +546,7 @@ class App implements RequestHandlerInterface
 
     /**
      * This should probably be called before any other middleware
-     * @param string|MiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface $middleware
      */
     public function addErrorHandler($middleware, bool $debugOnly = false): bool
     {
