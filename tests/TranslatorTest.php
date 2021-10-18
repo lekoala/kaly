@@ -30,6 +30,12 @@ class TranslatorTest extends TestCase
         // Check that we fallback to default if not found
         $result = $translator->translate("NotTranslated", ['str' => "test"]);
         $this->assertEquals("This is not translated for test", $result);
+
+        $result = $translator->translate("not_found");
+        $this->assertEquals("{{not_found}}", $result);
+
+        $result = $translator->translate("Welcome", [], "test");
+        $this->assertEquals("Welcome to this domain test", $result);
     }
 
     public function testPlural()

@@ -32,6 +32,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     public const MODULES_FOLDER = "modules";
     public const PUBLIC_FOLDER = "public";
     public const TEMP_FOLDER = "temp";
+    public const RESOURCES_FOLDER = "resources";
     public const DEFAULT_MODULE = "App";
     public const CONTROLLER_SUFFIX = "Controller";
     public const DEBUG_LOGGER = "debugLogger";
@@ -244,21 +245,25 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     }
 
     /**
-     * @param array<string, mixed> $params
+     * @param array<string, mixed> $route
      * @return mixed
      */
-    public function dispatch(Di $di, ServerRequestInterface $request, array &$params)
+    public function dispatch(Di $di, ServerRequestInterface $request, array &$route)
     {
-        $class = $params[RouterInterface::CONTROLLER] ?? '';
+        $class = $route[RouterInterface::CONTROLLER] ?? '';
         if (!$class) {
             throw new RuntimeException("Route parameters must include a 'controller' key");
         }
         $inst = $di->get($class);
-        if (method_exists($inst, "updateRouteParameters")) {
-            $inst->updateRouteParameters($params);
+
+        // This can be helpful if a controller needs to force json return type
+        // or expose some custom route info in the template
+        if (method_exists($inst, "updateRoute")) {
+            $inst->updateRoute($route);
         }
-        $action = $params[RouterInterface::ACTION] ?? RouterInterface::FALLBACK_ACTION;
-        $arguments = $params[RouterInterface::PARAMS] ?? [];
+
+        $action = $route[RouterInterface::ACTION] ?? RouterInterface::FALLBACK_ACTION;
+        $arguments = $route[RouterInterface::PARAMS] ?? [];
         if (!is_array($arguments)) {
             throw new RuntimeException("Arguments must be a valid array");
         }
@@ -268,26 +273,30 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     }
 
     /**
-     * @param array<string, mixed> $routeParams
+     * @param array<string, mixed> $route
      * @param mixed $body
      */
-    protected function renderTemplate(Di $di, array $routeParams, $body = null): ?string
+    protected function renderTemplate(Di $di, array $route, $body = null): ?string
     {
         // We only support empty body or a context array
         if ($body && !is_array($body)) {
             return null;
         }
         // We need a template param
-        if (empty($routeParams[RouterInterface::TEMPLATE])) {
+        if (empty($route[RouterInterface::TEMPLATE])) {
             return null;
+        }
+
+        if (!$body) {
+            $body = [];
         }
 
         switch ($this->viewEngine) {
             case self::VIEW_TWIG:
-                $body = ViewBridge::renderTwig($di, $routeParams, $body);
+                $body = ViewBridge::renderTwig($di, $route, $body);
                 break;
             case self::VIEW_PLATES:
-                $body = ViewBridge::renderPlates($di, $routeParams, $body);
+                $body = ViewBridge::renderPlates($di, $route, $body);
                 break;
         }
 
@@ -311,6 +320,11 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             mkdir($tempDir, 0755);
         }
 
+        $resourcesDir = $this->getResourcesDir();
+        if (!is_dir($resourcesDir)) {
+            mkdir($resourcesDir, 0755, true);
+        }
+
         $definitions = $this->loadModules();
         $this->di = $this->configureDi($definitions);
 
@@ -324,7 +338,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         if (!$this->debug) {
             /** @var Translator $translator  */
             $translator = $this->di->get(Translator::class);
-            $translator->setCacheFile($this->makeTemp("translator", "catalogs.php"));
+            $translator->setCacheDir($this->makeTemp("translator"));
         }
 
         $this->booted = true;
@@ -348,8 +362,8 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
     protected function updateRequest(ServerRequestInterface &$request): void
     {
-        if (!$request->getAttribute('client-ip')) {
-            $request = $request->withAttribute('client-ip', Http::getIp($request));
+        if (!$request->getAttribute(self::IP_REQUEST_ATTR)) {
+            $request = $request->withAttribute(self::IP_REQUEST_ATTR, Http::getIp($request));
         }
     }
 
@@ -388,7 +402,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
         $code = 200;
         $body = null;
-        $routeParams = [];
+        $route = [];
 
         /** @var State $state  */
         $state = $this->di->get(State::class);
@@ -399,11 +413,12 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         try {
             /** @var RouterInterface $router  */
             $router = $this->di->get(RouterInterface::class);
-            $routeParams = $router->match($request);
-            if (!empty($routeParams[RouterInterface::LOCALE])) {
-                $state->getTranslator()->setCurrentLocale($routeParams[RouterInterface::LOCALE]);
+            $route = $router->match($request);
+            $state->setRoute($route);
+            if (!empty($route[RouterInterface::LOCALE])) {
+                $state->getTranslator()->setCurrentLocale($route[RouterInterface::LOCALE]);
             }
-            $body = $this->dispatch($this->di, $request, $routeParams);
+            $body = $this->dispatch($this->di, $request, $route);
         } catch (ResponseProviderInterface $ex) {
             // Will be converted to a response later
             $body = $ex;
@@ -412,7 +427,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             $body = $this->debug ? $ex->getMessage() : 'The page could not be found';
         }
 
-        return $this->prepareResponse($request, $routeParams, $body, $code);
+        return $this->prepareResponse($request, $route, $body, $code);
     }
 
     /**
@@ -436,6 +451,11 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         // Prevent generic favicon.ico requests to go through
         if ($request->getUri()->getPath() === "/favicon.ico") {
             return $this->serveFavicon();
+        }
+        // Prevent file requests to go through routing
+        $basePath = basename($request->getUri()->getPath());
+        if (strpos($basePath, ".") !== false) {
+            return Http::respond("File not found", 404);
         }
 
         // We need to set the request in case we use it in our middleware conditions
@@ -490,10 +510,10 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     }
 
     /**
-     * @param array<string, mixed> $routeParams
+     * @param array<string, mixed> $route
      * @param mixed $body
      */
-    public function prepareResponse(ServerRequestInterface $request, array $routeParams, $body = '', int $code = 200): ResponseInterface
+    public function prepareResponse(ServerRequestInterface $request, array $route, $body = '', int $code = 200): ResponseInterface
     {
         $preferredType = Http::getPreferredContentType($request);
         $acceptHtml = $preferredType == Http::CONTENT_TYPE_HTML;
@@ -502,8 +522,8 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         $requestedJson = $acceptJson || $forceJson;
 
         // We may want to return a template that matches route params if possible
-        if ($acceptHtml && empty($routeParams[self::JSON_ROUTE_PARAM]) && !empty($routeParams['template'])) {
-            $renderedBody = $this->renderTemplate($this->di, $routeParams, $body);
+        if ($acceptHtml && empty($route[self::JSON_ROUTE_PARAM]) && !empty($route['template'])) {
+            $renderedBody = $this->renderTemplate($this->di, $route, $body);
             if ($renderedBody) {
                 $body = $renderedBody;
             }
@@ -525,7 +545,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         $headers = [];
 
         // We want and can return a json response
-        if ($requestedJson && !empty($routeParams[self::JSON_ROUTE_PARAM])) {
+        if ($requestedJson && !empty($route[self::JSON_ROUTE_PARAM])) {
             $response = Http::createJsonResponse($body, $code, $headers);
         } else {
             $response = Http::createHtmlResponse($body, $code, $headers);
@@ -549,6 +569,40 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     public function getBaseDir(): string
     {
         return $this->baseDir;
+    }
+
+    public function getPublicDir(): string
+    {
+        return $this->getBaseDir() . DIRECTORY_SEPARATOR . self::PUBLIC_FOLDER;
+    }
+
+    public function getResourcesDir(): string
+    {
+        return $this->getPublicDir() . DIRECTORY_SEPARATOR . self::RESOURCES_FOLDER;
+    }
+
+    public function getResourceDir(string $dir, bool $create = false): string
+    {
+        $dir = $this->getResourcesDir() . DIRECTORY_SEPARATOR . $dir;
+        if ($create && !is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        return $dir;
+    }
+
+    public function getModulesDir(): string
+    {
+        return $this->getBaseDir() . DIRECTORY_SEPARATOR . self::MODULES_FOLDER;
+    }
+
+    public function getModuleDir(string $module): string
+    {
+        return $this->getModulesDir() . DIRECTORY_SEPARATOR . $module;
+    }
+
+    public function getClientModuleDir(string $module): string
+    {
+        return $this->getModuleDir($module) . DIRECTORY_SEPARATOR . 'client' . DIRECTORY_SEPARATOR . 'dist';
     }
 
     /**

@@ -13,6 +13,10 @@ class State
 {
     protected ?ServerRequestInterface $request = null;
     protected Translator $translator;
+    /**
+     * @var array<string, mixed>
+     */
+    protected array $route;
 
     public function __construct(Translator $translator)
     {
@@ -60,6 +64,23 @@ class State
     public function setTranslator(Translator $translator): self
     {
         $this->translator = $translator;
+        return $this;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getRoute(): array
+    {
+        return $this->route;
+    }
+
+    /**
+     * @param array<string, mixed> $route
+     */
+    public function setRoute(array $route): self
+    {
+        $this->route = $route;
         return $this;
     }
 }

@@ -4,11 +4,102 @@ declare(strict_types=1);
 
 namespace Kaly;
 
+use Kaly\Interfaces\RouterInterface;
+
 /**
  * Configure and use view rendering engines
  */
 class ViewBridge
 {
+    /**
+     * Add this to your composer scripts
+     *
+     * "modules-publish": [
+     *   "Kaly\\ViewBridge::composerPublishModulesAssets"
+     * ]
+     *
+     * @phpstan-ignore-next-line
+     * @param \Composer\Script\Event $event
+     */
+    public static function composerPublishModulesAssets($event): void
+    {
+        // @phpstan-ignore-next-line
+        $vendorDir = $event->getComposer()->getConfig()->get('vendor-dir');
+        require $vendorDir . '/autoload.php';
+
+        $baseDir = dirname($vendorDir);
+        $app = new App($baseDir, false);
+        self::publishModulesAssets($app);
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public static function publishModulesAssets(App $app): array
+    {
+        $modules = $app->getModules();
+        $result = [];
+        foreach ($modules as $module) {
+            $clientDir = $app->getClientModuleDir($module);
+            if (!is_dir($clientDir)) {
+                $result[$module] = 0;
+                continue;
+            }
+            $publicResourceDir = $app->getResourceDir($module, true);
+
+            // Copy all assets
+            $files = glob_recursive($clientDir . '/*');
+            $i = 0;
+            foreach ($files as $file) {
+                $baseFile = str_replace($clientDir, '', $file);
+                $destFile = $publicResourceDir . DIRECTORY_SEPARATOR . $baseFile;
+                $destFileDir = dirname($destFile);
+                if (!is_dir($destFileDir)) {
+                    mkdir($destFileDir, 0755, true);
+                }
+                copy($file, $destFile);
+                $i++;
+            }
+            $result[$module] = $i;
+        }
+        return $result;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected static function getFunctions(App $app): array
+    {
+        return [
+            't' => function (string $message, array $parameters = [], string $domain = null) {
+                return t($message, $parameters, $domain);
+            },
+            'set_base_domain' => function (string $domain) use ($app) {
+                /** @var Translator $translator  */
+                $translator = $app->getDi()->get(Translator::class);
+                $translator->setBaseDomain($domain);
+            },
+            'asset' => function (string $file) use ($app) {
+                /** @var State $state  */
+                $state = $app->getDi()->get(State::class);
+                $module = $state->getRoute()[RouterInterface::MODULE] ?? '';
+                $resourcesFolder = App::RESOURCES_FOLDER;
+
+                // Copy on the fly requested assets
+                if ($app->getDebug()) {
+                    $publicResource = $app->getResourceDir($module, true) . DIRECTORY_SEPARATOR . $file;
+                    $sourceFile = $app->getClientModuleDir($module) . DIRECTORY_SEPARATOR . "$file";
+                    if (is_file($sourceFile)) {
+                        // File is overwritten if it already exists
+                        copy($sourceFile, $publicResource);
+                    }
+                }
+
+                return "/$resourcesFolder/$module/$file";
+            }
+        ];
+    }
+
     /**
      * @param array<string, mixed> $definitions
      */
@@ -24,10 +115,9 @@ class ViewBridge
             };
         }
         $definitions[\Twig\Environment::class . '->'][] = function (\Twig\Environment $twig) use ($app) {
-            $function = new \Twig\TwigFunction('t', function (string $message, array $parameters = [], string $domain = null) {
-                return t($message, $parameters, $domain);
-            });
-            $twig->addFunction($function);
+            foreach (self::getFunctions($app) as $functionName => $closure) {
+                $twig->addFunction(new \Twig\TwigFunction($functionName, $closure));
+            }
             // We define early to make sure they are compiled
             $twig->addGlobal("_state", null);
             $twig->addGlobal("_config", null);
@@ -41,10 +131,10 @@ class ViewBridge
     }
 
     /**
-     * @param array<string, mixed> $routeParams
+     * @param array<string, mixed> $route
      * @param array<string, mixed> $body
      */
-    public static function renderTwig(Di $di, array $routeParams, array $body = []): ?string
+    public static function renderTwig(Di $di, array $route, array $body = []): ?string
     {
         // Check if we have a twig instance
         if (!$di->has(\Twig\Loader\LoaderInterface::class)) {
@@ -57,13 +147,13 @@ class ViewBridge
         // Defaults globals are _self, _context, _charset
         $twig->addGlobal("_state", $di->get(State::class));
         $twig->addGlobal("_config", $di->get(SiteConfig::class));
-        $twig->addGlobal("_route", $routeParams);
-        if (!empty($routeParams['controller'])) {
-            $twig->addGlobal("_controller", $di->get($routeParams['controller']));
+        $twig->addGlobal("_route", $route);
+        if (!empty($route['controller'])) {
+            $twig->addGlobal("_controller", $di->get($route['controller']));
         }
 
         // Build view path based on route parameters
-        $viewFile = $routeParams['template'];
+        $viewFile = $route['template'];
         if (!str_ends_with($viewFile, '.twig')) {
             $viewFile .= ".twig";
         }
@@ -81,13 +171,18 @@ class ViewBridge
      */
     public static function configurePlates(App $app, array &$definitions): void
     {
+        $definitions[\League\Plates\Engine::class . '->'][] = function (\League\Plates\Engine $engine) use ($app) {
+            foreach (self::getFunctions($app) as $functionName => $closure) {
+                $engine->registerFunction($functionName, $closure);
+            }
+        };
     }
 
     /**
-     * @param array<string, mixed> $routeParams
+     * @param array<string, mixed> $route
      * @param array<string, mixed> $body
      */
-    public static function renderPlates(Di $di, array $routeParams, array $body = []): ?string
+    public static function renderPlates(Di $di, array $route, array $body = []): ?string
     {
         // Check if we have a engine instance
         if (!$di->has(\League\Plates\Engine::class)) {
@@ -99,16 +194,16 @@ class ViewBridge
         $globals = [
             "_state" => $di->get(State::class),
             "_config" => $di->get(SiteConfig::class),
-            "_route" => $routeParams,
+            "_route" => $route,
         ];
-        if (!empty($routeParams['controller'])) {
-            $globals['_controller']  = $di->get($routeParams['controller']);
+        if (!empty($route['controller'])) {
+            $globals['_controller']  = $di->get($route['controller']);
         }
         $engine->addData($globals);
 
         // Build view path based on route parameters
         /** @var string $viewFile  */
-        $viewFile = $routeParams['template'];
+        $viewFile = $route['template'];
 
         // Remplace @syntax/ with ::
         if (str_starts_with($viewFile, '@')) {

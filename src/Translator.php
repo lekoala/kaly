@@ -31,7 +31,8 @@ class Translator
     protected array $paths = [];
     protected ?string $defaultLocale = null;
     protected ?string $currentLocale = null;
-    protected ?string $cacheFile = null;
+    protected ?string $cacheDir = null;
+    protected ?string $baseDomain = null;
 
     public function __construct(string $defaultLocale = null, string $currentLocale = null)
     {
@@ -135,9 +136,10 @@ class Translator
             $this->catalogs[$name][$locale] = $result;
         }
         // Update cache file if set
-        if ($this->cacheFile) {
+        if ($this->cacheDir) {
+            $file = $this->cacheDir . DIRECTORY_SEPARATOR . "$name.$locale.php";
             $export = var_export($this->catalogs, true);
-            file_put_contents($this->cacheFile, "<?php return $export;");
+            file_put_contents($file, "<?php return $export;");
         }
     }
 
@@ -147,7 +149,7 @@ class Translator
     public function translate(string $message, array $parameters = [], string $domain = null, string $locale = null): string
     {
         if (!$domain) {
-            $domain = self::DEFAULT_DOMAIN;
+            $domain = $this->baseDomain ?? self::DEFAULT_DOMAIN;
         }
         if (!$locale) {
             $locale = $this->currentLocale;
@@ -174,7 +176,7 @@ class Translator
 
         // Not found in nested array
         if (is_array($translation)) {
-            $translation = '';
+            $translation = '{{' . $message . '}}';
         }
 
         // Attempt fallback to lang
@@ -195,6 +197,10 @@ class Translator
         }
 
         $translation = $this->replaceContext($translation, $parameters);
+
+        if (!$translation) {
+            $translation = '{{' . $message . '}}';
+        }
 
         return $translation;
     }
@@ -274,18 +280,36 @@ class Translator
         return $this;
     }
 
-    public function getCacheFile(): ?string
+    public function getBaseDomain(): ?string
     {
-        return $this->cacheFile;
+        return $this->baseDomain;
     }
 
-    public function setCacheFile(string $cacheFile): self
+    public function setBaseDomain(string $baseDomain): self
     {
-        $this->cacheFile = $cacheFile;
+        $this->baseDomain = $baseDomain;
+        return $this;
+    }
+
+    public function getCacheDir(): ?string
+    {
+        return $this->cacheDir;
+    }
+
+    public function setCacheDir(string $cacheDir): self
+    {
+        $this->cacheDir = $cacheDir;
 
         // Load data from cache
-        if (is_file($this->cacheFile)) {
-            $this->catalogs = require $this->cacheFile;
+        if (is_dir($this->cacheDir)) {
+            $files = glob_recursive($this->cacheDir . '/*.php');
+            foreach ($files as $file) {
+                $arr = require $file;
+                if (!is_array($arr)) {
+                    throw new RuntimeException("Cached translation file did not return an array");
+                }
+                $this->catalogs = array_merge_distinct($this->catalogs, $arr);
+            }
         }
 
         return $this;
@@ -293,11 +317,15 @@ class Translator
 
     public function clearCache(): bool
     {
-        if (!$this->cacheFile) {
+        if (!$this->cacheDir) {
             return false;
         }
-        if (is_file($this->cacheFile)) {
-            return unlink($this->cacheFile);
+        if (is_dir($this->cacheDir)) {
+            $files = glob_recursive($this->cacheDir . '/*.php');
+            foreach ($files as $file) {
+                unlink($file);
+            }
+            return true;
         }
         return false;
     }
