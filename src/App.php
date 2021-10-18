@@ -22,7 +22,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Kaly\Interfaces\FaviconProviderInterface;
 use Kaly\Interfaces\ResponseProviderInterface;
-use Kaly\Interfaces\RouteInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 
 /**
@@ -401,8 +400,8 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             /** @var RouterInterface $router  */
             $router = $this->di->get(RouterInterface::class);
             $routeParams = $router->match($request);
-            if (!empty($routeParams[RouteInterface::LOCALE])) {
-                $state->getTranslator()->setCurrentLocale($routeParams[RouteInterface::LOCALE]);
+            if (!empty($routeParams[RouterInterface::LOCALE])) {
+                $state->getTranslator()->setCurrentLocale($routeParams[RouterInterface::LOCALE]);
             }
             $body = $this->dispatch($this->di, $request, $routeParams);
         } catch (ResponseProviderInterface $ex) {

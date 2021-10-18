@@ -7,11 +7,11 @@ namespace Kaly;
 use ReflectionClass;
 use ReflectionNamedType;
 use Psr\Http\Message\UriInterface;
-use Kaly\Interfaces\RouteInterface;
 use Kaly\Interfaces\RouterInterface;
 use Kaly\Exceptions\NotFoundException;
 use Kaly\Exceptions\RedirectException;
 use Psr\Http\Message\ServerRequestInterface;
+use RuntimeException;
 
 /**
  * Takes an uri and map it to a class
@@ -22,11 +22,12 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 class ClassRouter implements RouterInterface
 {
-
     protected string $defaultNamespace = 'App';
     protected string $controllerNamespace = 'Controller';
     protected string $controllerSuffix = 'Controller';
     protected string $defaultControllerName = 'Index';
+    protected string $defaultAction = 'index';
+
     /**
      * @var array<string, string>
      */
@@ -49,7 +50,7 @@ class ClassRouter implements RouterInterface
      * Match a request and returns an array of parameters
      * @return array<string, mixed>
      */
-    public function match(ServerRequestInterface $request)
+    public function match(ServerRequestInterface $request): array
     {
         $uri = $request->getUri();
         $path = $uri->getPath();
@@ -71,38 +72,108 @@ class ClassRouter implements RouterInterface
 
         $trimmedPath = trim($path, '/');
         $parts = array_filter(explode("/", $trimmedPath));
-        $routeParams[RouteInterface::SEGMENTS] = $parts;
+        $routeParams[RouterInterface::SEGMENTS] = $parts;
 
         // Maybe we have a locale as a prefix
         $locale = $this->findLocale($parts, $uri);
-        $routeParams[RouteInterface::LOCALE] = $locale;
+        $routeParams[RouterInterface::LOCALE] = $locale;
 
         // Do we have a specific module ?
         $module = $this->findModule($parts, $uri);
-        $routeParams[RouteInterface::MODULE] = $module;
-        $routeParams[RouteInterface::NAMESPACE] = $this->allowedNamespaces[$module] ?? $module;
+        $routeParams[RouterInterface::MODULE] = $module;
+        $routeParams[RouterInterface::NAMESPACE] = $this->allowedNamespaces[$module] ?? $module;
 
         $this->enforceLocaleModuleUri($routeParams, $uri);
 
         // First we need to check if we have the controller
-        $controller = $this->findController($routeParams[RouteInterface::NAMESPACE], $parts, $uri);
-        $routeParams[RouteInterface::CONTROLLER] = $controller;
+        $controller = $this->findController($routeParams[RouterInterface::NAMESPACE], $parts, $uri);
+        $routeParams[RouterInterface::CONTROLLER] = $controller;
         // We need a reflection for next methods
         $refl = new ReflectionClass($controller);
 
         // If the action exists (or index if set)
         $action = $this->findAction($refl, $parts, $uri, $request->getMethod());
-        $routeParams[RouteInterface::ACTION] = $action;
+        $routeParams[RouterInterface::ACTION] = $action;
 
         // Remaining parts are passed as arguments to the action
         $params = $this->collectParameters($refl, $action, $parts);
-        $routeParams[RouteInterface::PARAMS] = $params;
+        $routeParams[RouterInterface::PARAMS] = $params;
 
         // This will allow us to find a matching template to render controller's result
         $template = $this->matchTemplate($routeParams, $request->getMethod());
-        $routeParams[RouteInterface::TEMPLATE] = $template;
+        $routeParams[RouterInterface::TEMPLATE] = $template;
 
         return $routeParams;
+    }
+
+    /**
+     * @param string|array<mixed> $handler
+     * @param array<string, mixed> $params
+     * @return string
+     */
+    public function generate($handler, array $params = []): string
+    {
+        if (is_string($handler) || array_is_list($handler)) {
+            if (is_string($handler)) {
+                $handler = str_replace("->", "::", $handler);
+                $parts = explode("::", $handler);
+            } else {
+                $parts = $handler;
+            }
+            $class = $parts[0];
+            $action = $parts[1] ?? $this->defaultAction;
+        } else {
+            if (empty($handler[RouterInterface::CONTROLLER])) {
+                throw new RuntimeException("Cannot generate an url without a controller");
+            }
+            $class = $handler[RouterInterface::CONTROLLER];
+            $action = $handler[RouterInterface::ACTION] ?? $this->defaultAction;
+        }
+
+        // Validate it's a real class and action
+        if (!class_exists($class)) {
+            throw new RuntimeException("Handler does not exist");
+        }
+        if (!method_exists($class, $action)) {
+            throw new RuntimeException("Invalid handler method");
+        }
+
+        $refl = new ReflectionClass($class);
+        $method = $refl->getMethod($action);
+
+        // Determine if class is part of default module
+        $classParts = explode("\\", $class);
+        $baseClass = array_pop($classParts);
+        $controllerName = preg_replace("/" . $this->controllerSuffix . "$/", "", $baseClass);
+        $namespace = implode("\\", $classParts);
+        $moduleNamespace = str_replace("\\" . $this->controllerNamespace, "", $namespace);
+
+        $url = '';
+        if ($this->defaultNamespace != $moduleNamespace) {
+            $strmodule = decamelize($moduleNamespace);
+            $url .= "/$strmodule";
+        }
+        if ($controllerName != $this->defaultControllerName || $action != $this->defaultAction || count($params)) {
+            $strcontroller = decamelize($controllerName);
+            $url .= "/$strcontroller";
+        }
+        if ($action != $this->defaultAction || count($params)) {
+            // Check for rest style action
+            $action = preg_replace("/(Get|Post|Delete|Put|Head|Patch)$/", "", $action);
+            $url .= "/$action";
+        }
+        // append params
+        foreach ($params as $k => $v) {
+            if (is_int($k)) {
+                $url .= "/$v";
+            } else {
+            }
+        }
+        if ($this->forceTrailingSlash) {
+            $url .= "/";
+        }
+
+        return $url;
     }
 
     /**
@@ -110,17 +181,17 @@ class ClassRouter implements RouterInterface
      */
     protected function matchTemplate(array $routeParams, string $method): string
     {
-        $controllerFolder = mb_strtolower(get_class_name($routeParams[RouteInterface::CONTROLLER]));
+        $controllerFolder = mb_strtolower(get_class_name($routeParams[RouterInterface::CONTROLLER]));
         $controllerFolder = mb_substr($controllerFolder, 0, - (strlen($this->controllerSuffix)));
 
-        $action = $routeParams[RouteInterface::ACTION];
+        $action = $routeParams[RouterInterface::ACTION];
         // Remove method from action
         if (str_ends_with($action, ucfirst(strtolower($method)))) {
             $action = substr($action, 0, strlen($action) - strlen($method));
         }
         $viewName = $controllerFolder . '/' . $action;
-        if (isset($routeParams[RouteInterface::MODULE]) && $routeParams[RouteInterface::MODULE] !== $this->defaultNamespace) {
-            $viewName = '@' . $routeParams[RouteInterface::MODULE] . '/' . $viewName;
+        if (isset($routeParams[RouterInterface::MODULE]) && $routeParams[RouterInterface::MODULE] !== $this->defaultNamespace) {
+            $viewName = '@' . $routeParams[RouterInterface::MODULE] . '/' . $viewName;
         }
 
         return $viewName;
@@ -131,9 +202,9 @@ class ClassRouter implements RouterInterface
      */
     protected function enforceLocaleModuleUri(array &$routeParams, UriInterface $uri): void
     {
-        $module = $routeParams[RouteInterface::MODULE];
-        $locale = $routeParams[RouteInterface::LOCALE];
-        $parts = $routeParams[RouteInterface::SEGMENTS];
+        $module = $routeParams[RouterInterface::MODULE];
+        $locale = $routeParams[RouterInterface::LOCALE];
+        $parts = $routeParams[RouterInterface::SEGMENTS];
 
         $isRestricted = true;
         if (!empty($this->restrictLocaleToNamespaces)) {
@@ -155,7 +226,7 @@ class ClassRouter implements RouterInterface
         }
         // Single language is forced through the router
         if (!$locale && !empty($this->allowedLocales)) {
-            $routeParams[RouteInterface::LOCALE] = $this->allowedLocales[0];
+            $routeParams[RouterInterface::LOCALE] = $this->allowedLocales[0];
         }
     }
 
@@ -247,8 +318,9 @@ class ClassRouter implements RouterInterface
         }
 
         // Do not allow direct /index calls
-        if ($part === 'index' && count($parts) === 1) {
-            $newUri = $this->getRedirectUri($uri, 'index', '');
+        $defaultController = strtolower($this->defaultControllerName);
+        if ($part === $defaultController && count($parts) === 1) {
+            $newUri = $this->getRedirectUri($uri, $defaultController, '');
             throw new RedirectException($newUri);
         }
 
@@ -283,19 +355,20 @@ class ClassRouter implements RouterInterface
         $testPart = $params[0] ?? '';
 
         // Index or __invoke is used by default
-        $action = $refl->hasMethod('__invoke') ? '__invoke' : 'index';
+        $action = $refl->hasMethod('__invoke') ? '__invoke' : $this->defaultAction;
 
         // If first parameter is a valid method, use that instead
         if ($testPart) {
             // Action should be lowercase camelcase
             $testAction = camelize($testPart, false);
             // Rest style routing
+            // Method is added at the end to avoid confusion with getters
             $testActionWithMethod = $testAction . ucfirst(strtolower($method));
 
             // Don't allow controller/index to be called directly because it would create duplicated urls
             // This only applies if no other parameters is passed in the url
-            if ($testAction == 'index' && count($params) === 1) {
-                $newUri = $this->getRedirectUri($uri, 'index', '');
+            if ($testAction == $this->defaultAction && count($params) === 1) {
+                $newUri = $this->getRedirectUri($uri, $this->defaultAction, '');
                 throw new RedirectException($newUri);
             }
 

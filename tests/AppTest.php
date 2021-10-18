@@ -8,9 +8,12 @@ use Kaly\App;
 use Kaly\Http;
 use Nyholm\Psr7\Uri;
 use Kaly\ClassRouter;
+use Kaly\Interfaces\RouterInterface;
 use Kaly\Tests\Mocks\TestApp;
 use Kaly\Tests\Mocks\TestMiddleware;
 use PHPUnit\Framework\TestCase;
+use TestModule\Controller\DemoController;
+use TestModule\Controller\IndexController;
 
 class AppTest extends TestCase
 {
@@ -248,6 +251,40 @@ class AppTest extends TestCase
         $request = $request->withMethod("POST");
         $response = $app->handle($request);
         $this->assertEquals("post", (string)$response->getBody());
+    }
+
+    public function testGenerate()
+    {
+        $app = new App(__DIR__);
+        $app->boot();
+        $router = $app->getDi()->get(RouterInterface::class);
+
+        // Route without method
+        $str = $router->generate(DemoController::class . "::methodGet");
+        $this->assertEquals("/test-module/demo/method/", $str);
+
+        // Include index + param
+        // When including parameters, index calls are allowed
+        $str = $router->generate(IndexController::class . "::index", ["hello"]);
+        $this->assertEquals("/test-module/index/index/hello/", $str);
+
+        // Should not included index
+        $str = $router->generate(IndexController::class . "::index");
+        $this->assertEquals("/test-module/", $str);
+        $str = $router->generate([
+            IndexController::class, "index"
+        ]);
+        $this->assertEquals("/test-module/", $str);
+        $str = $router->generate([
+            RouterInterface::CONTROLLER => IndexController::class,
+        ]);
+        $this->assertEquals("/test-module/", $str);
+        $router->setForceTrailingSlash(false);
+        $str = $router->generate([
+            RouterInterface::CONTROLLER => IndexController::class,
+        ]);
+        $this->assertEquals("/test-module", $str);
+        $router->setForceTrailingSlash(true);
     }
 
     public function testTrailingSlash()

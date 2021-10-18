@@ -18,6 +18,15 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 interface RouterInterface
 {
+    public const MODULE = "module";
+    public const NAMESPACE = "namespace";
+    public const CONTROLLER = "controller";
+    public const ACTION = "action";
+    public const PARAMS = "params";
+    public const LOCALE = "locale";
+    public const SEGMENTS = "segments";
+    public const TEMPLATE = "template";
+
     /**
      * @throws AuthenticationException Will be converted to 401 error
      * @throws RedirectException Will be converted to 3xx redirect
@@ -26,5 +35,12 @@ interface RouterInterface
      * @throws Exception Will be converted to 500 error
      * @return array<string, mixed>
      */
-    public function match(ServerRequestInterface $request);
+    public function match(ServerRequestInterface $request): array;
+
+    /**
+     * @param string|array<mixed> $handler
+     * @param array<string, mixed> $params
+     * @return string
+     */
+    public function generate($handler, array $params = []): string;
 }
