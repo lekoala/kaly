@@ -72,7 +72,7 @@ class AppTest extends TestCase
         $declaredVars = array_keys(get_defined_vars());
         $this->assertNotContains("value_is_not_leaked", $declaredVars);
 
-        $this->assertCount(2, $app->getModules());
+        $this->assertCount(3, $app->getModules());
         $this->expectOutputString("hello");
         $response = $app->handle($request);
         Http::sendResponse($response);
@@ -279,6 +279,28 @@ class AppTest extends TestCase
             RouterInterface::CONTROLLER => IndexController::class,
         ]);
         $this->assertEquals("/test-module/", $str);
+
+        // Locale
+        $str = $router->generate([
+            RouterInterface::CONTROLLER => \TestModule\Controller\IndexController::class,
+            RouterInterface::LOCALE => 'fr',
+        ]);
+        $this->assertEquals("/test-module/", $str);
+        $str = $router->generate([
+            RouterInterface::CONTROLLER => \LangModule\Controller\IndexController::class,
+            RouterInterface::ACTION => 'getlang',
+            RouterInterface::LOCALE => 'fr',
+        ]);
+        $this->assertEquals("/fr/lang-module/index/getlang/", $str);
+
+        // Module mapping + no locale
+        $str = $router->generate([
+            RouterInterface::CONTROLLER => \TestVendor\MappedModule\Controller\IndexController::class,
+            RouterInterface::LOCALE => 'fr',
+        ]);
+        $this->assertEquals("/mapped-module/", $str);
+
+        // Trailing slash
         $router->setForceTrailingSlash(false);
         $str = $router->generate([
             RouterInterface::CONTROLLER => IndexController::class,

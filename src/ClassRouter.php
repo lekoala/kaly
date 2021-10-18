@@ -113,6 +113,7 @@ class ClassRouter implements RouterInterface
      */
     public function generate($handler, array $params = []): string
     {
+        $locale = null;
         if (is_string($handler) || array_is_list($handler)) {
             if (is_string($handler)) {
                 $handler = str_replace("->", "::", $handler);
@@ -122,35 +123,48 @@ class ClassRouter implements RouterInterface
             }
             $class = $parts[0];
             $action = $parts[1] ?? $this->defaultAction;
+            if (isset($params['locale'])) {
+                $locale = $params['locale'];
+                unset($params['locale']);
+            }
         } else {
             if (empty($handler[RouterInterface::CONTROLLER])) {
                 throw new RuntimeException("Cannot generate an url without a controller");
             }
             $class = $handler[RouterInterface::CONTROLLER];
             $action = $handler[RouterInterface::ACTION] ?? $this->defaultAction;
+            $locale = $handler[RouterInterface::LOCALE] ?? '';
         }
 
         // Validate it's a real class and action
         if (!class_exists($class)) {
-            throw new RuntimeException("Handler does not exist");
+            throw new RuntimeException("Handler '$class' does not exist");
         }
         if (!method_exists($class, $action)) {
-            throw new RuntimeException("Invalid handler method");
+            throw new RuntimeException("Invalid handler method '$action'");
         }
 
         $refl = new ReflectionClass($class);
         $method = $refl->getMethod($action);
 
-        // Determine if class is part of default module
         $classParts = explode("\\", $class);
         $baseClass = array_pop($classParts);
-        $controllerName = preg_replace("/" . $this->controllerSuffix . "$/", "", $baseClass);
+        $controllerName = (string)preg_replace("/" . $this->controllerSuffix . "$/", "", $baseClass);
         $namespace = implode("\\", $classParts);
-        $moduleNamespace = str_replace("\\" . $this->controllerNamespace, "", $namespace);
+
+        // Get module for class
+        $allowedNamespaces = $this->allowedNamespaces;
+        $realModuleNamespace = $moduleNamespace = str_replace("\\" . $this->controllerNamespace, "", $namespace);
+        if (isset($allowedNamespaces[$moduleNamespace])) {
+            $realModuleNamespace = $allowedNamespaces[$moduleNamespace];
+        }
 
         $url = '';
-        if ($this->defaultNamespace != $moduleNamespace) {
-            $strmodule = decamelize($moduleNamespace);
+        if ($locale && !in_array($locale, $this->allowedLocales)) {
+            throw new RuntimeException("Invalid locale '$locale'");
+        }
+        if ($this->defaultNamespace != $realModuleNamespace) {
+            $strmodule = decamelize($realModuleNamespace);
             $url .= "/$strmodule";
         }
         if ($controllerName != $this->defaultControllerName || $action != $this->defaultAction || count($params)) {
@@ -161,6 +175,11 @@ class ClassRouter implements RouterInterface
             // Check for rest style action
             $action = preg_replace("/(Get|Post|Delete|Put|Head|Patch)$/", "", $action);
             $url .= "/$action";
+        }
+        if ($locale && $url) {
+            if (empty($this->restrictLocaleToNamespaces) || in_array($realModuleNamespace, $this->restrictLocaleToNamespaces)) {
+                $url = "/$locale" . $url;
+            }
         }
         // append params
         foreach ($params as $k => $v) {
