@@ -191,50 +191,64 @@ class Translator
         // Handling plurals in a minimalistic yet powerful fashion
         if (isset($parameters['%count%'])) {
             $c = floatval($parameters['%count%']);
-            // This could be a simple convention singular|plural
-            // Or have specific rules if starts with { or ][
-            $parts = explode("|", $translation);
-            // The last one is the valid one by default
-            $translation = end($parts);
-            foreach ($parts as $idx => $part) {
-                $char = $part[0];
-                $matches = [];
-                if ($char == '{') {
-                    $results = preg_match('/{([0-9]*)}(.*)/u', $part, $matches);
-                    if ($results && $matches[1] == $c) {
-                        $translation = $matches[2];
-                        break;
-                    }
-                } elseif ($char == ']') {
-                    // We don't parse these, consider it's a good one
-                    $results = preg_match('/\](.*)\[(.*)/u', $part, $matches);
-                    if ($results) {
-                        $translation = $matches[2];
-                        break;
-                    }
-                } else {
-                    if ($c <= 1 && $idx == 0) {
-                        $translation = $part;
-                        break;
-                    } elseif ($c > 1 && $idx == 1) {
-                        $translation = $part;
-                        break;
-                    }
-                }
-            }
+            $translation = $this->processPlurals($translation, $c);
         }
 
-        // Replace context
+        $translation = $this->replaceContext($translation, $parameters);
+
+        return $translation;
+    }
+
+    /**
+     * @param array<string, mixed> $replacements
+     */
+    protected function replaceContext(string $translation, array $replacements): string
+    {
         $replace = [];
-        foreach ($parameters as $key => $val) {
+        foreach ($replacements as $key => $val) {
+            // We support two style : {} replacements and raw %param% replacements
             if (str_starts_with($key, '%')) {
                 $replace[$key] = $val;
             } else {
                 $replace['{' . $key . '}'] = $val;
             }
         }
-        $translation = strtr($translation, $replace);
+        return strtr($translation, $replace);
+    }
 
+    protected function processPlurals(string $translation, float $c): string
+    {
+        // This could be a simple convention singular|plural
+        // Or have specific rules if starts with { or ][
+        $parts = explode("|", $translation);
+        // The last one is the valid one by default
+        $translation = end($parts);
+        foreach ($parts as $idx => $part) {
+            $char = $part[0];
+            $matches = [];
+            if ($char == '{') {
+                $results = preg_match('/{([0-9]*)}(.*)/u', $part, $matches);
+                if ($results && $matches[1] == $c) {
+                    $translation = $matches[2];
+                    break;
+                }
+            } elseif ($char == ']') {
+                // We don't parse these, consider it's a good one
+                $results = preg_match('/\](.*)\[(.*)/u', $part, $matches);
+                if ($results) {
+                    $translation = $matches[2];
+                    break;
+                }
+            } else {
+                if ($c <= 1 && $idx == 0) {
+                    $translation = $part;
+                    break;
+                } elseif ($c > 1 && $idx == 1) {
+                    $translation = $part;
+                    break;
+                }
+            }
+        }
         return $translation;
     }
 
@@ -275,5 +289,16 @@ class Translator
         }
 
         return $this;
+    }
+
+    public function clearCache(): bool
+    {
+        if (!$this->cacheFile) {
+            return false;
+        }
+        if (is_file($this->cacheFile)) {
+            return unlink($this->cacheFile);
+        }
+        return false;
     }
 }

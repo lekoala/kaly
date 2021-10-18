@@ -26,6 +26,7 @@ interface RouterInterface
     public const LOCALE = "locale";
     public const SEGMENTS = "segments";
     public const TEMPLATE = "template";
+    public const FALLBACK_ACTION = "__invoke";
 
     /**
      * @throws AuthenticationException Will be converted to 401 error

@@ -249,7 +249,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
      */
     public function dispatch(Di $di, ServerRequestInterface $request, array &$params)
     {
-        $class = $params['controller'] ?? '';
+        $class = $params[RouterInterface::CONTROLLER] ?? '';
         if (!$class) {
             throw new RuntimeException("Route parameters must include a 'controller' key");
         }
@@ -257,8 +257,8 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         if (method_exists($inst, "updateRouteParameters")) {
             $inst->updateRouteParameters($params);
         }
-        $action = $params['action'] ?? '__invoke';
-        $arguments = $params['params'] ?? [];
+        $action = $params[RouterInterface::ACTION] ?? RouterInterface::FALLBACK_ACTION;
+        $arguments = $params[RouterInterface::PARAMS] ?? [];
         if (!is_array($arguments)) {
             throw new RuntimeException("Arguments must be a valid array");
         }
@@ -277,8 +277,8 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         if ($body && !is_array($body)) {
             return null;
         }
-        // We need at least two keys to find a template
-        if (empty($routeParams['template'])) {
+        // We need a template param
+        if (empty($routeParams[RouterInterface::TEMPLATE])) {
             return null;
         }
 
@@ -425,11 +425,6 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             $request = Http::createRequestFromGlobals();
         }
 
-        // We need to set the request in case we use it in our middleware conditions
-        /** @var State $state */
-        $state = $this->di->get(State::class);
-        $state->setRequest($request);
-
         // Serve public files... this should really be handled by your webserver instead
         if ($this->serveFile) {
             $fileResponse = $this->serveFile($request->getUri()->getPath());
@@ -442,6 +437,11 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         if ($request->getUri()->getPath() === "/favicon.ico") {
             return $this->serveFavicon();
         }
+
+        // We need to set the request in case we use it in our middleware conditions
+        /** @var State $state */
+        $state = $this->di->get(State::class);
+        $state->setRequest($request);
 
         // Keep this into handle function to avoid spamming the stack with method calls
         $opts = current($this->middlewares);

@@ -33,7 +33,7 @@ class ViewBridge
             $twig->addGlobal("_config", null);
             $twig->addGlobal("_route", null);
             $twig->addGlobal("_controller", null);
-            //
+            // We need a cache to make this faster
             if (!$app->getDebug()) {
                 $twig->setCache($app->makeTemp('twig'));
             }
