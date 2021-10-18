@@ -164,10 +164,7 @@ class ClassRouter implements RouterInterface
         }
         // append params
         foreach ($params as $k => $v) {
-            if (is_int($k)) {
-                $url .= "/$v";
-            } else {
-            }
+            $url .= "/$v";
         }
         if ($this->forceTrailingSlash) {
             $url .= "/";
