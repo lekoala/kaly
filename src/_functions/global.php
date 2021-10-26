@@ -137,7 +137,10 @@ if (!function_exists('t')) {
     function t(string $message, array $parameters = [], string $domain = null, string $locale = null): string
     {
         /** @var \Kaly\Translator $translator  */
-        $translator = \Kaly\App::inst()->getDi()->get(\Kaly\Translator::class);
+        static $translator = null;
+        if (!$translator) {
+            $translator = \Kaly\App::inst()->getDi()->get(\Kaly\Translator::class);
+        }
         return $translator->translate($message, $parameters, $domain, $locale);
     }
 }

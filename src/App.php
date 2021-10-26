@@ -4,15 +4,12 @@ declare(strict_types=1);
 
 namespace Kaly;
 
-use Closure;
 use Kaly\Di;
-use Exception;
 use Kaly\Http;
+use Throwable;
 use ErrorException;
 use RuntimeException;
 use Psr\Log\NullLogger;
-use ReflectionFunction;
-use ReflectionNamedType;
 use Psr\Log\LoggerInterface;
 use Kaly\Interfaces\RouterInterface;
 use Kaly\Exceptions\NotFoundException;
@@ -37,6 +34,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     public const CONTROLLER_SUFFIX = "Controller";
     public const DEBUG_LOGGER = "debugLogger";
     public const IP_REQUEST_ATTR = "client-ip";
+    public const REQUEST_ID_REQUEST_ATTR = "request-id";
     public const LOCALE_ATTR = "locale";
     public const JSON_ROUTE_PARAM = "json";
     public const VIEW_TWIG = "twig";
@@ -54,7 +52,6 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
     protected bool $debug;
     protected bool $booted = false;
-    protected bool $hasErrorHandler = false;
     protected bool $serveFile = false;
     protected ?string $viewEngine = null;
     protected string $baseDir;
@@ -63,11 +60,8 @@ class App implements RequestHandlerInterface, MiddlewareInterface
      */
     protected array $modules;
     protected Di $di;
+    protected MiddlewareRunner $middlewareRunner;
     protected static ?App $instance = null;
-    /**
-     * @var array<mixed>
-     */
-    protected array $middlewares = [];
 
     /**
      * Create a new instance of the application
@@ -84,6 +78,8 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             $this->loadEnv();
         }
         $this->configureEnv();
+
+        $this->middlewareRunner = new MiddlewareRunner($this);
 
         self::$instance = $this;
     }
@@ -328,12 +324,6 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         $definitions = $this->loadModules();
         $this->di = $this->configureDi($definitions);
 
-        // If there was no error handler registered, register our default handler
-        if (!$this->hasErrorHandler) {
-            $errorHandler = new ErrorHandler($this);
-            array_unshift($this->middlewares, ['middleware' => $errorHandler, 'condition' => null]);
-        }
-
         // Enable translation cache for prod
         if (!$this->debug) {
             /** @var Translator $translator  */
@@ -344,26 +334,13 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         $this->booted = true;
     }
 
-    /**
-     * @param class-string|MiddlewareInterface $middleware
-     */
-    protected function resolveMiddleware($middleware): MiddlewareInterface
-    {
-        if (is_string($middleware)) {
-            $middlewareName = (string)$middleware;
-            if (!$this->di->has($middlewareName)) {
-                throw new RuntimeException("Invalid middleware definition '$middlewareName'");
-            }
-            /** @var MiddlewareInterface $middleware  */
-            $middleware = $this->di->get($middlewareName);
-        }
-        return $middleware;
-    }
-
     protected function updateRequest(ServerRequestInterface &$request): void
     {
         if (!$request->getAttribute(self::IP_REQUEST_ATTR)) {
             $request = $request->withAttribute(self::IP_REQUEST_ATTR, Http::getIp($request));
+        }
+        if (!$request->getAttribute(self::REQUEST_ID_REQUEST_ATTR)) {
+            $request = $request->withAttribute(self::REQUEST_ID_REQUEST_ATTR, uniqid());
         }
     }
 
@@ -436,6 +413,10 @@ class App implements RequestHandlerInterface, MiddlewareInterface
      */
     public function handle(ServerRequestInterface $request = null): ResponseInterface
     {
+        if (!$this->booted) {
+            throw new RuntimeException("Cannot handle request until booted");
+        }
+
         if (!$request) {
             $request = Http::createRequestFromGlobals();
         }
@@ -447,7 +428,6 @@ class App implements RequestHandlerInterface, MiddlewareInterface
                 return $fileResponse;
             }
         }
-
         // Prevent generic favicon.ico requests to go through
         if ($request->getUri()->getPath() === "/favicon.ico") {
             return $this->serveFavicon();
@@ -458,55 +438,34 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             return Http::respond("File not found", 404);
         }
 
-        // We need to set the request in case we use it in our middleware conditions
-        /** @var State $state */
-        $state = $this->di->get(State::class);
-        $state->setRequest($request);
+        try {
+            return $this->middlewareRunner->handle($request);
+        } catch (Throwable $ex) {
+            // Log application error if needed
+            $this->getDebugLogger()->error($ex->getMessage());
 
-        // Keep this into handle function to avoid spamming the stack with method calls
-        $opts = current($this->middlewares);
-        next($this->middlewares);
+            $code = 500;
+            $body = 'Server error';
 
-        if ($opts) {
-            /** @var Closure|null $condition  */
-            $condition = $opts['condition'];
-            if ($condition) {
-                $result = (bool)$this->inject($condition);
-                if (!$result) {
-                    return $this->handle($request);
+            // Make it nice for DX
+            if ($this->getDebug()) {
+                $line = $ex->getLine();
+                $file = $ex->getFile();
+                $type = get_class($ex);
+                $message = $ex->getMessage();
+                $trace = $ex->getTraceAsString();
+                if (in_array(\PHP_SAPI, ['cli', 'phpdbg'])) {
+                    $body = "$type in $file:$line\n---\n$message\n---\n$trace";
+                } else {
+                    $idePlaceholder = $_ENV['DUMP_IDE_PLACEHOLDER'] ?? 'vscode://file/{file}:{line}:0';
+                    $ideLink = str_replace(['{file}', '{line}'], [$file, $line], $idePlaceholder);
+                    $body = "<pre><code>$type</code> in <a href=\"$ideLink\">$file:$line</a>";
+                    $body .= "<h1>$message</h1>Trace:<br/>$trace</pre>";
                 }
             }
 
-            /** @var class-string|MiddlewareInterface $handler  */
-            $handler = $opts['middleware'];
-            $middleware = $this->resolveMiddleware($handler);
-            return $middleware->process($request, $this);
+            return $this->prepareResponse($request, [], $body, $code);
         }
-
-        // Reset so that next incoming request will run through all the middlewares
-        reset($this->middlewares);
-
-        return $this->process($request, $this);
-    }
-
-    /**
-     * @param Closure $callable
-     * @return mixed
-     */
-    public function inject($callable)
-    {
-        $refl = new ReflectionFunction($callable);
-        $reflParameters = $refl->getParameters();
-        $params = [];
-        foreach ($reflParameters as $reflParameter) {
-            $type = $reflParameter->getType();
-            if (!$type instanceof ReflectionNamedType) {
-                throw new Exception("Parameter has no name");
-            }
-            $params[] = $this->di->get($type->getName());
-        }
-        $result = $callable(...$params);
-        return $result;
     }
 
     /**
@@ -618,6 +577,26 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         return $this->di;
     }
 
+    public function getMiddlewareRunner(): MiddlewareRunner
+    {
+        return $this->middlewareRunner;
+    }
+
+    public function getLogger(): LoggerInterface
+    {
+        return $this->getDi()->get(LoggerInterface::class);
+    }
+
+    public function getDebugLogger(): LoggerInterface
+    {
+        return $this->getDi()->get(self::DEBUG_LOGGER);
+    }
+
+    public function getBooted(): bool
+    {
+        return $this->booted;
+    }
+
     public function getDebug(): bool
     {
         return $this->debug;
@@ -627,34 +606,6 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     {
         $this->debug = $debug;
         return $this;
-    }
-
-    /**
-     * @param class-string|MiddlewareInterface $middleware
-     */
-    public function addMiddleware($middleware, Closure $condition = null): self
-    {
-        if ($this->booted) {
-            throw new RuntimeException("Cannot add middlewares once booted");
-        }
-        $this->middlewares[] = [
-            'middleware' => $middleware,
-            'condition' => $condition,
-        ];
-        return $this;
-    }
-
-    /**
-     * This should probably be called before any other middleware
-     * @param class-string|MiddlewareInterface $middleware
-     */
-    public function addErrorHandler($middleware, Closure $condition = null): self
-    {
-        if ($this->hasErrorHandler) {
-            throw new RuntimeException("Error handler already set");
-        }
-        $this->hasErrorHandler = true;
-        return $this->addMiddleware($middleware, $condition);
     }
 
     public function getServeFile(): bool

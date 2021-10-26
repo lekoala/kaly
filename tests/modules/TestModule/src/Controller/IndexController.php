@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace TestModule\Controller;
 
+use Exception;
 use Kaly\Auth;
+use Kaly\State;
 use Kaly\Exceptions\RedirectException;
 use Kaly\Exceptions\ValidationException;
-use Kaly\State;
 use Psr\Http\Message\ServerRequestInterface;
 
 class IndexController
@@ -53,6 +54,11 @@ class IndexController
     {
         $attr = $request->getAttribute("test-attribute");
         return $attr;
+    }
+
+    public function middlewareException(ServerRequestInterface $request)
+    {
+        throw new Exception($request->getAttribute("test-attribute"));
     }
 
     public function getip(ServerRequestInterface $request)

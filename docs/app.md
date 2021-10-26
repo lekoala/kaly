@@ -73,18 +73,19 @@ The `run` method will do a couple of things. It will:
 
 It is possible to use middlewares like this. Middleware support is really simple:
 they run on each request if their matching condition is met. 
+
 They get instantiated by the DI container.
 
 ```php
 $app = new App(dirname(__DIR__));
-$app
+$app->getMiddlewareRunner()
     ->addErrorHandler(Whoops::class, function (App $app) {
         return $app->getDebug();
     })
     ->addMiddleware(BasicAuthentication::class, function (State $state) {
         return str_starts_with($state->getRequest()->getUri()->getPath(), '/admin');
     })
-    ->addMiddleware(ClientIp::class);
+    ->addMiddleware(ClientIp::class, null, true);
 
 $app->run();
 
@@ -92,6 +93,14 @@ $app->run();
 
 Note: remember that the di container does NOT contain a reference to the request
 and that you need to use our state class.
+
+### Linear middlewares
+
+By default middlewares are calling each other in a stack. This means that you get very 
+large call stacks to inspect if you are running small middlewares.
+
+For middlewares that are only updating the request (like the ClientIp above) you can pass
+a third parameter to execute linearly the middleware and it *won't be visible in the call stack*.
 
 ## Env variables
 

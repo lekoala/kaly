@@ -9,6 +9,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class TestMiddleware implements MiddlewareInterface
 {
+    public const DEFAULT_ATTR = "test-attribute";
+    public const DEFAULT_VALUE = "test-value";
     protected string $attribute = "test-attribute";
     protected string $value = "test-value";
 

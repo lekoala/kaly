@@ -150,7 +150,7 @@ class AppTest extends TestCase
         $request = Http::createRequestFromGlobals();
         $request = $request->withUri(new Uri("/test-module/index/middleware/"));
         $app = new App(__DIR__);
-        $app->addMiddleware($middlewareInst);
+        $app->getMiddlewareRunner()->addMiddleware($middlewareInst);
         $app->boot();
         $response = $app->handle($request);
         $body = (string)$response->getBody();
@@ -161,6 +161,45 @@ class AppTest extends TestCase
         $response = $app->handle($request);
         $body = (string)$response->getBody();
         $this->assertEquals("new", $body);
+    }
+
+    public function testConditionalMiddleware()
+    {
+        $middlewareInst = new TestMiddleware();
+
+        $request = Http::createRequestFromGlobals();
+        $request = $request->withUri(new Uri("/test-module/index/middleware/"));
+        $app = new App(__DIR__);
+        $app->setDebug(true);
+        $app->getMiddlewareRunner()->addMiddleware($middlewareInst, function (App $app) {
+            return $app->getDebug();
+        });
+        $app->boot();
+        $response = $app->handle($request);
+        $body = (string)$response->getBody();
+        $this->assertEquals(TestMiddleware::DEFAULT_VALUE, $body);
+
+        // State can change between requests
+        $app->setDebug(false);
+        $response = $app->handle($request);
+        $body = (string)$response->getBody();
+        $this->assertNotEquals(TestMiddleware::DEFAULT_VALUE, $body);
+    }
+
+    public function testLinearMiddleware()
+    {
+        $middlewareInst = new TestMiddleware();
+
+        $request = Http::createRequestFromGlobals();
+        $request = $request->withUri(new Uri("/test-module/index/middleware_exception/"));
+        $app = new App(__DIR__);
+        $app->setDebug(true);
+        $app->getMiddlewareRunner()->addMiddleware($middlewareInst, null, true);
+        $app->boot();
+        $response = $app->handle($request);
+        $body = (string)$response->getBody();
+        // It does not appear in the stack trace
+        $this->assertStringNotContainsString(TestMiddleware::class, $body);
     }
 
     public function testRequestHasIp()

@@ -13,19 +13,25 @@ class State
 {
     protected ?ServerRequestInterface $request = null;
     protected Translator $translator;
+    protected Auth $auth;
     /**
      * @var array<string, mixed>
      */
     protected array $route;
 
-    public function __construct(Translator $translator)
+    public function __construct(Translator $translator, Auth $auth)
     {
         $this->translator = $translator;
+        $this->auth = $auth;
+    }
+
+    public function setUserFromRequest(): void
+    {
     }
 
     public function setLocaleFromRequest(): void
     {
-        if ($this->request == null) {
+        if ($this->request === null) {
             return;
         }
         $locale = $this->request->getAttribute("locale");
