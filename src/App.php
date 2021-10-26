@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 namespace Kaly;
 
+use Closure;
 use Kaly\Di;
+use Exception;
 use Kaly\Http;
 use Throwable;
 use ErrorException;
 use RuntimeException;
 use Psr\Log\NullLogger;
+use ReflectionFunction;
+use ReflectionNamedType;
 use Psr\Log\LoggerInterface;
+use InvalidArgumentException;
 use Kaly\Interfaces\RouterInterface;
 use Kaly\Exceptions\NotFoundException;
 use Psr\Http\Message\ResponseInterface;
@@ -42,6 +47,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     public const IGNORE_DOT_ENV = "IGNORE_DOT_ENV";
     public const ENV_DEBUG = "APP_DEBUG";
     public const ENV_TIMEZONE = "APP_TIMEZONE";
+    public const CALLBACK_ERROR = "error";
 
     protected const DEFAULT_IMPLEMENTATIONS = [
         FaviconProviderInterface::class => SiteConfig::class,
@@ -62,6 +68,10 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     protected Di $di;
     protected MiddlewareRunner $middlewareRunner;
     protected static ?App $instance = null;
+    /**
+     * @var array<string, mixed>
+     */
+    protected array $callbacks = [];
 
     /**
      * Create a new instance of the application
@@ -189,6 +199,39 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         }
         $this->modules = $modules;
         return $definitions;
+    }
+
+    /**
+     * @param Closure $callable
+     * @param array<mixed> $params
+     * @return mixed
+     */
+    public function inject($callable, array $params = [])
+    {
+        $refl = new ReflectionFunction($callable);
+        $reflParameters = $refl->getParameters();
+        $args = [];
+        $i = 0;
+        foreach ($reflParameters as $reflParameter) {
+            $type = $reflParameter->getType();
+            if (!$type instanceof ReflectionNamedType) {
+                throw new Exception("Parameter has no name");
+            }
+            // Use provided or resolve using di
+            if (isset($params[$i])) {
+                $args[] = $params[$i];
+            } elseif (isset($params[$type->getName()])) {
+                $args[] = $params[$type->getName()];
+            } else {
+                if (!$this->di->has($type->getName())) {
+                    throw new Exception("Parameter {$type->getName()} is not defined in the Di container");
+                }
+                $args[] = $this->di->get($type->getName());
+            }
+            $i++;
+        }
+        $result = $callable(...$args);
+        return $result;
     }
 
     /**
@@ -442,7 +485,9 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             return $this->middlewareRunner->handle($request);
         } catch (Throwable $ex) {
             // Log application error if needed
-            $this->getDebugLogger()->error($ex->getMessage());
+            $this->getLogger()->error($ex->getMessage() . " ({$ex->getFile()}:{$ex->getLine()})");
+
+            $this->runCallbacks(self::class, self::CALLBACK_ERROR, [$ex]);
 
             $code = 500;
             $body = 'Server error';
@@ -525,6 +570,34 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         Http::sendResponse($response);
     }
 
+    /**
+     * @param class-string $class
+     */
+    public function addCallback(string $class, string $type = "default", callable $callable = null): self
+    {
+        if (!$callable) {
+            throw new InvalidArgumentException("You must pass a callable");
+        }
+        $key = "$class.$type";
+        $this->callbacks[$key][] = $callable;
+        return $this;
+    }
+
+    /**
+     * @param class-string $class
+     * @param array<mixed> $params
+     */
+    public function runCallbacks(string $class, string $type = "default", array $params = []): void
+    {
+        $key = "$class.$type";
+        if (empty($this->callbacks[$key])) {
+            return;
+        }
+        foreach ($this->callbacks[$key] as $callable) {
+            $this->inject($callable, $params);
+        }
+    }
+
     public function getBaseDir(): string
     {
         return $this->baseDir;
@@ -584,12 +657,16 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
     public function getLogger(): LoggerInterface
     {
-        return $this->getDi()->get(LoggerInterface::class);
+        /** @var LoggerInterface $logger  */
+        $logger = $this->getDi()->get(LoggerInterface::class);
+        return $logger;
     }
 
     public function getDebugLogger(): LoggerInterface
     {
-        return $this->getDi()->get(self::DEBUG_LOGGER);
+        /** @var LoggerInterface $logger  */
+        $logger = $this->getDi()->get(self::DEBUG_LOGGER);
+        return $logger;
     }
 
     public function getBooted(): bool

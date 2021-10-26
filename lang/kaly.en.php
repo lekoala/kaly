@@ -1,6 +1,5 @@
 <?php
 
-
 return [
     Kaly\Auth::class => [
         'auth_required' => "Authentication required",

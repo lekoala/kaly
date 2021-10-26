@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Kaly\Exceptions;
 
+use Kaly\Auth;
 use Kaly\Http;
-use Kaly\Interfaces\ResponseProviderInterface;
-use Psr\Http\Message\ResponseInterface;
 use Throwable;
 use RuntimeException;
+use Psr\Http\Message\ResponseInterface;
+use Kaly\Interfaces\ResponseProviderInterface;
 
 /**
  * Used by basic auth or your credentials system

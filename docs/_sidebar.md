@@ -2,3 +2,7 @@
 * [DI](di.md)
 * [App](app.md)
 * [ClassRouter](class-router.md)
+* [Views](views.md)
+* [i18n](i18n.md)
+* [Logging](logging.md)
+* [Benchmarks](benchmarks.md)

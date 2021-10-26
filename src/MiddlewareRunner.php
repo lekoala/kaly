@@ -30,30 +30,6 @@ class MiddlewareRunner extends RequestHandler
     }
 
     /**
-     * @param Closure $callable
-     * @return mixed
-     */
-    public function inject($callable)
-    {
-        $di = $this->app->getDi();
-        $refl = new ReflectionFunction($callable);
-        $reflParameters = $refl->getParameters();
-        $params = [];
-        foreach ($reflParameters as $reflParameter) {
-            $type = $reflParameter->getType();
-            if (!$type instanceof ReflectionNamedType) {
-                throw new Exception("Parameter has no name");
-            }
-            if (!$di->has($type->getName())) {
-                throw new Exception("Parameter {$type->getName()} is not defined in the Di container");
-            }
-            $params[] = $di->get($type->getName());
-        }
-        $result = $callable(...$params);
-        return $result;
-    }
-
-    /**
      * @param class-string|MiddlewareInterface $middleware
      */
     protected function resolveMiddleware($middleware): MiddlewareInterface
@@ -73,9 +49,6 @@ class MiddlewareRunner extends RequestHandler
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $di = $this->app->getDi();
-        if (!$di) {
-            throw new RuntimeException("Di is not configured yet. Make sure you boot the app first!");
-        }
 
         // We need to set the request in case we use it in our middleware conditions
         /** @var State $state */
@@ -99,7 +72,7 @@ class MiddlewareRunner extends RequestHandler
             /** @var Closure|null $condition  */
             $condition = $opts['condition'];
             if ($condition) {
-                $result = (bool)$this->inject($condition);
+                $result = (bool)$this->app->inject($condition);
                 // Skip this and handle next
                 if (!$result) {
                     return $this->handle($request);

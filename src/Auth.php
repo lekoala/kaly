@@ -9,6 +9,11 @@ use Psr\Http\Message\ServerRequestInterface;
 
 class Auth
 {
+    public const USER_ID_ATTR = "user-id";
+    public const CALLBACK_SUCCESS = "success";
+    public const CALLBACK_FAILED = "failed";
+    public const CALLBACK_CLEARED = "cleared";
+
     /**
      * @throws AuthenticationException
      */
@@ -17,6 +22,8 @@ class Auth
         if (!$username || !$password) {
             return;
         }
+
+        $app = App::inst();
 
         $server = $request->getServerParams();
         $authHeader = null;
@@ -43,12 +50,15 @@ class Auth
         }
         if (!$authSuccess) {
             if (isset($server['PHP_AUTH_USER'])) {
-                $message = t(Auth::class . ".user_not_found", [], "kaly");
+                $request = $request->withAttribute(self::USER_ID_ATTR, $server['PHP_AUTH_USER']);
+                $message = t(self::class . ".user_not_found", [], "kaly");
             } else {
-                $message = t(Auth::class . ".enter_your_credentials", [], "kaly");
+                $message = t(self::class . ".enter_your_credentials", [], "kaly");
             }
+            $app->runCallbacks(self::class, self::CALLBACK_FAILED, [ServerRequestInterface::class => $request]);
             // This implements ResponseProvider interface and it's response will be served by our app
             throw new AuthenticationException($message);
         }
+        $app->runCallbacks(self::class, self::CALLBACK_SUCCESS, [ServerRequestInterface::class => $request]);
     }
 }

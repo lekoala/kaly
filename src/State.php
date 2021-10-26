@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly;
 
 use Psr\Http\Message\ServerRequestInterface;
+use RuntimeException;
 
 /**
  * This state class encapsulate data for the current request
@@ -51,8 +52,11 @@ class State
         return $this->getTranslator()->getCurrentLocale();
     }
 
-    public function getRequest(): ?ServerRequestInterface
+    public function getRequest(): ServerRequestInterface
     {
+        if (!$this->request) {
+            throw new RuntimeException("Request is not set yet");
+        }
         return $this->request;
     }
 

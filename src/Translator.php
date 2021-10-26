@@ -69,7 +69,7 @@ class Translator
 
     public static function getLangFromLocale(string $locale): string
     {
-        return strtolower(explode("-", str_replace("_", "-", $locale))[0]);
+        return strtolower(explode("-", str_replace("_", "-", $locale), 3)[0]);
     }
 
     /**
@@ -188,7 +188,7 @@ class Translator
         }
 
         // Attempt fallback in default locale
-        if (!$translation && $locale != $this->defaultLocale) {
+        if (!$translation && $locale != $this->defaultLocale && $this->defaultLocale) {
             return $this->translate($message, $parameters, $domain, $this->defaultLocale);
         }
 
