@@ -18,14 +18,14 @@ class AuthenticationException extends RuntimeException implements ResponseProvid
     public function __construct(string $message = "", int $code = 401, Throwable $previous = null)
     {
         if (!$message) {
-            $message = "Authentication required";
+            $message = t(Auth::class . ".auth_required", [], "kaly");
         }
         parent::__construct($message, $code, $previous);
     }
 
     public function getResponse(): ResponseInterface
     {
-        $realm = "Enter your credentials";
+        $realm = t(Auth::class . ".enter_your_credentials", [], "kaly");
         $response = Http::respond($this->getMessage(), $this->getCode());
         $response = $response->withAddedHeader('WWW-Authenticate', "Basic realm=\"$realm\"");
         return $response;

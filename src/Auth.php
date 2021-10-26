@@ -43,9 +43,9 @@ class Auth
         }
         if (!$authSuccess) {
             if (isset($server['PHP_AUTH_USER'])) {
-                $message = "That username / password isn't recognised";
+                $message = t(Auth::class . ".user_not_found", [], "kaly");
             } else {
-                $message = "Please enter a username and password.";
+                $message = t(Auth::class . ".enter_your_credentials", [], "kaly");
             }
             // This implements ResponseProvider interface and it's response will be served by our app
             throw new AuthenticationException($message);

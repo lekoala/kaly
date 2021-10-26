@@ -45,6 +45,8 @@ class Translator
         if ($currentLocale) {
             $this->setCurrentLocale($currentLocale);
         }
+        // Add system path
+        $this->addPath(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'lang');
     }
 
     /**
