@@ -49,7 +49,7 @@ class FunctionsTest extends TestCase
     {
         $str = "\"or else it doesn't, you know. the name of the song is called 'haddocks' eyes.'\"";
         $expected = "\"Or Else It Doesn't, You Know. The Name Of The Song Is Called 'Haddocks' Eyes.'\"";
-        $this->assertEquals($expected, strtotitle($str));
+        $this->assertEquals($expected, mb_strtotitle($str));
     }
 
     public function testArrayMergeDistinct()

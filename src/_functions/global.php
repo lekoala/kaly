@@ -39,7 +39,7 @@ function array_merge_distinct(array &$arr1, array &$arr2, bool $deep = true): ar
  * Convert the first character of each word to uppercase
  * and all the other characters to lowercase
  */
-function strtotitle(string $str): string
+function mb_strtotitle(string $str): string
 {
     return mb_convert_case($str, MB_CASE_TITLE, "UTF-8");
 }
@@ -55,7 +55,7 @@ function camelize(string $str, bool $firstChar = true): string
         return $str;
     }
     $str = str_replace('-', ' ', $str);
-    $str = strtotitle($str);
+    $str = mb_strtotitle($str);
     $str = str_replace(' ', '', $str);
     if (!$firstChar) {
         $str[0] = mb_strtolower($str[0]);
