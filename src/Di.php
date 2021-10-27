@@ -304,6 +304,11 @@ class Di implements ContainerInterface
      */
     public function get(string $id): object
     {
+        $fresh = false;
+        if (str_ends_with($id, ':new')) {
+            $fresh = true;
+            $id = substr($id, 0, -4);
+        }
         if (!$this->has($id)) {
             $this->throwNotFound("Unable to create object `$id` because it does not exist");
         }
@@ -311,6 +316,11 @@ class Di implements ContainerInterface
         // Di can return itself
         if ($id === __CLASS__) {
             return $this;
+        }
+
+        // We requested a fresh instance
+        if ($fresh) {
+            return $this->build($id);
         }
 
         // A cached instance does not exist yet, build it

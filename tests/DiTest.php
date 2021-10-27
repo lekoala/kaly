@@ -77,6 +77,7 @@ class DiTest extends TestCase
 
     public function testCreateObjectWithAlias()
     {
+        // obj1 and obj2 are the names of the variable in the TestObject3 constructor
         $di = new Di([
             'obj1' => function (): TestObject {
                 return new TestObject();
@@ -109,6 +110,24 @@ class DiTest extends TestCase
         $inst = $di->get(TestInterface::class);
         $this->assertInstanceOf(TestObject::class, $inst);
         $this->assertEquals("closure", $inst->val);
+    }
+
+    public function testFactory()
+    {
+        $counter = 0;
+        $di = new Di([
+            TestObject::class => function () use (&$counter): TestObject {
+                $inst = new TestObject();
+                $counter++;
+                $inst->setCounter($counter);
+                return $inst;
+            }
+        ]);
+
+        /** @var TestObject $inst  */
+        $inst = $di->get(TestObject::class . ':new');
+        $inst2 = $di->get(TestObject::class . ':new');
+        $this->assertNotEquals($inst->getCounter(), $inst2->getCounter());
     }
 
     public function testInvalidDefinition()
