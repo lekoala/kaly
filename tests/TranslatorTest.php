@@ -54,6 +54,13 @@ class TranslatorTest extends TestCase
         $result = $translator->translate("easy_apples", ["%count%" => 2]);
         $this->assertEquals("2 apples", $result);
 
+        $result = $translator->translate("easy_apples_3", ["%count%" => 0]);
+        $this->assertEquals("no apples", $result);
+        $result = $translator->translate("easy_apples_3", ["%count%" => 1]);
+        $this->assertEquals("an apple", $result);
+        $result = $translator->translate("easy_apples_3", ["%count%" => 2]);
+        $this->assertEquals("2 apples", $result);
+
         $result = $translator->translate("utf8plural", ["%count%" => 0]);
         $this->assertEquals("öëBC", $result);
         $result = $translator->translate("utf8plural", ["%count%" => 1]);

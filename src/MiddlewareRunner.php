@@ -5,10 +5,7 @@ declare(strict_types=1);
 namespace Kaly;
 
 use Closure;
-use Exception;
 use RuntimeException;
-use ReflectionFunction;
-use ReflectionNamedType;
 use Middlewares\Utils\RequestHandler;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\MiddlewareInterface;

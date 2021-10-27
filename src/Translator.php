@@ -194,7 +194,7 @@ class Translator
 
         // Handling plurals in a minimalistic yet powerful fashion
         if (isset($parameters['%count%'])) {
-            $c = floatval($parameters['%count%']);
+            $c = intval($parameters['%count%']);
             $translation = $this->processPlurals($translation, $c);
         }
 
@@ -224,16 +224,19 @@ class Translator
         return strtr($translation, $replace);
     }
 
-    protected function processPlurals(string $translation, float $c): string
+    protected function processPlurals(string $translation, int $c): string
     {
         // This could be a simple convention singular|plural
         // Or have specific rules if starts with { or ][
         $parts = explode("|", $translation);
         // The last one is the valid one by default
         $translation = end($parts);
+        $partsNum = count($parts);
         foreach ($parts as $idx => $part) {
             $char = $part[0];
             $matches = [];
+
+            // It can start with a denominator or it is a simple array
             if ($char == '{') {
                 $results = preg_match('/{([0-9]*)}(.*)/u', $part, $matches);
                 if ($results && $matches[1] == $c) {
@@ -247,11 +250,24 @@ class Translator
                     $translation = $matches[2];
                     break;
                 }
-            } else {
-                if ($c <= 1 && $idx == 0) {
+            } elseif ($partsNum === 2) {
+                // We have a simple pair of singular/plural
+                if ($c <= 1 && $idx === 0) {
                     $translation = $part;
                     break;
                 } elseif ($c > 1 && $idx == 1) {
+                    $translation = $part;
+                    break;
+                }
+            } elseif ($partsNum === 3) {
+                // We have a triple pair of none/singular/plural
+                if ($c === 0 && $idx === 0) {
+                    $translation = $part;
+                    break;
+                } elseif ($c === 1 && $idx == 1) {
+                    $translation = $part;
+                    break;
+                } elseif ($c > 1 && $idx === 2) {
                     $translation = $part;
                     break;
                 }

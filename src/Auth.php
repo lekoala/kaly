@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly;
 
 use Kaly\Exceptions\AuthenticationException;
+use Kaly\Exceptions\RedirectException;
 use Psr\Http\Message\ServerRequestInterface;
 
 class Auth
@@ -13,6 +14,19 @@ class Auth
     public const CALLBACK_SUCCESS = "success";
     public const CALLBACK_FAILED = "failed";
     public const CALLBACK_CLEARED = "cleared";
+
+    public static function getUser(ServerRequestInterface $request): string
+    {
+        return $request->getAttribute(self::USER_ID_ATTR);
+    }
+
+    public static function checkAuth(ServerRequestInterface $request)
+    {
+        if (!$request->getAttribute(self::USER_ID_ATTR)) {
+            $loginUrl = "/login";
+            throw new RedirectException($loginUrl);
+        }
+    }
 
     /**
      * @throws AuthenticationException
@@ -44,13 +58,13 @@ class Auth
         }
         $authSuccess = false;
         if (isset($server['PHP_AUTH_USER']) && isset($server['PHP_AUTH_PW'])) {
+            $request = $request->withAttribute(self::USER_ID_ATTR, $server['PHP_AUTH_USER']);
             if ($server['PHP_AUTH_USER'] == $username && $server['PHP_AUTH_PW'] == $password) {
                 $authSuccess = true;
             }
         }
         if (!$authSuccess) {
             if (isset($server['PHP_AUTH_USER'])) {
-                $request = $request->withAttribute(self::USER_ID_ATTR, $server['PHP_AUTH_USER']);
                 $message = t(self::class . ".user_not_found", [], "kaly");
             } else {
                 $message = t(self::class . ".enter_your_credentials", [], "kaly");
