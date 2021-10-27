@@ -250,12 +250,17 @@ class App implements RequestHandlerInterface, MiddlewareInterface
      */
     public function configureDi(array $definitions): Di
     {
+        $noCache = [];
         // Register the app itself
         $definitions[static::class] = $this;
         // Create an alias if necessary
         if (self::class !== static::class) {
             $definitions[self::class] = static::class;
         }
+
+        // Register a static alias for request that should not be cached
+        $definitions[ServerRequestInterface::class] = App::class . "::getRequest";
+        $noCache[] = ServerRequestInterface::class;
 
         // Register our default implementations if none are provided
         foreach (self::DEFAULT_IMPLEMENTATIONS as $interface => $className) {
@@ -284,7 +289,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         // Sort definitions as it is much cleaner to debug
         ksort($definitions);
 
-        return new Di($definitions);
+        return new Di($definitions, $noCache);
     }
 
     /**

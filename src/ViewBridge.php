@@ -141,7 +141,7 @@ class ViewBridge
         /** @var \Twig\Environment $twig  */
         $twig = $di->get(\Twig\Environment::class);
 
-        // Set some globals to allow pulling data from our controller or state
+        // Set some globals to allow pulling data from our controller
         // Defaults globals are _self, _context, _charset
         $twig->addGlobal("_config", $di->get(SiteConfig::class));
         $twig->addGlobal("_route", $route);
@@ -189,7 +189,6 @@ class ViewBridge
         $engine = $di->get(\League\Plates\Engine::class);
 
         $globals = [
-            "_state" => $di->get(State::class),
             "_config" => $di->get(SiteConfig::class),
             "_route" => $route,
         ];

@@ -20,7 +20,7 @@ class Auth
         return $request->getAttribute(self::USER_ID_ATTR);
     }
 
-    public static function checkAuth(ServerRequestInterface $request)
+    public static function checkAuth(ServerRequestInterface $request): void
     {
         if (!$request->getAttribute(self::USER_ID_ATTR)) {
             $loginUrl = "/login";

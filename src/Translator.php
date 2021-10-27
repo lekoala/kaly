@@ -52,6 +52,9 @@ class Translator
         $this->addPath(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'lang');
     }
 
+    /**
+     * @param array<string> $allowed
+     */
     public function setLocaleFromRequest(ServerRequestInterface $request, array $allowed = null): self
     {
         $locale = $request->getAttribute(self::LOCALE_REQUEST_ATTR);

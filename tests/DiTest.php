@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\App;
 use PDO;
 use Kaly\Di;
+use Kaly\App;
+use Kaly\Http;
+use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use Kaly\Tests\Mocks\TestObject;
 use Kaly\Tests\Mocks\TestObject2;
@@ -14,8 +16,8 @@ use Kaly\Tests\Mocks\TestObject3;
 use Kaly\Tests\Mocks\TestObject4;
 use Kaly\Tests\Mocks\TestInterface;
 use Psr\Container\ContainerInterface;
-use Psr\Container\ContainerExceptionInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Container\ContainerExceptionInterface;
 
 class DiTest extends TestCase
 {
@@ -155,16 +157,30 @@ class DiTest extends TestCase
         $di = new Di([
             App::class => $app,
             ServerRequestInterface::class => App::class . "::getRequest"
+        ], [
+            ServerRequestInterface::class
         ]);
 
         // We need to handle a request before
         $app->boot();
-        $app->handle();
+
+        $request = Http::createRequestFromGlobals();
+        $request = $request->withUri(new Uri("/uri1"));
+        $app->handle($request);
 
         /** @var ServerRequestInterface $inst  */
         $inst = $di->get(ServerRequestInterface::class);
 
         $this->assertInstanceOf(ServerRequestInterface::class, $inst);
+
+        $request = $request->withUri(new Uri("/uri2"));
+        $app->handle($request);
+
+        /** @var ServerRequestInterface $inst  */
+        $inst2 = $di->get(ServerRequestInterface::class);
+
+        // This should not be cached
+        $this->assertNotEquals($inst->getUri()->getPath(), $inst2->getUri()->getPath());
     }
 
     public function testInvalidDefinition()

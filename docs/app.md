@@ -65,14 +65,15 @@ while ($req = $worker->waitRequest()) {
 ## Bootstrap
 
 The `run` method will do a couple of things. It will:
-- it will boot the app if not already done
-- it will handle the request (from globals if none passed)
-- and it will output the response
+
+-   it will boot the app if not already done
+-   it will handle the request (from globals if none passed)
+-   and it will output the response
 
 ## Using middlewares
 
 It is possible to use middlewares like this. Middleware support is really simple:
-they run on each request if their matching condition is met. 
+they run on each request if their matching condition is met.
 
 They get instantiated by the DI container.
 
@@ -82,8 +83,8 @@ $app->getMiddlewareRunner()
     ->addErrorHandler(Whoops::class, function (App $app) {
         return $app->getDebug();
     })
-    ->addMiddleware(BasicAuthentication::class, function (App $app) {
-        return str_starts_with($app->getRequest()->getUri()->getPath(), '/admin');
+    ->addMiddleware(BasicAuthentication::class, function (ServerRequestInterface $request) {
+        return str_starts_with($request->getUri()->getPath(), '/admin');
     })
     ->addMiddleware(ClientIp::class, null, true);
 
@@ -91,16 +92,13 @@ $app->run();
 
 ```
 
-Note: remember that the di container does NOT contain a reference to the request
-and that you need to use our app class to get the current request.
-
 ### Linear middlewares
 
-By default middlewares are calling each other in a stack. This means that you get very 
+By default middlewares are calling each other in a stack. This means that you get very
 large call stacks to inspect if you are running small middlewares.
 
 For middlewares that are only updating the request (like the ClientIp above) you can pass
-a third parameter to execute linearly the middleware and it *won't be visible in the call stack*.
+a third parameter to execute linearly the middleware and it _won't be visible in the call stack_.
 
 ## Env variables
 
@@ -114,7 +112,8 @@ a `IGNORE_DOT_ENV` environment variable.
 The only processing we do is converting "true" and "false" strings to actual booleans.
 
 Then we check our applications environment variables:
-- debug : toggle debug mode for the app. Useful in development.
+
+-   debug : toggle debug mode for the app. Useful in development.
 
 ## Modules
 
@@ -125,10 +124,10 @@ to be injected in the DI container.
 > You still need to autoload your modules yourself in composer.json
 
 > Convention: modules folder should match their namespace. We use uppercased folders for
-consistency.
+> consistency.
 
 > The default namespace for the built-in router is `App` and it makes sense to have
-a module matching this.
+> a module matching this.
 
 > Modules are not loaded in any particular order by default.
 
@@ -136,14 +135,16 @@ a module matching this.
 
 All definitions provided by the config modules are then loaded up in the Di container.
 
-Look into the App::configureDi method to see what's being done here.
+Look into the `App::configureDi` method to see what's being done here.
 
 Please note the the Di container is only instantiated ONCE, when the application is booted.
 This means that subsequent requests on the same app instance will use the same Di container.
 
-As a result, we do not have direct access to the request object, as it would be cached.
-Instead, it is recommended to use our `App::getRequest` method that get updated with the latest request instance
-each time.
+All returned instance are cached by default, except if they are part of no cache definition.
+This is the case for example for the `ServerRequestInterface` that is a uncached alias
+of `App::getRequest`.
+
+You can also request fresh classes using the ':new' suffix when calling `Di::get`
 
 ## Routing
 
@@ -158,6 +159,6 @@ An array is also valid for json responses.
 
 ## Json responses
 
-Any request accept json responses or using the ?_json flag can get a json response.
+Any request accept json responses or using the ?\_json flag can get a json response.
 
 This is only triggered if the route parameters have a json flag set to true.

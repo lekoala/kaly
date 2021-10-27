@@ -41,6 +41,12 @@ class Di implements ContainerInterface
     protected array $definitions;
 
     /**
+     * These ids are not cached
+     * @var array<string>
+     */
+    protected array $noCache;
+
+    /**
      * Store all requested instances by id
      * @var array<string, object|null>
      */
@@ -48,10 +54,12 @@ class Di implements ContainerInterface
 
     /**
      * @param array<string, mixed> $definitions
+     * @param array<string> $noCache
      */
-    public function __construct(array $definitions = [])
+    public function __construct(array $definitions = [], array $noCache = [])
     {
         $this->definitions = $definitions;
+        $this->noCache = $noCache;
     }
 
     /**
@@ -323,7 +331,8 @@ class Di implements ContainerInterface
      */
     public function get(string $id): object
     {
-        $fresh = false;
+        // Get fresh instance if requested or part of no cache
+        $fresh = in_array($id, $this->noCache);
         if (str_ends_with($id, self::FRESH)) {
             $fresh = true;
             $id = substr($id, 0, -strlen(self::FRESH));
