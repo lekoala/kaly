@@ -243,8 +243,8 @@ class AppTest extends TestCase
         $this->assertEquals('no', $body);
 
         // Since our controller is cached, a new request is passed
-        // The initially set "request" object will not be the same as the one from our State class
-        // => always use state class
+        // The initially set "request" object will not be the same as the one from our App class
+        // => always use app class
         $request = Http::createRequestFromGlobals();
         $request = $request->withUri(new Uri("/test-module/demo/is-request-different/"));
         $response = $app->handle($request);

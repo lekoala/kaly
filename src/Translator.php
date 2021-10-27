@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly;
 
+use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
 
 /**
@@ -12,6 +13,8 @@ use RuntimeException;
  */
 class Translator
 {
+    public const LOCALE_REQUEST_ATTR = "locale";
+
     public const DEFAULT_DOMAIN = "messages";
     // ISO 639 2 or 3, or 4 for future use, alpha
     public const LOCALE_LANGUAGE = "language";
@@ -29,12 +32,12 @@ class Translator
      * @var array<string>
      */
     protected array $paths = [];
-    protected ?string $defaultLocale = null;
+    protected string $defaultLocale;
     protected ?string $currentLocale = null;
     protected ?string $cacheDir = null;
     protected ?string $baseDomain = null;
 
-    public function __construct(string $defaultLocale = null, string $currentLocale = null)
+    public function __construct(string $defaultLocale = 'en', string $currentLocale = null)
     {
         if (!$currentLocale) {
             $currentLocale = $defaultLocale;
@@ -48,6 +51,21 @@ class Translator
         // Add system path
         $this->addPath(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'lang');
     }
+
+    public function setLocaleFromRequest(ServerRequestInterface $request, array $allowed = null): self
+    {
+        $locale = $request->getAttribute(self::LOCALE_REQUEST_ATTR);
+        if (!$locale) {
+            $locale = Http::getPreferredLanguage($request, $allowed);
+        }
+        if ($locale) {
+            // Make sure it's valid
+            self::parseLocale($locale);
+            $this->setCurrentLocale($locale);
+        }
+        return $this;
+    }
+
 
     /**
      * @return array<string, string>
@@ -276,7 +294,7 @@ class Translator
         return $translation;
     }
 
-    public function getDefaultLocale(): ?string
+    public function getDefaultLocale(): string
     {
         return $this->defaultLocale;
     }

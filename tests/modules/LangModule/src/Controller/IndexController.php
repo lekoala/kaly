@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace LangModule\Controller;
 
-use Kaly\State;
+use Kaly\App;
 use Psr\Http\Message\ServerRequestInterface;
 
 class IndexController
 {
-    protected State $state;
+    protected App $app;
 
-    public function __construct(State $state)
+    public function __construct(App $app)
     {
-        $this->state = $state;
+        $this->app = $app;
     }
 
     public function getlang(ServerRequestInterface $request)
     {
-        return $this->state->getLocale();
+        return $request->getAttribute(App::LOCALE_REQUEST_ATTR);
     }
 }

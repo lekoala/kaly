@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace TestModule\Controller;
 
+use Kaly\App;
 use Exception;
 use Kaly\Auth;
-use Kaly\State;
 use Kaly\Exceptions\RedirectException;
 use Kaly\Exceptions\ValidationException;
 use Psr\Http\Message\ServerRequestInterface;
 
 class IndexController
 {
-    protected State $state;
+    protected App $app;
 
-    public function __construct(State $state)
+    public function __construct(App $app)
     {
-        $this->state = $state;
+        $this->app = $app;
     }
 
     public function index(ServerRequestInterface $request)
@@ -68,7 +68,7 @@ class IndexController
 
     public function getipstate(ServerRequestInterface $request)
     {
-        return $this->state->getRequest()->getAttribute("client-ip");
+        return $this->app->getRequest()->getAttribute("client-ip");
     }
 
     public function redirect(ServerRequestInterface $request)

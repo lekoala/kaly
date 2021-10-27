@@ -31,22 +31,31 @@ use Psr\Http\Message\ResponseFactoryInterface;
  */
 class App implements RequestHandlerInterface, MiddlewareInterface
 {
+    // Folders
     public const MODULES_FOLDER = "modules";
     public const PUBLIC_FOLDER = "public";
     public const TEMP_FOLDER = "temp";
     public const RESOURCES_FOLDER = "resources";
+    // Router
     public const DEFAULT_MODULE = "App";
     public const CONTROLLER_SUFFIX = "Controller";
+    // Named services
     public const DEBUG_LOGGER = "debugLogger";
+    // Request attributes
     public const IP_REQUEST_ATTR = "client-ip";
     public const REQUEST_ID_REQUEST_ATTR = "request-id";
-    public const LOCALE_ATTR = "locale";
+    public const ROUTE_REQUEST_ATTR = "route";
+    public const LOCALE_REQUEST_ATTR = "locale";
+    // Route params
     public const JSON_ROUTE_PARAM = "json";
+    // View engines
     public const VIEW_TWIG = "twig";
     public const VIEW_PLATES = "plates";
+    // Env params
     public const IGNORE_DOT_ENV = "IGNORE_DOT_ENV";
     public const ENV_DEBUG = "APP_DEBUG";
     public const ENV_TIMEZONE = "APP_TIMEZONE";
+    // Callbacks
     public const CALLBACK_ERROR = "error";
 
     protected const DEFAULT_IMPLEMENTATIONS = [
@@ -56,7 +65,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         RouterInterface::class => ClassRouter::class,
     ];
 
-    protected bool $debug;
+    protected bool $debug = false;
     protected bool $booted = false;
     protected bool $serveFile = false;
     protected ?string $viewEngine = null;
@@ -67,6 +76,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     protected array $modules;
     protected Di $di;
     protected MiddlewareRunner $middlewareRunner;
+    protected ServerRequestInterface $request;
     protected static ?App $instance = null;
     /**
      * @var array<string, mixed>
@@ -217,7 +227,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             if (!$type instanceof ReflectionNamedType) {
                 throw new Exception("Parameter has no name");
             }
-            // Use provided or resolve using di
+            // Use provided (indexed or named) or resolve using di
             if (isset($params[$i])) {
                 $args[] = $params[$i];
             } elseif (isset($params[$type->getName()])) {
@@ -236,7 +246,6 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
     /**
      * The di container is only configured once on app load.
-     * For request specific services, use the State class
      * @param array<string, mixed> $definitions
      */
     public function configureDi(array $definitions): Di
@@ -377,6 +386,11 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         $this->booted = true;
     }
 
+    /**
+     * Update request with convention based attributes
+     *
+     * Compatible with common middlewares/* implementation
+     */
     protected function updateRequest(ServerRequestInterface &$request): void
     {
         if (!$request->getAttribute(self::IP_REQUEST_ATTR)) {
@@ -385,6 +399,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         if (!$request->getAttribute(self::REQUEST_ID_REQUEST_ATTR)) {
             $request = $request->withAttribute(self::REQUEST_ID_REQUEST_ATTR, uniqid());
         }
+        $this->request = $request;
     }
 
     protected function serveFile(string $path): ?ResponseInterface
@@ -417,26 +432,24 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        // After all others middlewares are called, update request if necessary with required attributes
         $this->updateRequest($request);
 
         $code = 200;
         $body = null;
         $route = [];
 
-        /** @var State $state  */
-        $state = $this->di->get(State::class);
-        // Set the request again as it might have been changed by middlewares
-        $state->setRequest($request);
-        $state->setLocaleFromRequest();
+        /** @var Translator $translator  */
+        $translator = $this->di->get(Translator::class);
+        $translator->setLocaleFromRequest($request);
 
         try {
             /** @var RouterInterface $router  */
             $router = $this->di->get(RouterInterface::class);
             $route = $router->match($request);
-            $state->setRoute($route);
+            $request = $request->withAttribute(self::ROUTE_REQUEST_ATTR, $route);
             if (!empty($route[RouterInterface::LOCALE])) {
-                $state->getTranslator()->setCurrentLocale($route[RouterInterface::LOCALE]);
+                $request = $request->withAttribute(self::LOCALE_REQUEST_ATTR, $route[RouterInterface::LOCALE]);
+                $translator->setCurrentLocale($route[RouterInterface::LOCALE]);
             }
             $body = $this->dispatch($this->di, $request, $route);
         } catch (ResponseProviderInterface $ex) {
@@ -463,6 +476,8 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         if (!$request) {
             $request = Http::createRequestFromGlobals();
         }
+
+        $this->request = $request;
 
         // Serve public files... this should really be handled by your webserver instead
         if ($this->serveFile) {
@@ -667,6 +682,17 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         /** @var LoggerInterface $logger  */
         $logger = $this->getDi()->get(self::DEBUG_LOGGER);
         return $logger;
+    }
+
+    public function getRequest(): ServerRequestInterface
+    {
+        return $this->request;
+    }
+
+    public function setRequest(ServerRequestInterface $request): self
+    {
+        $this->request = $request;
+        return $this;
     }
 
     public function getBooted(): bool

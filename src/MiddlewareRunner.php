@@ -45,12 +45,8 @@ class MiddlewareRunner extends RequestHandler
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $di = $this->app->getDi();
-
         // We need to set the request in case we use it in our middleware conditions
-        /** @var State $state */
-        $state = $di->get(State::class);
-        $state->setRequest($request);
+        $this->app->setRequest($request);
 
         // We can return early
         if ($this->linear) {
@@ -87,7 +83,7 @@ class MiddlewareRunner extends RequestHandler
                 $this->linear = true;
                 $response = $middleware->process($request, $this);
                 // Use updated request reference
-                $request = $state->getRequest();
+                $request = $this->app->getRequest();
                 // Use goto to avoid stack trace
                 goto start;
             } else {

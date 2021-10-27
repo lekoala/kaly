@@ -4,23 +4,23 @@ declare(strict_types=1);
 
 namespace TestModule\Controller;
 
-use Kaly\State;
+use Kaly\App;
 use Psr\Http\Message\ServerRequestInterface;
 
 class DemoController
 {
     protected ServerRequestInterface $request;
-    protected State $state;
+    protected App $app;
 
-    public function __construct(State $state)
+    public function __construct(App $app)
     {
-        $this->state = $state;
-        $this->request = $state->getRequest();
+        $this->app = $app;
+        $this->request = $app->getRequest();
     }
 
     public function isRequestDifferent(ServerRequestInterface $request)
     {
-        $curr = $this->state->getRequest();
+        $curr = $this->app->getRequest();
         return $curr !== $this->request ? 'yes' : 'no';
     }
 

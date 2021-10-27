@@ -80,15 +80,14 @@ class ViewBridge
                 $translator->setBaseDomain($domain);
             },
             'asset' => function (string $file) use ($app) {
-                /** @var State $state  */
-                $state = $app->getDi()->get(State::class);
-                $module = $state->getRoute()[RouterInterface::MODULE] ?? '';
+                $route = $app->getRequest()->getAttribute(App::ROUTE_REQUEST_ATTR);
+                $module = $route[RouterInterface::MODULE] ?? '';
                 $resourcesFolder = App::RESOURCES_FOLDER;
 
                 // Copy on the fly requested assets
                 if ($app->getDebug()) {
                     $publicResource = $app->getResourceDir($module, true) . DIRECTORY_SEPARATOR . $file;
-                    $sourceFile = $app->getClientModuleDir($module) . DIRECTORY_SEPARATOR . "$file";
+                    $sourceFile = $app->getClientModuleDir($module) . DIRECTORY_SEPARATOR . $file;
                     if (is_file($sourceFile)) {
                         // File is overwritten if it already exists
                         copy($sourceFile, $publicResource);
@@ -119,7 +118,6 @@ class ViewBridge
                 $twig->addFunction(new \Twig\TwigFunction($functionName, $closure));
             }
             // We define early to make sure they are compiled
-            $twig->addGlobal("_state", null);
             $twig->addGlobal("_config", null);
             $twig->addGlobal("_route", null);
             $twig->addGlobal("_controller", null);
@@ -145,7 +143,6 @@ class ViewBridge
 
         // Set some globals to allow pulling data from our controller or state
         // Defaults globals are _self, _context, _charset
-        $twig->addGlobal("_state", $di->get(State::class));
         $twig->addGlobal("_config", $di->get(SiteConfig::class));
         $twig->addGlobal("_route", $route);
         if (!empty($route['controller'])) {

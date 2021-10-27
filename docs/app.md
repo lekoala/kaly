@@ -82,8 +82,8 @@ $app->getMiddlewareRunner()
     ->addErrorHandler(Whoops::class, function (App $app) {
         return $app->getDebug();
     })
-    ->addMiddleware(BasicAuthentication::class, function (State $state) {
-        return str_starts_with($state->getRequest()->getUri()->getPath(), '/admin');
+    ->addMiddleware(BasicAuthentication::class, function (App $app) {
+        return str_starts_with($app->getRequest()->getUri()->getPath(), '/admin');
     })
     ->addMiddleware(ClientIp::class, null, true);
 
@@ -92,7 +92,7 @@ $app->run();
 ```
 
 Note: remember that the di container does NOT contain a reference to the request
-and that you need to use our state class.
+and that you need to use our app class to get the current request.
 
 ### Linear middlewares
 
@@ -142,7 +142,7 @@ Please note the the Di container is only instantiated ONCE, when the application
 This means that subsequent requests on the same app instance will use the same Di container.
 
 As a result, we do not have direct access to the request object, as it would be cached.
-Instead, it is recommended to use our State object that get updated with the latest request instance
+Instead, it is recommended to use our `App::getRequest` method that get updated with the latest request instance
 each time.
 
 ## Routing
