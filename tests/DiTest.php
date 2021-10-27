@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use Kaly\App;
 use PDO;
 use Kaly\Di;
 use PHPUnit\Framework\TestCase;
@@ -14,6 +15,7 @@ use Kaly\Tests\Mocks\TestObject4;
 use Kaly\Tests\Mocks\TestInterface;
 use Psr\Container\ContainerInterface;
 use Psr\Container\ContainerExceptionInterface;
+use Psr\Http\Message\ServerRequestInterface;
 
 class DiTest extends TestCase
 {
@@ -110,6 +112,23 @@ class DiTest extends TestCase
         $inst = $di->get(TestInterface::class);
         $this->assertInstanceOf(TestObject::class, $inst);
         $this->assertEquals("closure", $inst->val);
+
+        $inst->setVal("updated");
+
+        // aliases are generating underlying cache as well if bound to a class
+        /** @var TestObject $inst  */
+        $inst = $di->get(TestObject::class);
+        $this->assertInstanceOf(TestObject::class, $inst);
+        $this->assertEquals("updated", $inst->val);
+
+        // Test invalid binding
+        $di = new Di([
+            TestInterface::class => TestObject2::class,
+            TestObject2::class => ['somevalue'],
+        ]);
+
+        $this->expectException(ContainerExceptionInterface::class);
+        $inst = $di->get(TestInterface::class);
     }
 
     public function testFactory()
@@ -128,6 +147,24 @@ class DiTest extends TestCase
         $inst = $di->get(TestObject::class . ':new');
         $inst2 = $di->get(TestObject::class . ':new');
         $this->assertNotEquals($inst->getCounter(), $inst2->getCounter());
+    }
+
+    public function testCallable()
+    {
+        $app = new App(__DIR__);
+        $di = new Di([
+            App::class => $app,
+            ServerRequestInterface::class => App::class . "::getRequest"
+        ]);
+
+        // We need to handle a request before
+        $app->boot();
+        $app->handle();
+
+        /** @var ServerRequestInterface $inst  */
+        $inst = $di->get(ServerRequestInterface::class);
+
+        $this->assertInstanceOf(ServerRequestInterface::class, $inst);
     }
 
     public function testInvalidDefinition()

@@ -30,6 +30,10 @@ use ReflectionMethod;
  */
 class Di implements ContainerInterface
 {
+    public const FRESH = ":new";
+    protected const CONFIG_TOKEN = "->";
+    protected const PARAM_TOKEN = ":";
+
     /**
      * Define custom definitions for service not matching a class name
      * @var array<string, mixed>
@@ -91,7 +95,7 @@ class Di implements ContainerInterface
      */
     protected function getConfigCalls(string $id): ?array
     {
-        return $this->expandDefinition($id . '->');
+        return $this->expandDefinition($id . self::CONFIG_TOKEN);
     }
 
     /**
@@ -99,7 +103,7 @@ class Di implements ContainerInterface
      */
     protected function hasParameter(string $id, string $param): bool
     {
-        return array_key_exists($id . ':' . $param, $this->definitions);
+        return array_key_exists($id . self::PARAM_TOKEN . $param, $this->definitions);
     }
 
     /**
@@ -107,7 +111,7 @@ class Di implements ContainerInterface
      */
     protected function getParameter(string $id, string $param)
     {
-        return $this->expandDefinition($id . ':' . $param);
+        return $this->expandDefinition($id . self::PARAM_TOKEN . $param);
     }
 
     protected function build(string $id): object
@@ -121,13 +125,28 @@ class Di implements ContainerInterface
             // Can be an instance of something
             // eg: 'app' => $this or 'app' => function() { return $someObject; }
             if (is_object($definition)) {
+                // Apply any further configuration if needed
                 $this->configure($definition, $id);
                 return $definition;
             }
             // Can be an alias or interface binding
             // eg: somealias => MyClass::class or SomeInterface::class => MyClass::class
-            if (is_string($definition) && class_exists($definition)) {
-                return $this->build($definition);
+            // Or it can even be a callable
+            if (is_string($definition)) {
+                if ($this->has($definition)) {
+                    $instance = $this->get($definition);
+                    // Verify that interface binding respect the contract
+                    if (interface_exists($id) && !$instance instanceof $id) {
+                        $this->throwError("Object `$id` is bound to an invalid class.");
+                    }
+                    return $instance;
+                } elseif (is_callable($definition)) {
+                    $parts = explode("::", $definition);
+                    $class = $parts[0];
+                    $method = $parts[1] ?? '__invoke';
+                    $instance = $this->get($class);
+                    return $instance->$method();
+                }
             }
             // Can be an array of argument to feed to the constructor
             if (is_array($definition)) {
@@ -305,10 +324,11 @@ class Di implements ContainerInterface
     public function get(string $id): object
     {
         $fresh = false;
-        if (str_ends_with($id, ':new')) {
+        if (str_ends_with($id, self::FRESH)) {
             $fresh = true;
-            $id = substr($id, 0, -4);
+            $id = substr($id, 0, -strlen(self::FRESH));
         }
+
         if (!$this->has($id)) {
             $this->throwNotFound("Unable to create object `$id` because it does not exist");
         }
