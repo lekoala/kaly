@@ -37,12 +37,6 @@ class Di implements ContainerInterface
     protected array $definitions;
 
     /**
-     * List services that require actual definitions, not simple class_exists calls
-     * @var array<int, string>
-     */
-    protected array $strictDefinitions;
-
-    /**
      * Store all requested instances by id
      * @var array<string, object|null>
      */
@@ -50,12 +44,10 @@ class Di implements ContainerInterface
 
     /**
      * @param array<string, mixed> $definitions
-     * @param array<int, string> $strictDefinitions
      */
-    public function __construct(array $definitions = [], array $strictDefinitions = [])
+    public function __construct(array $definitions = [])
     {
         $this->definitions = $definitions;
-        $this->strictDefinitions = $strictDefinitions;
     }
 
     /**
@@ -339,9 +331,11 @@ class Di implements ContainerInterface
      */
     public function has(string $id): bool
     {
-        if (isset($this->definitions[$id])) {
-            return true;
+        // Definitions with null are not valid
+        if (array_key_exists($id, $this->definitions)) {
+            return isset($this->definitions[$id]);
         }
-        return !in_array($id, $this->strictDefinitions) && class_exists($id);
+        // Any existing class can be built without definition
+        return class_exists($id);
     }
 }

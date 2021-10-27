@@ -250,9 +250,6 @@ class App implements RequestHandlerInterface, MiddlewareInterface
      */
     public function configureDi(array $definitions): Di
     {
-        $strictDefinitions = [
-            App::class,
-        ];
         // Register the app itself
         $definitions[static::class] = $this;
         // Create an alias if necessary
@@ -277,11 +274,9 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
         // Check for a view engine
         if (isset($definitions[\Twig\Loader\LoaderInterface::class])) {
-            $strictDefinitions[] = \Twig\Loader\LoaderInterface::class;
             ViewBridge::configureTwig($this, $definitions);
             $this->viewEngine = self::VIEW_TWIG;
         } elseif (isset($definitions[\League\Plates\Engine::class])) {
-            $strictDefinitions[] = \League\Plates\Engine::class;
             ViewBridge::configurePlates($this, $definitions);
             $this->viewEngine = self::VIEW_PLATES;
         }
@@ -289,7 +284,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         // Sort definitions as it is much cleaner to debug
         ksort($definitions);
 
-        return new Di($definitions, $strictDefinitions);
+        return new Di($definitions);
     }
 
     /**

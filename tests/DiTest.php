@@ -130,13 +130,16 @@ class DiTest extends TestCase
     public function testStrictDefinitions()
     {
         $def = [
-            TestInterface::class => TestObject::class
+            TestInterface::class => TestObject::class,
+            // Pass null if "has" calls should return false
+            TestObject2::class => null,
+            TestObject3::class => false,
         ];
-        $strict = [TestObject2::class];
-        $di = new Di($def, $strict);
+        $di = new Di($def);
         $this->assertTrue($di->has(TestInterface::class));
         $this->assertTrue($di->has(TestObject::class));
         $this->assertFalse($di->has(TestObject2::class));
+        $this->assertTrue($di->has(TestObject3::class));
     }
 
     /**
