@@ -13,4 +13,6 @@ use Psr\Http\Message\ResponseInterface;
 interface ResponseProviderInterface
 {
     public function getResponse(): ResponseInterface;
+
+    public function getIntCode(): int;
 }

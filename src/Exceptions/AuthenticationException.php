@@ -24,10 +24,15 @@ class AuthenticationException extends RuntimeException implements ResponseProvid
         parent::__construct($message, $code, $previous);
     }
 
+    public function getIntCode(): int
+    {
+        return intval($this->getCode());
+    }
+
     public function getResponse(): ResponseInterface
     {
         $realm = t(Auth::class . ".enter_your_credentials", [], "kaly");
-        $response = Http::respond($this->getMessage(), $this->getCode());
+        $response = Http::respond($this->getMessage(), $this->getIntCode());
         $response = $response->withAddedHeader('WWW-Authenticate', "Basic realm=\"$realm\"");
         return $response;
     }

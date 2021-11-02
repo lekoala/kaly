@@ -103,7 +103,12 @@ class Di implements ContainerInterface
      */
     protected function getConfigCalls(string $id): ?array
     {
-        return $this->expandDefinition($id . self::CONFIG_TOKEN);
+        $definition = $this->expandDefinition($id . self::CONFIG_TOKEN);
+        if ($definition === null || is_array($definition)) {
+            return $definition;
+        }
+        $this->throwError("Config calls for `$id` must be stored as array.");
+        return null;
     }
 
     /**

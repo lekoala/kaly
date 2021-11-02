@@ -7,6 +7,7 @@ namespace Kaly;
 use Kaly\Exceptions\AuthenticationException;
 use Kaly\Exceptions\RedirectException;
 use Psr\Http\Message\ServerRequestInterface;
+use RuntimeException;
 
 class Auth
 {
@@ -15,27 +16,49 @@ class Auth
     public const CALLBACK_FAILED = "failed";
     public const CALLBACK_CLEARED = "cleared";
 
-    public static function getUser(ServerRequestInterface $request): string
+    protected App $app;
+    protected ServerRequestInterface $request;
+    protected string $loginUrl = "/auth/login/";
+    protected string $logoutUrl = "/auth/logout/";
+
+    public function __construct(App $app)
     {
-        return $request->getAttribute(self::USER_ID_ATTR);
+        $this->app = $app;
+        $this->request = $app->getRequest();
     }
 
-    public static function checkAuth(ServerRequestInterface $request): void
+    public function getUser(): ?string
     {
-        if (!$request->getAttribute(self::USER_ID_ATTR)) {
-            $loginUrl = "/login";
-            throw new RedirectException($loginUrl);
+        $user = $this->request->getAttribute(self::USER_ID_ATTR);
+        if (!$user) {
+            return null;
+        }
+        if (is_string($user)) {
+            return $user;
+        }
+        throw new RuntimeException("Invalid user attribute value");
+    }
+
+    /**
+     * @throws RedirectException
+     */
+    public function checkAuth(): void
+    {
+        if (!$this->request->getAttribute(self::USER_ID_ATTR)) {
+            throw new RedirectException($this->loginUrl);
         }
     }
 
     /**
      * @throws AuthenticationException
      */
-    public static function basicAuth(ServerRequestInterface $request, string $username = '', string $password = ''): void
+    public function basicAuth(string $username = '', string $password = ''): void
     {
         if (!$username || !$password) {
             return;
         }
+
+        $request = $this->request;
 
         $app = App::inst();
 
@@ -73,6 +96,40 @@ class Auth
             // This implements ResponseProvider interface and it's response will be served by our app
             throw new AuthenticationException($message);
         }
+
         $app->runCallbacks(self::class, self::CALLBACK_SUCCESS, [ServerRequestInterface::class => $request]);
+    }
+
+    public function getRequest(): ServerRequestInterface
+    {
+        return $this->request;
+    }
+
+    public function setRequest(ServerRequestInterface $request): self
+    {
+        $this->request = $request;
+        return $this;
+    }
+
+    public function getLoginUrl(): string
+    {
+        return $this->loginUrl;
+    }
+
+    public function setLoginUrl(string $loginUrl): self
+    {
+        $this->loginUrl = $loginUrl;
+        return $this;
+    }
+
+    public function getLogoutUrl(): string
+    {
+        return $this->logoutUrl;
+    }
+
+    public function setLogoutUrl(string $logoutUrl): self
+    {
+        $this->logoutUrl = $logoutUrl;
+        return $this;
     }
 }

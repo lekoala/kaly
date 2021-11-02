@@ -68,9 +68,14 @@ class RedirectException extends RuntimeException implements ResponseProviderInte
         parent::__construct($message, $code, $previous);
     }
 
+    public function getIntCode(): int
+    {
+        return intval($this->getCode());
+    }
+
     public function getResponse(): ResponseInterface
     {
-        return Http::createRedirectResponse($this->getUrl(), $this->getCode(), $this->getMessage());
+        return Http::createRedirectResponse($this->getUrl(), $this->getIntCode(), $this->getMessage());
     }
 
     /**

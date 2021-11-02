@@ -22,8 +22,13 @@ class ValidationException extends RuntimeException implements ResponseProviderIn
         parent::__construct($message, $code, $previous);
     }
 
+    public function getIntCode(): int
+    {
+        return intval($this->getCode());
+    }
+
     public function getResponse(): ResponseInterface
     {
-        return Http::respond($this->getMessage(), $this->getCode());
+        return Http::respond($this->getMessage(), $this->getIntCode());
     }
 }

@@ -34,7 +34,7 @@ interface RouterInterface
      * @throws ValidationException Will be converted to 403 error
      * @throws NotFoundException Will be converted to 404 error
      * @throws Exception Will be converted to 500 error
-     * @return array<string, mixed>
+     * @return array<string, string>
      */
     public function match(ServerRequestInterface $request): array;
 

@@ -83,6 +83,8 @@ class IndexController
 
     public function auth(ServerRequestInterface $request)
     {
-        Auth::basicAuth($request, "unit", "test");
+        /** @var Auth $auth  */
+        $auth = $this->app->getDi()->get(Auth::class);
+        $auth->basicAuth("unit", "test");
     }
 }

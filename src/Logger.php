@@ -57,6 +57,12 @@ class Logger extends AbstractLogger
         return strtr($message, $replace);
     }
 
+    /**
+     * @param string $level
+     * @param string $message
+     * @param array<mixed> $context
+     * @return void
+     */
     public function log($level, $message, array $context = [])
     {
         if (!$this->destination) {

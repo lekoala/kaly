@@ -21,14 +21,15 @@ function array_merge_distinct(array &$arr1, array &$arr2, bool $deep = true): ar
             $arr1[] = $v;
             continue;
         }
-        // associative arrays work by keys
-        if (isset($arr1[$k]) && is_array($arr1[$k])) {
+        // merge arrays together if possible
+        if (isset($arr1[$k]) && is_array($arr1[$k]) && is_array($v)) {
             if ($deep) {
                 $arr1[$k] = array_merge_distinct($arr1[$k], $v, $deep);
             } else {
                 $arr1[$k] = array_merge($arr1[$k], $v);
             }
         } else {
+            // simply overwrite value
             $arr1[$k] = $v;
         }
     }

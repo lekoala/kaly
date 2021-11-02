@@ -79,9 +79,13 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     protected ServerRequestInterface $request;
     protected static ?App $instance = null;
     /**
-     * @var array<string, mixed>
+     * @var array<string, Closure[]>
      */
     protected array $callbacks = [];
+    /**
+     * @var array<string>
+     */
+    protected array $noCache = [];
 
     /**
      * Create a new instance of the application
@@ -200,7 +204,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             // Avoid leaking local variables from config files
             $includer = function (string $file, array $definitions) {
                 $config = require $file;
-                if (is_array($config)) {
+                if ($config && is_array($config)) {
                     $definitions = array_merge_distinct($definitions, $config);
                 }
                 return $definitions;
@@ -250,7 +254,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
      */
     public function configureDi(array $definitions): Di
     {
-        $noCache = [];
+        $noCache = $this->noCache;
         // Register the app itself
         $definitions[static::class] = $this;
         // Create an alias if necessary
@@ -298,6 +302,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
      */
     public function dispatch(Di $di, ServerRequestInterface $request, array &$route)
     {
+        /** @var string|null $class  */
         $class = $route[RouterInterface::CONTROLLER] ?? '';
         if (!$class) {
             throw new RuntimeException("Route parameters must include a 'controller' key");
@@ -322,7 +327,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
     /**
      * @param array<string, mixed> $route
-     * @param mixed $body
+     * @param mixed|array<string, mixed> $body
      */
     protected function renderTemplate(Di $di, array $route, $body = null): ?string
     {
@@ -335,6 +340,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             return null;
         }
 
+        /** @var array<string, mixed> $body  */
         if (!$body) {
             $body = [];
         }
@@ -346,6 +352,8 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             case self::VIEW_PLATES:
                 $body = ViewBridge::renderPlates($di, $route, $body);
                 break;
+            default:
+                throw new RuntimeException("Cannot render template");
         }
 
         return $body;
@@ -393,12 +401,15 @@ class App implements RequestHandlerInterface, MiddlewareInterface
      */
     protected function updateRequest(ServerRequestInterface &$request): void
     {
+        // Add attributes
         if (!$request->getAttribute(self::IP_REQUEST_ATTR)) {
             $request = $request->withAttribute(self::IP_REQUEST_ATTR, Http::getIp($request));
         }
         if (!$request->getAttribute(self::REQUEST_ID_REQUEST_ATTR)) {
             $request = $request->withAttribute(self::REQUEST_ID_REQUEST_ATTR, uniqid());
         }
+
+        // Update reference
         $this->request = $request;
     }
 
@@ -434,13 +445,17 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     {
         $this->updateRequest($request);
 
-        $code = 200;
-        $body = null;
-        $route = [];
-
         /** @var Translator $translator  */
         $translator = $this->di->get(Translator::class);
         $translator->setLocaleFromRequest($request);
+
+        /** @var Auth $auth  */
+        $auth = $this->di->get(Auth::class);
+        $auth->setRequest($request);
+
+        $code = 200;
+        $body = null;
+        $route = [];
 
         try {
             /** @var RouterInterface $router  */
@@ -453,10 +468,11 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             }
             $body = $this->dispatch($this->di, $request, $route);
         } catch (ResponseProviderInterface $ex) {
-            // Will be converted to a response later
+            // Will be converted to a response by prepareResponse
             $body = $ex;
+            $code = $ex->getIntCode();
         } catch (NotFoundException $ex) {
-            $code = $ex->getCode();
+            $code = $ex->getIntCode();
             $body = $this->debug ? $ex->getMessage() : 'The page could not be found';
         }
 
@@ -590,6 +606,9 @@ class App implements RequestHandlerInterface, MiddlewareInterface
      */
     public function addCallback(string $class, string $type = "default", callable $callable = null): self
     {
+        if ($this->booted) {
+            throw new RuntimeException("Framework is already booted");
+        }
         if (!$callable) {
             throw new InvalidArgumentException("You must pass a callable");
         }
@@ -611,6 +630,14 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         foreach ($this->callbacks[$key] as $callable) {
             $this->inject($callable, $params);
         }
+    }
+
+    public function addNoCache(string $id): void
+    {
+        if ($this->booted) {
+            throw new RuntimeException("Framework is already booted");
+        }
+        $this->noCache[] = $id;
     }
 
     public function getBaseDir(): string

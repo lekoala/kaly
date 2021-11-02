@@ -19,4 +19,9 @@ class NotFoundException extends RuntimeException
         }
         parent::__construct($message, $code, $previous);
     }
+
+    public function getIntCode(): int
+    {
+        return intval($this->getCode());
+    }
 }

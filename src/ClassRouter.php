@@ -115,15 +115,20 @@ class ClassRouter implements RouterInterface
     {
         $locale = null;
         if (is_string($handler) || array_is_list($handler)) {
+            // Split string
             if (is_string($handler)) {
                 $handler = str_replace("->", "::", $handler);
                 $parts = explode("::", $handler);
             } else {
+                // Use array as an exploded string
                 $parts = $handler;
             }
+            /** @var string $class  */
             $class = $parts[0];
+            /** @var string $action  */
             $action = $parts[1] ?? $this->defaultAction;
             if (isset($params['locale'])) {
+                /** @var string $locale */
                 $locale = $params['locale'];
                 unset($params['locale']);
             }
@@ -132,7 +137,12 @@ class ClassRouter implements RouterInterface
                 throw new RuntimeException("Cannot generate an url without a controller");
             }
             $class = $handler[RouterInterface::CONTROLLER];
+            if (!is_string($class)) {
+                throw new RuntimeException("Controller must be a string");
+            }
+            /** @var string $action */
             $action = $handler[RouterInterface::ACTION] ?? $this->defaultAction;
+            /** @var string $locale */
             $locale = $handler[RouterInterface::LOCALE] ?? '';
         }
 
@@ -183,6 +193,9 @@ class ClassRouter implements RouterInterface
         }
         // append params
         foreach ($params as $k => $v) {
+            if (!is_string($v)) {
+                continue;
+            }
             $url .= "/$v";
         }
         if ($this->forceTrailingSlash) {
@@ -197,9 +210,12 @@ class ClassRouter implements RouterInterface
      */
     protected function matchTemplate(array $routeParams, string $method): string
     {
-        $controllerFolder = mb_strtolower(get_class_name($routeParams[RouterInterface::CONTROLLER]));
+        /** @var string $controller  */
+        $controller = $routeParams[RouterInterface::CONTROLLER];
+        $controllerFolder = mb_strtolower(get_class_name($controller));
         $controllerFolder = mb_substr($controllerFolder, 0, - (strlen($this->controllerSuffix)));
 
+        /** @var string $action  */
         $action = $routeParams[RouterInterface::ACTION];
         // Remove method from action
         if (str_ends_with($action, ucfirst(strtolower($method)))) {
@@ -218,8 +234,11 @@ class ClassRouter implements RouterInterface
      */
     protected function enforceLocaleModuleUri(array &$routeParams, UriInterface $uri): void
     {
+        /** @var string $module  */
         $module = $routeParams[RouterInterface::MODULE];
+        /** @var string $locale  */
         $locale = $routeParams[RouterInterface::LOCALE];
+        /** @var string[] $parts  */
         $parts = $routeParams[RouterInterface::SEGMENTS];
 
         $isRestricted = true;
@@ -261,7 +280,7 @@ class ClassRouter implements RouterInterface
     }
 
     /**
-     * @param array<mixed> $parts
+     * @param array<string> $parts
      */
     protected function findLocale(array &$parts, UriInterface $uri): ?string
     {
@@ -288,7 +307,7 @@ class ClassRouter implements RouterInterface
     }
 
     /**
-     * @param array<mixed> $parts
+     * @param array<string> $parts
      */
     protected function findModule(array &$parts, UriInterface $uri): string
     {

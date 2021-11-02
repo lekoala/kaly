@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly;
 
 use Kaly\Interfaces\RouterInterface;
+use RuntimeException;
 
 /**
  * Configure and use view rendering engines
@@ -66,7 +67,7 @@ class ViewBridge
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array<string, \Closure>
      */
     protected static function getFunctions(App $app): array
     {
@@ -81,6 +82,10 @@ class ViewBridge
             },
             'asset' => function (string $file) use ($app) {
                 $route = $app->getRequest()->getAttribute(App::ROUTE_REQUEST_ATTR);
+                if (!$route || !is_array($route)) {
+                    throw new RuntimeException("Invalid route request attribute");
+                }
+                /** @var string $module  */
                 $module = $route[RouterInterface::MODULE] ?? '';
                 $resourcesFolder = App::RESOURCES_FOLDER;
 
@@ -104,16 +109,17 @@ class ViewBridge
      */
     public static function configureTwig(App $app, array &$definitions): void
     {
+        $newDefinitions = [];
         // Twig has CoreExtension, EscaperExtension and OptimizerExtension loaded by default
         if ($app->getDebug()) {
             // @link https://twig.symfony.com/doc/3.x/functions/dump.html
-            $definitions[\Twig\Environment::class . '->'][] = function (\Twig\Environment $twig) {
+            $newDefinitions[\Twig\Environment::class . '->'][] = function (\Twig\Environment $twig) {
                 $twig->enableDebug();
                 // Adds dump function to templates
                 $twig->addExtension(new \Twig\Extension\DebugExtension());
             };
         }
-        $definitions[\Twig\Environment::class . '->'][] = function (\Twig\Environment $twig) use ($app) {
+        $newDefinitions[\Twig\Environment::class . '->'][] = function (\Twig\Environment $twig) use ($app) {
             foreach (self::getFunctions($app) as $functionName => $closure) {
                 $twig->addFunction(new \Twig\TwigFunction($functionName, $closure));
             }
@@ -126,6 +132,7 @@ class ViewBridge
                 $twig->setCache($app->makeTemp('twig'));
             }
         };
+        $definitions = array_merge_distinct($definitions, $newDefinitions);
     }
 
     /**
@@ -145,11 +152,14 @@ class ViewBridge
         // Defaults globals are _self, _context, _charset
         $twig->addGlobal("_config", $di->get(SiteConfig::class));
         $twig->addGlobal("_route", $route);
-        if (!empty($route['controller'])) {
-            $twig->addGlobal("_controller", $di->get($route['controller']));
+
+        $controller = $route['controller'];
+        if ($controller && is_string($controller)) {
+            $twig->addGlobal("_controller", $di->get($controller));
         }
 
         // Build view path based on route parameters
+        /** @var string $viewFile  */
         $viewFile = $route['template'];
         if (!str_ends_with($viewFile, '.twig')) {
             $viewFile .= ".twig";
@@ -168,11 +178,14 @@ class ViewBridge
      */
     public static function configurePlates(App $app, array &$definitions): void
     {
-        $definitions[\League\Plates\Engine::class . '->'][] = function (\League\Plates\Engine $engine) use ($app) {
+        $newDefinitions = [];
+        $newDefinitions[\League\Plates\Engine::class . '->'][] = function (\League\Plates\Engine $engine) use ($app) {
             foreach (self::getFunctions($app) as $functionName => $closure) {
+                // @phpstan-ignore-next-line
                 $engine->registerFunction($functionName, $closure);
             }
         };
+        $definitions = array_merge_distinct($definitions, $newDefinitions);
     }
 
     /**
@@ -192,8 +205,9 @@ class ViewBridge
             "_config" => $di->get(SiteConfig::class),
             "_route" => $route,
         ];
-        if (!empty($route['controller'])) {
-            $globals['_controller']  = $di->get($route['controller']);
+        $controller = $route['controller'];
+        if ($controller && is_string($controller)) {
+            $globals['_controller']  = $di->get($controller);
         }
         $engine->addData($globals);
 

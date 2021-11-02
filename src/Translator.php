@@ -25,7 +25,7 @@ class Translator
     public const LOCALE_PRIVATE = "private";
 
     /**
-     * @var array<string, mixed>
+     * @var array<string, array<string, mixed>>
      */
     protected array $catalogs = [];
     /**
@@ -62,6 +62,9 @@ class Translator
             $locale = Http::getPreferredLanguage($request, $allowed);
         }
         if ($locale) {
+            if (!is_string($locale)) {
+                throw new RuntimeException("Locale must be a string");
+            }
             // Make sure it's valid
             self::parseLocale($locale);
             $this->setCurrentLocale($locale);
@@ -124,11 +127,15 @@ class Translator
         if (!isset($this->catalogs[$name][$locale])) {
             $this->buildCatalog($name, $locale);
         }
-        return $this->catalogs[$name][$locale];
+        $catalog = $this->catalogs[$name][$locale] ?? [];
+        if (is_array($catalog)) {
+            return $catalog;
+        }
+        throw new RuntimeException("Ran into an invalid catalog value. Check buildCatalog function.");
     }
 
     /**
-     * @param array<string, string|array> $strings
+     * @param array<string, array<string, mixed>> $strings
      */
     public function addToCatalog(string $name, string $locale, array $strings): self
     {
@@ -347,6 +354,7 @@ class Translator
                 if (!is_array($arr)) {
                     throw new RuntimeException("Cached translation file did not return an array");
                 }
+                // @phpstan-ignore-next-line
                 $this->catalogs = array_merge_distinct($this->catalogs, $arr);
             }
         }

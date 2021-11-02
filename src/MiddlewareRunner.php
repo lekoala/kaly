@@ -16,7 +16,7 @@ class MiddlewareRunner extends RequestHandler
     protected App $app;
     protected bool $hasErrorHandler = false;
     /**
-     * @var array<mixed>
+     * @var array<array{middleware: class-string|MiddlewareInterface, condition: Closure|null, linear: bool}>
      */
     protected array $middlewares = [];
     protected bool $linear = false;
@@ -76,7 +76,7 @@ class MiddlewareRunner extends RequestHandler
             $handler = $opts['middleware'];
             $middleware = $this->resolveMiddleware($handler);
 
-            $linear = boolval($opts['linear'] ?? false);
+            $linear = $opts['linear'];
             // Linear middlewares only update the request and are not nested into the stack
             if ($linear) {
                 // Set the linear flag so that we will only care about the updated request

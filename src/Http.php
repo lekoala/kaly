@@ -65,6 +65,7 @@ class Http implements ResponseFactoryInterface
     /**
      * Finds a psr-7 response class that follows the status code, headers, body, version, reason convention
      * @group Response-Factory
+     * @return class-string<ResponseInterface>
      */
     public static function resolveResponseClass(): string
     {
@@ -121,7 +122,7 @@ class Http implements ResponseFactoryInterface
      * Clients are expected to check http status code, not response body
      *
      * @group Response-Factory
-     * @param string|Stringable|JsonSerializable|array<string, mixed>|null $data
+     * @param mixed $data
      * @param integer $code
      * @param array<string, string> $headers
      */
@@ -148,7 +149,7 @@ class Http implements ResponseFactoryInterface
 
     /**
      * @group Response-Factory
-     * @param string|Stringable|array<string, mixed>|null $body
+     * @param mixed $body
      * @param integer $code
      * @param array<string, string> $headers
      */
@@ -165,6 +166,9 @@ class Http implements ResponseFactoryInterface
             $body = "<pre>" . $json . "</pre>";
         } elseif ($body === null) {
             $body = '';
+        }
+        if (!is_string($body)) {
+            throw new InvalidArgumentException("Body must be a string or convertible to a string");
         }
         return self::respond($body, $code, $headers);
     }
@@ -337,7 +341,7 @@ class Http implements ResponseFactoryInterface
      *
      * @group Content-Range
      * @link http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.16
-     * @return array{"unit": mixed, "first": int, "last": int, "length": '*'|int}|null
+     * @return array{unit: mixed, first: int, last: int, length: '*'|int}|null
      */
     private static function parseContentRange(string $header): ?array
     {
