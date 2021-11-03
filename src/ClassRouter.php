@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly;
 
+use InvalidArgumentException;
 use ReflectionClass;
 use ReflectionNamedType;
 use Psr\Http\Message\UriInterface;
@@ -29,6 +30,7 @@ class ClassRouter implements RouterInterface
     protected string $defaultAction = 'index';
 
     /**
+     * A map of module => mapped module
      * @var array<string, string>
      */
     protected array $allowedNamespaces = [];
@@ -163,7 +165,7 @@ class ClassRouter implements RouterInterface
         $namespace = implode("\\", $classParts);
 
         // Get module for class
-        $allowedNamespaces = $this->allowedNamespaces;
+        $allowedNamespaces = array_flip($this->allowedNamespaces);
         $realModuleNamespace = $moduleNamespace = str_replace("\\" . $this->controllerNamespace, "", $namespace);
         if (isset($allowedNamespaces[$moduleNamespace])) {
             $realModuleNamespace = $allowedNamespaces[$moduleNamespace];
@@ -370,6 +372,10 @@ class ClassRouter implements RouterInterface
         if (!class_exists($class)) {
             throw new NotFoundException("Route '$path' not found. '$class' doesn't exists.");
         }
+        $refl = new ReflectionClass($class);
+        if ($refl->isAbstract()) {
+            throw new NotFoundException("Route '$path' not found. '$class' isn't instantiable.");
+        }
 
         array_shift($parts);
 
@@ -542,6 +548,9 @@ class ClassRouter implements RouterInterface
     {
         if (!$mapping) {
             $mapping = $namespace;
+        }
+        if (str_contains($mapping, "\\")) {
+            throw new InvalidArgumentException("Mapping cannot contain namespace separator");
         }
         $this->allowedNamespaces[$mapping] = $namespace;
         return $this;

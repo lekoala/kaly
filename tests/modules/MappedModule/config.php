@@ -5,7 +5,7 @@ use Kaly\ClassRouter;
 return [
     ClassRouter::class . "->" => [
         function (ClassRouter $router) {
-            $router->addAllowedNamespace("MappedModule", "TestVendor\\MappedModule");
+            $router->addAllowedNamespace("TestVendor\\MappedModule", "MappedModule");
         }
     ],
 ];
