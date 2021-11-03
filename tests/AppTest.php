@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use Kaly\App;
+use Kaly\Auth;
 use Kaly\Http;
 use Nyholm\Psr7\Uri;
 use Kaly\ClassRouter;
@@ -46,7 +47,9 @@ class AppTest extends TestCase
         $request = Http::createRequestFromGlobals();
         $request = $request->withUri(new Uri("/fr/lang-module/index/getlang/"));
         $response = (string)$app->handle($request)->getBody();
+        $appRequest = $app->getRequest();
         $this->assertEquals("fr", $response);
+        $this->assertEquals("fr", $appRequest->getAttribute(App::ATTR_LOCALE_REQUEST));
         // no lang should redirect to a lang
         $request = $request->withUri(new Uri("/lang-module/index/getlang/"));
         $response = $app->handle($request);
@@ -141,6 +144,14 @@ class AppTest extends TestCase
         $app->boot();
         $response = $app->handle($request);
         $this->assertEquals(401, $response->getStatusCode());
+
+        /** @var Auth $auth  */
+        $auth = $app->getDi()->get(Auth::class);
+        $auth->setUser("test");
+        // App request has been modified by reference
+        $this->assertEquals("test", $app->getRequest()->getAttribute(Auth::ATTR_USER_ID));
+        // Original request is not mutable and as been copied by handle
+        $this->assertNotEquals("test", $request->getAttribute(Auth::ATTR_USER_ID));
     }
 
     public function testJsonRoute()
@@ -174,26 +185,32 @@ class AppTest extends TestCase
         $this->assertEquals("new", $body);
     }
 
+    /**
+     * @group only
+     */
     public function testConditionalMiddleware()
     {
         $middlewareInst = new TestMiddleware();
 
+        $flag = true;
         $request = Http::createRequestFromGlobals();
         $request = $request->withUri(new Uri("/test-module/index/middleware/"));
         $app = new App(__DIR__);
         $app->setDebug(true);
-        $app->getMiddlewareRunner()->addMiddleware($middlewareInst, function (App $app) {
-            return $app->getDebug();
+        $app->getMiddlewareRunner()->addMiddleware($middlewareInst, function (App $app) use (&$flag) {
+            return $flag;
         });
         $app->boot();
         $response = $app->handle($request);
         $body = (string)$response->getBody();
+        $this->assertNotEquals(404, $response->getStatusCode());
         $this->assertEquals(TestMiddleware::DEFAULT_VALUE, $body);
 
         // State can change between requests
-        $app->setDebug(false);
+        $flag = false;
         $response = $app->handle($request);
         $body = (string)$response->getBody();
+        $this->assertNotEquals(404, $response->getStatusCode());
         $this->assertNotEquals(TestMiddleware::DEFAULT_VALUE, $body);
     }
 
@@ -202,13 +219,14 @@ class AppTest extends TestCase
         $middlewareInst = new TestMiddleware();
 
         $request = Http::createRequestFromGlobals();
-        $request = $request->withUri(new Uri("/test-module/index/middleware_exception/"));
+        $request = $request->withUri(new Uri("/test-module/index/middleware-exception/"));
         $app = new App(__DIR__);
         $app->setDebug(true);
         $app->getMiddlewareRunner()->addMiddleware($middlewareInst, null, true);
         $app->boot();
         $response = $app->handle($request);
         $body = (string)$response->getBody();
+        $this->assertNotEquals(404, $response->getStatusCode());
         // It does not appear in the stack trace
         $this->assertStringNotContainsString(TestMiddleware::class, $body);
     }

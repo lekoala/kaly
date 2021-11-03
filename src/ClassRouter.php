@@ -61,18 +61,7 @@ class ClassRouter implements RouterInterface
 
         $routeParams = [];
 
-        // Make sure we have a trailing slash or not
-        if ($this->forceTrailingSlash) {
-            if (!str_ends_with($path, '/')) {
-                $newUri = $uri->withPath($path . "/");
-                throw new RedirectException($newUri);
-            }
-        } else {
-            if (str_ends_with($path, '/')) {
-                $newUri = $uri->withPath(rtrim($path, '/'));
-                throw new RedirectException($newUri);
-            }
-        }
+        $this->redirectTrailingSlash($uri);
 
         $trimmedPath = trim($path, '/');
         $parts = array_filter(explode("/", $trimmedPath));
@@ -108,6 +97,25 @@ class ClassRouter implements RouterInterface
         $routeParams[RouterInterface::TEMPLATE] = $template;
 
         return $routeParams;
+    }
+
+    /**
+     * @throws RedirectException
+     */
+    protected function redirectTrailingSlash(UriInterface $uri): void
+    {
+        $path = $uri->getPath();
+        if ($this->forceTrailingSlash) {
+            if (!str_ends_with($path, '/')) {
+                $newUri = $uri->withPath($path . "/");
+                throw new RedirectException($newUri);
+            }
+        } else {
+            if (str_ends_with($path, '/')) {
+                $newUri = $uri->withPath(rtrim($path, '/'));
+                throw new RedirectException($newUri);
+            }
+        }
     }
 
     /**
@@ -457,16 +465,12 @@ class ClassRouter implements RouterInterface
         if (!$firstParam) {
             throw new NotFoundException("Action '$action' cannot handle a request");
         }
-        $firstParamType = $firstParam->getType();
-        if (!$firstParamType instanceof ReflectionNamedType) {
-            throw new NotFoundException("Action '$action' cannot handle a request");
-        }
-        if ($firstParamType->getName() !== ServerRequestInterface::class) {
+        $fpType = $firstParam->getType();
+        if (!$fpType instanceof ReflectionNamedType || $fpType->getName() !== ServerRequestInterface::class) {
             throw new NotFoundException("Action '$action' cannot handle a request");
         }
 
         $i = 0;
-        $acceptMany = false;
         foreach ($actionParams as $actionParam) {
             $paramName = $actionParam->getName();
             if (!$actionParam->isOptional() && !isset($params[$i])) {
@@ -516,11 +520,11 @@ class ClassRouter implements RouterInterface
 
             // Extra parameters are accepted for ...args type of parameters
             if ($actionParam->isVariadic()) {
-                $acceptMany = true;
+                return $params;
             }
             $i++;
         }
-        if (!$acceptMany && count($params) > count($actionParams)) {
+        if (count($params) > count($actionParams)) {
             throw new NotFoundException("Too many parameters for action '$action' on '$class'");
         }
 

@@ -57,7 +57,9 @@ class Translator
      */
     public function setLocaleFromRequest(ServerRequestInterface $request, array $allowed = null): self
     {
+        // In case it has been injected by a middleware
         $locale = $request->getAttribute(self::ATTR_LOCALE_REQUEST);
+        // Use http headers
         if (!$locale) {
             $locale = Http::getPreferredLanguage($request, $allowed);
         }

@@ -47,8 +47,7 @@ function mb_strtotitle(string $str): string
 
 /**
  * Transform a string to camel case
- * Preserves _, it only replaces - because the could be
- * valid class or method names
+ * Preserves _, it only replaces - because the could be a valid class or method names
  */
 function camelize(string $str, bool $firstChar = true): string
 {

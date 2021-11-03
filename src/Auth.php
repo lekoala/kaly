@@ -6,7 +6,6 @@ namespace Kaly;
 
 use Kaly\Exceptions\AuthenticationException;
 use Kaly\Exceptions\RedirectException;
-use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
 
 class Auth
@@ -17,19 +16,17 @@ class Auth
     public const CALLBACK_CLEARED = "cleared";
 
     protected App $app;
-    protected ServerRequestInterface $request;
     protected string $loginUrl = "/auth/login/";
     protected string $logoutUrl = "/auth/logout/";
 
     public function __construct(App $app)
     {
         $this->app = $app;
-        $this->request = $app->getRequest();
     }
 
     public function getUser(): ?string
     {
-        $user = $this->request->getAttribute(self::ATTR_USER_ID);
+        $user = $this->app->getRequest()->getAttribute(self::ATTR_USER_ID);
         if (!$user) {
             return null;
         }
@@ -39,12 +36,19 @@ class Auth
         throw new RuntimeException("Invalid user attribute value");
     }
 
+    public function setUser(string $id): self
+    {
+        $request = &$this->app->getRequest();
+        $request = $request->withAttribute(self::ATTR_USER_ID, $id);
+        return $this;
+    }
+
     /**
      * @throws RedirectException
      */
     public function checkAuth(): void
     {
-        if (!$this->request->getAttribute(self::ATTR_USER_ID)) {
+        if (!$this->app->getRequest()->getAttribute(self::ATTR_USER_ID)) {
             throw new RedirectException($this->loginUrl);
         }
     }
@@ -58,9 +62,7 @@ class Auth
             return;
         }
 
-        $request = $this->request;
-
-        $app = App::inst();
+        $request = $this->app->getRequest();
 
         $server = $request->getServerParams();
         $authHeader = null;
@@ -92,23 +94,12 @@ class Auth
             } else {
                 $message = t(self::class . ".enter_your_credentials", [], "kaly");
             }
-            $app->runCallbacks(self::class, self::CALLBACK_FAILED, [ServerRequestInterface::class => $request]);
+            $this->app->runCallbacks(self::class, self::CALLBACK_FAILED);
             // This implements ResponseProvider interface and it's response will be served by our app
             throw new AuthenticationException($message);
         }
 
-        $app->runCallbacks(self::class, self::CALLBACK_SUCCESS, [ServerRequestInterface::class => $request]);
-    }
-
-    public function getRequest(): ServerRequestInterface
-    {
-        return $this->request;
-    }
-
-    public function setRequest(ServerRequestInterface $request): self
-    {
-        $this->request = $request;
-        return $this;
+        $this->app->runCallbacks(self::class, self::CALLBACK_SUCCESS);
     }
 
     public function getLoginUrl(): string

@@ -361,7 +361,10 @@ class App implements RequestHandlerInterface, MiddlewareInterface
                 $body = ViewBridge::renderPlates($this->di, $route, $body);
                 break;
             default:
-                throw new RuntimeException("Cannot render template");
+                if (!empty($body)) {
+                    throw new RuntimeException("Cannot render template");
+                }
+                $body = "";
         }
 
         return $body;
@@ -416,9 +419,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         if (!$request->getAttribute(self::ATTR_REQUEST_ID_REQUEST)) {
             $request = $request->withAttribute(self::ATTR_REQUEST_ID_REQUEST, uniqid());
         }
-
-        // Update reference
-        $this->request = $request;
+        $this->setRequest($request);
     }
 
     protected function serveFile(string $path): ?ResponseInterface
@@ -457,10 +458,6 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         $translator = $this->di->get(Translator::class);
         $translator->setLocaleFromRequest($request);
 
-        /** @var Auth $auth  */
-        $auth = $this->di->get(Auth::class);
-        $auth->setRequest($request);
-
         $code = 200;
         $body = null;
         $route = [];
@@ -475,7 +472,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
                 $request = $request->withAttribute(self::ATTR_LOCALE_REQUEST, $route[RouterInterface::LOCALE]);
                 $translator->setCurrentLocale($route[RouterInterface::LOCALE]);
             }
-            $this->request = $request;
+            $this->setRequest($request);
 
             $body = $this->dispatch($request, $route);
         } catch (ResponseProviderInterface $ex) {
@@ -519,7 +516,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         }
         // Prevent file requests to go through routing
         $basePath = basename($request->getUri()->getPath());
-        if (strpos($basePath, ".") !== false) {
+        if (str_contains($basePath, ".")) {
             return Http::respond("File not found", 404);
         }
 
@@ -732,12 +729,12 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         return $logger;
     }
 
-    public function getRequest(): ServerRequestInterface
+    public function &getRequest(): ServerRequestInterface
     {
         return $this->request;
     }
 
-    public function setRequest(ServerRequestInterface $request): self
+    public function setRequest(ServerRequestInterface &$request): self
     {
         $this->request = $request;
         return $this;
