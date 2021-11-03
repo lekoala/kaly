@@ -23,6 +23,8 @@ use RuntimeException;
  */
 class ClassRouter implements RouterInterface
 {
+    protected const PARAM_LOCALE = "locale";
+
     protected string $defaultNamespace = 'App';
     protected string $controllerNamespace = 'Controller';
     protected string $controllerSuffix = 'Controller';
@@ -129,10 +131,10 @@ class ClassRouter implements RouterInterface
             $class = $parts[0];
             /** @var string $action  */
             $action = $parts[1] ?? $this->defaultAction;
-            if (isset($params['locale'])) {
+            if (isset($params[self::PARAM_LOCALE])) {
                 /** @var string $locale */
-                $locale = $params['locale'];
-                unset($params['locale']);
+                $locale = $params[self::PARAM_LOCALE];
+                unset($params[self::PARAM_LOCALE]);
             }
         } else {
             if (empty($handler[RouterInterface::CONTROLLER])) {

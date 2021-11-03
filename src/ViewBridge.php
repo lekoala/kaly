@@ -81,21 +81,25 @@ class ViewBridge
                 $translator->setBaseDomain($domain);
             },
             'asset' => function (string $file) use ($app) {
-                $route = $app->getRequest()->getAttribute(App::ROUTE_REQUEST_ATTR);
+                $route = $app->getRequest()->getAttribute(App::ATTR_ROUTE_REQUEST);
                 if (!$route || !is_array($route)) {
                     throw new RuntimeException("Invalid route request attribute");
                 }
                 /** @var string $module  */
                 $module = $route[RouterInterface::MODULE] ?? '';
-                $resourcesFolder = App::RESOURCES_FOLDER;
+                $resourcesFolder = App::FOLDER_RESOURCES;
 
                 // Copy on the fly requested assets
                 if ($app->getDebug()) {
-                    $publicResource = $app->getResourceDir($module, true) . DIRECTORY_SEPARATOR . $file;
+                    $destFile = $app->getResourceDir($module, true) . DIRECTORY_SEPARATOR . $file;
                     $sourceFile = $app->getClientModuleDir($module) . DIRECTORY_SEPARATOR . $file;
                     if (is_file($sourceFile)) {
+                        $destFileDir = dirname($destFile);
+                        if (!is_dir($destFileDir)) {
+                            mkdir($destFileDir, 0755, true);
+                        }
                         // File is overwritten if it already exists
-                        copy($sourceFile, $publicResource);
+                        copy($sourceFile, $destFile);
                     }
                 }
 

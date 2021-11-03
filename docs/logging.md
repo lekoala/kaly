@@ -32,7 +32,7 @@ if (isset($_ENV['SENTRY_DSN'])) {
     ]);
     $this->addCallback(\Kaly\Auth::class, \Kaly\Auth::CALLBACK_SUCCESS, function (ServerRequestInterface $request) {
         \Sentry\configureScope(function (\Sentry\State\Scope $scope) use ($request) {
-            $scope->setUser(['id' => $request->getAttribute(\Kaly\Auth::USER_ID_ATTR)]);
+            $scope->setUser(['id' => $request->getAttribute(\Kaly\Auth::ATTR_USER_ID)]);
         });
     });
     $this->addCallback(\Kaly\Auth::class, \Kaly\Auth::CALLBACK_CLEARED, function (ServerRequestInterface $request) {

@@ -14,6 +14,11 @@ class SiteConfig implements FaviconProviderInterface
 
     protected string $themeColor = "#000000";
     protected string $siteIcon = "";
+    protected string $siteTitle = "My Website";
+    /**
+     * @var array<string, mixed>
+     */
+    protected array $params = [];
     protected int $iconRounding = 50;
     protected int $iconSize = 80;
 
@@ -50,6 +55,17 @@ SVG;
         return $this;
     }
 
+    public function getSiteTitle(): string
+    {
+        return $this->siteTitle;
+    }
+
+    public function setSiteTitle(string $siteTitle): self
+    {
+        $this->siteTitle = $siteTitle;
+        return $this;
+    }
+
     public function getIconRounding(): int
     {
         return $this->iconRounding;
@@ -69,6 +85,32 @@ SVG;
     public function setIconSize(int $iconSize): self
     {
         $this->iconSize = $iconSize;
+        return $this;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getParams(): array
+    {
+        return $this->params;
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     */
+    public function setParams(array $params): self
+    {
+        $this->params = $params;
+        return $this;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    public function setParam(string $name, $value): self
+    {
+        $this->params[$name] = $value;
         return $this;
     }
 }

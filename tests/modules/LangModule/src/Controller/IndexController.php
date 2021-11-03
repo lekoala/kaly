@@ -18,6 +18,6 @@ class IndexController
 
     public function getlang(ServerRequestInterface $request)
     {
-        return $request->getAttribute(App::LOCALE_REQUEST_ATTR);
+        return $request->getAttribute(App::ATTR_LOCALE_REQUEST);
     }
 }

@@ -34,22 +34,22 @@ use Psr\Http\Message\ResponseFactoryInterface;
 class App implements RequestHandlerInterface, MiddlewareInterface
 {
     // Folders
-    public const MODULES_FOLDER = "modules";
-    public const PUBLIC_FOLDER = "public";
-    public const TEMP_FOLDER = "temp";
-    public const RESOURCES_FOLDER = "resources";
+    public const FOLDER_MODULES = "modules";
+    public const FOLDER_PUBLIC = "public";
+    public const FOLDER_TEMP = "temp";
+    public const FOLDER_RESOURCES = "resources";
     // Router
     public const DEFAULT_MODULE = "App";
-    public const CONTROLLER_SUFFIX = "Controller";
+    public const DEFAULT_CONTROLLER_SUFFIX = "Controller";
     // Named services
     public const DEBUG_LOGGER = "debugLogger";
     // Request attributes
-    public const IP_REQUEST_ATTR = "client-ip";
-    public const REQUEST_ID_REQUEST_ATTR = "request-id";
-    public const ROUTE_REQUEST_ATTR = "route";
-    public const LOCALE_REQUEST_ATTR = "locale";
+    public const ATTR_IP_REQUEST = "client-ip";
+    public const ATTR_REQUEST_ID_REQUEST = "request-id";
+    public const ATTR_ROUTE_REQUEST = "route";
+    public const ATTR_LOCALE_REQUEST = "locale";
     // Route params
-    public const JSON_ROUTE_PARAM = "json";
+    public const ROUTE_PARAM_JSON = "json";
     // View engines
     public const VIEW_TWIG = "twig";
     public const VIEW_PLATES = "plates";
@@ -125,7 +125,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
     public function makeTemp(string $folder, string $file = null): string
     {
-        $dir = $this->baseDir . DIRECTORY_SEPARATOR . self::TEMP_FOLDER . DIRECTORY_SEPARATOR . $folder;
+        $dir = $this->baseDir . DIRECTORY_SEPARATOR . self::FOLDER_TEMP . DIRECTORY_SEPARATOR . $folder;
         if (!is_dir($dir)) {
             mkdir($dir, 0755);
         }
@@ -194,7 +194,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     {
         // Modules need a config.php file. This avoids having is_file checks in the loop
         // Don't sort results as it is much faster
-        $files = glob($this->baseDir . "/" . self::MODULES_FOLDER . "/*/config.php", GLOB_NOSORT);
+        $files = glob($this->baseDir . "/" . self::FOLDER_MODULES . "/*/config.php", GLOB_NOSORT);
         if (!$files) {
             $files = [];
         }
@@ -313,7 +313,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
         // Check for interfaces
         if ($inst instanceof JsonRouteInterface) {
-            $route[self::JSON_ROUTE_PARAM] = true;
+            $route[self::ROUTE_PARAM_JSON] = true;
         }
 
         $action = $route[RouterInterface::ACTION] ?? RouterInterface::FALLBACK_ACTION;
@@ -327,7 +327,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         $result = $inst->{$action}(...$arguments);
         // Special handling for JsonSerializable
         if (is_object($result) && $result instanceof JsonSerializable) {
-            $route[self::JSON_ROUTE_PARAM] = true;
+            $route[self::ROUTE_PARAM_JSON] = true;
             $result = $result->jsonSerialize();
         }
         return $result;
@@ -379,7 +379,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             throw new RuntimeException("Already booted");
         }
 
-        $tempDir = $this->baseDir . '/' . self::TEMP_FOLDER;
+        $tempDir = $this->baseDir . '/' . self::FOLDER_TEMP;
         if (!is_dir($tempDir)) {
             mkdir($tempDir, 0755);
         }
@@ -410,11 +410,11 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     protected function updateRequest(ServerRequestInterface &$request): void
     {
         // Add attributes
-        if (!$request->getAttribute(self::IP_REQUEST_ATTR)) {
-            $request = $request->withAttribute(self::IP_REQUEST_ATTR, Http::getIp($request));
+        if (!$request->getAttribute(self::ATTR_IP_REQUEST)) {
+            $request = $request->withAttribute(self::ATTR_IP_REQUEST, Http::getIp($request));
         }
-        if (!$request->getAttribute(self::REQUEST_ID_REQUEST_ATTR)) {
-            $request = $request->withAttribute(self::REQUEST_ID_REQUEST_ATTR, uniqid());
+        if (!$request->getAttribute(self::ATTR_REQUEST_ID_REQUEST)) {
+            $request = $request->withAttribute(self::ATTR_REQUEST_ID_REQUEST, uniqid());
         }
 
         // Update reference
@@ -423,7 +423,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
     protected function serveFile(string $path): ?ResponseInterface
     {
-        $filePath = $this->baseDir . '/' . self::PUBLIC_FOLDER . $path;
+        $filePath = $this->baseDir . '/' . self::FOLDER_PUBLIC . $path;
         if (!is_file($filePath)) {
             return null;
         }
@@ -470,9 +470,9 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             $router = $this->di->get(RouterInterface::class);
             $route = $router->match($request);
 
-            $request = $request->withAttribute(self::ROUTE_REQUEST_ATTR, $route);
+            $request = $request->withAttribute(self::ATTR_ROUTE_REQUEST, $route);
             if (!empty($route[RouterInterface::LOCALE])) {
-                $request = $request->withAttribute(self::LOCALE_REQUEST_ATTR, $route[RouterInterface::LOCALE]);
+                $request = $request->withAttribute(self::ATTR_LOCALE_REQUEST, $route[RouterInterface::LOCALE]);
                 $translator->setCurrentLocale($route[RouterInterface::LOCALE]);
             }
             $this->request = $request;
@@ -565,7 +565,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         $priorityList = [
             Http::CONTENT_TYPE_HTML
         ];
-        if ($forceJson || !empty($route[self::JSON_ROUTE_PARAM])) {
+        if ($forceJson || !empty($route[self::ROUTE_PARAM_JSON])) {
             $priorityList = [
                 Http::CONTENT_TYPE_JSON,
                 Http::CONTENT_TYPE_HTML,
@@ -578,7 +578,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         $requestedJson = $acceptJson || $forceJson;
 
         // We may want to return a template that matches route params if possible
-        if ($acceptHtml && empty($route[self::JSON_ROUTE_PARAM]) && !empty($route['template'])) {
+        if ($acceptHtml && empty($route[self::ROUTE_PARAM_JSON]) && !empty($route['template'])) {
             $renderedBody = $this->renderTemplate($route, $body);
             if ($renderedBody) {
                 $body = $renderedBody;
@@ -601,7 +601,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         $headers = [];
 
         // We want and can return a json response
-        if ($requestedJson && !empty($route[self::JSON_ROUTE_PARAM])) {
+        if ($requestedJson && !empty($route[self::ROUTE_PARAM_JSON])) {
             $response = Http::createJsonResponse($body, $code, $headers);
         } else {
             $response = Http::createHtmlResponse($body, $code, $headers);
@@ -668,12 +668,12 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
     public function getPublicDir(): string
     {
-        return $this->getBaseDir() . DIRECTORY_SEPARATOR . self::PUBLIC_FOLDER;
+        return $this->getBaseDir() . DIRECTORY_SEPARATOR . self::FOLDER_PUBLIC;
     }
 
     public function getResourcesDir(): string
     {
-        return $this->getPublicDir() . DIRECTORY_SEPARATOR . self::RESOURCES_FOLDER;
+        return $this->getPublicDir() . DIRECTORY_SEPARATOR . self::FOLDER_RESOURCES;
     }
 
     public function getResourceDir(string $dir, bool $create = false): string
@@ -687,7 +687,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
     public function getModulesDir(): string
     {
-        return $this->getBaseDir() . DIRECTORY_SEPARATOR . self::MODULES_FOLDER;
+        return $this->getBaseDir() . DIRECTORY_SEPARATOR . self::FOLDER_MODULES;
     }
 
     public function getModuleDir(string $module): string

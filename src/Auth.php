@@ -11,7 +11,7 @@ use RuntimeException;
 
 class Auth
 {
-    public const USER_ID_ATTR = "user-id";
+    public const ATTR_USER_ID = "user-id";
     public const CALLBACK_SUCCESS = "success";
     public const CALLBACK_FAILED = "failed";
     public const CALLBACK_CLEARED = "cleared";
@@ -29,7 +29,7 @@ class Auth
 
     public function getUser(): ?string
     {
-        $user = $this->request->getAttribute(self::USER_ID_ATTR);
+        $user = $this->request->getAttribute(self::ATTR_USER_ID);
         if (!$user) {
             return null;
         }
@@ -44,7 +44,7 @@ class Auth
      */
     public function checkAuth(): void
     {
-        if (!$this->request->getAttribute(self::USER_ID_ATTR)) {
+        if (!$this->request->getAttribute(self::ATTR_USER_ID)) {
             throw new RedirectException($this->loginUrl);
         }
     }
@@ -81,7 +81,7 @@ class Auth
         }
         $authSuccess = false;
         if (isset($server['PHP_AUTH_USER']) && isset($server['PHP_AUTH_PW'])) {
-            $request = $request->withAttribute(self::USER_ID_ATTR, $server['PHP_AUTH_USER']);
+            $request = $request->withAttribute(self::ATTR_USER_ID, $server['PHP_AUTH_USER']);
             if ($server['PHP_AUTH_USER'] == $username && $server['PHP_AUTH_PW'] == $password) {
                 $authSuccess = true;
             }

@@ -13,7 +13,7 @@ use RuntimeException;
  */
 class Translator
 {
-    public const LOCALE_REQUEST_ATTR = "locale";
+    public const ATTR_LOCALE_REQUEST = "locale";
 
     public const DEFAULT_DOMAIN = "messages";
     // ISO 639 2 or 3, or 4 for future use, alpha
@@ -57,7 +57,7 @@ class Translator
      */
     public function setLocaleFromRequest(ServerRequestInterface $request, array $allowed = null): self
     {
-        $locale = $request->getAttribute(self::LOCALE_REQUEST_ATTR);
+        $locale = $request->getAttribute(self::ATTR_LOCALE_REQUEST);
         if (!$locale) {
             $locale = Http::getPreferredLanguage($request, $allowed);
         }
