@@ -219,9 +219,21 @@ class Http implements ResponseFactoryInterface
         return $arr;
     }
 
-    public static function getPreferredContentType(ServerRequestInterface $request, string $default = "text/plain"): ?string
+    /**
+     * @param string[] $priorityList
+     */
+    public static function getPreferredContentType(ServerRequestInterface $request, array $priorityList = []): ?string
     {
-        return self::parseAcceptHeader($request)[0] ?? $default;
+        $accepted = self::parseAcceptHeader($request);
+        if (!empty($priorityList)) {
+            foreach ($priorityList as $item) {
+                if (in_array($item, $accepted)) {
+                    return $item;
+                }
+            }
+            return $priorityList[0];
+        }
+        return $accepted[0] ?? self::CONTENT_TYPE_PLAIN;
     }
 
     /**

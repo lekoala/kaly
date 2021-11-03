@@ -6,6 +6,7 @@ namespace TestModule\Controller;
 
 use Kaly\App;
 use Exception;
+use JsonSerializable;
 use Kaly\Auth;
 use Kaly\Exceptions\RedirectException;
 use Kaly\Exceptions\ValidationException;
@@ -37,7 +38,19 @@ class IndexController
 
     public function arr(ServerRequestInterface $request, array $arr)
     {
-        return $arr;
+        $obj = new class($arr) implements JsonSerializable
+        {
+            protected array $data;
+            public function __construct(array $data)
+            {
+                $this->data = $data;
+            }
+            public function jsonSerialize()
+            {
+                return $this->data;
+            }
+        };
+        return $obj;
     }
 
     public function methodGet(ServerRequestInterface $request)

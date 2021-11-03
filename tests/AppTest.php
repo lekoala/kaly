@@ -56,7 +56,7 @@ class AppTest extends TestCase
         $this->assertEquals("en", $response);
         $request = $request->withUri(new Uri("/ja/lang-module/index/getlang/"));
         $response = (string)$app->handle($request)->getBody();
-        $this->assertEquals("Invalid locale 'ja'", $response);
+        $this->assertStringContainsString("not found", $response);
     }
 
     public function testAppInit()
@@ -141,6 +141,17 @@ class AppTest extends TestCase
         $app->boot();
         $response = $app->handle($request);
         $this->assertEquals(401, $response->getStatusCode());
+    }
+
+    public function testJsonRoute()
+    {
+        $request = Http::createRequestFromGlobals();
+        $request = $request->withUri(new Uri("/test-module/json/"));
+        $app = new App(__DIR__);
+        $app->boot();
+        $response = $app->handle($request);
+        // $body = (string)$response->getBody();
+        $this->assertEquals(Http::CONTENT_TYPE_JSON, $response->getHeaderLine('Content-type'));
     }
 
     public function testMiddleware()

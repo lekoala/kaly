@@ -16,8 +16,10 @@ use ReflectionFunction;
 use ReflectionNamedType;
 use Psr\Log\LoggerInterface;
 use InvalidArgumentException;
+use JsonSerializable;
 use Kaly\Interfaces\RouterInterface;
 use Kaly\Exceptions\NotFoundException;
+use Kaly\Interfaces\JsonRouteInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -309,10 +311,9 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         }
         $inst = $di->get($class);
 
-        // This can be helpful if a controller needs to force json return type
-        // or expose some custom route info in the template
-        if (method_exists($inst, "updateRoute")) {
-            $inst->updateRoute($route);
+        // Check for interfaces
+        if ($inst instanceof JsonRouteInterface) {
+            $route[self::JSON_ROUTE_PARAM] = true;
         }
 
         $action = $route[RouterInterface::ACTION] ?? RouterInterface::FALLBACK_ACTION;
@@ -322,7 +323,14 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         }
         // The request is always the first argument
         array_unshift($arguments, $request);
-        return $inst->{$action}(...$arguments);
+
+        $result = $inst->{$action}(...$arguments);
+        // Special handling for JsonSerializable
+        if (is_object($result) && $result instanceof JsonSerializable) {
+            $route[self::JSON_ROUTE_PARAM] = true;
+            $result = $result->jsonSerialize();
+        }
+        return $result;
     }
 
     /**
@@ -550,10 +558,20 @@ class App implements RequestHandlerInterface, MiddlewareInterface
      */
     public function prepareResponse(ServerRequestInterface $request, array $route, $body = '', int $code = 200): ResponseInterface
     {
-        $preferredType = Http::getPreferredContentType($request);
+        $forceJson = boolval($request->getQueryParams()['_json'] ?? false);
+        $priorityList = [
+            Http::CONTENT_TYPE_HTML
+        ];
+        if ($forceJson || !empty($route[self::JSON_ROUTE_PARAM])) {
+            $priorityList = [
+                Http::CONTENT_TYPE_JSON,
+                Http::CONTENT_TYPE_HTML,
+            ];
+        }
+        $preferredType = Http::getPreferredContentType($request, $priorityList);
         $acceptHtml = $preferredType == Http::CONTENT_TYPE_HTML;
         $acceptJson = $preferredType == Http::CONTENT_TYPE_JSON;
-        $forceJson = boolval($request->getQueryParams()['_json'] ?? false);
+
         $requestedJson = $acceptJson || $forceJson;
 
         // We may want to return a template that matches route params if possible

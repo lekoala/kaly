@@ -293,8 +293,6 @@ class ClassRouter implements RouterInterface
         if (in_array($part, $this->allowedLocales)) {
             array_shift($parts);
             $locale = $part;
-        } elseif (strlen($part) <= $this->localeLength) {
-            throw new NotFoundException("Invalid locale '$part'");
         }
 
         // Don't allow the default locale as the only parameter
