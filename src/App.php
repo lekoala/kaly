@@ -302,14 +302,14 @@ class App implements RequestHandlerInterface, MiddlewareInterface
      * @param array<string, mixed> $route
      * @return mixed
      */
-    public function dispatch(Di $di, ServerRequestInterface $request, array &$route)
+    public function dispatch(ServerRequestInterface $request, array &$route)
     {
         /** @var string|null $class  */
         $class = $route[RouterInterface::CONTROLLER] ?? '';
         if (!$class) {
             throw new RuntimeException("Route parameters must include a 'controller' key");
         }
-        $inst = $di->get($class);
+        $inst = $this->di->get($class);
 
         // Check for interfaces
         if ($inst instanceof JsonRouteInterface) {
@@ -337,7 +337,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
      * @param array<string, mixed> $route
      * @param mixed|array<string, mixed> $body
      */
-    protected function renderTemplate(Di $di, array $route, $body = null): ?string
+    protected function renderTemplate(array $route, $body = null): ?string
     {
         // We only support empty body or a context array
         if ($body && !is_array($body)) {
@@ -355,10 +355,10 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
         switch ($this->viewEngine) {
             case self::VIEW_TWIG:
-                $body = ViewBridge::renderTwig($di, $route, $body);
+                $body = ViewBridge::renderTwig($this->di, $route, $body);
                 break;
             case self::VIEW_PLATES:
-                $body = ViewBridge::renderPlates($di, $route, $body);
+                $body = ViewBridge::renderPlates($this->di, $route, $body);
                 break;
             default:
                 throw new RuntimeException("Cannot render template");
@@ -469,12 +469,15 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             /** @var RouterInterface $router  */
             $router = $this->di->get(RouterInterface::class);
             $route = $router->match($request);
+
             $request = $request->withAttribute(self::ROUTE_REQUEST_ATTR, $route);
             if (!empty($route[RouterInterface::LOCALE])) {
                 $request = $request->withAttribute(self::LOCALE_REQUEST_ATTR, $route[RouterInterface::LOCALE]);
                 $translator->setCurrentLocale($route[RouterInterface::LOCALE]);
             }
-            $body = $this->dispatch($this->di, $request, $route);
+            $this->request = $request;
+
+            $body = $this->dispatch($request, $route);
         } catch (ResponseProviderInterface $ex) {
             // Will be converted to a response by prepareResponse
             $body = $ex;
@@ -576,7 +579,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
         // We may want to return a template that matches route params if possible
         if ($acceptHtml && empty($route[self::JSON_ROUTE_PARAM]) && !empty($route['template'])) {
-            $renderedBody = $this->renderTemplate($this->di, $route, $body);
+            $renderedBody = $this->renderTemplate($route, $body);
             if ($renderedBody) {
                 $body = $renderedBody;
             }

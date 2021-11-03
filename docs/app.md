@@ -162,3 +162,7 @@ An array is also valid for json responses.
 Any request accept json responses or using the ?\_json flag can get a json response.
 
 This is only triggered if the route parameters have a json flag set to true.
+
+There are two ways to generate json response:
+- Either have your controller implement `JsonRouteInterface` and return arrays
+- For a single method, you can return a `JsonSerializable` object that will be converted to json
