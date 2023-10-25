@@ -27,7 +27,9 @@ class SiteConfig implements FaviconProviderInterface
         $svg = <<<SVG
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 100 100">
     <rect width="100" height="100" rx="{$this->iconRounding}" fill="{$this->themeColor}"></rect>
-    <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="{$this->iconSize}">{$this->siteIcon}</text>
+    <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="{$this->iconSize}">
+    {$this->siteIcon}
+    </text>
 </svg>
 SVG;
         return $svg;

@@ -26,6 +26,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Kaly\Interfaces\FaviconProviderInterface;
 use Kaly\Interfaces\ResponseProviderInterface;
+use Kaly\Interfaces\TemplateProviderInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 
 /**
@@ -38,6 +39,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     public const FOLDER_PUBLIC = "public";
     public const FOLDER_TEMP = "temp";
     public const FOLDER_RESOURCES = "resources";
+    public const FOLDER_SESSIONS = "sessions";
     // Router
     public const DEFAULT_MODULE = "App";
     public const DEFAULT_CONTROLLER_SUFFIX = "Controller";
@@ -53,8 +55,10 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     // View engines
     public const VIEW_TWIG = "twig";
     public const VIEW_PLATES = "plates";
+    public const VIEW_QIK = "qik";
     // Env params
     public const IGNORE_DOT_ENV = "IGNORE_DOT_ENV";
+    public const IGNORE_INI = "IGNORE_INI";
     public const ENV_DEBUG = "APP_DEBUG";
     public const ENV_TIMEZONE = "APP_TIMEZONE";
     // Callbacks
@@ -142,7 +146,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     {
         $envFile = $this->baseDir . '/.env';
         $result = [];
-        // This can be useful to avoid stat calls
+        // This can be useful to avoid stat calls and if everything is defined on the server
         if (empty($_ENV[self::IGNORE_DOT_ENV]) && is_file($envFile)) {
             $result = parse_ini_file($envFile);
             if (!$result) {
@@ -164,6 +168,28 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             }
             $_ENV[$k] = $v;
         }
+
+        // If your server is configured properly, set IGNORE_INI env variable
+        if (empty($_ENV[self::IGNORE_INI])) {
+            $this->configureIni();
+        }
+    }
+
+    protected function configureIni(): void
+    {
+        session_set_cookie_params([
+            'lifetime' => 60 * 60 * 24,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+        session_save_path($this->makeTemp(self::FOLDER_SESSIONS));
+        // This is required for middlewares/php-session
+        ini_set('session.use_trans_sid', '0');
+        // Use middleware instead
+        ini_set('session.use_cookies', '0');
+        ini_set('session.use_only_cookies', '1');
+        // Prevent PHP to send headers
+        ini_set('session.cache_limiter', '');
     }
 
     protected function configureEnv(): void
@@ -290,6 +316,9 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         } elseif (isset($definitions[\League\Plates\Engine::class])) {
             ViewBridge::configurePlates($this, $definitions);
             $this->viewEngine = self::VIEW_PLATES;
+        } elseif (isset($definitions[\Qiq\Template::class])) {
+            ViewBridge::configureQiq($this, $definitions);
+            $this->viewEngine = self::VIEW_QIK;
         }
 
         // Sort definitions as it is much cleaner to debug
@@ -315,6 +344,9 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         if ($inst instanceof JsonRouteInterface) {
             $route[self::ROUTE_PARAM_JSON] = true;
         }
+        if ($inst instanceof TemplateProviderInterface) {
+            $route[RouterInterface::TEMPLATE] = $inst->getTemplate();
+        }
 
         $action = $route[RouterInterface::ACTION] ?? RouterInterface::FALLBACK_ACTION;
         $arguments = $route[RouterInterface::PARAMS] ?? [];
@@ -323,6 +355,10 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         }
         // The request is always the first argument
         array_unshift($arguments, $request);
+        // Syntax sugar for handling post
+        if (in_array($request->getMethod(), ['POST', 'PUT', 'PATCH'])) {
+            $arguments[] = $request->getParsedBody();
+        }
 
         $result = $inst->{$action}(...$arguments);
         // Special handling for JsonSerializable
@@ -353,19 +389,13 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             $body = [];
         }
 
-        switch ($this->viewEngine) {
-            case self::VIEW_TWIG:
-                $body = ViewBridge::renderTwig($this->di, $route, $body);
-                break;
-            case self::VIEW_PLATES:
-                $body = ViewBridge::renderPlates($this->di, $route, $body);
-                break;
-            default:
-                if (!empty($body)) {
-                    throw new RuntimeException("Cannot render template");
-                }
-                $body = "";
-        }
+        d($this->viewEngine);
+        $body = match ($this->viewEngine) {
+            self::VIEW_TWIG => ViewBridge::renderTwig($this->di, $route, $body),
+            self::VIEW_PLATES => ViewBridge::renderPlates($this->di, $route, $body),
+            self::VIEW_QIK => ViewBridge::renderQiq($this->di, $route, $body),
+            default => throw new RuntimeException("Cannot render template"),
+        };
 
         return $body;
     }
@@ -417,7 +447,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             $request = $request->withAttribute(self::ATTR_IP_REQUEST, Http::getIp($request));
         }
         if (!$request->getAttribute(self::ATTR_REQUEST_ID_REQUEST)) {
-            $request = $request->withAttribute(self::ATTR_REQUEST_ID_REQUEST, uniqid());
+            $request = $request->withAttribute(self::ATTR_REQUEST_ID_REQUEST, bin2hex(random_bytes(24)));
         }
         $this->setRequest($request);
     }
@@ -475,10 +505,6 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             $this->setRequest($request);
 
             $body = $this->dispatch($request, $route);
-        } catch (ResponseProviderInterface $ex) {
-            // Will be converted to a response by prepareResponse
-            $body = $ex;
-            $code = $ex->getIntCode();
         } catch (NotFoundException $ex) {
             $code = $ex->getIntCode();
             $body = $this->debug ? $ex->getMessage() : 'The page could not be found';
@@ -510,7 +536,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
                 return $fileResponse;
             }
         }
-        // Prevent generic favicon.ico requests to go through
+        // Prevent generic favicon.ico requests to go through if not handled by the webserver
         if ($request->getUri()->getPath() === "/favicon.ico") {
             return $this->serveFavicon();
         }
@@ -523,6 +549,10 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         try {
             return $this->middlewareRunner->handle($request);
         } catch (Throwable $ex) {
+            if ($ex instanceof ResponseProviderInterface) {
+                return $ex->getResponse();
+            }
+
             // Log application error if needed
             $this->getLogger()->error($ex->getMessage() . " ({$ex->getFile()}:{$ex->getLine()})");
 
@@ -538,7 +568,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
                 $type = get_class($ex);
                 $message = $ex->getMessage();
                 $trace = $ex->getTraceAsString();
-                if (in_array(\PHP_SAPI, ['cli', 'phpdbg'])) {
+                if (in_array(real_sapi_name(), ['cli', 'phpdbg'])) {
                     $body = "$type in $file:$line\n---\n$message\n---\n$trace";
                 } else {
                     $idePlaceholder = $_ENV['DUMP_IDE_PLACEHOLDER'] ?? 'vscode://file/{file}:{line}:0';
@@ -556,8 +586,12 @@ class App implements RequestHandlerInterface, MiddlewareInterface
      * @param array<string, mixed> $route
      * @param mixed $body
      */
-    public function prepareResponse(ServerRequestInterface $request, array $route, $body = '', int $code = 200): ResponseInterface
-    {
+    public function prepareResponse(
+        ServerRequestInterface $request,
+        array $route,
+        $body = '',
+        int $code = 200
+    ): ResponseInterface {
         $forceJson = boolval($request->getQueryParams()['_json'] ?? false);
         $priorityList = [
             Http::CONTENT_TYPE_HTML
@@ -583,11 +617,6 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         }
 
         if ($body) {
-            // We have a response provider
-            if ($body instanceof ResponseProviderInterface) {
-                $body = $body->getResponse();
-            }
-
             // We have a response, return early
             if ($body instanceof ResponseInterface) {
                 return $body;
@@ -621,6 +650,8 @@ class App implements RequestHandlerInterface, MiddlewareInterface
 
     /**
      * @param class-string $class
+     * @param string $type
+     * @param Closure $callable
      */
     public function addCallback(string $class, string $type = "default", callable $callable = null): self
     {

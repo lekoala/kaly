@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Kaly;
 
-use Kaly\Exceptions\AuthenticationException;
-use Kaly\Exceptions\RedirectException;
 use RuntimeException;
+use Kaly\Exceptions\RedirectException;
+use Kaly\Exceptions\BasicAuthenticationException;
 
 class Auth
 {
-    public const ATTR_USER_ID = "user-id";
+    protected const ONE_WEEK = 604800;
+
+    public const KEY_USER_ID = "user_id";
     public const CALLBACK_SUCCESS = "success";
     public const CALLBACK_FAILED = "failed";
     public const CALLBACK_CLEARED = "cleared";
@@ -26,7 +28,7 @@ class Auth
 
     public function getUser(): ?string
     {
-        $user = $this->app->getRequest()->getAttribute(self::ATTR_USER_ID);
+        $user = $_SESSION[self::KEY_USER_ID] ?? null;
         if (!$user) {
             return null;
         }
@@ -38,8 +40,13 @@ class Auth
 
     public function setUser(string $id): self
     {
-        $request = &$this->app->getRequest();
-        $request = $request->withAttribute(self::ATTR_USER_ID, $id);
+        $_SESSION[self::KEY_USER_ID] = $id;
+        return $this;
+    }
+
+    public function clearUser(): self
+    {
+        unset($_SESSION[self::KEY_USER_ID]);
         return $this;
     }
 
@@ -48,13 +55,36 @@ class Auth
      */
     public function checkAuth(): void
     {
-        if (!$this->app->getRequest()->getAttribute(self::ATTR_USER_ID)) {
+        if (empty($_SESSION[self::KEY_USER_ID])) {
             throw new RedirectException($this->loginUrl);
         }
     }
 
+    public function login(string $username, bool $remember = false): void
+    {
+        if (!$username) {
+            return;
+        }
+        $params = [];
+        session_regenerate_id(true);
+        $this->setUser($username);
+        $this->app->runCallbacks(self::class, self::CALLBACK_SUCCESS, [$username]);
+    }
+
+    public function logout(): void
+    {
+        $username = $this->getUser();
+        if (!$username) {
+            return;
+        }
+        $this->clearUser();
+        $this->app->runCallbacks(self::class, self::CALLBACK_CLEARED, [$username]);
+        session_destroy();
+    }
+
     /**
-     * @throws AuthenticationException
+     * Throws a basic auth exception that will interrupt application flow if no user is set
+     * @throws BasicAuthenticationException
      */
     public function basicAuth(string $username = '', string $password = ''): void
     {
@@ -63,43 +93,40 @@ class Auth
         }
 
         $request = $this->app->getRequest();
-
         $server = $request->getServerParams();
-        $authHeader = null;
-        if (isset($server['HTTP_AUTHORIZATION'])) {
-            $authHeader = $server['HTTP_AUTHORIZATION'];
-        } elseif (isset($server['REDIRECT_HTTP_AUTHORIZATION'])) {
-            $authHeader = $server['REDIRECT_HTTP_AUTHORIZATION'];
-        }
+        $authHeader = $server['HTTP_AUTHORIZATION'] ?? $server['REDIRECT_HTTP_AUTHORIZATION'] ?? null;
+
+        $phpAuthUser = $server['PHP_AUTH_USER'] ?? null;
+        $phpAuthPw = $server['PHP_AUTH_PW'] ?? null;
 
         $matches = [];
         if (
             $authHeader &&
             preg_match('/Basic\s+(.*)$/i', $authHeader, $matches)
         ) {
-            list($name, $password) = explode(':', base64_decode($matches[1]));
-            $server['PHP_AUTH_USER'] = strip_tags($name);
-            $server['PHP_AUTH_PW'] = strip_tags($password);
+            [$name, $password] = explode(':', base64_decode($matches[1]));
+            $phpAuthUser = strip_tags($name);
+            $phpAuthPw = strip_tags($password);
         }
         $authSuccess = false;
-        if (isset($server['PHP_AUTH_USER']) && isset($server['PHP_AUTH_PW'])) {
-            $request = $request->withAttribute(self::ATTR_USER_ID, $server['PHP_AUTH_USER']);
-            if ($server['PHP_AUTH_USER'] == $username && $server['PHP_AUTH_PW'] == $password) {
+        if ($phpAuthUser && $phpAuthPw) {
+            if ($phpAuthUser == $username && $phpAuthPw == $password) {
                 $authSuccess = true;
             }
         }
         if (!$authSuccess) {
-            if (isset($server['PHP_AUTH_USER'])) {
+            if ($phpAuthUser) {
                 $message = t(self::class . ".user_not_found", [], "kaly");
             } else {
                 $message = t(self::class . ".enter_your_credentials", [], "kaly");
             }
-            $this->app->runCallbacks(self::class, self::CALLBACK_FAILED);
+            $this->app->runCallbacks(self::class, self::CALLBACK_FAILED, [$phpAuthUser]);
+
             // This implements ResponseProvider interface and it's response will be served by our app
-            throw new AuthenticationException($message);
+            throw new BasicAuthenticationException($message);
         }
 
-        $this->app->runCallbacks(self::class, self::CALLBACK_SUCCESS);
+        $this->app->runCallbacks(self::class, self::CALLBACK_SUCCESS, [$username]);
     }
 
     public function getLoginUrl(): string

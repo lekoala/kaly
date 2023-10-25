@@ -63,7 +63,6 @@ class Di implements ContainerInterface
     }
 
     /**
-     * @phpstan-ignore-next-line
      * @throws NotFoundExceptionInterface
      */
     protected function throwNotFound(string $message): void
@@ -75,7 +74,6 @@ class Di implements ContainerInterface
     }
 
     /**
-     * @phpstan-ignore-next-line
      * @throws ContainerExceptionInterface
      */
     protected function throwError(string $message): void
@@ -135,16 +133,15 @@ class Di implements ContainerInterface
         // If we have a definition
         $definition = $this->expandDefinition($id);
         if ($definition !== null) {
-            // Can be an instance of something
+            // Can be an instance of something or a factory function
             // eg: 'app' => $this or 'app' => function() { return $someObject; }
             if (is_object($definition)) {
                 // Apply any further configuration if needed
                 $this->configure($definition, $id);
                 return $definition;
             }
-            // Can be an alias or interface binding
+            // Can be an alias or interface binding or a callable
             // eg: somealias => MyClass::class or SomeInterface::class => MyClass::class
-            // Or it can even be a callable
             if (is_string($definition)) {
                 if ($this->has($definition)) {
                     $instance = $this->get($definition);
@@ -159,6 +156,8 @@ class Di implements ContainerInterface
                     $method = $parts[1] ?? '__invoke';
                     $instance = $this->get($class);
                     return $instance->$method();
+                } else {
+                    $this->throwError("Invalid definition for `$id`.");
                 }
             }
             // Can be an array of argument to feed to the constructor
@@ -176,7 +175,11 @@ class Di implements ContainerInterface
         }
 
         if (!class_exists($id)) {
-            $this->throwError("Unable to create object `$id`. Class does not exist.");
+            if (interface_exists($id)) {
+                $this->throwError("Interface `$id` is not bound to a class.");
+            } else {
+                $this->throwError("Unable to create object `$id`. Class does not exist.");
+            }
         }
 
         /** @var class-string $class  */
@@ -257,6 +260,7 @@ class Di implements ContainerInterface
             $this->throwError("Unable to create object `$id`. Unable to process parameter: `$paramName`.");
         }
 
+        /** @var object $instance */
         $instance = $reflection->newInstanceArgs($arguments);
         $this->configure($instance, $id);
 
@@ -327,10 +331,7 @@ class Di implements ContainerInterface
     /**
      * Finds an entry of the container by its identifier and returns it.
      *
-     * @link https://github.com/php-fig/container/issues/33
-     * @phpstan-ignore-next-line
      * @throws NotFoundExceptionInterface  No entry was found for **this** identifier.
-     * @phpstan-ignore-next-line
      * @throws ContainerExceptionInterface Error while retrieving the entry.
      * @return object Entry.
      */

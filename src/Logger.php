@@ -24,25 +24,17 @@ class Logger extends AbstractLogger
 
     protected static function getNumericLevel(string $level): int
     {
-        switch ($level) {
-            case LogLevel::EMERGENCY:
-                return 7;
-            case LogLevel::ALERT:
-                return 6;
-            case LogLevel::CRITICAL:
-                return 5;
-            case LogLevel::ERROR:
-                return 4;
-            case LogLevel::WARNING:
-                return 3;
-            case LogLevel::NOTICE:
-                return 2;
-            case LogLevel::INFO:
-                return 1;
-            case LogLevel::DEBUG:
-                return 0;
-        }
-        throw new RuntimeException("Invalid log level: '$level'");
+        return match ($level) {
+            LogLevel::EMERGENCY => 7,
+            LogLevel::ALERT => 6,
+            LogLevel::CRITICAL => 5,
+            LogLevel::ERROR => 4,
+            LogLevel::WARNING => 3,
+            LogLevel::NOTICE => 2,
+            LogLevel::INFO => 1,
+            LogLevel::DEBUG => 0,
+            default => throw new RuntimeException("Invalid log level: '$level'")
+        };
     }
 
     /**

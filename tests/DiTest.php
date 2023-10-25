@@ -156,7 +156,8 @@ class DiTest extends TestCase
         $app = new App(__DIR__);
         $di = new Di([
             App::class => $app,
-            ServerRequestInterface::class => App::class . "::getRequest"
+            // Bound to function
+            ServerRequestInterface::class => fn () => Http::createRequestFromGlobals()
         ], [
             ServerRequestInterface::class
         ]);
@@ -168,16 +169,14 @@ class DiTest extends TestCase
         $request = $request->withUri(new Uri("/uri1"));
         $app->handle($request);
 
-        /** @var ServerRequestInterface $inst  */
-        $inst = $di->get(ServerRequestInterface::class);
+        $inst = $app->getRequest();
 
         $this->assertInstanceOf(ServerRequestInterface::class, $inst);
 
         $request = $request->withUri(new Uri("/uri2"));
         $app->handle($request);
 
-        /** @var ServerRequestInterface $inst  */
-        $inst2 = $di->get(ServerRequestInterface::class);
+        $inst2 =  $app->getRequest();
 
         // This should not be cached
         $this->assertNotEquals($inst->getUri()->getPath(), $inst2->getUri()->getPath());

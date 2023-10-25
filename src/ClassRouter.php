@@ -17,8 +17,8 @@ use RuntimeException;
 /**
  * Takes an uri and map it to a class
  *
- * - Handles multiple namespaces (default one if omitted)
- * - Check for locale as a prefix (can be restricted to a set of namespaces)
+ * - Handles multiple namespaces (using a default namespace if omitted)
+ * - Check for locale as a prefix (can be restricted to a given set)
  * - Collect url parameters based on method signature
  */
 class ClassRouter implements RouterInterface
@@ -50,60 +50,75 @@ class ClassRouter implements RouterInterface
      */
     protected int $localeLength = 4;
 
+    protected ServerRequestInterface $request;
+    /**
+     * @var string[]
+     */
+    protected array $parts;
+
     /**
      * Match a request and returns an array of parameters
      * @return array<string, mixed>
      */
     public function match(ServerRequestInterface $request): array
     {
-        $uri = $request->getUri();
-        $path = $uri->getPath();
+        $this->request = $request;
 
         $routeParams = [];
 
-        $this->redirectTrailingSlash($uri);
+        $this->redirectTrailingSlash();
+        $this->parts = $this->collectParts();
 
-        $trimmedPath = trim($path, '/');
-        $parts = array_filter(explode("/", $trimmedPath));
-        $routeParams[RouterInterface::SEGMENTS] = $parts;
+        $routeParams[RouterInterface::SEGMENTS] = array_merge([], $this->parts);
 
         // Maybe we have a locale as a prefix
-        $locale = $this->findLocale($parts, $uri);
+        $locale = $this->findLocale();
         $routeParams[RouterInterface::LOCALE] = $locale;
 
         // Do we have a specific module ?
-        $module = $this->findModule($parts, $uri);
+        $module = $this->findModule();
         $routeParams[RouterInterface::MODULE] = $module;
         $routeParams[RouterInterface::NAMESPACE] = $this->allowedNamespaces[$module] ?? $module;
 
-        $this->enforceLocaleModuleUri($routeParams, $uri);
+        $this->enforceLocaleModuleUri($routeParams);
 
         // First we need to check if we have the controller
-        $controller = $this->findController($routeParams[RouterInterface::NAMESPACE], $parts, $uri);
+        $controller = $this->findController($routeParams[RouterInterface::NAMESPACE]);
         $routeParams[RouterInterface::CONTROLLER] = $controller;
         // We need a reflection for next methods
-        $refl = new ReflectionClass($controller);
+        $reflectionClass = new ReflectionClass($controller);
 
         // If the action exists (or index if set)
-        $action = $this->findAction($refl, $parts, $uri, $request->getMethod());
+        $action = $this->findAction($reflectionClass);
         $routeParams[RouterInterface::ACTION] = $action;
 
         // Remaining parts are passed as arguments to the action
-        $params = $this->collectParameters($refl, $action, $parts);
+        $params = $this->collectParameters($reflectionClass, $action);
         $routeParams[RouterInterface::PARAMS] = $params;
 
         // This will allow us to find a matching template to render controller's result
-        $template = $this->matchTemplate($routeParams, $request->getMethod());
+        $template = $this->matchTemplate($routeParams);
         $routeParams[RouterInterface::TEMPLATE] = $template;
 
         return $routeParams;
     }
 
     /**
+     * @return string[]
+     */
+    protected function collectParts(): array
+    {
+        $trimmedPath = trim($this->request->getUri()->getPath(), '/');
+        $parts = array_filter(explode("/", $trimmedPath));
+        return $parts;
+    }
+
+    /**
      * @throws RedirectException
      */
-    protected function redirectTrailingSlash(UriInterface $uri): void
+    protected function redirectTrailingSlash(): void
     {
+        $uri = $this->request->getUri();
         $path = $uri->getPath();
         if ($this->forceTrailingSlash) {
             if (!str_ends_with($path, '/')) {
@@ -199,7 +214,10 @@ class ClassRouter implements RouterInterface
             $url .= "/$action";
         }
         if ($locale && $url) {
-            if (empty($this->restrictLocaleToNamespaces) || in_array($realModuleNamespace, $this->restrictLocaleToNamespaces)) {
+            if (
+                empty($this->restrictLocaleToNamespaces)
+                || in_array($realModuleNamespace, $this->restrictLocaleToNamespaces)
+            ) {
                 $url = "/$locale" . $url;
             }
         }
@@ -220,8 +238,10 @@ class ClassRouter implements RouterInterface
     /**
      * @param array<string, mixed> $routeParams
      */
-    protected function matchTemplate(array $routeParams, string $method): string
+    protected function matchTemplate(array $routeParams): string
     {
+        $method = $this->request->getMethod();
+
         /** @var string $controller  */
         $controller = $routeParams[RouterInterface::CONTROLLER];
         $controllerFolder = mb_strtolower(get_class_name($controller));
@@ -234,7 +254,10 @@ class ClassRouter implements RouterInterface
             $action = substr($action, 0, strlen($action) - strlen($method));
         }
         $viewName = $controllerFolder . '/' . $action;
-        if (isset($routeParams[RouterInterface::MODULE]) && $routeParams[RouterInterface::MODULE] !== $this->defaultNamespace) {
+        if (
+            isset($routeParams[RouterInterface::MODULE])
+            && $routeParams[RouterInterface::MODULE] !== $this->defaultNamespace
+        ) {
             $viewName = '@' . $routeParams[RouterInterface::MODULE] . '/' . $viewName;
         }
 
@@ -244,8 +267,10 @@ class ClassRouter implements RouterInterface
     /**
      * @param array<string, mixed> $routeParams
      */
-    protected function enforceLocaleModuleUri(array &$routeParams, UriInterface $uri): void
+    protected function enforceLocaleModuleUri(array &$routeParams): void
     {
+        $uri = $this->request->getUri();
+
         /** @var string $module  */
         $module = $routeParams[RouterInterface::MODULE];
         /** @var string $locale  */
@@ -260,13 +285,13 @@ class ClassRouter implements RouterInterface
 
         // Is there a locale when it shouldn't be ?
         if ($module && $locale && !$isRestricted) {
-            $newUri = $this->getRedirectUri($uri, $locale, '');
+            $newUri = $this->getRedirectUri($locale, '');
             throw new RedirectException($newUri);
         }
         // If we have a multilingual setup, the locale is required except for restrict namespaces
         if (count($this->allowedLocales) > 1 && !$locale && $isRestricted) {
             // Except on the home page
-            if (count($parts) > 0) {
+            if (count($this->parts) > 0) {
                 $newUri = $uri->withPath($this->allowedLocales[0] . $uri->getPath());
                 throw new RedirectException($newUri);
             }
@@ -277,8 +302,9 @@ class ClassRouter implements RouterInterface
         }
     }
 
-    protected function getRedirectUri(UriInterface $uri, string $remove, string $replace = ''): UriInterface
+    protected function getRedirectUri(string $remove, string $replace = ''): UriInterface
     {
+        $uri = $this->request->getUri();
         $path = $uri->getPath();
         if ($replace) {
             $replace = '/' . $replace;
@@ -291,40 +317,33 @@ class ClassRouter implements RouterInterface
         return $uri->withPath($path);
     }
 
-    /**
-     * @param array<string> $parts
-     */
-    protected function findLocale(array &$parts, UriInterface $uri): ?string
+    protected function findLocale(): ?string
     {
-        if (empty($this->allowedLocales) || empty($parts[0])) {
+        if (empty($this->allowedLocales) || empty($this->parts[0])) {
             return null;
         }
-        $part = strtolower($parts[0]);
+        $part = strtolower($this->parts[0]);
 
         $locale = null;
         if (in_array($part, $this->allowedLocales)) {
-            array_shift($parts);
+            array_shift($this->parts);
             $locale = $part;
         }
 
         // Don't allow the default locale as the only parameter
-        if ($locale && count($parts) === 0 && $locale == $this->allowedLocales[0]) {
-            $newUri = $this->getRedirectUri($uri, $locale, '');
-            throw new RedirectException($newUri);
+        if ($locale && count($this->parts) === 0 && $locale == $this->allowedLocales[0]) {
+            throw new RedirectException($this->getRedirectUri($locale, ''));
         }
 
         return $locale;
     }
 
-    /**
-     * @param array<string> $parts
-     */
-    protected function findModule(array &$parts, UriInterface $uri): string
+    protected function findModule(): string
     {
         $module = $this->defaultNamespace;
 
         // Check the first segment if it exists
-        $part = $parts[0] ?? '';
+        $part = $this->parts[0] ?? '';
         $camelPart = camelize($part);
 
         // Does it match a specific namespace? (not the default one)
@@ -332,40 +351,39 @@ class ClassRouter implements RouterInterface
         if (array_key_exists($camelPart, $this->allowedNamespaces)) {
             // Don't allow calling camelized parts, we use lowercase
             if ($part && $part !== strtolower($part)) {
-                $newUri = $this->getRedirectUri($uri, $part, decamelize($part));
-                throw new RedirectException($newUri);
+                throw new RedirectException($this->getRedirectUri($part, decamelize($part)));
             }
 
             $module = $camelPart;
             // Remove from parts
-            array_shift($parts);
+            array_shift($this->parts);
         }
         return $module;
     }
 
     /**
      * Find a controller based on the first two parts of the request
-     * @param string[] $parts
      * @return class-string
      */
-    protected function findController(string $namespace, array &$parts, UriInterface $uri): string
+    protected function findController(string $namespace): string
     {
+        $uri = $this->request->getUri();
         $path = $uri->getPath();
 
         // Check the first segment if it exists
-        $part = $parts[0] ?? '';
+        $part = $this->parts[0] ?? '';
         $camelPart = camelize($part);
 
         // Don't allow calling camelized parts, we use lowercase
         if ($part && $part === $camelPart) {
-            $newUri = $this->getRedirectUri($uri, $camelPart, $part);
+            $newUri = $this->getRedirectUri($camelPart, $part);
             throw new RedirectException($newUri);
         }
 
         // Do not allow direct /index calls
         $defaultController = strtolower($this->defaultControllerName);
-        if ($part === $defaultController && count($parts) === 1) {
-            $newUri = $this->getRedirectUri($uri, $defaultController, '');
+        if ($part === $defaultController && count($this->parts) === 1) {
+            $newUri = $this->getRedirectUri($defaultController, '');
             throw new RedirectException($newUri);
         }
 
@@ -387,7 +405,7 @@ class ClassRouter implements RouterInterface
             throw new NotFoundException("Route '$path' not found. '$class' isn't instantiable.");
         }
 
-        array_shift($parts);
+        array_shift($this->parts);
 
         return $class;
     }
@@ -395,16 +413,18 @@ class ClassRouter implements RouterInterface
     /**
      * Find a matching action based on the next part of the request
      * @param ReflectionClass<object> $refl
-     * @param string[] $params
      */
-    protected function findAction(ReflectionClass $refl, array &$params, UriInterface $uri, string $method): string
+    protected function findAction(ReflectionClass $refl): string
     {
+        $method = $this->request->getMethod();
         $class = $refl->getName();
 
-        $testPart = $params[0] ?? '';
+        $testPart = $this->parts[0] ?? '';
 
         // Index or __invoke is used by default
-        $action = $refl->hasMethod(RouterInterface::FALLBACK_ACTION) ? RouterInterface::FALLBACK_ACTION : $this->defaultAction;
+        $action = $refl->hasMethod(RouterInterface::FALLBACK_ACTION) ?
+            RouterInterface::FALLBACK_ACTION :
+            $this->defaultAction;
 
         // If first parameter is a valid method, use that instead
         if ($testPart) {
@@ -416,17 +436,17 @@ class ClassRouter implements RouterInterface
 
             // Don't allow controller/index to be called directly because it would create duplicated urls
             // This only applies if no other parameters is passed in the url
-            if ($testAction == $this->defaultAction && count($params) === 1) {
-                $newUri = $this->getRedirectUri($uri, $this->defaultAction, '');
+            if ($testAction == $this->defaultAction && count($this->parts) === 1) {
+                $newUri = $this->getRedirectUri($this->defaultAction, '');
                 throw new RedirectException($newUri);
             }
 
             // Shift param if method is found
             if ($refl->hasMethod($testActionWithMethod)) {
-                array_shift($params);
+                array_shift($this->parts);
                 $action = $testActionWithMethod;
             } elseif ($refl->hasMethod($testAction)) {
-                array_shift($params);
+                array_shift($this->parts);
                 $action = $testAction;
             }
 
@@ -445,10 +465,9 @@ class ClassRouter implements RouterInterface
      * Tries to call action with remaining parts of the request
      * @param ReflectionClass<object> $refl
      * @param string $action
-     * @param string[] $params
-     * @return array<string, mixed>
+     * @return array<array-key, mixed>
      */
-    protected function collectParameters(ReflectionClass $refl, string $action, array $params = [])
+    protected function collectParameters(ReflectionClass $refl, string $action): array
     {
         $class = $refl->getName();
 
@@ -470,55 +489,35 @@ class ClassRouter implements RouterInterface
             throw new NotFoundException("Action '$action' cannot handle a request");
         }
 
+        /** @var array<string, mixed> $params  */
+        $params = $this->parts;
         $i = 0;
         foreach ($actionParams as $actionParam) {
             $paramName = $actionParam->getName();
-            if (!$actionParam->isOptional() && !isset($params[$i])) {
+            if (!$actionParam->isOptional() && !isset($this->parts[$i])) {
                 throw new NotFoundException("Param '$paramName' is required for action '$action' on '$class'");
             }
             /** @var string $value  */
-            $value = $params[$i] ?? null;
+            $value = $this->parts[$i] ?? '';
             $type = $actionParam->getType();
 
             // getName is only available for ReflectionNamedType and __toString is deprecated
-            if ($type instanceof ReflectionNamedType) {
-                // It's a default type
-                if ($value && $type->isBuiltin()) {
-                    switch ($type->getName()) {
-                        case 'bool':
-                            // We expect only 1 and 0
-                            if ($value != 1 && $value != 0) {
-                                throw new NotFoundException("Param '$paramName' is invalid for action '$action' on '$class'");
-                            }
-                            $value = boolval($value);
-                            break;
-                        case 'array':
-                            // We expect a comma separated list
-                            $value = explode(",", $value);
-                            break;
-                        case 'string':
-                            $value = filter_var($value, FILTER_SANITIZE_STRING);
-                            break;
-                        case 'int':
-                            if (!is_numeric($value)) {
-                                throw new NotFoundException("Param '$paramName' is not a valid int for action '$action' on '$class'");
-                            }
-                            $value = intval($value);
-                            break;
-                        case 'float':
-                            if (!is_numeric($value)) {
-                                throw new NotFoundException("Param '$paramName' is not a valid float for action '$action' on '$class'");
-                            }
-                            $value = floatval($value);
-                            break;
-                    }
+            if ($type instanceof ReflectionNamedType && $value && $type->isBuiltin()) {
+                // Transform & validate
+                $value = match ($type->getName()) {
+                    'bool' => boolval($value),
+                    'array' => explode(",", $value),
+                    'string' => filter_var($value, FILTER_SANITIZE_FULL_SPECIAL_CHARS),
+                    'int' => intval($value),
+                    'float' => floatval($value),
+                    default => $value,
+                };
 
-                    // Update value
-                    $params[$i] = $value;
-                }
+                // Update value
+                $params[$i] = $value;
             }
 
-            // Extra parameters are accepted for ...args type of parameters
+            // Extra parameters are accepted
             if ($actionParam->isVariadic()) {
                 return $params;
             }

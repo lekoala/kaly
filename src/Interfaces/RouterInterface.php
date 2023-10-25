@@ -29,9 +29,7 @@ interface RouterInterface
     public const FALLBACK_ACTION = "__invoke";
 
     /**
-     * @throws AuthenticationException Will be converted to 401 error
      * @throws RedirectException Will be converted to 3xx redirect
-     * @throws ValidationException Will be converted to 403 error
      * @throws NotFoundException Will be converted to 404 error
      * @throws Exception Will be converted to 500 error
      * @return array<string, string>

@@ -15,6 +15,7 @@ class MiddlewareRunner extends RequestHandler
 {
     protected App $app;
     protected bool $hasErrorHandler = false;
+    protected bool $hasSessionMiddleware = false;
     /**
      * @var array<array{middleware: class-string|MiddlewareInterface, condition: Closure|null, linear: bool}>
      */
@@ -97,6 +98,23 @@ class MiddlewareRunner extends RequestHandler
         return $this->app->process($request, $this);
     }
 
+    public function hasMiddleware(string $middlewareClass): bool
+    {
+        foreach ($this->middlewares as $middlewareDetails) {
+            $middleware = $middlewareDetails['middleware'];
+            if (is_object($middleware)) {
+                if ($middleware instanceof $middlewareClass) {
+                    return true;
+                }
+            } elseif (is_string($middleware)) {
+                if ($middleware === $middlewareClass) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /**
      * @param class-string|MiddlewareInterface $middleware
      */
@@ -111,6 +129,18 @@ class MiddlewareRunner extends RequestHandler
             'linear' => $linear,
         ];
         return $this;
+    }
+
+    /**
+     * @param class-string|MiddlewareInterface $middleware
+     */
+    public function addSessionMiddleware($middleware, Closure $condition = null): self
+    {
+        if ($this->hasSessionMiddleware) {
+            throw new RuntimeException("Session middleware already set");
+        }
+        $this->hasSessionMiddleware = true;
+        return $this->addMiddleware($middleware, $condition, false);
     }
 
     /**

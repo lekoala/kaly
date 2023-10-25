@@ -38,7 +38,7 @@ class HttpTest extends TestCase
     {
         /** @var ServerRequestInterface $request  */
         $request = new ServerRequest("GET", "/");
-        $v = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9';
+        $v = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.9';
         $request = $request->withHeader('Accept', $v);
         $result = Http::parseAcceptHeader($request);
         $this->assertContains("text/html", $result);

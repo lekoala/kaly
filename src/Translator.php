@@ -80,7 +80,11 @@ class Translator
      */
     public static function parseLocale(string $locale): array
     {
-        $pattern = "/^(?<language>[A-Za-z]{2,4})([_-](?<script>[A-Za-z]{4}|[0-9]{3}))?([_-](?<country>[A-Za-z]{2}|[0-9]{3}))?([_-]x[_-](?<private>[A-Za-z0-9-_]+))?$/";
+        $languagePart = '(?<language>[A-Za-z]{2,4})';
+        $scriptPart = '([_-](?<script>[A-Za-z]{4}|[0-9]{3}))?';
+        $countryPart = '([_-](?<country>[A-Za-z]{2}|[0-9]{3}))?';
+        $privatePart = '([_-]x[_-](?<private>[A-Za-z0-9-_]+))';
+        $pattern = "/^{$languagePart}{$scriptPart}{$countryPart}{$privatePart}?$/";
         $matches = [];
         $results = preg_match($pattern, $locale, $matches);
         if (!$results) {
@@ -178,8 +182,12 @@ class Translator
     /**
      * @param array<string, mixed> $parameters
      */
-    public function translate(string $message, array $parameters = [], string $domain = null, string $locale = null): string
-    {
+    public function translate(
+        string $message,
+        array $parameters = [],
+        string $domain = null,
+        string $locale = null
+    ): string {
         if (!$domain) {
             $domain = $this->baseDomain ?? self::DEFAULT_DOMAIN;
         }
@@ -223,7 +231,7 @@ class Translator
         }
 
         // Handling plurals in a minimalistic yet powerful fashion
-        if (isset($parameters['%count%'])) {
+        if (isset($parameters['%count%']) && is_numeric($parameters['%count%'])) {
             $c = intval($parameters['%count%']);
             $translation = $this->processPlurals($translation, $c);
         }

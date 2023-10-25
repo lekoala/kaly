@@ -128,9 +128,11 @@ class ViewBridge
                 $twig->addFunction(new \Twig\TwigFunction($functionName, $closure));
             }
             // We define early to make sure they are compiled
-            $twig->addGlobal("_config", null);
+            $twig->addGlobal("_config", $app->getDi()->get(SiteConfig::class));
             $twig->addGlobal("_route", null);
             $twig->addGlobal("_controller", null);
+            $twig->addGlobal("_session", null);
+            $twig->addGlobal("_app", $app);
             // We need a cache to make this faster
             if (!$app->getDebug()) {
                 $twig->setCache($app->makeTemp('twig'));
@@ -154,8 +156,8 @@ class ViewBridge
 
         // Set some globals to allow pulling data from our controller
         // Defaults globals are _self, _context, _charset
-        $twig->addGlobal("_config", $di->get(SiteConfig::class));
         $twig->addGlobal("_route", $route);
+        $twig->addGlobal("_session", $_SESSION);
 
         $controller = $route['controller'];
         if ($controller && is_string($controller)) {
@@ -163,7 +165,7 @@ class ViewBridge
         }
 
         // Build view path based on route parameters
-        /** @var string $viewFile  */
+        /** @var string $viewFile */
         $viewFile = $route['template'];
         if (!str_ends_with($viewFile, '.twig')) {
             $viewFile .= ".twig";
@@ -185,9 +187,13 @@ class ViewBridge
         $newDefinitions = [];
         $newDefinitions[\League\Plates\Engine::class . '->'][] = function (\League\Plates\Engine $engine) use ($app) {
             foreach (self::getFunctions($app) as $functionName => $closure) {
-                // @phpstan-ignore-next-line
                 $engine->registerFunction($functionName, $closure);
             }
+            $globals = [
+                "_config" => $app->getDi()->get(SiteConfig::class),
+                "_app" => $app,
+            ];
+            $engine->addData($globals);
         };
         $definitions = array_merge_distinct($definitions, $newDefinitions);
     }
@@ -206,8 +212,8 @@ class ViewBridge
         $engine = $di->get(\League\Plates\Engine::class);
 
         $globals = [
-            "_config" => $di->get(SiteConfig::class),
             "_route" => $route,
+            "_session" => $_SESSION,
         ];
         $controller = $route['controller'];
         if ($controller && is_string($controller)) {
@@ -232,6 +238,73 @@ class ViewBridge
         }
         $context = $body ? $body : [];
         $body = $engine->render($viewFile, $context);
+        return $body;
+    }
+
+    /**
+     * @param array<string, mixed> $definitions
+     */
+    public static function configureQiq(App $app, array &$definitions): void
+    {
+        $newDefinitions = [];
+        $newDefinitions[\League\Plates\Engine::class . '->'][] = function (\League\Plates\Engine $engine) use ($app) {
+            foreach (self::getFunctions($app) as $functionName => $closure) {
+                $engine->registerFunction($functionName, $closure);
+            }
+            $globals = [
+                "_config" => $app->getDi()->get(SiteConfig::class),
+                "_app" => $app,
+            ];
+            $engine->addData($globals);
+        };
+        $definitions = array_merge_distinct($definitions, $newDefinitions);
+    }
+
+    /**
+     * @param array<string, mixed> $route
+     * @param array<string, mixed> $body
+     */
+    public static function renderQiq(Di $di, array $route, array $body = []): ?string
+    {
+        // Check if we have a engine instance
+        if (!$di->has(\Qiq\Template::class)) {
+            return null;
+        }
+        /** @var \League\Plates\Engine $engine  */
+        $engine = $di->get(\League\Plates\Engine::class);
+
+        $globals = [
+            "_route" => $route,
+            "_session" => $_SESSION,
+        ];
+        $controller = $route['controller'];
+        if ($controller && is_string($controller)) {
+            $globals['_controller']  = $di->get($controller);
+        }
+        $engine->addData($globals);
+
+        // Build view path based on route parameters
+        /** @var string $viewFile  */
+        $viewFile = $route['template'];
+
+        // Remplace @syntax/ with ::
+        if (str_starts_with($viewFile, '@')) {
+            $viewParts = explode('/', $viewFile);
+            $shift = array_shift($viewParts);
+            $shift = trim($shift, "@") . "::";
+            $viewFile = $shift . implode("/", $viewParts);
+        }
+        // If we have a view, render with body as context
+        if (!$engine->exists($viewFile)) {
+            return null;
+        }
+        $context = $body ? $body : [];
+
+        $template = \Qiq\Template::new($viewFile);
+        $template->setView('hello');
+        $template->setData($globals);
+        $body = $template();
+
         return $body;
     }
 }

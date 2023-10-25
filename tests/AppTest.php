@@ -149,9 +149,10 @@ class AppTest extends TestCase
         $auth = $app->getDi()->get(Auth::class);
         $auth->setUser("test");
         // App request has been modified by reference
-        $this->assertEquals("test", $app->getRequest()->getAttribute(Auth::ATTR_USER_ID));
+        // $this->assertEquals("test", $app->getRequest()->getAttribute(Auth::KEY_USER_ID));
+        $this->assertEquals("test", $_SESSION[Auth::KEY_USER_ID]);
         // Original request is not mutable and as been copied by handle
-        $this->assertNotEquals("test", $request->getAttribute(Auth::ATTR_USER_ID));
+        $this->assertNotEquals("test", $request->getAttribute(Auth::KEY_USER_ID));
     }
 
     public function testJsonRoute()
@@ -308,7 +309,10 @@ class AppTest extends TestCase
         $this->assertEquals("hello he,llo", (string)$response->getBody());
         $request = $request->withUri(new Uri("/test-module/demo/func/he/llo/"));
         $response = $app->handle($request);
-        $this->assertEquals("Too many parameters for action 'func' on 'TestModule\Controller\DemoController'", (string)$response->getBody());
+        $this->assertEquals(
+            "Too many parameters for action 'func' on 'TestModule\Controller\DemoController'",
+            (string)$response->getBody()
+        );
 
         // Test method specific routing
         $request = $request->withUri(new Uri("/test-module/demo/method/"));

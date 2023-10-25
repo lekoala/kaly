@@ -8,7 +8,6 @@ use Exception;
 use Stringable;
 use RuntimeException;
 use InvalidArgumentException;
-use JsonSerializable;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -45,10 +44,10 @@ class Http implements ResponseFactoryInterface
         if (class_exists(\Nyholm\Psr7\Factory\Psr17Factory::class)) {
             $psr17Factory = new \Nyholm\Psr7\Factory\Psr17Factory();
             $creator = new \Nyholm\Psr7Server\ServerRequestCreator(
-                $psr17Factory, // ServerRequestFactory
-                $psr17Factory, // UriFactory
-                $psr17Factory, // UploadedFileFactory
-                $psr17Factory  // StreamFactory
+                serverRequestFactory: $psr17Factory,
+                uriFactory: $psr17Factory,
+                uploadedFileFactory: $psr17Factory,
+                streamFactory: $psr17Factory,
             );
             $serverRequest = $creator->fromGlobals();
             return $serverRequest;
@@ -64,7 +63,6 @@ class Http implements ResponseFactoryInterface
 
     /**
      * Finds a psr-7 response class that follows the status code, headers, body, version, reason convention
-     * @group Response-Factory
      * @return class-string<ResponseInterface>
      */
     public static function resolveResponseClass(): string
@@ -170,6 +168,7 @@ class Http implements ResponseFactoryInterface
         if (!is_string($body)) {
             throw new InvalidArgumentException("Body must be a string or convertible to a string");
         }
+        $headers['Content-Type'] = self::CONTENT_TYPE_HTML;
         return self::respond($body, $code, $headers);
     }
 

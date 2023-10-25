@@ -1,12 +1,10 @@
 <?php
 
-// This file need to be included before vendor/autoload.php
-
-if (!function_exists('dump')) {
+if (!function_exists('d')) {
     /**
      * @param array<mixed> ...$vars
      */
-    function dump(...$vars): void
+    function d(...$vars): void
     {
         // You can override with your own settings
         $idePlaceholder = $_ENV['DUMP_IDE_PLACEHOLDER'] ?? 'vscode://file/{file}:{line}:0';
@@ -14,17 +12,16 @@ if (!function_exists('dump')) {
         $file = '';
         $basefile = "unknown";
         $line = 0;
-        $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3);
-        // Remove one step if called through dd
-        if (!empty($backtrace[1]) && is_array($backtrace[1]) && $backtrace[1]['function'] === "dd") {
-            array_shift($backtrace);
-        }
+        $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2);
+
         // Check origin
-        if (!empty($backtrace[0]) && is_array($backtrace[0])) {
-            $file = $backtrace[0]['file'];
-            $line = $backtrace[0]['line'];
+        $zeroTrace = $backtrace[0] ?? null;
+        if ($zeroTrace && is_array($zeroTrace)) {
+            $file = $zeroTrace['file'] ?? '(undefined file)';
+            $line = $zeroTrace['line'] ?? '0';
             $basefile = basename($file);
         }
+
         // Extract arguments
         $arguments = [];
         if ($file) {
@@ -43,28 +40,28 @@ if (!function_exists('dump')) {
         }
         // Display vars
         $i = 0;
+        $body = '';
         foreach ($vars as $v) {
             $name = $arguments[$i] ?? 'debug';
-            if (in_array(\PHP_SAPI, ['cli', 'phpdbg'])) {
-                echo "$name in $basefile:$line\n";
+            if (in_array(real_sapi_name(), ['cli', 'phpdbg'])) {
+                $body .= "$name in $basefile:$line\n";
+                $body .= str_repeat('-', 10) . "\n";
+                $body .= print_r($v, true);
+                $body .= str_repeat('-', 10) . "\n";
             } else {
                 $ideLink = str_replace(['{file}', '{line}'], [$file, $line], $idePlaceholder);
-                echo "<pre>$name in <a href=\"$ideLink\">$basefile:$line</a></pre>";
+                $body .= "<pre>$name in <a href=\"$ideLink\">$basefile:$line</a><hr/>";
+                $body .= print_r($v, true);
+                $body .= "<hr/></pre>";
             }
-            \Symfony\Component\VarDumper\VarDumper::dump($v);
             $i++;
         }
-    }
-}
-
-if (!function_exists('dd')) {
-    /**
-     * @param array<mixed> ...$vars
-     */
-    function dd(...$vars): void
-    {
-        dump(...$vars);
-        exit(1);
+        if (in_array(real_sapi_name(), ['roadrunner'])) {
+            throw new \Kaly\Exceptions\ResponseException($body);
+        } else {
+            echo $body;
+            exit(1);
+        }
     }
 }
 

@@ -9,22 +9,24 @@
         }
     ],
     "require": {
-        "psr/container": "^1.0|^2.0",
-        "psr/log": "^1.1",
+        "php": "^8.1",
+        "psr/container": "^1.1.2|^2.0.2",
         "psr/http-server-middleware": "^1.0",
-        "symfony/polyfill-php80": "^1.23",
-        "symfony/polyfill-php81": "^1.23"
+        "psr/log": "^1.1",
+        "symfony/polyfill-php82": "^1.28"
     },
     "require-dev": {
         "nyholm/psr7": "^1.4",
         "nyholm/psr7-server": "^1.0",
-        "phpunit/phpunit": "^9.5",
-        "phpstan/phpstan": "^1",
-        "symfony/var-dumper": "^5.3",
+        "phpunit/phpunit": "^10",
+        "phpstan/phpstan": "^1.1",
         "squizlabs/php_codesniffer": "^3.6"
     },
     "suggest": {
-        "spiral/roadrunner": "Handle more requests with this server"
+        "spiral/roadrunner": "High-performance PHP application server",
+        "league/plates": "Native php template engine",
+        "qiq/qiq": "Plain old PHP, with a light dusting of syntax sugar when you want it",
+        "twig/twig": "Modern template engine for PHP"
     },
     "autoload": {
         "psr-4": {
