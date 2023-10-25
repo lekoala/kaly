@@ -1,3 +1,7 @@
 parameters:
   level: max
   inferPrivatePropertyTypeFromConstructor: true
+  ignoreErrors:
+    - '#Twig#'
+    - '#Plates#'
+    - '#Qiq#'

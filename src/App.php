@@ -310,13 +310,13 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         }
 
         // Check for a view engine
-        if (isset($definitions[\Twig\Loader\LoaderInterface::class])) {
+        if (isset($definitions[\Twig\Loader\LoaderInterface::class])) { /** @phpstan-ignore-line */
             ViewBridge::configureTwig($this, $definitions);
             $this->viewEngine = self::VIEW_TWIG;
-        } elseif (isset($definitions[\League\Plates\Engine::class])) {
+        } elseif (isset($definitions[\League\Plates\Engine::class])) { /** @phpstan-ignore-line */
             ViewBridge::configurePlates($this, $definitions);
             $this->viewEngine = self::VIEW_PLATES;
-        } elseif (isset($definitions[\Qiq\Template::class])) {
+        } elseif (isset($definitions[\Qiq\Template::class])) { /** @phpstan-ignore-line */
             ViewBridge::configureQiq($this, $definitions);
             $this->viewEngine = self::VIEW_QIK;
         }

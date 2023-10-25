@@ -70,8 +70,10 @@ class Http implements ResponseFactoryInterface
         if (class_exists(\Nyholm\Psr7\Response::class)) {
             return \Nyholm\Psr7\Response::class;
         } elseif (class_exists(\HttpSoft\Message\Response::class)) {
+            // @phpstan-ignore-next-line
             return \HttpSoft\Message\Response::class;
         } elseif (class_exists(\GuzzleHttp\Psr7\Response::class)) {
+            // @phpstan-ignore-next-line
             return \GuzzleHttp\Psr7\Response::class;
         }
         throw new Exception("No suitable ResponseInterface implementation found");
