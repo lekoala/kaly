@@ -1,6 +1,12 @@
 <?php
 
-require_once __DIR__ . '/../../vendor/autoload.php';
+// Flexible vendor location
+$dir = dirname(__DIR__);
+while ($dir && !is_file($dir . '/vendor/autoload.php')) {
+    $dir = dirname($dir);
+}
+require_once $dir . '/vendor/autoload.php';
+
 require_once __DIR__ . '/../src/_functions/global.php';
 require_once __DIR__ . '/mocks/TestApp.php';
 require_once __DIR__ . '/mocks/TestMiddleware.php';

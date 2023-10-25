@@ -389,7 +389,6 @@ class App implements RequestHandlerInterface, MiddlewareInterface
             $body = [];
         }
 
-        d($this->viewEngine);
         $body = match ($this->viewEngine) {
             self::VIEW_TWIG => ViewBridge::renderTwig($this->di, $route, $body),
             self::VIEW_PLATES => ViewBridge::renderPlates($this->di, $route, $body),
