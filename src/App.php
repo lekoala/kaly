@@ -159,14 +159,12 @@ class App implements RequestHandlerInterface, MiddlewareInterface
                 throw new RuntimeException("Could not redefine $k in ENV");
             }
             // Convert to proper types
-            if ($v === 'true') {
-                $v = true;
-            } elseif ($v === 'false') {
-                $v = false;
-            } elseif ($v === 'null') {
-                $v = null;
-            }
-            $_ENV[$k] = $v;
+            $_ENV[$k] = match ($v) {
+                'true' => true,
+                'false' => false,
+                'null' => null,
+                default => $v,
+            };
         }
 
         // If your server is configured properly, set IGNORE_INI env variable
@@ -310,13 +308,16 @@ class App implements RequestHandlerInterface, MiddlewareInterface
         }
 
         // Check for a view engine
-        if (isset($definitions[\Twig\Loader\LoaderInterface::class])) { /** @phpstan-ignore-line */
+        if (isset($definitions[\Twig\Loader\LoaderInterface::class])) {
+            /** @phpstan-ignore-line */
             ViewBridge::configureTwig($this, $definitions);
             $this->viewEngine = self::VIEW_TWIG;
-        } elseif (isset($definitions[\League\Plates\Engine::class])) { /** @phpstan-ignore-line */
+        } elseif (isset($definitions[\League\Plates\Engine::class])) {
+            /** @phpstan-ignore-line */
             ViewBridge::configurePlates($this, $definitions);
             $this->viewEngine = self::VIEW_PLATES;
-        } elseif (isset($definitions[\Qiq\Template::class])) { /** @phpstan-ignore-line */
+        } elseif (isset($definitions[\Qiq\Template::class])) {
+            /** @phpstan-ignore-line */
             ViewBridge::configureQiq($this, $definitions);
             $this->viewEngine = self::VIEW_QIK;
         }
