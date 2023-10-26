@@ -131,7 +131,7 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     {
         $dir = $this->baseDir . DIRECTORY_SEPARATOR . self::FOLDER_TEMP . DIRECTORY_SEPARATOR . $folder;
         if (!is_dir($dir)) {
-            mkdir($dir, 0755);
+            mkdir($dir, 0755, true);
         }
         if ($file) {
             $dir .= DIRECTORY_SEPARATOR . $file;
