@@ -145,30 +145,13 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     protected function loadEnv(): void
     {
         $envFile = $this->baseDir . '/.env';
-        $result = [];
         // This can be useful to avoid stat calls and if everything is defined on the server
-        if (empty($_ENV[self::IGNORE_DOT_ENV]) && is_file($envFile)) {
-            $result = parse_ini_file($envFile);
-            if (!$result) {
-                throw new RuntimeException("Failed to parse $envFile");
-            }
-        }
-        foreach ($result as $k => $v) {
-            // Make sure that we are not overwriting variables
-            if (isset($_ENV[$k])) {
-                throw new RuntimeException("Could not redefine $k in ENV");
-            }
-            // Convert to proper types
-            $_ENV[$k] = match ($v) {
-                'true' => true,
-                'false' => false,
-                'null' => null,
-                default => $v,
-            };
+        if (Env::getBool(self::IGNORE_DOT_ENV, false) && is_file($envFile)) {
+            Env::load($envFile);
         }
 
         // If your server is configured properly, set IGNORE_INI env variable
-        if (empty($_ENV[self::IGNORE_INI])) {
+        if (Env::getBool(self::IGNORE_INI, false)) {
             $this->configureIni();
         }
     }
@@ -410,11 +393,6 @@ class App implements RequestHandlerInterface, MiddlewareInterface
     {
         if ($this->booted) {
             throw new RuntimeException("Already booted");
-        }
-
-        $tempDir = $this->baseDir . '/' . self::FOLDER_TEMP;
-        if (!is_dir($tempDir)) {
-            mkdir($tempDir, 0755);
         }
 
         $resourcesDir = $this->getResourcesDir();

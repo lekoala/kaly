@@ -20,7 +20,7 @@ use ReflectionMethod;
  * You can only initialize definitions with the constructor, after that the container is "locked"
  *
  * Any get call always provide the same result because we serve cached instance
- * If you need new instances, get a factory from the container
+ * If you need new instances, get a factory from the container or use :new suffix
  *
  * Keys matching the class:name pattern will be used to feed parameters to the constructor
  * Keys matching the class-> pattern will be used to call methods on the new instance
