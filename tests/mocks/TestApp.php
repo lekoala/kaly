@@ -2,8 +2,9 @@
 
 namespace Kaly\Tests\Mocks;
 
-use Kaly\App;
+use Kaly\Core\App;
 
 class TestApp extends App
 {
+    // Empty
 }

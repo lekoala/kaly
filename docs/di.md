@@ -99,11 +99,11 @@ Aliased definitions are only used over regular classes if a PDO class is not reg
 
 ```php
 $di = new Di([
-    'db' => function(): ?PDO {
+    PDO::class => function(): ?PDO {
         // define stuff here...
         return new PDO($dsn, $username, $password, $options);
     },
-    'adminDb' => function(): ?PDO {
+    PDO::class . "@adminDb" => function(): ?PDO {
         // define stuff here...
         return new PDO($dsn, $username, $password, $options);
     },

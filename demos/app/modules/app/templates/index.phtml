@@ -1,0 +1,47 @@
+<?php
+
+/** @var Kaly\View\Template $this */
+$this->layout('_layout');
+?>
+
+<p>There is basic support for outputting variables using {{ }} but otherwise php syntax must be used.</p>
+
+<p>You can escape {{ }} with a \ before: \{{escaped}}</p>
+
+<p>
+    Variables are NOT escaped by default: {{content}}
+</p>
+
+<code>
+    {{h unsafe}}
+</code>
+
+<p>Mustache syntax is not supported</p>
+{{#list name}}
+    <b>{{name}}</b>
+{{/list}}
+
+<p>If you want to loop on lists, you must use foreach</p>
+
+<?php foreach ($list as $k): ?>
+    <?php // but instead, you could very well have a proper template to include to use the {{ }} syntax
+    ?>
+    <?= h($k) ?><br />
+<?php endforeach ?>
+
+<p>Most loops would benefit to have actual template for their items and therefore it's not very interesting to track context for {{ }} syntax.</p>
+
+<p>For example:</p>
+
+<?php foreach ($list as $k): ?>
+    <?= $this->include('row', ['item' => $k]) ?>
+<?php endforeach ?>
+
+<p>Or you can use the loop helper</p>
+
+<p>For example:</p>
+<?= $this->loop('row', $list) ?>
+
+<?php $this->startBlock('optional') ?>
+i'm the optional footer
+<?php $this->stopBlock() ?>

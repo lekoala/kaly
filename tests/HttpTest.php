@@ -5,74 +5,73 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use Kaly\Http;
+use Kaly\Http\HttpFactory;
 use Nyholm\Psr7\Response;
-use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Kaly\Http\ServerRequest;
+use Nyholm\Psr7\ServerRequest as BaseServerRequest;
+use Kaly\Http\ResponseEmitter;
 
 class HttpTest extends TestCase
 {
     public static array $mockResponse = [];
 
-    public function testParseLanguage()
+    public function testParseLanguage(): void
     {
-        /** @var ServerRequestInterface $request  */
-        $request = new ServerRequest("GET", "/");
+        $baseRequest = new BaseServerRequest("GET", "/");
+        $request = new ServerRequest($baseRequest);
         $request = $request->withHeader('Accept-Language', 'en-US,en;q=0.9,fr;q=0.8');
 
-        $result = Http::parseAcceptedLanguages($request);
+        $result = $request->parseAcceptedLanguages();
         $this->assertArrayHasKey("en-US", $result);
         $this->assertArrayHasKey("en", $result);
         $this->assertArrayHasKey("fr", $result);
         $this->assertEquals(0.8, $result["fr"]);
 
-        $preferred = Http::getPreferredLanguage($request);
+        $preferred =  $request->getPreferredLanguage();
         $this->assertEquals("en-US", $preferred);
 
-        $preferred = Http::getPreferredLanguage($request, ['en', 'fr']);
+        $preferred =  $request->getPreferredLanguage(['en', 'fr']);
         $this->assertEquals("en", $preferred);
     }
 
-    public function testParseAccept()
+    public function testParseAccept(): void
     {
-        /** @var ServerRequestInterface $request  */
-        $request = new ServerRequest("GET", "/");
+        $baseRequest = new BaseServerRequest("GET", "/");
+        $request = new ServerRequest($baseRequest);
+
         $v = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.9';
         $request = $request->withHeader('Accept', $v);
-        $result = Http::parseAcceptHeader($request);
+        $result = $request->parseAcceptHeader();
         $this->assertContains("text/html", $result);
         $this->assertContains("image/webp", $result);
 
-        $preferred = Http::getPreferredContentType($request);
+        $preferred = $request->getPreferredContentType();
         $this->assertEquals("text/html", $preferred);
     }
 
-    public function testCreateRequest()
+    public function testCreateRequest(): void
     {
-        $request = Http::createRequestFromGlobals();
+        $request = HttpFactory::createRequestFromGlobals();
         $this->assertInstanceOf(ServerRequestInterface::class, $request);
         $this->assertEquals('GET', $request->getMethod());
     }
 
-    public function testResolveResponseClass()
+    public function testCreateResponse(): void
     {
-        $this->assertNotEmpty(Http::resolveResponseClass());
-    }
-
-    public function testCreateResponse()
-    {
-        $response = Http::respond();
+        $response = HttpFactory::createResponse();
         $this->assertInstanceOf(ResponseInterface::class, $response);
     }
 
-    public function testResponseFactory()
+    public function testResponseFactory(): void
     {
-        $factory = new Http();
+        $factory = HttpFactory::get();
         $this->assertInstanceOf(ResponseInterface::class, $factory->createResponse());
     }
 
-    public function testSendResponse()
+    public function testSendResponse(): void
     {
         $headers = [];
         $code = 200;
@@ -80,10 +79,12 @@ class HttpTest extends TestCase
         $testResponse = new Response($code, $headers, $body);
 
         $this->expectOutputString($body);
-        Http::sendResponse($testResponse);
+
+        $emitter = new ResponseEmitter();
+        $emitter->emit($testResponse);
     }
 
-    public function testChunkedSendResponse()
+    public function testChunkedSendResponse(): void
     {
         $headers = [];
         $code = 200;
@@ -94,10 +95,12 @@ class HttpTest extends TestCase
         $testResponse->getBody()->seek(2);
 
         $this->expectOutputString($body);
-        Http::sendResponse($testResponse, 1);
+
+        $emitter = new ResponseEmitter(1);
+        $emitter->emit($testResponse);
     }
 
-    public function testContentRangeSendResponse()
+    public function testContentRangeSendResponse(): void
     {
         $headers = [
             'Content-Range' => 'bytes 0-3/8'
@@ -107,6 +110,8 @@ class HttpTest extends TestCase
         $testResponse = new Response($code, $headers, $body);
 
         $this->expectOutputString("Test");
-        Http::sendResponse($testResponse, 1);
+
+        $emitter = new ResponseEmitter();
+        $emitter->emit($testResponse);
     }
 }

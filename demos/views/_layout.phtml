@@ -1,0 +1,33 @@
+<?php
+
+/** @var Kaly\View\Template $this */
+
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="https://unpkg.com/mvp.css">
+</head>
+
+<?php //blocks need to be defined before they are used, or in a child template ?>
+<?php $this->startBlock('page_title'); ?>
+<h1>Default title</h1>
+<?php $this->stopBlock() ?>
+
+<body>
+    <header><?= $this->block('page_title') ?></header>
+    <?= $content ?>
+    <footer>
+        <?php if ($optional = $this->block('optional')): ?>
+            <div class="footer-optional"><?= $optional; ?></div>
+        <?php endif; ?>
+    </footer>
+</body>
+
+</html>
+
+

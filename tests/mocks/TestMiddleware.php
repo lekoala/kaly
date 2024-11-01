@@ -16,7 +16,8 @@ class TestMiddleware implements MiddlewareInterface
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        return $handler->handle($request->withAttribute($this->attribute, $this->value));
+        $updatedRequest = $request->withAttribute($this->attribute, $this->value);
+        return $handler->handle($updatedRequest);
     }
 
     public function getAttribute(): string

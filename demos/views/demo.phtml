@@ -1,0 +1,38 @@
+<?php
+
+/** @var Kaly\View\Template $this */
+
+$defined_in_template = "from template";
+$this->layout('_main');
+?>
+<div>some content {{h  safe   }}  {{not_interpreted}} </div>
+
+raw content within parentheses : {{raw}} or {{= raw}}<br/>
+escape content within parentheses : {{h raw}}<br/>
+using php functions: <?= $this->h($raw) ?><br/>
+dot notation:  {{arr.name}}<br/>
+dot notation escape:  {{h arr.name_html}}<br/>
+dot notation not found:  {{h arr.notfound}}<br/>
+dot notation invalid:  {{h arr.name.invalid}}<br/>
+user id:  {{user.id}}<br/>
+user id php:  <?= $user->id ?><br/>
+user method: {{user.fullname}}<br/>
+data is not erased : <?= $defined_in_template ?><br/>
+global var: <?= $my_global ?><br/>
+overwritter global var with spaces in the name: {{my other global}}<br/>
+asset: <?= $this->asset('demo.css') ?>
+
+<div>
+    <?= $this->render('_include') ?>
+</div>
+
+<ul>
+    <?php foreach ($items as $item): ?>
+        <li><?= $this->h($item['name']) ?></li>
+    <?php endforeach ?>
+</ul>
+
+<?php $this->startBlock('page_title'); ?>
+{{parent}} <?php // {{parent}} can inject content from a block defined in a layout ?>
+<h2>Demo title</h2>
+<?php $this->stopBlock() ?>

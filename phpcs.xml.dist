@@ -13,6 +13,13 @@
     </rule>
     <rule ref="Generic.Arrays.DisallowLongArraySyntax"/>
 
+    <rule ref="Generic.Files.LineLength">
+        <properties>
+            <property name="lineLimit" value="140"/>
+            <property name="absoluteLineLimit" value="0"/>
+        </properties>
+    </rule>
+
     <!-- Paths to check -->
     <file>src</file>
     <file>tests</file>

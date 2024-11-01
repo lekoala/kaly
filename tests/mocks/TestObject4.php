@@ -28,23 +28,23 @@ class TestObject4
         $this->arr = $arr;
     }
 
-    public function testMethod($val)
+    public function testMethod($val): void
     {
         $this->test[] = $val;
     }
 
-    public function testMethod2(array $val, string $other = 'wrong')
+    public function testMethod2(array $val, string $other = 'wrong'): void
     {
         $this->test2 = $val;
         $this->other = $other;
     }
 
-    public function testMethod3(array $val)
+    public function testMethod3(array $val): void
     {
         $this->test3 = $val;
     }
 
-    public function testQueue(string $val)
+    public function testQueue(string $val): void
     {
         $this->queue[] = $val;
     }

@@ -4,27 +4,12 @@ declare(strict_types=1);
 
 namespace TestModule\Controller;
 
-use Kaly\App;
+use Kaly\Core\AbstractController;
 use Psr\Http\Message\ServerRequestInterface;
 
-class DemoController
+class DemoController extends AbstractController
 {
-    protected ServerRequestInterface $request;
-    protected App $app;
-
-    public function __construct(App $app)
-    {
-        $this->app = $app;
-        $this->request = $app->getRequest();
-    }
-
-    public function isRequestDifferent(ServerRequestInterface $request)
-    {
-        $curr = $this->app->getRequest();
-        return $curr !== $this->request ? 'yes' : 'no';
-    }
-
-    public function index(ServerRequestInterface $request, $param = "")
+    public function index($param = ""): string
     {
         if ($param) {
             return "hello $param";
@@ -32,29 +17,34 @@ class DemoController
         return "hello demo";
     }
 
-    public function methodGet(ServerRequestInterface $request)
+    public function methodGet(): string
     {
         return 'get';
     }
 
-    public function methodPost(ServerRequestInterface $request)
+    public function methodPost(): string
     {
         return 'post';
     }
 
-    public function func(ServerRequestInterface $request)
+    public function func(): string
     {
         return "hello func";
     }
 
     //@codingStandardsIgnoreLine
-    public function hello_func(ServerRequestInterface $request)
+    public function hello_func(): string
     {
         return "hello underscore";
     }
 
-    public function arr(ServerRequestInterface $request, ...$args)
+    public function arr(...$args): string
     {
         return "hello " . implode(",", $args);
+    }
+
+    public function arrplus($test, ...$args): string
+    {
+        return "hello " . $test . ',' . implode(",", $args);
     }
 }

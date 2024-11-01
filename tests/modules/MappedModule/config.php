@@ -1,11 +1,13 @@
 <?php
 
-use Kaly\ClassRouter;
+/** @var Kaly\Core\Module $this */
 
-return [
-    ClassRouter::class . "->" => [
-        function (ClassRouter $router) {
-            $router->addAllowedNamespace("TestVendor\\MappedModule", "MappedModule");
-        }
-    ],
-];
+use Kaly\Router\ClassRouter;
+
+$this->setNamespace('TestVendor\\MappedModule');
+
+$this->definitions()
+    ->callback(ClassRouter::class, function (ClassRouter $router): void {
+        $router->addAllowedNamespace("TestVendor\\MappedModule", "MappedModule");
+    })
+    ->lock();

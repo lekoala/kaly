@@ -1,0 +1,39 @@
+<?php
+
+/** @var Kaly\View\Template $this */
+
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<?php //blocks need to be defined before they are used, or in a child template ?>
+<?php $this->startBlock('page_title') ?>
+Default title
+<?php $this->stopBlock() ?>
+
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= $this->block('page_title') ?> | My demo site</title>
+
+    <link rel="icon" href="/favicon.ico">
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+</head>
+
+<body>
+    <header><h1><?= $this->block('page_title') ?></h1></header>
+    <main>
+        <?= $content ?>
+    </main>
+    <footer>
+        <?php // optional blocks using if ($var = $this->block(...)) ?>
+        <?php if ($optional = $this->block('optional')): ?>
+            <div class="footer-optional"><?= $optional; ?></div>
+        <?php endif; ?>
+    </footer>
+</body>
+
+</html>
+
+

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Translator;
 use PHPUnit\Framework\TestCase;
+use Kaly\Text\Translator;
 
 class TranslatorTest extends TestCase
 {
-    public function testTranslate()
+    public function testTranslate(): void
     {
         $translator = new Translator('en', 'en');
         $translator->addPath(__DIR__ . "/data/lang");
@@ -38,7 +38,7 @@ class TranslatorTest extends TestCase
         $this->assertEquals("Welcome to this domain test", $result);
     }
 
-    public function testPlural()
+    public function testPlural(): void
     {
         $translator = new Translator('en', 'en');
         $translator->addPath(__DIR__ . "/data/lang");
@@ -69,7 +69,7 @@ class TranslatorTest extends TestCase
         $this->assertEquals("öëBC", $result);
     }
 
-    public function testParse()
+    public function testParse(): void
     {
         $arr = [
             'en' => [
@@ -114,7 +114,7 @@ class TranslatorTest extends TestCase
         }
     }
 
-    public function testLangFromLocale()
+    public function testLangFromLocale(): void
     {
         $arr = [
             'en' => 'en',

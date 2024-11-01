@@ -4,39 +4,34 @@ declare(strict_types=1);
 
 namespace TestModule\Controller;
 
-use Kaly\App;
 use Exception;
 use JsonSerializable;
-use Kaly\Auth;
-use Kaly\Exceptions\RedirectException;
-use Kaly\Exceptions\ValidationException;
-use Psr\Http\Message\ServerRequestInterface;
+use Kaly\Core\AbstractController;
+use Kaly\Core\App;
+use Kaly\Http\RedirectException;
+use Kaly\Http\ValidationException;
+use Kaly\Security\Auth;
 
-class IndexController
+class IndexController extends AbstractController
 {
     protected App $app;
 
-    public function __construct(App $app)
-    {
-        $this->app = $app;
-    }
-
-    public function index(ServerRequestInterface $request)
+    public function index(): string
     {
         return 'hello';
     }
 
-    public function isinvalid()
+    protected function isinvalid(): string
     {
-        return 'never returns';
+        return 'never returns because protected';
     }
 
-    public function foo(ServerRequestInterface $request)
+    public function foo(): string
     {
         return 'foo';
     }
 
-    public function arr(ServerRequestInterface $request, array $arr)
+    public function arr(array $arr)
     {
         $obj = new class($arr) implements JsonSerializable
         {
@@ -53,51 +48,50 @@ class IndexController
         return $obj;
     }
 
-    public function methodGet(ServerRequestInterface $request)
+    public function methodGet(): string
     {
         return 'get';
     }
 
-    public function methodPost(ServerRequestInterface $request)
+    public function methodPost(): string
     {
         return 'post';
     }
 
-    public function middleware(ServerRequestInterface $request)
+    public function middleware()
     {
-        $attr = $request->getAttribute("test-attribute");
-        return $attr;
+        $attr = $this->request->getAttribute("test-attribute");
+        return (string)$attr;
     }
 
-    public function middlewareException(ServerRequestInterface $request)
+    public function middlewareException(): never
     {
-        throw new Exception($request->getAttribute("test-attribute"));
+        throw new Exception($this->request->getAttribute("test-attribute"));
     }
 
-    public function getip(ServerRequestInterface $request)
+    public function getip()
     {
-        return $request->getAttribute("client-ip");
+        return $this->request->getAttribute("client-ip");
     }
 
-    public function getipstate(ServerRequestInterface $request)
+    public function getipstate()
     {
-        return $this->app->getRequest()->getAttribute("client-ip");
+        return $this->request->getAttribute("client-ip");
     }
 
-    public function redirect(ServerRequestInterface $request)
+    public function redirect(): never
     {
         throw new RedirectException("/test-module");
     }
 
-    public function validation(ServerRequestInterface $request)
+    public function validation(): never
     {
         throw new ValidationException("This is invalid");
     }
 
-    public function auth(ServerRequestInterface $request)
+    public function auth(): void
     {
-        /** @var Auth $auth  */
-        $auth = $this->app->getDi()->get(Auth::class);
-        $auth->basicAuth("unit", "test");
+        $auth = $this->app->get(Auth::class);
+        $auth->basicAuth($this->request, "unit", "test");
     }
 }
