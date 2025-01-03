@@ -3,6 +3,7 @@
 /** @var Kaly\Core\Module $this */
 
 use Kaly\Core\MiddlewareRunner;
+use Kaly\Log\FileLogger;
 use Kaly\View\Engine;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -24,4 +25,5 @@ $this->definitions()
     ->callback(Engine::class, function (Engine $engine) {
         $engine->setDir(__DIR__ . '/templates');
     })
+    ->set('debugLogger', fn() => new FileLogger(dirname(dirname(__DIR__)) . '/temp/debug.log'))
     ->lock();

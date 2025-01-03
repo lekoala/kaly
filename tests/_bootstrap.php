@@ -1,6 +1,7 @@
 <?php
 
 // Flexible vendor location
+
 $dir = dirname(__DIR__);
 while ($dir && !is_file($dir . '/vendor/autoload.php')) {
     $dir = dirname($dir);

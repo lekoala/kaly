@@ -5,130 +5,105 @@ declare(strict_types=1);
 namespace Kaly\Di;
 
 use Closure;
-use Exception;
-use ReflectionNamedType;
+use InvalidArgumentException;
+use Kaly\Util\Refl;
 use Psr\Container\ContainerInterface;
 use ReflectionFunction;
-use Psr\Container\NotFoundExceptionInterface;
-use Psr\Container\ContainerExceptionInterface;
-use Kaly\Core\Ex;
-use Throwable;
+use ReflectionClass;
 
 /**
- * Create class from definitions
+ * Call function or create classes with dynamic arguments
+ * Can optionaly resolve arguments with a container
  * See https://github.com/yiisoft/injector for inspiration
  */
 class Injector
 {
-    protected ContainerInterface $container;
+    protected ?ContainerInterface $container = null;
 
-    public function __construct(ContainerInterface $container)
+    public function __construct(?ContainerInterface $container = null)
     {
         $this->container = $container;
     }
 
     /**
-     * Finds an entry of the container by its identifier and returns it.
-     *
-     * @template T of object
-     * @param string|class-string<T> $id
-     * @return ($id is class-string<T> ? T : object)
-     * @throws NotFoundExceptionInterface No entry was found for **this** identifier.
-     * @throws ContainerExceptionInterface Error while retrieving the entry.
-     */
-    public function get(string $id)
-    {
-        if ($id === self::class) {
-            return $this;
-        }
-        $obj = $this->container->get($id);
-        assert(is_object($obj));
-        return $obj;
-    }
-
-    /**
      * Invoke any callable and resolve classes using the di container
-     * You can pass named arguments or an array using ...$arguments
+     * You can pass named arguments or positional arguments with ...$arguments
      *
-     * @param callable $callable
+     * @param array<string,string>|string|callable $callable
      * @param array<mixed> ...$arguments
      * @return mixed
      */
-    public function invoke(callable $callable, ...$arguments)
+    public function invoke(array|string|callable $callable, ...$arguments)
     {
-        $callable = Closure::fromCallable($callable);
-        $reflection = new ReflectionFunction($callable);
+        // This is needed to support [$class, $method] syntax
+        $closure = Closure::fromCallable($callable);
+        $reflection = new ReflectionFunction($closure);
         $parameters = $reflection->getParameters();
 
-        $isPositional = false;
-        foreach ($arguments as $idx => $arg) {
-            if (is_int($idx)) {
-                $isPositional = true;
-            }
-        }
+        $resolvedParameters = Refl::resolveParameters($parameters, $arguments, $this->container);
 
-        $args = [];
-        foreach ($parameters as $parameter) {
-            // Last argument is variadic
-            if ($parameter->isVariadic()) {
-                $args = array_merge($args, $arguments);
-                break;
-            }
-
-            // Check if argument is already provided by name or position
-            $name = $parameter->getName();
-            if (isset($arguments[$name])) {
-                $args[$name] = $arguments[$name];
-                continue;
-            }
-            // If we provided positional arguments instead of named ones
-            if ($isPositional && isset($arguments[0])) {
-                $args[count($args)] = array_shift($arguments);
-                continue;
-            }
-
-            // Or resolve using it's type
-            $type = $parameter->getType();
-            if ($type instanceof ReflectionNamedType) {
-                $typeName = $type->getName();
-
-                if (!$type->isBuiltin()) {
-                    $args[$name] = $this->get($typeName);
-                    continue;
-                }
-            }
-
-            // Use default value provided by code
-            if ($parameter->isDefaultValueAvailable() && $parameter->isOptional()) {
-                $args[$name] = $parameter->getDefaultValue();
-                continue;
-            }
-
-            // We can pass null
-            if ($parameter->allowsNull()) {
-                $args[$name] = null;
-                continue;
-            }
-        }
-
-        $result = $callable(...$args);
+        $result = $reflection->invoke(...$resolvedParameters);
 
         return $result;
     }
 
     /**
+     * Invoke any callable and resolve classes using the di container
+     * You can pass named arguments as an array
+     *
+     * @param callable $callable
+     * @param array<string,mixed> $arguments
+     * @return mixed
+     */
+    public function invokeArray(callable $callable, array $arguments)
+    {
+        return $this->invoke($callable, ...$arguments);
+    }
+
+    /**
+     * Build a an object based on its class
+     *
      * @template T of object
      * @param class-string<T> $class
-     * @param string|null $id
-     * @param bool $cache
+     * @param array<mixed> ...$arguments
      * @return T
      */
-    public function make(string $class, ?string $id = null, bool $cache = true)
+    public function make(string $class, ...$arguments)
     {
-        // When cloning, our container gets a clean slate
-        $container = $cache ? $this->container : clone $this->container;
-        $inst = $id ? $container->get($id) : $container->get($class);
-        assert($inst instanceof $class);
-        return $inst;
+        $reflection = new ReflectionClass($class);
+
+        // If we try to instiante an interface, use the container if available
+        if ($reflection->isInterface()) {
+            if ($this->container) {
+                // Get a fresh object
+                $clone = clone $this->container;
+                return $clone->get($class);
+            }
+            throw new InvalidArgumentException("Cannot instantiate an interface without a container");
+        }
+
+        $constructor = $reflection->getConstructor();
+
+        // Collect constructor's arguments. There might be no constructor
+        $parameters = $constructor ? $constructor->getParameters() : [];
+
+        $resolvedParameters = Refl::resolveParameters($parameters, $arguments, $this->container);
+
+        $instance = $reflection->newInstanceArgs($resolvedParameters);
+
+        return $instance;
+    }
+
+    /**
+     * Build a an object based on its class
+     *
+     * @template T of object
+     * @param class-string<T> $class
+     * @param array<string,mixed> $arguments
+     * @return T
+     */
+    public function makeArray(string $class, $arguments)
+    {
+        return $this->make($class, ...$arguments);
     }
 }

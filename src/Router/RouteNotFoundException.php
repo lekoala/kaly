@@ -12,7 +12,7 @@ use Kaly\Core\Ex;
  */
 class RouteNotFoundException extends Ex
 {
-    public function __construct(string $message = "", int $code = 404, Throwable $previous = null)
+    public function __construct(string $message = "", int $code = 404, ?Throwable $previous = null)
     {
         if (!$message) {
             $message = "Not Found";

@@ -39,7 +39,7 @@ class Request
         }
 
         // Headers
-        $headers = array_map(function ($k, $v) {
+        $headers = array_map(function ($k, $v): string {
             if (is_int($k)) {
                 return $v;
             }

@@ -129,11 +129,12 @@ trait RequestUtils
         if (!$header) {
             $header = $this->request->getServerParams()['HTTP_ACCEPT_LANGUAGE'] ?? '';
         }
+        assert(is_string($header));
         $arr = [];
         if (!$header) {
             return $arr;
         }
-        foreach (explode(',', (string) $header) as $part) {
+        foreach (explode(',', $header) as $part) {
             $subparts = explode(";q=", $part);
             $arr[$subparts[0]] = floatval($subparts[1] ?? 1);
         }
@@ -235,6 +236,7 @@ trait RequestUtils
             $params = array_merge($params, (array)$postParams);
         }
 
+        //@phpstan-ignore-next-line
         return $params;
     }
 
@@ -285,7 +287,9 @@ trait RequestUtils
      */
     public function getServerParam(string $key, ?string $default = null): ?string
     {
-        return $this->request->getServerParams()[$key] ?? $default;
+        $v = $this->request->getServerParams()[$key] ?? $default;
+        assert(is_null($v) || is_string($v));
+        return $v;
     }
 
     /**

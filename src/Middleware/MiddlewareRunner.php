@@ -36,7 +36,7 @@ class MiddlewareRunner implements RequestHandlerInterface
     protected function resolveMiddleware($middleware): MiddlewareInterface
     {
         if (is_string($middleware)) {
-            $middleware = $this->injector->make(MiddlewareInterface::class, $middleware);
+            $middleware = $this->injector->make($middleware);
         }
         return $middleware;
     }
@@ -79,6 +79,7 @@ class MiddlewareRunner implements RequestHandlerInterface
                     return $this->handle($this->request);
                 }
 
+                // Resolve middleware
                 $middleware = $this->resolveMiddleware($opts['middleware']);
                 $linear = $opts['linear'];
 
@@ -88,6 +89,7 @@ class MiddlewareRunner implements RequestHandlerInterface
                     // Set the linear flag so that we will only care about the updated request
                     $this->linear = true;
                     $middleware->process($this->request, $this);
+                    // Process will call MiddlewareRunner::handle and request reference will be updated
                     $this->linear = false;
                     // Use goto to avoid stack trace
                     goto start;
@@ -102,18 +104,39 @@ class MiddlewareRunner implements RequestHandlerInterface
         } catch (ResponseException $e) {
             // Maybe the middleware wants to prevent other to execute
             $response = $e->getResponse();
-        } finally {
-            // Reset so that next incoming request will run through all the middlewares
-            reset($this->middlewares);
-            // All middlewares have been processed
-            $this->request = null;
         }
+
+        // We may never reach this part if the middleware did not call back this
 
         // No responses provided by our middlewares
         if ($response === null) {
             $response = $this->factory->createResponse(404);
         }
         return $response;
+    }
+
+    /**
+     * Automatically calls reset before handling the request
+     * @param ServerRequestInterface $request
+     * @return ResponseInterface
+     */
+    public function handleNewRequest(ServerRequestInterface $request): ResponseInterface
+    {
+        $this->reset();
+        return $this->handle($request);
+    }
+
+    /**
+     * Reset the dispatcher and make sure we will run all the middlewares again
+     * This should be called before calling handle()
+     * @return void
+     */
+    public function reset(): void
+    {
+        // Reset so that next incoming request will run through all the middlewares
+        reset($this->middlewares);
+        // All middlewares have been processed
+        $this->request = null;
     }
 
     public function has(string $middlewareClass): bool
@@ -153,9 +176,6 @@ class MiddlewareRunner implements RequestHandlerInterface
      */
     public function push($middleware, ?Closure $condition = null, bool $linear = false): self
     {
-        if (in_array(LinearMiddlewareInterface::class, class_implements($middleware))) {
-            $linear = true;
-        }
         $this->middlewares[] = [
             'middleware' => $middleware,
             'condition' => $condition,

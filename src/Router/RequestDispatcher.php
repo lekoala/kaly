@@ -63,18 +63,20 @@ class RequestDispatcher implements MiddlewareInterface
     /**
      * @return string|array<mixed>|ResponseInterface
      */
-    protected function dispatch(ServerRequestInterface $request, Route &$route)
+    protected function dispatch(ServerRequestInterface $request, Route &$route): string|\Psr\Http\Message\ResponseInterface|array
     {
         $class = $route->controller;
         if (!$class) {
             throw new Ex("Controller not found");
         }
 
+        $injector = $this->app->getInjector();
+
         // Each request gets a fresh instance of the controller
         if (is_subclass_of($class, AbstractController::class)) {
             $inst = new $class($request, $this->app);
         } else {
-            $inst = $this->app->getInjector()->make($class, null, false);
+            $inst = $injector->make($class, request: $request, app: $this->app);
         }
 
         // Check for interfaces
@@ -98,7 +100,7 @@ class RequestDispatcher implements MiddlewareInterface
         $result = null;
         $callable = [$inst, $action];
         if (is_callable($callable)) {
-            $result = $this->app->getInjector()->invoke($callable, ...$arguments);
+            $result = $injector->invokeArray($callable, $arguments);
         }
 
         // Special handling for JsonSerializable
@@ -137,6 +139,8 @@ class RequestDispatcher implements MiddlewareInterface
         if (!is_array($attr)) {
             $attr = [];
         }
+
+        //@phpstan-ignore-next-line
         $route = Route::fromArray($attr);
         $forceJson = boolval($request->getQueryParams()['_json'] ?? false);
         $priorityList = [

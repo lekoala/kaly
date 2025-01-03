@@ -3,60 +3,13 @@
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Di\Injector;
-use Kaly\Logger;
 use Psr\Log\LoggerInterface;
 use Kaly\Di\CircularReferenceException;
-use Kaly\Di\Reference;
+use Kaly\Log\FileLogger;
 
 require "../vendor/autoload.php";
+require "di/demo-classes.php";
 
-// A basic class taking a parameter
-class SomeClass
-{
-    protected float $v;
-    public function __construct(
-        public LoggerInterface $logger
-    ) {
-        // provide an unique value
-        $this->v = microtime(true);
-    }
-}
-
-// A circular scenario
-class CircularA
-{
-    public function __construct(
-        public CircularB $inst
-    ) {}
-}
-
-class CircularB
-{
-    public function __construct(
-        public CircularA $inst
-    ) {}
-}
-
-class ExtendedPDO extends PDO {}
-
-class WrongClass
-{
-    public function __construct(
-        public string $dsn
-    ) {}
-}
-
-// A class that takes two pdo instances
-// Named service can be found based on variable name or using the reference definition
-class BackupService
-{
-    public function __construct(
-        public PDO $db,
-        public PDO $backupDb
-    ) {}
-}
-
-class App {}
 $app = new App();
 
 function doSomething(SomeClass $class, LoggerInterface $logger)
@@ -69,7 +22,7 @@ $inlineFn = function (SomeClass $class, int $c) {
 };
 
 $logFile = __DIR__ . '/demo2.log';
-$definitions = (new Definitions())
+$definitions = Definitions::create()
     // You can store objects directly
     ->set(App::class, $app)
     // Usage of closure is recommended to avoid instantiating class when they are not used
@@ -79,15 +32,21 @@ $definitions = (new Definitions())
     ->resolve(PDO::class, 'backupDb', 'backup_db')
     // If you pass a wrong type, it will throw an exception
     // ->set('backup_db', fn () => new WrongClass('sqlite::memory:'))
+    ->set('backup_db', fn() => new BackupPDO('sqlite::memory:'))
     // This callback will be applied to both named pdo instances
     ->callback(PDO::class, fn(PDO $pdo) => $pdo->exec('PRAGMA stats;'))
-    // ->parameter(PDO::class, 'dsn', 'sqlite::memory:')
-    ->set('customLogger', fn() => new Logger($logFile))
+    ->parameter(PDO::class, 'dsn', 'sqlite::memory:')
+    ->set('customLogger', fn() => new FileLogger($logFile))
     ->callback('customLogger', fn(LoggerInterface $inst) => $inst->log('debug', "I'm initialized from the container"))
-    ->bind(Logger::class, destination: __DIR__ . '/demo.log');
-$container = new Container($definitions);
+    ->bind(FileLogger::class, destination: __DIR__ . '/demo.log')
+    // Add all interfaces
+    ->add(new IterableAndCountable())
+    ->unlock();
 
+$container = new Container($definitions);
 $injector = new Injector($container);
+
+// SomeClass is provided by container (even if there is no definition for it)
 $injectorResultInline = $injector->invoke($inlineFn, c: 42);
 $injectorResultCallable = $injector->invoke('doSomething');
 
@@ -99,6 +58,12 @@ assert($container->has(LoggerInterface::class));
 assert($container->has(SomeClass::class));
 assert($container->has('customLogger'));
 assert($container->has('someAlias'));
+
+$UnionClass = $container->get(UnionClass::class);
+assert($UnionClass instanceof UnionClass);
+
+$IntersectionClass = $container->get(IntersectionClass::class);
+assert($IntersectionClass instanceof IntersectionClass);
 
 // has fail if not here
 // assert($container->has('somethingNotHere'));
@@ -125,16 +90,6 @@ try {
     echo $e->getMessage();
 }
 
-// cloning will clear the instance cache of the cloned container
-$containerClone = clone $container;
-$appFromClonedContainer = $containerClone->get(App::class);
-$someclassCloned = $containerClone->get(SomeClass::class);
-
-// still the same, because it is set from the definitions
-assert($appFromClonedContainer === $appFromContainer);
-// not the same, because we cleared the instance cache
-assert($someclassCloned !== $someclass);
-
 // Validate definitions using assert
 // see https://www.php.net/manual/en/function.assert.php
 // $definitions = (new Definitions())
@@ -145,4 +100,4 @@ if (is_file($logFile)) {
     unlink($logFile);
 }
 
-d($container, $logger, $someclass, $backupService, $injectorResultInline, $injectorResultCallable, $containerClone);
+d($container, $logger, $someclass, $backupService, $injectorResultInline, $injectorResultCallable);

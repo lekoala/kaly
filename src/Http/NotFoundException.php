@@ -16,7 +16,7 @@ class NotFoundException extends Ex implements ResponseProviderInterface
      * @param int $code
      * @param Throwable|null $previous
      */
-    public function __construct($message = '', int $code = 404, Throwable $previous = null)
+    public function __construct($message = '', int $code = 404, ?Throwable $previous = null)
     {
         if (!$message) {
             $message =  "Not found";

@@ -127,7 +127,7 @@ class HttpFactory
         if (is_object($body)) {
             $body = self::getBodyFromObject($body);
         }
-        $body = $body ?? '';
+        $body ??= '';
         $headers['Content-Type'] = ContentType::HTML;
         return self::createResponse($body, $code, $headers);
     }

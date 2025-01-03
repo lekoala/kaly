@@ -16,7 +16,7 @@ use Kaly\Http\ResponseProviderInterface;
  */
 class BasicAuthenticationException extends Ex implements ResponseProviderInterface
 {
-    public function __construct(string $message = "", int $code = 401, Throwable $previous = null)
+    public function __construct(string $message = "", int $code = 401, ?Throwable $previous = null)
     {
         if (!$message) {
             $message = t(Auth::class . ".auth_required", [], "kaly");

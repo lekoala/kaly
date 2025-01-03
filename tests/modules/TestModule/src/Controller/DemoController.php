@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace TestModule\Controller;
 
 use Kaly\Core\AbstractController;
-use Psr\Http\Message\ServerRequestInterface;
 
 class DemoController extends AbstractController
 {
@@ -43,7 +42,7 @@ class DemoController extends AbstractController
         return "hello " . implode(",", $args);
     }
 
-    public function arrplus($test, ...$args): string
+    public function arrplus(string $test, ...$args): string
     {
         return "hello " . $test . ',' . implode(",", $args);
     }

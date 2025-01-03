@@ -57,7 +57,7 @@ class RedirectException extends Ex implements ResponseProviderInterface
     /**
      * @param string|UriInterface $url
      */
-    public function __construct($url, int $code = 307, Throwable $previous = null)
+    public function __construct($url, int $code = 307, ?Throwable $previous = null)
     {
         if ($code < 300 || $code > 399) {
             throw new InvalidArgumentException("$code should be between 300 and 399");

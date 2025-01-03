@@ -11,6 +11,7 @@ use PHPUnit\Framework\TestCase;
 use TestModule\Controller\DemoController;
 use TestModule\Controller\IndexController;
 use Kaly\Core\App;
+use Kaly\Core\ErrorHandler;
 use Kaly\Http\ContentType;
 use Kaly\Http\HttpFactory;
 use Kaly\Http\ResponseEmitter;
@@ -23,6 +24,12 @@ class AppTest extends TestCase
     protected function setUp(): void
     {
         $_ENV[App::ENV_DEBUG] = true;
+    }
+
+    protected function tearDown(): void
+    {
+        // restore_error_handler();
+        ErrorHandler::restoreDefaults();
     }
 
     public function testAppExtension(): void
@@ -108,14 +115,16 @@ class AppTest extends TestCase
         $response = $app->handle($request);
         $this->assertEquals(307, $response->getStatusCode());
 
-        // Cannot call camel style url
-        $request = $request->withUri(new Uri("/test-module/Index/"));
-        $response = $app->handle($request);
-        $this->assertEquals(307, $response->getStatusCode());
+        // Modules are always lower case
         $request = $request->withUri(new Uri("/Test-Module/"));
         $response = $app->handle($request);
         $this->assertEquals(307, $response->getStatusCode());
         $this->assertEquals('/test-module/', $response->getHeaderLine('Location'));
+
+        // Cannot call index, even with wrong casing
+        $request = $request->withUri(new Uri("/test-module/Index/"));
+        $response = $app->handle($request);
+        $this->assertEquals(307, $response->getStatusCode());
     }
 
     public function testInvalidHandler(): void
@@ -123,12 +132,16 @@ class AppTest extends TestCase
         $request = HttpFactory::createRequestFromGlobals();
         $app = new App(__DIR__);
         $app->boot();
+
+        // Action must exists and public
         $request = $request->withUri(new Uri("/test-module/index/isinvalid/"));
         $response = $app->handle($request);
         $this->assertEquals(404, $response->getStatusCode());
-        $request = $request->withUri(new Uri("/test-module/index/isinvalid"));
+
+        // Actions are case sensitive
+        $request = $request->withUri(new Uri("/test-module/FOO/"));
         $response = $app->handle($request);
-        $this->assertEquals(307, $response->getStatusCode());
+        $this->assertEquals(404, $response->getStatusCode());
     }
 
     public function testArrayParams(): void
@@ -263,9 +276,6 @@ class AppTest extends TestCase
         $this->assertNotEmpty($body);
     }
 
-    /**
-     * @group only
-     */
     public function testValidation(): void
     {
         $request = HttpFactory::createRequestFromGlobals();
@@ -287,22 +297,29 @@ class AppTest extends TestCase
         $request = $request->withUri(new Uri("/test-module/demo/"));
         $response = $app->handle($request);
         $this->assertEquals("hello demo", (string)$response->getBody());
+
+        // TestModule > DemoController > index with test param
         $request = $request->withUri(new Uri("/test-module/demo/test/"));
         $response = $app->handle($request);
         $this->assertEquals("hello test", (string)$response->getBody());
+
         $request = $request->withUri(new Uri("/test-module/demo/func/"));
         $response = $app->handle($request);
         $this->assertEquals("hello func", (string)$response->getBody());
+
         // Only dashes are converted to camel case. Underscores are valid methods.
         $request = $request->withUri(new Uri("/test-module/demo/hello_func/"));
         $response = $app->handle($request);
         $this->assertEquals("hello underscore", (string)$response->getBody());
         $request = $request->withUri(new Uri("/test-module/demo/arr/he/llo/"));
+
         $response = $app->handle($request);
         $this->assertEquals("hello he,llo", (string)$response->getBody());
+
         $request = $request->withUri(new Uri("/test-module/demo/arrplus/he/llo/"));
         $response = $app->handle($request);
         $this->assertEquals("hello he,llo", (string)$response->getBody());
+
         $request = $request->withUri(new Uri("/test-module/demo/func/he/llo/"));
         try {
             $response = $app->handle($request);

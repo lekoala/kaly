@@ -65,6 +65,7 @@ class Engine implements EngineInterface
     {
         require_once __DIR__ . '/_helpers.php';
         return (function (...$args): void {
+            assert(is_array($args[1]));
             // If there is a collision, don't overwrite the existing variable.
             extract($args[1], EXTR_SKIP);
             require $args[0];
@@ -207,7 +208,7 @@ class Engine implements EngineInterface
             return $contents;
         }
         // Replace any {{content}} or {{x content}} or {{arr.content.value}}.
-        return preg_replace_callback('/\\\\?{{(?:(=|h|a|u|c|j) )?([\w\. -]+?)}}/', function ($match) use ($data) {
+        return preg_replace_callback('/\\\\?{{(?:(=|h|a|u|c|j) )?([\w\. -]+?)}}/', function (array $match) use ($data): string|object {
             $fullMatch = $match[0]; // {{h mystring}}
             $escapeMode = $match[1]; // h
             $key = $match[2]; // mystring

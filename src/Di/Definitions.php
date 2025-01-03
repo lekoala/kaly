@@ -7,84 +7,133 @@ namespace Kaly\Di;
 use Closure;
 
 /**
- * This class is a helper to build definitions for the Di Container
+ * This class is used to build definitions for the DI Container
  *
- * Some advanced features (parameters, callbacks) are only available using this helper
+ * At its core, there is a map of id/class => class/object
+ *
+ * But it also allows defining parameters, callbacks after instantiation and custom
+ * resolvers for specific classes or interfaces
  */
 class Definitions
 {
     /**
+     * Store definitions as a map
+     * Typically, the key is a class name or a custom id
+     * Class strings are resolved to a class instance while objects are returned as is
+     * If the object is a Closure, it is executed as a factory method
      * @var array<string,class-string|object|null>
      */
-    protected array $value = [];
+    protected array $values = [];
 
     /**
+     * Defines callbacks to be called after an object is instantiated
      * @var array<string,array<string,callable>>
      */
     protected array $callbacks = [];
 
     /**
+     * Defines parameters passed to a given id
      * @var array<string,array<string,mixed>>
      */
     protected array $parameters = [];
 
     /**
-     * @var array<class-string,array<string,callable>>
+     * Resolve arguments based on custom conditions
+     * @var array<class-string,array<string,callable|class-string>>
      */
     protected array $resolvers = [];
 
+    /**
+     * Lock status
+     */
     protected bool $locked = false;
 
     /**
      * You can create the definitions with a basic array that map interfaces/ids to a class name or a closure
-     * @param array<mixed>|Definitions|null $definitions
+     * @param array<string,class-string|object|null>|Definitions|null $definitions
      */
     public function __construct(array|Definitions|null $definitions = null)
     {
-        if ($definitions) {
-            if (is_array($definitions)) {
-                foreach ($definitions as $k => $v) {
-                    assert(is_string($k));
-                    assert(is_object($v) || $v === null || (is_string($v) && class_exists($v)));
-                    $this->set($k, $v);
-                }
-            } else {
-                $this->merge($definitions);
-            }
+        if ($definitions === null) {
+            return;
         }
-    }
-
-    public function merge(Definitions $definitions): void
-    {
-        //@phpstan-ignore-next-line
-        $this->value = array_merge($this->value, $this->getData('value'));
-        foreach (['callbacks', 'parameters', 'resolvers'] as $k) {
-            $this->mergeDefinitionsData($definitions, $k);
-        }
-    }
-
-    public function mergeDefinitionsData(Definitions $definitions, string $k): void
-    {
-        $data = $definitions->getData($k);
-        foreach ($data as $key => $values) {
-            //@phpstan-ignore-next-line
-            $this->$k[$key] = array_merge($this->$k[$key] ?? [], $values);
+        // Passing an array is like a call to set with key, value
+        if (is_array($definitions)) {
+            $this->setAll($definitions);
+        } else {
+            $this->merge($definitions);
         }
     }
 
     /**
-     * @param string $k
-     * @return array<mixed>
+     * Pre PHP 8.4 helper for a better syntax
+     * @param array<string,class-string|object>|Definitions|null $definitions
      */
-    public function getData(string $k): array
+    public static function create(array|Definitions|null $definitions = null): self
     {
-        assert(property_exists($this, $k));
-        return $this->$k;
+        return new Definitions($definitions);
+    }
+
+    public function merge(Definitions $definitions): void
+    {
+        $this->values = array_merge($this->values, $definitions->getValues());
+
+        //@phpstan-ignore-next-line
+        $this->callbacks = $this->mergeDefinitionsData($this->callbacks, $definitions->getCallbacks());
+        //@phpstan-ignore-next-line
+        $this->parameters = $this->mergeDefinitionsData($this->parameters, $definitions->getParameters());
+        //@phpstan-ignore-next-line
+        $this->resolvers = $this->mergeDefinitionsData($this->resolvers, $definitions->getResolvers());
+    }
+
+    /**
+     * @param array<string,array<mixed>> $arr
+     * @param array<string,array<mixed>> $arr2
+     * @return array<string,array<mixed>>
+     */
+    public function mergeDefinitionsData(array $arr, array $arr2): array
+    {
+        foreach ($arr2 as $key => $values) {
+            $arr[$key] = array_merge($arr[$key] ?? [], $values);
+        }
+        return $arr;
+    }
+
+    /**
+     * @return array<string,class-string|object|null>
+     */
+    public function getValues(): array
+    {
+        return $this->values;
+    }
+
+    /**
+     * @return array<string,array<string,callable>>
+     */
+    public function getCallbacks(): array
+    {
+        return $this->callbacks;
+    }
+
+    /**
+     * @return array<string,array<string,mixed>>
+     */
+    public function getParameters(): array
+    {
+        return $this->parameters;
+    }
+
+    /**
+     * @return array<class-string,array<string,callable|class-string>>
+     */
+    public function getResolvers(): array
+    {
+        return $this->resolvers;
     }
 
     public function sort(): void
     {
-        ksort($this->value);
+        ksort($this->values);
         ksort($this->callbacks);
         ksort($this->parameters);
         ksort($this->resolvers);
@@ -100,7 +149,7 @@ class Definitions
         // A value can be null
         // isset() does not return true for array keys that correspond to a null value, while array_key_exists() does.
         // see https://www.php.net/manual/en/function.array-key-exists.php
-        return array_key_exists($id, $this->value);
+        return array_key_exists($id, $this->values);
     }
 
     /**
@@ -116,11 +165,26 @@ class Definitions
     /**
      * Get an entry
      * @param string $id
-     * @return mixed
+     * @return class-string|object|null
      */
     public function get(string $id): mixed
     {
-        return $this->value[$id] ?? null;
+        return $this->values[$id] ?? null;
+    }
+
+    /**
+     * Similar to get, but expand any lazy closure
+     * @param string $id
+     * @return string|object|null
+     */
+    public function expand(string $id): string|object|null
+    {
+        $entry = $this->get($id);
+        if ($entry && $entry instanceof Closure) {
+            $entry = $entry($this, $this->parametersFor($id));
+            assert(is_null($entry) || is_object($entry) || is_string($entry));
+        }
+        return $entry;
     }
 
     /**
@@ -133,8 +197,33 @@ class Definitions
     {
         assert(!$this->locked);
         assert(!is_string($value) || class_exists($value));
-        $this->value[$id] = $value;
+        $this->values[$id] = $value;
         return $this;
+    }
+
+    /**
+     * Add an entry if not set yet
+     * @param string $id
+     * @param class-string|object|null $value
+     * @return self
+     */
+    public function setDefault(string $id, string|object|null $value = null): self
+    {
+        if ($this->has($id)) {
+            return $this;
+        }
+        return $this->set($id, $value);
+    }
+
+    /**
+     * @param array<string,object|class-string|null> $definitions
+     * @return void
+     */
+    public function setAll(array $definitions): void
+    {
+        foreach ($definitions as $k => $v) {
+            $this->set($k, $v);
+        }
     }
 
     /**
@@ -149,16 +238,16 @@ class Definitions
         $interfaces = class_implements($obj);
         foreach ($interfaces as $interface) {
             if (!$this->has($interface)) {
-                $this->value[$interface] = $obj;
+                $this->values[$interface] = $obj;
             }
         }
         $parents = class_parents($obj);
         foreach ($parents as $parent) {
             if (!$this->has($parent)) {
-                $this->value[$parent] = $obj;
+                $this->values[$parent] = $obj;
             }
         }
-        $this->value[$obj::class] = $obj;
+        $this->values[$obj::class] = $obj;
         return $this;
     }
 
@@ -173,14 +262,14 @@ class Definitions
     public function bind(string $class, ?string $interface = null, ...$parameters): self
     {
         assert(!$this->locked);
-        assert(class_exists($class), "$class does not exist");
+        assert(class_exists($class), "Class `$class` does not exist");
         if ($interface === null) {
             $interfaces = class_implements($class);
             if (count($interfaces) === 1) {
                 $interface = key($interfaces);
             }
         }
-        assert($interface !== null && interface_exists($interface), "$interface does not exist");
+        assert($interface !== null && interface_exists($interface), "Interface `$interface` does not exist");
         if (!empty($parameters)) {
             $this->parameters($class, ...$parameters);
         }
@@ -191,11 +280,11 @@ class Definitions
      * Define how to map constructors arguments when building objects of a given class
      *
      * @param class-string $class
-     * @param string $key Can be a variable name, a fully qualified class name (or * when using a closure)
-     * @param callable $value fn(string $constructor, string $class)
+     * @param string $key The parameter name or * for all parameters
+     * @param callable|string $value fn(string $constructor, string $class) or a definition id
      * @return self
      */
-    public function resolve(string $class, string $key, callable $value): self
+    public function resolve(string $class, string $key, callable|string $value): self
     {
         assert(!$this->locked);
         $this->resolvers[$class][$key] = $value;
@@ -204,9 +293,9 @@ class Definitions
 
     /**
      * @param class-string $class
-     * @return array<string,callable>
+     * @return array<string,callable|class-string>
      */
-    public function getResolvers(string $class): array
+    public function resolversFor(string $class): array
     {
         return $this->resolvers[$class] ?? [];
     }
@@ -241,12 +330,26 @@ class Definitions
 
     /**
      * Retrieve parameters for an entry
-     * @param string $id
+     * @param ?string $id
      * @return array<string,mixed>
      */
-    public function getParameters(string $id): array
+    public function parametersFor(?string $id = null): array
     {
+        if ($id === null) {
+            return [];
+        }
         return $this->parameters[$id] ?? [];
+    }
+
+    /**
+     * Retrieve parameters for an entry and its base class
+     * @param class-string $class
+     * @param ?string $id
+     * @return array<string,mixed>
+     */
+    public function allParametersFor(string $class, ?string $id = null): array
+    {
+        return array_merge($this->parametersFor($class), $this->parametersFor($id));
     }
 
     /**
@@ -256,11 +359,11 @@ class Definitions
      * @param string|null $name
      * @return self
      */
-    public function callback(string $id, Closure $fn, string $name = null): self
+    public function callback(string $id, Closure $fn, ?string $name = null): self
     {
         assert(!$this->locked);
         if ($name === null) {
-            $name = (string)count($this->getCallbacks($id));
+            $name = (string)count($this->callbacksFor($id));
         }
         $this->callbacks[$id][$name] = $fn;
         return $this;
@@ -271,7 +374,7 @@ class Definitions
      * @param string $id
      * @return array<string,callable>
      */
-    public function getCallbacks(string $id): array
+    public function callbacksFor(string $id): array
     {
         return $this->callbacks[$id] ?? [];
     }
@@ -283,16 +386,18 @@ class Definitions
      *   ->...
      *   ->lock();
      * Don't allow further edit once called (soft checks, not strictly enforced)
-     * @return void
+     * @return self
      */
-    public function lock(): void
+    public function lock(): self
     {
         $this->locked = true;
+        return $this;
     }
 
-    public function unlock(): void
+    public function unlock(): self
     {
         $this->locked = false;
+        return $this;
     }
 
     public function isLocked(): bool

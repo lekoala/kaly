@@ -156,7 +156,6 @@ class App implements RequestHandlerInterface
         date_default_timezone_set(Env::getString(self::ENV_TIMEZONE, 'UTC'));
 
         // Initialize our services
-        ErrorHandler::configureDefaults($this->debug);
         Session::configureDefaults($this->getTempDirFor(Session::class));
     }
 
@@ -179,6 +178,7 @@ class App implements RequestHandlerInterface
         // They are basically executed in order unless a custom priority is set
         $i = 0;
         $priorities = [];
+        $autoloaded = [];
         foreach ($files as $file) {
             $module = Module::fromConfig($file);
             $modules[] = $module;
@@ -187,6 +187,7 @@ class App implements RequestHandlerInterface
             $srcDir = $module->getSrcDir();
             $relativeDir = Fs::dir(Fs::relativePath($this->baseDir, $srcDir));
             if (!isset($psr4Paths[$relativeDir]) && is_dir($srcDir)) {
+                $autoloaded[] = $module->getName();
                 $module->autoloadFiles();
             }
 
@@ -232,6 +233,9 @@ class App implements RequestHandlerInterface
         }
 
         $this->modules = $modules;
+
+        $definitions = $this->updateDefinitions($definitions);
+
         return $definitions;
     }
 
@@ -252,7 +256,7 @@ class App implements RequestHandlerInterface
      * The service container is only configured once on app load.
      * @param Definitions $def Global definitions for the container. Locked once loaded.
      */
-    public function configureContainer(Definitions $def): Container
+    public function updateDefinitions(Definitions $def): Definitions
     {
         $this->runCallbacks(self::CB_BEFORE_DEFINTITIONS, $def);
 
@@ -289,7 +293,12 @@ class App implements RequestHandlerInterface
 
         $def->lock();
 
-        $container = new Container($def);
+        return $def;
+    }
+
+    protected function setServicesFromContainer(): void
+    {
+        $container = $this->container;
 
         // Get app cache from container
         $cache = null;
@@ -302,13 +311,16 @@ class App implements RequestHandlerInterface
             assert($cache instanceof CacheInterface);
             $this->cache = $cache;
         }
-
-        return $container;
     }
 
     protected function isValidCallbackId(string $id): bool
     {
         return in_array($id, self::AVAILABLE_CALLBACKS);
+    }
+
+    public function shutdown(): void
+    {
+        ErrorHandler::restoreDefaults();
     }
 
     /**
@@ -323,14 +335,18 @@ class App implements RequestHandlerInterface
         assert($this->booted === false);
         $this->booted = true;
 
+        ErrorHandler::configureDefaults($this->debug);
+
         if ($this->debug) {
             $this->setupDirectories();
         }
 
         $definitions = $this->loadModules();
-        $this->container = $this->configureContainer($definitions);
+
+        $this->container = new Container($definitions);
         $this->injector = new Injector($this->container);
 
+        $this->setServicesFromContainer();
         $this->runCallbacks(self::CB_BOOTED);
     }
 
@@ -371,7 +387,14 @@ class App implements RequestHandlerInterface
 
         // Run through the middlewares
         try {
-            $result = $this->getRequestHandler()->handle($request);
+            $handler = $this->getRequestHandler();
+
+            // Reset so that handling multiple request with the same app is not an issue
+            if ($handler instanceof MiddlewareRunner) {
+                $result = $handler->handleNewRequest($request);
+            } else {
+                $result = $handler->handle($request);
+            }
             return $result;
         } catch (Throwable $ex) {
             if ($ex instanceof ResponseProviderInterface) {
@@ -396,7 +419,7 @@ class App implements RequestHandlerInterface
      * This utility method can be used for index scripts
      * It will send the response
      */
-    public function run(ServerRequestInterface $request = null): void
+    public function run(?ServerRequestInterface $request = null): void
     {
         if (!$this->booted) {
             $this->boot();
@@ -436,9 +459,9 @@ class App implements RequestHandlerInterface
      * @param class-string<T> $class
      * @return T
      */
-    public function get($class)
+    public function get(string $class)
     {
-        return $this->getInjector()->get($class);
+        return $this->getContainer()->get($class);
     }
 
     public function getInjector(): Injector
@@ -452,20 +475,20 @@ class App implements RequestHandlerInterface
     {
         assert($this->booted);
         if ($this->viewEngine === null) {
-            $this->viewEngine = $this->getInjector()->make(Engine::class);
+            $this->viewEngine = $this->get(Engine::class);
         }
         return $this->viewEngine;
     }
 
     /**
      * Get the app request handler. By default, this should be the middleware runner
-     * @return RequestHandlerInterface
+     * @return RequestHandlerInterface|MiddlewareRunner
      */
     public function getRequestHandler(): RequestHandlerInterface
     {
         assert($this->booted);
         if ($this->requestHandler === null) {
-            $this->requestHandler = $this->getInjector()->make(RequestHandlerInterface::class);
+            $this->requestHandler = $this->get(RequestHandlerInterface::class);
         }
         return $this->requestHandler;
     }

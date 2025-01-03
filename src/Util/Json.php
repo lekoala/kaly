@@ -38,7 +38,7 @@ final class Json
         return $result;
     }
 
-    public static function decode(string $value = null, bool $assoc = true): mixed
+    public static function decode(?string $value = null, bool $assoc = true): mixed
     {
         if ($value === null) {
             $value = "[]";
@@ -53,7 +53,7 @@ final class Json
     /**
      * @return array<mixed>
      */
-    public static function decodeArr(string $value = null): array
+    public static function decodeArr(?string $value = null): array
     {
         if (!$value) {
             return [];
@@ -68,7 +68,7 @@ final class Json
     /**
      * @return object
      */
-    public static function decodeObj(string $value = null): object
+    public static function decodeObj(?string $value = null): object
     {
         if (!$value) {
             return new stdClass();

@@ -98,6 +98,7 @@ class Auth
 
         $server = $request->getServerParams();
         $authHeader = $server['HTTP_AUTHORIZATION'] ?? $server['REDIRECT_HTTP_AUTHORIZATION'] ?? null;
+        assert(is_null($authHeader) || is_string($authHeader));
 
         $phpAuthUser = $server['PHP_AUTH_USER'] ?? null;
         $phpAuthPw = $server['PHP_AUTH_PW'] ?? null;
@@ -105,7 +106,7 @@ class Auth
         $matches = [];
         if (
             $authHeader &&
-            preg_match('/Basic\s+(.*)$/i', (string) $authHeader, $matches)
+            preg_match('/Basic\s+(.*)$/i', $authHeader, $matches)
         ) {
             [$name, $password] = explode(':', base64_decode($matches[1]));
             $phpAuthUser = strip_tags($name);

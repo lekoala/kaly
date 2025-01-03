@@ -35,9 +35,9 @@ final class Env
             // Store in $_ENV as string
             $_ENV[$k] = $v;
         }
+        //@phpstan-ignore-next-line
         return $result;
     }
-
 
     /**
      * Get typed value of an environment variable.
@@ -65,6 +65,7 @@ final class Env
      */
     public static function getAll(): array
     {
+        //@phpstan-ignore-next-line
         return $_ENV;
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Di;
 
 use Closure;
+use Kaly\Util\Refl;
 use ReflectionClass;
 use ReflectionNamedType;
 use Psr\Container\ContainerInterface;
@@ -20,7 +21,7 @@ use Psr\Container\ContainerExceptionInterface;
  * You may still alter definitions if you have defined them beforehand
  *
  * All returned objects are cached. If you need fresh instances, return factories from the container
- * You can also clone the container to get a fresh container without cached instances
+ * The creation logic is handled by the Injector
  *
  * Credits to for inspiration
  * @link https://github.com/devanych/di-container
@@ -38,25 +39,15 @@ class Container implements ContainerInterface
     protected array $instances = [];
 
     /**
-     * @param Definitions|array<string,class-string|Closure> $definitions
+     * @param Definitions|array<string,class-string|object|null>|null $definitions
      */
-    public function __construct(Definitions|array $definitions = [])
+    public function __construct(Definitions|array|null $definitions = null)
     {
-        $this->definitions = is_array($definitions) ? new Definitions($definitions) : $definitions;
-        // Makes it easier to debug
-        $this->definitions->sort();
-    }
-
-    /**
-     * Execute closures in definitions to get concrete values
-     */
-    protected function loadDefinition(string $id): null|string|object
-    {
-        $definition = $this->definitions->get($id);
-        if ($definition && $definition instanceof Closure) {
-            $definition = $definition($this, $this->definitions->getParameters($id));
+        // Create definitions if needed
+        if (is_array($definitions) || is_null($definitions)) {
+            $definitions = new Definitions($definitions);
         }
-        return $definition;
+        $this->definitions = $definitions;
     }
 
     /**
@@ -67,135 +58,96 @@ class Container implements ContainerInterface
      */
     protected function build(string $id): object
     {
-        // Avoid issues when resolving the container
-        if ($id === self::class) {
-            return $this;
-        }
-
-        // If we ask for an injector
-        if ($id === Injector::class) {
-            return new Injector($this);
-        }
+        $class = $id;
+        $definitions = $this->definitions;
 
         // If we have a definition
-        $definition = $this->loadDefinition($id);
+        $definition = $definitions->expand($id);
         if ($definition !== null) {
-            // Can be an instance of something
+            // Can be an instance of something or the result of a closure
             // eg: 'app' => $app or 'app' => fn () => new App
             if (is_object($definition)) {
-                // Apply any further configuration if needed
-                // These will run only once since we cache instances
-                $this->configure($definition, $id);
                 return $definition;
             }
 
             // Can be an interface binding
             // eg: SomeInterface::class => MyClass::class
-            // assert(is_string($definition));
-            $id = $definition;
+            $class = $definition;
         }
 
         // Use try/finally pattern to make sure we unset building[$id] when throwing exceptions
         try {
-            if (isset($this->building[$id])) {
+            if (isset($this->building[$class])) {
                 $buildChain = implode(', ', array_keys($this->building));
-                throw new CircularReferenceException("Circular reference to `$id` in `{$buildChain}`");
+                throw new CircularReferenceException("Circular reference to `$class` in `{$buildChain}`");
             }
-
-            if (!class_exists($id)) {
-                throw new ContainerException("Class `$id` does not exist");
+            if (!class_exists($class)) {
+                throw new ContainerException("Class `$class` does not exist");
             }
+            $this->building[$class] = true;
 
-            $this->building[$id] = true;
-
-            $reflection = new ReflectionClass($id);
+            $reflection = new ReflectionClass($class);
             $constructor = $reflection->getConstructor();
 
             // Collect constructor's arguments. There might be no constructor
             $constructorParameters = $constructor ? $constructor->getParameters() : [];
-            $definedParameters = $this->definitions->getParameters($id);
-            $arguments = [];
+
+            $definedParameters = $definitions->allParametersFor($class, $id);
+
+            // Don't resolve object parameters using the container in favor of a custom strategy
+            $arguments = Refl::resolveParameters($constructorParameters, $definedParameters);
             foreach ($constructorParameters as $parameter) {
                 // Get parameters from the definitions if set
                 $name = $parameter->getName();
+
+                // It is provided by definitions (and not null), skip
                 if (isset($definedParameters[$name])) {
-                    $arguments[] = $definedParameters[$name];
+                    $arguments[$name] = $definedParameters[$name];
                     continue;
                 }
 
                 // Fetch from container based on argument type
-                $type = $parameter->getType();
-                if ($type instanceof ReflectionNamedType) {
-                    $typeName = $type->getName();
-
-                    // Instantiate classes or interfaces
-                    // A built-in type is any type that is not a class, interface, or trait.
-                    if (!$type->isBuiltin()) {
-                        assert(class_exists($typeName), "$typeName is not defined in container");
-                        // Check if we have any custom resolver
-                        $resolvers = $this->definitions->getResolvers($typeName);
-                        if (!empty($resolvers)) {
-                            foreach ($resolvers as $key => $value) {
-                                $apply = false;
-                                if ($key === '*' && $value instanceof Closure) {
-                                    $apply = true;
-                                } elseif (str_contains($key, '\\') && is_a($key, $id, true)) {
-                                    $apply = true;
-                                } elseif ($key === $name) {
-                                    $apply = true;
-                                }
-                                if ($apply) {
-                                    $name = $value instanceof Closure ? $value($name, $id) : $value;
-                                }
-                            }
-                        }
-
-                        // If we have a proper definition, use that first
-                        if ($this->definitions->has($typeName)) {
-                            $arguments[] = $this->get($typeName);
+                $paramType = $parameter->getType();
+                $types = Refl::getParameterTypes($parameter);
+                foreach ($types as $type) {
+                    if ($type instanceof ReflectionNamedType) {
+                        // Built in values will be provided by injector if needed
+                        // A built-in type is any type that is not a class, interface, or trait.
+                        if ($type->isBuiltin()) {
                             continue;
                         }
 
-                        // Then fetch based on argument name (eg: for named services)
-                        if ($this->definitions->has($name)) {
-                            $argument = $this->get($name);
+                        $typeName = $type->getName();
 
-                            // Make sure type matches
-                            if (!($argument instanceof $typeName)) {
-                                $t = $argument::class;
-                                throw new ContainerException("Cannot create `$id`, argument `$name` is of type `$t`");
-                            }
+                        // Instantiate classes or interfaces
+                        // Check if we have any custom resolver that helps us to map a specific variable for a class to a registered service
+                        $serviceName = $this->resolveName($name, $typeName, $class);
 
-                            $arguments[] = $argument;
+                        // Find definition where id matches the name of the parameter
+                        if ($serviceName && $definitions->has($serviceName)) {
+                            $argument = $this->get($serviceName);
+                            assert(Refl::valueMatchType($argument, $paramType));
+                            $arguments[$name] = $argument;
                             continue;
                         }
 
-                        // Finally, autoresolve for classes without a definition
+                        // Or get based on type
                         if ($this->has($typeName)) {
-                            $arguments[] = $this->get($typeName);
-                            continue;
-                        }
-                    }
-
-                    // Built in is : string, float, bool, int, iterable, mixed, array
-                    if ($type->isBuiltin()) {
-                        // Provide an empty array if needed
-                        if ($typeName === 'array' && !$parameter->isDefaultValueAvailable()) {
-                            $arguments[] = [];
+                            $argument = $this->get($typeName);
+                            assert(Refl::valueMatchType($argument, $paramType));
+                            $arguments[$name] = $argument;
                             continue;
                         }
                     }
                 }
 
-                // Use default value provided by code
-                if ($parameter->isDefaultValueAvailable() && $parameter->isOptional()) {
-                    $arguments[] = $parameter->getDefaultValue();
+                // It was resolved by injector
+                if (array_key_exists($name, $arguments)) {
                     continue;
                 }
 
-                // We can pass null
-                if ($parameter->allowsNull()) {
-                    $arguments[] = null;
+                // It's optional, we can continue
+                if ($parameter->isOptional()) {
                     continue;
                 }
 
@@ -205,40 +157,11 @@ class Container implements ContainerInterface
 
             /** @var object $instance */
             $instance = $reflection->newInstanceArgs($arguments);
-            $this->configure($instance, $id);
         } finally {
-            unset($this->building[$id]);
+            unset($this->building[$class]);
         }
 
         return $instance;
-    }
-
-    /**
-     * Call additionnal methods after instantiation
-     * Callbacks will match based on the class name and the id
-     *
-     * @param object $instance The instance to configure
-     * @param string $id Id in the container
-     * @return void
-     */
-    protected function configure(object $instance, string $id): void
-    {
-        $interfaceExists = interface_exists($id, false);
-        $instanceClass = $instance::class;
-        $callbacks = $this->definitions->getCallbacks($id);
-        // If $id is an interface or a named service, we may also have class calls
-        // Interfaces callbacks are executed first, but named callbacks are executed last
-        if ($instanceClass !== $id) {
-            $instanceCallbacks = $this->definitions->getCallbacks($instanceClass);
-            if ($interfaceExists) {
-                $callbacks = array_merge($callbacks, $instanceCallbacks);
-            } else {
-                $callbacks = array_merge($instanceCallbacks, $callbacks);
-            }
-        }
-        foreach ($callbacks as $closure) {
-            $closure($instance, $this);
-        }
     }
 
     /**
@@ -256,9 +179,20 @@ class Container implements ContainerInterface
         if ($this->has($id) === false) {
             throw new ReferenceNotFoundException("`$id` is not set");
         }
+        // Avoid issues when resolving the container
+        if ($id === self::class) {
+            return $this;
+        }
+        // If we need an injector, pass an injector that knows about the container
+        if ($id === Injector::class) {
+            return new Injector($this);
+        }
         // A cached instance does not exist yet, build it
         if (!isset($this->instances[$id])) {
-            $this->instances[$id] = $this->build($id);
+            $instance = $this->build($id);
+            // These will run only once since we cache instances
+            $this->configure($instance, $id);
+            $this->instances[$id] = $instance;
         }
         // Return cached instance
         return $this->instances[$id];
@@ -273,6 +207,7 @@ class Container implements ContainerInterface
      */
     public function has(string $id): bool
     {
+        // There is a definition for it
         if ($this->definitions->has($id)) {
             return true;
         }
@@ -281,9 +216,70 @@ class Container implements ContainerInterface
         return class_exists($id);
     }
 
+    /**
+     * Check if we have any custom resolver that helps us to map a specific variable for a class to a registered service
+     *
+     * @param string $name
+     * @param string $typeName
+     * @param string $class
+     * @return ?string
+     */
+    protected function resolveName(string $name, string $typeName, string $class): ?string
+    {
+        $definitions = $this->definitions;
+        $serviceName = null;
+        $resolvers = $definitions->resolversFor($typeName);
+        if (!empty($resolvers)) {
+            foreach ($resolvers as $key => $value) {
+                $apply = false;
+                if ($key === '*' && $value instanceof Closure) {
+                    $apply = true;
+                } elseif (str_contains((string) $key, '\\') && is_a($key, $class, true)) {
+                    $apply = true;
+                } elseif ($key === $name) {
+                    $apply = true;
+                }
+                if ($apply) {
+                    // Resolver will give us the id in the container
+                    $serviceName = $value instanceof Closure ? $value($name, $class) : $value;
+                    assert(is_string($name));
+                }
+            }
+        }
+        return $serviceName;
+    }
+
+    /**
+     * Call additionnal methods after instantiation
+     * Callbacks will match based on the class name and the id
+     *
+     * @param object $instance The instance to configure
+     * @param string $id Id in the container
+     * @return void
+     */
+    protected function configure(object $instance, string $id): void
+    {
+        $definitions = $this->definitions;
+        $interfaceExists = interface_exists($id, false);
+        $instanceClass = $instance::class;
+        $callbacks = $definitions->callbacksFor($id);
+        // If $id is an interface or a named service, we may also have class calls
+        // Interfaces callbacks are executed first, but named callbacks are executed last
+        if ($instanceClass !== $id) {
+            $instanceCallbacks = $definitions->callbacksFor($instanceClass);
+            if ($interfaceExists) {
+                $callbacks = array_merge($callbacks, $instanceCallbacks);
+            } else {
+                $callbacks = array_merge($instanceCallbacks, $callbacks);
+            }
+        }
+        foreach ($callbacks as $closure) {
+            $closure($instance, $this);
+        }
+    }
+
     public function __clone()
     {
-        // Clean instances, but keep definitions
         $this->building = [];
         $this->instances = [];
     }

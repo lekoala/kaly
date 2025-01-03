@@ -143,6 +143,7 @@ final class Csv
                     $headers = $line;
                     continue;
                 }
+                //@phpstan-ignore-next-line
                 $line = array_combine($headers, $line);
             }
             yield $line;
@@ -249,6 +250,7 @@ final class Csv
      */
     public static function getHeaders(string $filename): array
     {
+        $headers = [];
         $headers['Content-Type'] = 'text/csv';
         $headers['Content-Disposition'] = 'attachment; ' .
             'filename="' . rawurlencode($filename) . '"; ' .

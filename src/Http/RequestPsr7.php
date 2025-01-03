@@ -30,6 +30,7 @@ trait RequestPsr7
      */
     public function getAttributes(): array
     {
+        //@phpstan-ignore-next-line
         return $this->request->getAttributes();
     }
 
@@ -56,6 +57,7 @@ trait RequestPsr7
      */
     public function getCookieParams(): array
     {
+        //@phpstan-ignore-next-line
         return $this->request->getCookieParams();
     }
 
@@ -105,6 +107,7 @@ trait RequestPsr7
      */
     public function getQueryParams(): array
     {
+        //@phpstan-ignore-next-line
         return $this->request->getQueryParams();
     }
 
@@ -122,6 +125,7 @@ trait RequestPsr7
      */
     public function getServerParams(): array
     {
+        //@phpstan-ignore-next-line
         return $this->request->getServerParams();
     }
 
@@ -131,6 +135,7 @@ trait RequestPsr7
      */
     public function getUploadedFiles(): array
     {
+        //@phpstan-ignore-next-line
         return $this->request->getUploadedFiles();
     }
 

@@ -36,7 +36,7 @@ trait SystemDirectories
 
     public function getTempDirFor(string|object $name): string
     {
-        $name = strtolower(Refl::getClassWithoutNamespace($name));
+        $name = strtolower(Refl::getShortClassName($name));
         $dir = Fs::toDir($this->getTempDir(), $name);
         Fs::ensureDir($dir);
         return $dir;

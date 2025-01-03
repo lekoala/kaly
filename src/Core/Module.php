@@ -100,6 +100,10 @@ class Module
         return Str::camelize($n);
     }
 
+    /**
+     * Autoloading should really be handled by composer but this helps
+     * @return void
+     */
     public function autoloadFiles(): void
     {
         spl_autoload_register(function (string $class): void {
@@ -111,14 +115,13 @@ class Module
 
             // Namespace doesn't match (could be A\Multiple\Separator\MyClass)
             $prefix = $this->getNamespace() . '\\';
-            if (substr($class, 0, strlen($prefix)) == $prefix) {
-                $class = substr($class, strlen($prefix));
-            } else {
+            if (!str_starts_with($class, $prefix)) {
                 return;
             }
+            $classWithoutPrefix = substr($class, strlen($prefix));
 
             // Look for a file in src directory
-            $file = $this->getSrcDir() . DIRECTORY_SEPARATOR . str_replace('\\', DIRECTORY_SEPARATOR, $class) . '.php';
+            $file = $this->getSrcDir() . '/' . str_replace('\\', '/', $classWithoutPrefix) . '.php';
             if (is_file($file)) {
                 require $file;
             }

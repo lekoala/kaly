@@ -62,7 +62,7 @@ class Fake
      */
     public static function date(int $count = 365, ?string $sign = null): string
     {
-        $sign = $sign ?? self::pick('+', '-');
+        $sign ??= self::pick('+', '-');
         return date('Y-m-d', strtotime($sign . random_int(1, $count) . ' days') ?: null);
     }
 
@@ -156,7 +156,7 @@ class Fake
 
     public static function money(int $a = 10_000, int $b = 100_000, ?string $currency = null): string
     {
-        $currency = $currency ?? self::pick('€', '$');
+        $currency ??= self::pick('€', '$');
         return number_format(self::i($a, $b)) . ' ' . $currency;
     }
 

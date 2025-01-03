@@ -31,7 +31,7 @@ class IndexController extends AbstractController
         return 'foo';
     }
 
-    public function arr(array $arr)
+    public function arr(array $arr): object
     {
         $obj = new class($arr) implements JsonSerializable
         {
@@ -58,7 +58,7 @@ class IndexController extends AbstractController
         return 'post';
     }
 
-    public function middleware()
+    public function middleware(): string
     {
         $attr = $this->request->getAttribute("test-attribute");
         return (string)$attr;

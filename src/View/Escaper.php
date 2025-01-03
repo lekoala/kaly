@@ -37,12 +37,11 @@ class Escaper extends LaminasEscaper implements EscaperInterface
 
     /**
      * Convert string|int|float|bool|null|array|object|callable|resource to strings
-     * @param mixed $string
      * @return string
      */
     protected static function convertMixedToString(mixed $string): string
     {
-        $string = $string ?? '';
+        $string ??= '';
         if (is_string($string)) {
             return $string;
         }

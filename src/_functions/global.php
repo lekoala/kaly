@@ -6,14 +6,11 @@
 
 if (!function_exists('t')) {
     /**
-     * @param array<string, mixed> $parameters
+     * @param array<string,mixed> $parameters
      */
-    function t(string $message, array $parameters = [], string $domain = null, string $locale = null): string
+    function t(string $message, array $parameters = [], ?string $domain = null, ?string $locale = null): string
     {
-        static $translator = null;
-        if ($translator === null) {
-            $translator = \Kaly\Core\App::inst()->getInjector()->make(\Kaly\Text\Translator::class);
-        }
+        $translator = \Kaly\Core\App::inst()->getContainer()->get(\Kaly\Text\Translator::class);
         return $translator->translate($message, $parameters, $domain, $locale);
     }
 }
@@ -21,7 +18,7 @@ if (!function_exists('t')) {
 if (!function_exists('is_cli')) {
     function is_cli(): bool
     {
-        // false will be returned if response_code is not provided
+        // http_response_code returns false if response_code is not provided
         // and it is not invoked in a web server environment (such as from a CLI application).
         return php_sapi_name() === 'cli' || !http_response_code();
     }
@@ -35,15 +32,18 @@ if (!function_exists('d')) {
      */
     function d(...$vars): void
     {
+        // Avoid running this in production apps
+        $enabled = assert(true);
+        if (!$enabled) {
+            return;
+        }
+
         // You can override with your own settings
         $ph = $_ENV['DUMP_IDE_PLACEHOLDER'] ?? 'vscode://file/{file}:{line}:0';
         $ex = $_ENV['DUMP_EXCEPTION'] ?? false;
 
         // Get caller info
         $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 1);
-
-        // Check origin
-        $backtrace[0] ??= [];
         $file = $backtrace[0]['file'] ?? '(undefined file)';
         $line = $backtrace[0]['line'] ?? 0;
 
@@ -69,10 +69,10 @@ if (!function_exists('d')) {
 
         // show location
         if ($is_cli || !is_string($ph)) {
-            echo str_repeat('=', 20) . "\n";
+            echo "\n" . str_repeat('=', 42) . "\n";
             echo "$file:$line\n";
         } else {
-            $link = str_replace(['{file}', '{line}'], [$file, $line], $ph);
+            $link = str_replace(['{file}', '{line}'], [$file, (string)$line], $ph);
             echo "<pre><a href=\"$link\">$file:$line</a></pre>";
         }
 
@@ -82,7 +82,7 @@ if (!function_exists('d')) {
             $name = $arguments[$i] ?? null;
 
             if ($is_cli) {
-                echo str_repeat('-', 20) . "\n";
+                echo str_repeat('-', 42) . "\n";
                 echo "$name\n";
                 var_dump($v); // don't use dump in cli
             } else {
@@ -92,7 +92,7 @@ if (!function_exists('d')) {
         }
 
         if ($is_cli) {
-            echo str_repeat('=', 20) . "\n";
+            echo str_repeat('=', 42) . "\n";
         }
 
         $content = ob_get_contents();
@@ -109,17 +109,22 @@ if (!function_exists('d')) {
 
 if (!function_exists('l')) {
     /**
-     * @param array<string, mixed> $context
+     * Log message with debug logger
+     * @param array<string,mixed> $context
      */
     function l(mixed $message, array $context = []): void
     {
         if (!is_string($message)) {
             $message = \Kaly\Util\Str::stringify($message);
         }
-        $logger = \Kaly\Core\App::inst()->getInjector()->make(
-            \Psr\Log\LoggerInterface::class,
-            \Kaly\Core\App::DEBUG_LOGGER
-        );
+
+        // Track log origin otherwise it's hard to say where this comes from
+        $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 1);
+        $file = basename($backtrace[0]['file'] ?? '(undefined file)');
+        $line = $backtrace[0]['line'] ?? 0;
+        $message .= " ($file:$line)";
+
+        $logger = \Kaly\Core\App::inst()->getContainer()->get(\Kaly\Core\App::DEBUG_LOGGER);
         $logger->log(\Psr\Log\LogLevel::DEBUG, $message, $context);
     }
 }

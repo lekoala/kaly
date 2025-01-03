@@ -145,6 +145,7 @@ class Session implements ArrayDataInterface
     {
         $arr = [];
         foreach ($_SESSION as $k => $v) {
+            assert(is_string($k));
             $old = $this->originalData[$k] ?? null;
             if ($old != $v) {
                 $arr[$k] = [$old, $v];
@@ -159,6 +160,7 @@ class Session implements ArrayDataInterface
     public function all(): array
     {
         $this->open();
+        //@phpstan-ignore-next-line
         return $_SESSION;
     }
 
@@ -218,6 +220,7 @@ class Session implements ArrayDataInterface
         try {
             session_start($this->options);
             $this->sessionId = session_id() ?: null;
+            //@phpstan-ignore-next-line
             $this->originalData = $_SESSION;
             $this->runIdRegeneration();
         } catch (Throwable $e) {
@@ -296,7 +299,9 @@ class Session implements ArrayDataInterface
     public function getIdFromRequest(ServerRequestInterface $request): ?string
     {
         $cookies = $request->getCookieParams();
-        return $cookies[$this->getName()] ?? null;
+        $param =  $cookies[$this->getName()] ?? null;
+        assert(is_null($param) || is_string($param));
+        return $param;
     }
 
     public function setIdFromRequest(ServerRequestInterface $request): void

@@ -10,6 +10,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Kaly\Middleware\FileServer;
 use Kaly\Middleware\FaviconServer;
+use Kaly\Middleware\PreventFileAccess;
+use Kaly\Http\ResponseEmitter;
 
 ini_set('display_errors', 'on');
 error_reporting(-1);
@@ -34,11 +36,16 @@ $errorMiddleware = new class implements MiddlewareInterface {
 ErrorHandler::handle(function () use ($demoMiddleware, $errorMiddleware) {
     $app = new App(dirname(__DIR__));
     $app->boot();
-    $app->getMiddlewareRunner()->push(FaviconServer::class);
-    $app->getMiddlewareRunner()->push($demoMiddleware, null, true);
+    $app->getMiddlewareRunner()
+        ->push(FaviconServer::class, null, true)
+        ->push(PreventFileAccess::class, null, true)
+        ->push($demoMiddleware, null, true);
+
     // Uncomment this to test for errors during middleware processing
     // $app->getMiddlewareRunner()->push($errorMiddleware, null, true);
+
     $app->getMiddlewareRunner()->push(new FileServer());
+
     $app->addCallback(App::CB_AFTER_DEFINITIONS, function (Definitions &$definitions) {
         $definitions->set("test", Definitions::class);
         // d($definitions);
@@ -46,5 +53,13 @@ ErrorHandler::handle(function () use ($demoMiddleware, $errorMiddleware) {
     $app->addCallback(App::CB_AFTER_REQUEST, function () use ($app) {
         // d($app);
     });
+
     $app->run();
+    // $response = $app->handle();
+
+    // handling a second time should work!
+    // $response = $app->handle();
+
+    // $emitter = new ResponseEmitter();
+    // $emitter->emit($response);
 });

@@ -144,7 +144,7 @@ final class Date
 
     public static function convertToDateString(string|DateTimeInterface|null $v, ?string $format = null): ?string
     {
-        $format = $format ?? 'Y-m-d H:i:s';
+        $format ??= 'Y-m-d H:i:s';
         if (!$v) {
             return null;
         }

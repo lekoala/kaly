@@ -10,7 +10,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Kaly\Http\NotFoundException;
 
-class PreventFileAccess implements MiddlewareInterface, LinearMiddlewareInterface
+class PreventFileAccess implements MiddlewareInterface
 {
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {

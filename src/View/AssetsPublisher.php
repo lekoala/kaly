@@ -20,7 +20,8 @@ class AssetsPublisher
      */
     public static function composerPublishModulesAssets($event): void
     {
-        // @phpstan-ignore-next-line
+        /** @var string $vendorDir */
+        //@phpstan-ignore-next-line
         $vendorDir = $event->getComposer()->getConfig()->get('vendor-dir');
         require $vendorDir . '/autoload.php';
 

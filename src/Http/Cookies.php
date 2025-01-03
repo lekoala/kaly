@@ -35,6 +35,7 @@ class Cookies implements ArrayDataInterface
 
     public function __construct(ServerRequestInterface $request)
     {
+        //@phpstan-ignore-next-line
         $this->data = $this->originalData = $request->getCookieParams();
     }
 

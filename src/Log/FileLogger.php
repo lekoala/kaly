@@ -39,7 +39,7 @@ class FileLogger extends AbstractLogger
     }
 
     /**
-     * @param array<string, mixed> $context
+     * @param array<string,mixed> $context
      */
     protected static function interpolate(string $message, array $context = []): string
     {
@@ -53,7 +53,7 @@ class FileLogger extends AbstractLogger
     /**
      * @param string $level
      * @param string $message
-     * @param array<mixed> $context
+     * @param array<string,mixed> $context
      * @return void
      */
     public function log($level, $message, array $context = []): void

@@ -16,7 +16,7 @@ use Kaly\Http\ResponseException;
  * Add this middleware to prevent unwanted favico.ico requests
  * made by the browser to reach our app controller
  */
-class FaviconServer implements MiddlewareInterface, LinearMiddlewareInterface
+class FaviconServer implements MiddlewareInterface
 {
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {

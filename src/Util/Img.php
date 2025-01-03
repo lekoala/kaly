@@ -45,20 +45,16 @@ final class Img
             return false;
         }
 
-        $intround = function ($v) {
-            return intval(round($v));
-        };
-
         // resize if needed
         if ($crop) {
             if ($w < $width || $h < $height) {
                 return false;
             }
             $ratio = max($width / $w, $height / $h);
-            $x = $intround(($w - $width / $ratio) / 2);
-            $y = $intround(($h - $height / $ratio) / 2);
-            $h = $intround($height / $ratio);
-            $w = $intround($width / $ratio);
+            $x = (int)round(($w - $width / $ratio) / 2);
+            $y = (int)round(($h - $height / $ratio) / 2);
+            $h = (int)round($height / $ratio);
+            $w = (int)round($width / $ratio);
         } else {
             if ($w < $width && $h < $height) {
                 return false;
@@ -66,8 +62,8 @@ final class Img
             $ratio = min($width / $w, $height / $h);
             $x = 0;
             $y = 0;
-            $width = $intround($w * $ratio);
-            $height = $intround($h * $ratio);
+            $width = (int)round($w * $ratio);
+            $height = (int)round($h * $ratio);
         }
 
         if ($width <= 0 || $height <= 0) {

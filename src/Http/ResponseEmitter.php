@@ -26,7 +26,7 @@ class ResponseEmitter implements ResponseEmitterInterface
      * @param int|null $bufferLength
      * @throws InvalidArgumentException if buffer length is integer type and less than or one.
      */
-    public function __construct(int $bufferLength = null)
+    public function __construct(?int $bufferLength = null)
     {
         if ($bufferLength !== null && $bufferLength < 1) {
             throw new InvalidArgumentException(sprintf(

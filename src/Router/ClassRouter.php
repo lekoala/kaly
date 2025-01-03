@@ -32,8 +32,8 @@ class ClassRouter implements RouterInterface
     protected string $defaultAction = 'index';
 
     /**
-     * A map of module => mapped module
-     * @var array<string, string>
+     * A map of module (dir) => mapped module (namespace)
+     * @var array<string,string>
      */
     protected array $allowedNamespaces = [];
     /**
@@ -351,13 +351,14 @@ class ClassRouter implements RouterInterface
         // Does it match a specific namespace? (not the default one)
         // More specific namespaces always have priority over default
         // Eg: /admin/something will match Admin module if set instead of AdminController
-        if (array_key_exists($camelPart, $this->allowedNamespaces)) {
+        if (in_array($camelPart, array_values($this->allowedNamespaces))) {
             // Don't allow calling camelized parts, we use lowercase
             if ($part && $part !== strtolower($part)) {
                 throw new RedirectException($this->getRedirectUri($part, Str::decamelize($part)));
             }
 
             $module = $camelPart;
+
             // Remove from parts
             array_shift($this->parts);
         }
@@ -399,7 +400,7 @@ class ClassRouter implements RouterInterface
             $class = $namespace . '\\' . $this->controllerNamespace . '\\' . $controller;
         }
 
-        // Does controller exists ?
+        // Does controller exists ? it must be autoloadable
         if (!class_exists($class)) {
             throw new RouteNotFoundException("Route '$path' not found, '$class' doesn't exists");
         }
@@ -468,7 +469,7 @@ class ClassRouter implements RouterInterface
      * Tries to call action with remaining parts of the request
      * @param ReflectionClass<object> $refl
      * @param string $action
-     * @return array<int<0,max>|string,mixed>|array<string,mixed>
+     * @return array<int<0,max>|string,mixed>
      */
     protected function collectParameters(ReflectionClass $refl, string $action): array
     {
@@ -482,16 +483,17 @@ class ClassRouter implements RouterInterface
         // Verify parameters
         $actionParams = $method->getParameters();
 
-        /** @var array<string, mixed> $params  */
+        /** @var array<string,mixed> $params  */
         $params = $this->parts;
         $i = 0;
         $extra = false;
         foreach ($actionParams as $actionParam) {
             $paramName = $actionParam->getName();
-            if (!$actionParam->isOptional() && !isset($this->parts[$i])) {
+
+            if (!$actionParam->isOptional() && !$actionParam->isDefaultValueAvailable() && !isset($this->parts[$i])) {
                 throw new RouteNotFoundException("Param '$paramName' is required for action '$action' on '$class'");
             }
-            /** @var string $value  */
+
             $value = $this->parts[$i] ?? '';
             $type = $actionParam->getType();
 
@@ -519,7 +521,6 @@ class ClassRouter implements RouterInterface
         if (!$extra && count($params) > count($actionParams)) {
             throw new RouteNotFoundException("Too many parameters for action '$action' on '$class'");
         }
-
         return $params;
     }
 
@@ -542,7 +543,7 @@ class ClassRouter implements RouterInterface
         return $this;
     }
 
-    public function addAllowedNamespace(string $namespace, string $mapping = null): self
+    public function addAllowedNamespace(string $namespace, ?string $mapping = null): self
     {
         if (!$mapping) {
             $mapping = $namespace;
@@ -565,7 +566,7 @@ class ClassRouter implements RouterInterface
     /**
      * Set the value of defaultNamespace
      */
-    public function setDefaultNamespace(string $defaultNamespace, string $mapping = null): self
+    public function setDefaultNamespace(string $defaultNamespace, ?string $mapping = null): self
     {
         $this->defaultNamespace = $defaultNamespace;
         $this->addAllowedNamespace($defaultNamespace, $mapping);

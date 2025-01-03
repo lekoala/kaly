@@ -39,7 +39,7 @@ class Translator
     protected ?string $cacheDir = null;
     protected ?string $baseDomain = null;
 
-    public function __construct(string $defaultLocale = 'en', string $currentLocale = null)
+    public function __construct(string $defaultLocale = 'en', ?string $currentLocale = null)
     {
         if (!$currentLocale) {
             $currentLocale = $defaultLocale;
@@ -57,7 +57,7 @@ class Translator
     /**
      * @param array<string> $allowed
      */
-    public function setLocaleFromRequest(ServerRequest $request, array $allowed = null): self
+    public function setLocaleFromRequest(ServerRequest $request, ?array $allowed = null): self
     {
         // In case it has been injected by a middleware
         $locale = $request->getAttribute(self::ATTR_LOCALE_REQUEST);
@@ -150,6 +150,7 @@ class Translator
         if (!isset($this->catalogs[$name][$locale])) {
             $this->buildCatalog($name, $locale);
         }
+        //@phpstan-ignore-next-line
         $this->catalogs[$name][$locale] = Arr::mergeDistinct($this->catalogs[$name][$locale], $strings);
         return $this;
     }
@@ -171,6 +172,7 @@ class Translator
             if (!is_array($result)) {
                 throw new RuntimeException("Translation file '$file' must return an array");
             }
+            //@phpstan-ignore-next-line
             $this->catalogs[$name][$locale] = $result;
         }
         // Update cache file if set
@@ -187,8 +189,8 @@ class Translator
     public function translate(
         string $message,
         array $parameters = [],
-        string $domain = null,
-        string $locale = null
+        ?string $domain = null,
+        ?string $locale = null
     ): string {
         if (!$domain) {
             $domain = $this->baseDomain ?? self::DEFAULT_DOMAIN;

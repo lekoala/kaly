@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Util;
 
+use Stringable;
+
 /**
  * @link https://github.com/nette/utils/blob/master/src/Utils/Arrays.php
  * @link https://github.com/yiisoft/arrays/blob/master/src/ArrayHelper.php
@@ -140,6 +142,7 @@ final class Arr
     public static function mapKeys(callable $fn, array $arr): array
     {
         return array_combine(
+            //@phpstan-ignore-next-line
             array_map($fn, array_keys($arr)),
             $arr
         );
@@ -174,5 +177,23 @@ final class Arr
             $v = $n($v);
         });
         return $arr;
+    }
+
+    /**
+     * Convert values in an array into string or array of strings
+     * @param array<array<Stringable>|Stringable> $arr
+     * @return array<array<string>|string>
+     */
+    public static function stringValues(array $arr): array
+    {
+        return self::map(function ($v) {
+            if (is_array($v)) {
+                return self::stringValues($v);
+            }
+            if ($v instanceof Stringable) {
+                return (string)$v;
+            }
+            return Str::stringify($v);
+        }, $arr);
     }
 }

@@ -13,25 +13,37 @@ use Psr\Log\LoggerInterface;
 
 class ErrorHandler
 {
+    private static ?int $errLevel = null;
+
     public static function configureDefaults(?bool $debug = null): void
     {
-        $debug = $debug ?? assert(true);
+        // Already called
+        if (self::$errLevel !== null) {
+            return;
+        }
+
+        // Store previous level to restore it later
+        self::$errLevel = error_reporting();
+        $debug = assert(true);
         // Configure errors (-1 = all, 0 = none)
         error_reporting($debug ? -1 : 0);
-        ErrorHandler::convertErrorsToExceptions();
-    }
 
-    /**
-     * Convert errors to exceptions (so that we can catch trigger_error for example)
-     */
-    public static function convertErrorsToExceptions(): void
-    {
+        // Convert errors to exceptions (so that we can catch trigger_error for example)
         set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline): false {
             if (!(error_reporting() & $errno)) {
                 return false;
             }
             throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
         });
+    }
+
+    public static function restoreDefaults(): void
+    {
+        if (self::$errLevel !== null) {
+            error_reporting(self::$errLevel);
+            restore_error_handler();
+            self::$errLevel = null; // you can call configureDefaults again
+        }
     }
 
     /**
@@ -60,7 +72,7 @@ class ErrorHandler
      * @param LoggerInterface|null $logger
      * @return string
      */
-    public static function generateError(Throwable $ex, LoggerInterface $logger = null): string
+    public static function generateError(Throwable $ex, ?LoggerInterface $logger = null): string
     {
         $type = $ex::class;
         $message = $ex->getMessage();
@@ -77,8 +89,6 @@ class ErrorHandler
 
         // If we want error reporting, make it nice for DX
         if (error_reporting() === -1) {
-            $trace = $ex->getTraceAsString();
-
             $body = '';
             if (is_cli()) {
                 $body .= "[$type] $message ($file:$line)";
@@ -86,24 +96,30 @@ class ErrorHandler
                     $body .= "\n" . $prev->getMessage();
                 }
             } else {
+                $pre = "<pre style='white-space: normal;max-width:120ch'>";
                 $idePlaceholder = Env::getString(App::ENV_IDE_PLACEHOLDER, 'vscode://file/{file}:{line}:0');
-                $ideLink = str_replace(['{file}', '{line}'], [$file, $line], $idePlaceholder);
-                $body .= "<pre><code>$type</code><small><a href=\"$ideLink\">$file:$line</a></small>";
+                $ideLink = str_replace(['{file}', '{line}'], [$file, (string)$line], $idePlaceholder);
+                $body .= "$pre<code>$type</code> | <a href=\"$ideLink\">$file:$line</a> ";
                 $body .= "<h1>$message</h1>";
                 if ($prev) {
                     $body .= "<br>Previous: " . $prev->getMessage();
                 }
-                $body .= "<br/>Trace:<br/>$trace</pre>";
+                $body .= "<br/>Trace:<br/></pre><pre>";
+                $body .= $ex->getTraceAsString();
+                $body .= "</pre>";
+
+                // Generate helpful answer
                 if (Env::get('ENABLE_OLLAMA')) {
                     $ollama = new Ollama();
                     $prompt = "Explain in one sentence how to solve this PHP error: $message. Provide a code example.";
+                    $prompt .= "The source code is :\n" . file_get_contents($file);
                     $aiHelp = $ollama->generate($prompt)['response'];
                     $aiHelp = preg_replace(
                         "/```(\w*?)\n((.|\n)*?)```/",
-                        "<code style='background:#eee;padding:1em;display:block;'>$2</code>",
+                        "<code style='background:#eee;padding:1em;margin:1rem 0;display:block;'>$2</code>",
                         $aiHelp
                     );
-                    $body .= "<h2>How to solve?</h2><pre>$aiHelp</pre>";
+                    $body .= "$pre<h2>How to solve?</h2>$aiHelp</pre>";
                 }
             }
         }

@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Util\Arr;
-use Kaly\Util\Str;
 use PHPUnit\Framework\TestCase;
+use Kaly\Util\Arr;
+use Kaly\Util\Refl;
+use Kaly\Util\Str;
+use ReflectionFunction;
 
-class FunctionsTest extends TestCase
+class UtilTest extends TestCase
 {
     public function testCamelize(): void
     {
@@ -43,7 +45,7 @@ class FunctionsTest extends TestCase
             'ümy-string' => 'ümy-string',
         ];
         foreach ($arr as $str => $expected) {
-            $this->assertEquals($expected, Str::decamelize($str, false));
+            $this->assertEquals($expected, Str::decamelize($str));
         }
     }
 
@@ -85,5 +87,53 @@ class FunctionsTest extends TestCase
 
         $res = Arr::mergeDistinct($arr1, $arr2);
         $this->assertEquals(['key' => ['one', 'two']], $res);
+    }
+
+    public function testReflGetAllTypes(): void
+    {
+        // noType
+        $fn = fn($noType) => $noType;
+
+        $reflFn = new ReflectionFunction($fn);
+        $param = $reflFn->getParameters()[0];
+
+        $types = Refl::getParameterTypes($param);
+        $this->assertEquals([], $types);
+
+        // builtIn
+        $fn = fn(string $builtIn) => $builtIn;
+
+        $reflFn = new ReflectionFunction($fn);
+        $param = $reflFn->getParameters()[0];
+
+        $types = Refl::getParameterTypes($param);
+        $this->assertEquals(['string'], $types);
+
+        // builtInUnion
+        $fn = fn(string|bool $builtInUnion) => $builtInUnion;
+
+        $reflFn = new ReflectionFunction($fn);
+        $param = $reflFn->getParameters()[0];
+
+        $types = Refl::getParameterTypes($param);
+        $this->assertEquals(['string', 'bool'], $types);
+
+        // nullable
+        $fn = fn(?string $nullable) => $nullable;
+
+        $reflFn = new ReflectionFunction($fn);
+        $param = $reflFn->getParameters()[0];
+
+        $types = Refl::getParameterTypes($param);
+        $this->assertEquals(['?string'], $types);
+
+        // intersection
+        $fn = fn(\Iterator&\Countable $nullable) => $nullable;
+
+        $reflFn = new ReflectionFunction($fn);
+        $param = $reflFn->getParameters()[0];
+
+        $types = Refl::getParameterTypes($param);
+        $this->assertEquals(['Iterator&Countable'], Arr::stringValues($types));
     }
 }
