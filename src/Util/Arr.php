@@ -181,11 +181,12 @@ final class Arr
 
     /**
      * Convert values in an array into string or array of strings
-     * @param array<array<Stringable>|Stringable> $arr
+     * @param array<mixed,mixed> $arr
      * @return array<array<string>|string>
      */
     public static function stringValues(array $arr): array
     {
+        //@phpstan-ignore-next-line
         return self::map(function ($v) {
             if (is_array($v)) {
                 return self::stringValues($v);

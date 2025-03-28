@@ -14,10 +14,21 @@ use Stringable;
  *
  * Alternatively, this could be based on
  * @link https://github.com/twigphp/Twig/blob/3.x/src/Runtime/EscaperRuntime.php
+ * @link https://github.com/qiqphp/qiq/blob/3.x/src/Helper/Html/Escape.php
  * @link https://docs.laminas.dev/laminas-escaper/theory-of-operation/
  */
-class Escaper extends LaminasEscaper implements EscaperInterface
+class Escaper implements EscaperInterface
 {
+    protected LaminasEscaper $escaper;
+
+    public function __construct(?string $encoding = null)
+    {
+        if ($encoding === null || $encoding === '') {
+            $encoding = 'UTF-8';
+        }
+        $this->escaper = new LaminasEscaper($encoding);
+    }
+
     /**
      * @param mixed $value
      * @param ?string $escapeMode h|a|u|c|j
@@ -52,10 +63,12 @@ class Escaper extends LaminasEscaper implements EscaperInterface
             return $string ? '✓' : '⨯';
         }
         if (is_array($string)) {
-            return implode(', ', $string);
+            return implode(', ', array_values($string));
         }
-        if (is_object($string) && $string instanceof Stringable) {
-            return (string)$string;
+        if (is_object($string)) {
+            if ($string instanceof Stringable) {
+                return (string)$string;
+            }
         }
         if (is_numeric($string)) {
             return (string)$string;
@@ -67,45 +80,42 @@ class Escaper extends LaminasEscaper implements EscaperInterface
     public function escHtml(mixed $string): string
     {
         $string = self::convertMixedToString($string);
-        if (!$string) {
+        if ($string === '') {
             return '';
         }
-        return parent::escapeHtml($string);
+        return $this->escaper->escapeHtml($string);
     }
 
     public function escHtmlAttr(mixed $string): string
     {
         $string = self::convertMixedToString($string);
-        if (!$string) {
+        if ($string === '') {
             return '';
         }
-        return parent::escapeHtmlAttr($string);
+        return $this->escaper->escapeHtmlAttr($string);
     }
 
     public function escJs(mixed $string): string
     {
         $string = self::convertMixedToString($string);
-        if (!$string) {
+        if ($string === '') {
             return '';
         }
-        return parent::escapeJs($string);
+        return $this->escaper->escapeJs($string);
     }
 
     public function escUrl(mixed $string): string
     {
         $string = self::convertMixedToString($string);
-        if (!$string) {
-            return '';
-        }
-        return parent::escapeUrl($string);
+        return $this->escaper->escapeUrl($string);
     }
 
     public function escCss(mixed $string): string
     {
         $string = self::convertMixedToString($string);
-        if (!$string) {
+        if ($string === '') {
             return '';
         }
-        return parent::escapeCss($string);
+        return $this->escaper->escapeCss($string);
     }
 }

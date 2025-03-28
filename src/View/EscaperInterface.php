@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Kaly\View;
 
+/**
+ * @link https://wiki.php.net/rfc/escaper
+ */
 interface EscaperInterface
 {
     public function escape(mixed $value, ?string $escapeMode = null): string;

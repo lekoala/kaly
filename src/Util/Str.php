@@ -169,7 +169,7 @@ RULES;
      * Alternative to deprecated utf8_encode
      * @link https://www.php.net/manual/en/function.utf8-encode.php
      * @param string|null $str
-     * @param string|array<string>|null|null $fromEncoding
+     * @param string|array<string>|null $fromEncoding
      * @return string
      */
     public static function toUtf8(?string $str, string|array|null $fromEncoding = null): string
@@ -181,9 +181,16 @@ RULES;
         return self::convertEncoding($str, "UTF-8", $fromEncoding);
     }
 
-    public static function fromUtf8(?string $str, string $encoding): string
+    /**
+     * Alternative to deprecated utf8_decode
+     * @link https://www.php.net/manual/en/function.utf8-decode.php
+     * @param string|null $str
+     * @param string $toEncoding
+     * @return string
+     */
+    public static function fromUtf8(?string $str, string $toEncoding): string
     {
-        return self::convertEncoding($str, $encoding, "UTF-8");
+        return self::convertEncoding($str, $toEncoding, "UTF-8");
     }
 
     public static function isUtf8(?string $str): bool
@@ -192,6 +199,7 @@ RULES;
     }
 
     /**
+     * @link https://stackoverflow.com/questions/8233517/what-is-the-difference-between-iconv-and-mb-convert-encoding-in-php
      * @param string|null $str
      * @param string|null $to
      * @param string|array<string>|null|null $from

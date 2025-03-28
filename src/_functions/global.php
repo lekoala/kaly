@@ -124,6 +124,7 @@ if (!function_exists('l')) {
         $line = $backtrace[0]['line'] ?? 0;
         $message .= " ($file:$line)";
 
+        /** @var \Psr\Log\LoggerInterface $logger */
         $logger = \Kaly\Core\App::inst()->getContainer()->get(\Kaly\Core\App::DEBUG_LOGGER);
         $logger->log(\Psr\Log\LogLevel::DEBUG, $message, $context);
     }

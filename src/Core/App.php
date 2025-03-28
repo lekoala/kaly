@@ -40,6 +40,7 @@ use Psr\Http\Message\UploadedFileFactoryInterface;
 use Psr\Http\Message\ServerRequestFactoryInterface;
 use Psr\SimpleCache\CacheInterface;
 use Kaly\Middleware\MiddlewareRunner;
+use RuntimeException;
 
 /**
  * A basic app that should be created from the entry file
@@ -298,6 +299,7 @@ class App implements RequestHandlerInterface
 
     protected function setServicesFromContainer(): void
     {
+        assert($this->container !== null);
         $container = $this->container;
 
         // Get app cache from container

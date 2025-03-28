@@ -38,6 +38,7 @@ class MiddlewareRunner implements RequestHandlerInterface
         if (is_string($middleware)) {
             $middleware = $this->injector->make($middleware);
         }
+        assert($middleware instanceof MiddlewareInterface);
         return $middleware;
     }
 

@@ -100,6 +100,7 @@ class RequestDispatcher implements MiddlewareInterface
         $result = null;
         $callable = [$inst, $action];
         if (is_callable($callable)) {
+            //@phpstan-ignore-next-line
             $result = $injector->invokeArray($callable, $arguments);
         }
 

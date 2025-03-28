@@ -16,8 +16,8 @@ use Exception;
  * It can be used with a middleware, or without
  * Also work for non psr-7 contexts
  *
- * @phpstan-type SessionParams array{'regen_interval'?:int,'expiry_key'?:string,'remember_lifetime'?:int,'remember_key'?:string,'lifetime'?:int,'httponly'?:bool,'samesite'?:string,'csrf_key'?:string}
- * @phpstan-type AllSessionParams array{'regen_interval':int,'expiry_key':string,'remember_lifetime':int,'remember_key':string,'lifetime':int,'httponly':bool,'samesite':string,'csrf_key':string}
+ * @phpstan-type SessionParams array{'regen_interval'?:int,'expiry_key'?:string,'remember_lifetime'?:int,'remember_key'?:string,'lifetime'?:int,'httponly'?:bool,'samesite'?:('Lax'|'lax'|'None'|'none'|'Strict'|'strict'),'csrf_key'?:string}
+ * @phpstan-type AllSessionParams array{'regen_interval':int,'expiry_key':string,'remember_lifetime':int,'remember_key':string,'lifetime':int,'httponly':bool,'samesite':('Lax'|'lax'|'None'|'none'|'Strict'|'strict'),'csrf_key':string}
  * @link https://github.com/upscalesoftware/swoole-session
  * @link https://github.com/yiisoft/session
  * @link https://github.com/psr7-sessions/storageless

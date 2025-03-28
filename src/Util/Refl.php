@@ -143,6 +143,7 @@ final class Refl
             return [];
         }
 
+        //@phpstan-ignore-next-line
         return $reflectionType instanceof ReflectionUnionType
             ? $reflectionType->getTypes()
             : [$reflectionType];
@@ -192,7 +193,7 @@ final class Refl
      * @param ReflectionParameter[] $parameters
      * @param array<mixed> $arguments
      * @param ?ContainerInterface $container
-     * @return array
+     * @return array<mixed>
      */
     public static function resolveParameters(array $parameters, array $arguments, ?ContainerInterface $container = null): array
     {
