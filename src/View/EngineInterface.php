@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Kaly\View;
 
+/**
+ * Interface for template rendering engines
+ */
 interface EngineInterface
 {
     /**
