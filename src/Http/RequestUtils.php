@@ -135,7 +135,7 @@ trait RequestUtils
             return $arr;
         }
         foreach (explode(',', $header) as $part) {
-            $subparts = explode(";q=", $part);
+            $subparts = explode(';q=', $part);
             $arr[$subparts[0]] = floatval($subparts[1] ?? 1);
         }
         arsort($arr);
@@ -233,7 +233,7 @@ trait RequestUtils
         $postParams = $this->getParsedBody();
 
         if ($postParams) {
-            $params = array_merge($params, (array)$postParams);
+            $params = array_merge($params, (array) $postParams);
         }
 
         //@phpstan-ignore-next-line

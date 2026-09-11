@@ -23,7 +23,7 @@ abstract class AbstractClock implements ClockInterface, Stringable
             static::class,
             $this->now()->getTimezone()->getName(),
             $this->now()->format('U'),
-            $this->now()->format(DateTimeInterface::ISO8601_EXPANDED)
+            $this->now()->format(DateTimeInterface::ISO8601_EXPANDED),
         );
     }
 }

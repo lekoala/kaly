@@ -26,7 +26,7 @@ final class Base64
         }
         $result = base64_decode($string);
         if ($result === false) {
-            throw new RuntimeException("Could not decode value");
+            throw new RuntimeException('Could not decode value');
         }
         return $result;
     }

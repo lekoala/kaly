@@ -53,7 +53,7 @@ if (!function_exists('d')) {
             $src = @file($file);
             if ($src) {
                 // Find all arguments, ignore variables within parenthesis if it's on one line
-                preg_match("/" . __FUNCTION__ . "\((.+)\)/", $src[$line - 1], $matches);
+                preg_match('/' . __FUNCTION__ . "\((.+)\)/", $src[$line - 1], $matches);
                 if (!empty($matches[1])) {
                     $split = preg_split("/(?![^(]*\)),/", $matches[1]);
                     if ($split) {
@@ -70,10 +70,10 @@ if (!function_exists('d')) {
         // show location
         if ($is_cli || !is_string($ph)) {
             echo "\n" . str_repeat('=', 42) . "\n";
-            echo "$file:$line\n";
+            echo "{$file}:{$line}\n";
         } else {
-            $link = str_replace(['{file}', '{line}'], [$file, (string)$line], $ph);
-            echo "<pre><a href=\"$link\">$file:$line</a></pre>";
+            $link = str_replace(['{file}', '{line}'], [$file, (string) $line], $ph);
+            echo "<pre><a href=\"{$link}\">{$file}:{$line}</a></pre>";
         }
 
         // show values with their argument name
@@ -83,10 +83,10 @@ if (!function_exists('d')) {
 
             if ($is_cli) {
                 echo str_repeat('-', 42) . "\n";
-                echo "$name\n";
+                echo "{$name}\n";
                 var_dump($v); // don't use dump in cli
             } else {
-                echo "<pre>$name</pre>";
+                echo "<pre>{$name}</pre>";
                 $fn($v);
             }
         }
@@ -99,7 +99,7 @@ if (!function_exists('d')) {
         ob_end_clean();
 
         if ($ex) {
-            throw new \Kaly\Http\ResponseException($content ?: "(no content)");
+            throw new \Kaly\Http\ResponseException($content ?: '(no content)');
         } else {
             echo $content;
             exit(1);
@@ -122,7 +122,7 @@ if (!function_exists('l')) {
         $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 1);
         $file = basename($backtrace[0]['file'] ?? '(undefined file)');
         $line = $backtrace[0]['line'] ?? 0;
-        $message .= " ($file:$line)";
+        $message .= " ({$file}:{$line})";
 
         /** @var \Psr\Log\LoggerInterface $logger */
         $logger = \Kaly\Core\App::inst()->getContainer()->get(\Kaly\Core\App::DEBUG_LOGGER);

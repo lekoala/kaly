@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Kaly\Util;
 
-use RuntimeException;
 use Generator;
 use Kaly\Http\HttpFactory;
 use Psr\Http\Message\ResponseInterface;
+use RuntimeException;
 
 /**
  * @link https://wiki.php.net/rfc/kill-csv-escaping
@@ -22,12 +22,12 @@ final class Csv
      * @param string $filename
      * @return resource
      */
-    protected static function getInputStream(string $filename)
+    private static function getInputStream(string $filename)
     {
         // Open for reading only; place the file pointer at the beginning of the file.
         $stream = fopen($filename, 'r');
         if (!$stream) {
-            throw new RuntimeException("Failed to open stream");
+            throw new RuntimeException('Failed to open stream');
         }
         return $stream;
     }
@@ -38,30 +38,29 @@ final class Csv
      *
      * @return resource
      */
-    protected static function getMaxMemTempStream()
+    private static function getMaxMemTempStream()
     {
         $mb = 4;
         // Open for reading and writing; place the file pointer at the beginning of the file.
         $stream = fopen('php://temp/maxmemory:' . ($mb * 1024 * 1024), 'r+');
         if (!$stream) {
-            throw new RuntimeException("Failed to open stream");
+            throw new RuntimeException('Failed to open stream');
         }
         return $stream;
     }
-
 
     /**
      * Don't forget fclose afterwards if you don't need the stream anymore
      *
      * @param resource $stream
      */
-    protected static function getStreamContents($stream): string
+    private static function getStreamContents($stream): string
     {
         // Rewind to 0 before getting content from the start
         rewind($stream);
         $contents = stream_get_contents($stream);
         if ($contents === false) {
-            $contents = "";
+            $contents = '';
         }
         return $contents;
     }
@@ -69,13 +68,13 @@ final class Csv
     /**
      * @return resource
      */
-    protected static function getOutputStream(string $filename = 'php://output')
+    private static function getOutputStream(string $filename = 'php://output')
     {
         // Open for writing only; place the file pointer at the beginning of the file
         // and truncate the file to zero length. If the file does not exist, attempt to create it.
         $stream = fopen($filename, 'w');
         if (!$stream) {
-            throw new RuntimeException("Failed to open stream");
+            throw new RuntimeException('Failed to open stream');
         }
         return $stream;
     }
@@ -86,10 +85,10 @@ final class Csv
             ';' => 0,
             ',' => 0,
             "\t" => 0,
-            "|" => 0
+            '|' => 0,
         ];
 
-        $handle = fopen($filename, "r");
+        $handle = fopen($filename, 'r');
         if (!$handle) {
             return $default;
         }
@@ -104,12 +103,15 @@ final class Csv
         return array_search(max($delimiters), $delimiters) ?: $default;
     }
 
+    /**
+     * @return Generator<int, array<array-key, string|null>, mixed, void>
+     */
     public static function readString(
         string $contents,
         string $separator = ',',
         string $enclosure = '"',
         string $escape = '',
-        bool $assoc = false
+        bool $assoc = false,
     ): Generator {
         $temp = self::getMaxMemTempStream();
         fwrite($temp, $contents);
@@ -119,13 +121,14 @@ final class Csv
 
     /**
      * @param resource $stream
+     * @return Generator<int, array<array-key, string|null>, mixed, void>
      */
     public static function readStream(
         $stream,
         string $separator = ',',
         string $enclosure = '"',
         string $escape = '',
-        bool $assoc = false
+        bool $assoc = false,
     ): Generator {
         if (fgets($stream, 4) !== self::BOM) {
             // bom not found - rewind pointer to start of file.
@@ -133,11 +136,7 @@ final class Csv
         }
         $headers = null;
 
-        while (
-            !feof($stream)
-            &&
-            ($line = fgetcsv($stream, null, $separator, $enclosure, $escape)) !== false
-        ) {
+        while (!feof($stream) && ($line = fgetcsv($stream, null, $separator, $enclosure, $escape)) !== false) {
             if ($assoc) {
                 if ($headers === null) {
                     $headers = $line;
@@ -150,12 +149,15 @@ final class Csv
         }
     }
 
+    /**
+     * @return Generator<int, array<array-key, string|null>, mixed, void>
+     */
     public static function readFile(
         string $filename,
         string $separator = ',',
         string $enclosure = '"',
         string $escape = '',
-        bool $assoc = false
+        bool $assoc = false,
     ): \Generator {
         $stream = self::getInputStream($filename);
         yield from self::readStream($stream, $separator, $enclosure, $escape, $assoc);
@@ -165,14 +167,14 @@ final class Csv
      * @param resource $stream
      * @param iterable<int,array<int|string,bool|float|int|string|null>> $data
      */
-    protected static function write(
+    private static function write(
         $stream,
         iterable $data,
         string $separator = ',',
         string $enclosure = '"',
         string $escape = '',
         string $eol = "\n",
-        bool $bom = true
+        bool $bom = true,
     ): void {
         if ($bom) {
             fputs($stream, self::BOM);
@@ -181,7 +183,7 @@ final class Csv
         foreach ($data as $row) {
             $result = fputcsv($stream, $row, $separator, $enclosure, $escape, $eol);
             if ($result === false) {
-                throw new RuntimeException("Failed to write line");
+                throw new RuntimeException('Failed to write line');
             }
         }
     }
@@ -195,7 +197,7 @@ final class Csv
         string $enclosure = '"',
         string $escape = '',
         string $eol = "\n",
-        bool $bom = true
+        bool $bom = true,
     ): string {
         $stream = self::getMaxMemTempStream();
         self::write($stream, $data, $separator, $enclosure, $escape, $eol, $bom);
@@ -214,7 +216,7 @@ final class Csv
         string $enclosure = '"',
         string $escape = '',
         string $eol = "\n",
-        bool $bom = true
+        bool $bom = true,
     ): bool {
         $stream = self::getOutputStream($filename);
         self::write($stream, $data, $separator, $enclosure, $escape, $eol, $bom);
@@ -232,13 +234,13 @@ final class Csv
         string $enclosure = '"',
         string $escape = '',
         string $eol = "\n",
-        bool $bom = true
+        bool $bom = true,
     ): void {
         if (headers_sent()) {
-            throw new RuntimeException("Headers already sent");
+            throw new RuntimeException('Headers already sent');
         }
         foreach (self::getHeaders($filename) as $name => $value) {
-            header("$name: $value");
+            header("{$name}: {$value}");
         }
         $stream = self::getOutputStream();
         self::write($stream, $data, $separator, $enclosure, $escape, $eol, $bom);
@@ -252,9 +254,8 @@ final class Csv
     {
         $headers = [];
         $headers['Content-Type'] = 'text/csv';
-        $headers['Content-Disposition'] = 'attachment; ' .
-            'filename="' . rawurlencode($filename) . '"; ' .
-            'filename*=UTF-8\'\'' . rawurlencode($filename);
+        $headers['Content-Disposition'] =
+            'attachment; filename="' . rawurlencode($filename) . '"; filename*=UTF-8\'\'' . rawurlencode($filename);
         $headers['Cache-Control'] = 'max-age=0';
         $headers['Pragma'] = 'public';
         return $headers;
@@ -270,7 +271,7 @@ final class Csv
         string $enclosure = '"',
         string $escape = '',
         string $eol = "\n",
-        bool $bom = true
+        bool $bom = true,
     ): ResponseInterface {
         $body = self::writeString($data, $separator, $enclosure, $escape, $eol, $bom);
         $response = HttpFactory::createResponse($body);

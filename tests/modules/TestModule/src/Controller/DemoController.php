@@ -8,12 +8,12 @@ use Kaly\Core\AbstractController;
 
 class DemoController extends AbstractController
 {
-    public function index($param = ""): string
+    public function index($param = ''): string
     {
         if ($param) {
-            return "hello $param";
+            return "hello {$param}";
         }
-        return "hello demo";
+        return 'hello demo';
     }
 
     public function methodGet(): string
@@ -28,22 +28,22 @@ class DemoController extends AbstractController
 
     public function func(): string
     {
-        return "hello func";
+        return 'hello func';
     }
 
     //@codingStandardsIgnoreLine
     public function hello_func(): string
     {
-        return "hello underscore";
+        return 'hello underscore';
     }
 
     public function arr(...$args): string
     {
-        return "hello " . implode(",", $args);
+        return 'hello ' . implode(',', $args);
     }
 
     public function arrplus(string $test, ...$args): string
     {
-        return "hello " . $test . ',' . implode(",", $args);
+        return 'hello ' . $test . ',' . implode(',', $args);
     }
 }

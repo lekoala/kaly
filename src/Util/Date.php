@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Kaly\Util;
 
-use Exception;
-use DateTime;
 use DateInterval;
 use DatePeriod;
+use DateTime;
 use DateTimeImmutable;
 use DateTimeInterface;
+use Exception;
 
 /**
  * @link https://github.com/nette/utils/blob/master/src/Utils/DateTime.php
@@ -48,13 +48,12 @@ final class Date
     public static function format(string $format = 'Y-m-d H:i:s', $timestamp = null): string
     {
         if ($timestamp === false) {
-            throw new Exception("safe_date received an invalid timestamp");
+            throw new Exception('safe_date received an invalid timestamp');
         }
         if (is_string($timestamp)) {
             $timestamp = self::time($timestamp);
         }
-        $r = date($format, $timestamp);
-        return $r;
+        return date($format, $timestamp);
     }
 
     /**
@@ -90,7 +89,7 @@ final class Date
             if ($interval === false) {
                 return '-';
             }
-            return (string)$interval->y;
+            return (string) $interval->y;
         } catch (Exception) {
             return '-';
         }
@@ -119,7 +118,6 @@ final class Date
         }
         return $array;
     }
-
 
     public static function convertToDateObject(string|DateTimeInterface|null $v): ?DateTimeImmutable
     {

@@ -30,7 +30,17 @@ class Route
      */
     public function toArray(): array
     {
-        return (array)$this;
+        return [
+            'locale' => $this->locale,
+            'segments' => $this->segments,
+            'module' => $this->module,
+            'namespace' => $this->namespace,
+            'controller' => $this->controller,
+            'action' => $this->action,
+            'params' => $this->params,
+            'template' => $this->template,
+            'json' => $this->json,
+        ];
     }
 
     /**

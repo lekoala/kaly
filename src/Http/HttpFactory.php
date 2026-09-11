@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
+use InvalidArgumentException;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7Server\ServerRequestCreator;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\ResponseInterface;
-use InvalidArgumentException;
-use Stringable;
 use Psr\Http\Message\MessageInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Stringable;
 
 /**
  * This static factory allows creating request/responses without the DI Container
@@ -37,7 +37,7 @@ class HttpFactory
             $psr17Factory, // ServerRequestFactory
             $psr17Factory, // UriFactory
             $psr17Factory, // UploadedFileFactory
-            $psr17Factory  // StreamFactory
+            $psr17Factory, // StreamFactory
         );
 
         return $creator->fromGlobals();
@@ -49,7 +49,7 @@ class HttpFactory
      * @param array<string,string> $headers
      * @return ResponseInterface
      */
-    public static function createResponse(string $body = "", int $code = 200, array $headers = []): ResponseInterface
+    public static function createResponse(string $body = '', int $code = 200, array $headers = []): ResponseInterface
     {
         return new Response($code, $headers, $body);
     }
@@ -67,7 +67,7 @@ class HttpFactory
     public static function createRedirectResponse(string $url, int $code = 307, string $body = ''): ResponseInterface
     {
         if ($code < 300 || $code > 399) {
-            throw new InvalidArgumentException("$code should be between 300 and 399");
+            throw new InvalidArgumentException("{$code} should be between 300 and 399");
         }
         $headers = [];
         $headers['Location'] = $url;
@@ -92,7 +92,7 @@ class HttpFactory
     public static function createJsonResponse(
         string|Stringable|MessageInterface|array|null $data,
         int $code = 200,
-        array $headers = []
+        array $headers = [],
     ): ResponseInterface {
         if (is_object($data)) {
             $data = self::getBodyFromObject($data);
@@ -101,7 +101,7 @@ class HttpFactory
             $data = [];
         }
         if (is_string($data)) {
-            $data = ["message" => $data];
+            $data = ['message' => $data];
         }
         $body = json_encode($data);
         // We couldn't encode the array, output errors
@@ -122,7 +122,7 @@ class HttpFactory
     public static function createHtmlResponse(
         string|Stringable|MessageInterface|null $body,
         int $code = 200,
-        array $headers = []
+        array $headers = [],
     ): ResponseInterface {
         if (is_object($body)) {
             $body = self::getBodyFromObject($body);
@@ -135,8 +135,8 @@ class HttpFactory
     protected static function getBodyFromObject(Stringable|MessageInterface $object): string
     {
         if ($object instanceof MessageInterface) {
-            return (string)$object->getBody();
+            return (string) $object->getBody();
         }
-        return (string)$object;
+        return (string) $object;
     }
 }

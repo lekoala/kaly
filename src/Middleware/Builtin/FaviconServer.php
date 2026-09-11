@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Middleware;
+namespace Kaly\Middleware\Builtin;
 
-use Psr\Http\Server\MiddlewareInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
-use Psr\Http\Message\ResponseInterface;
-use Kaly\Router\FaviconProviderInterface;
 use Kaly\Core\App;
 use Kaly\Http\ResponseException;
+use Kaly\Router\FaviconProviderInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
 /**
- * Add this middleware to prevent unwanted favico.ico requests
+ * Add this middleware to prevent unwanted favicon.ico requests
  * made by the browser to reach our app controller
  */
 class FaviconServer implements MiddlewareInterface
@@ -22,7 +22,7 @@ class FaviconServer implements MiddlewareInterface
     {
         $path = $request->getUri()->getPath();
         if ($path !== '/favicon.ico') {
-            throw new SkipMiddlewareException();
+            return $handler->handle($request);
         }
 
         $app = App::inst();

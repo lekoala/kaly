@@ -3,16 +3,17 @@
 namespace Kaly\Tests\Mocks;
 
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 class TestMiddleware implements MiddlewareInterface
 {
-    public const DEFAULT_ATTR = "test-attribute";
-    public const DEFAULT_VALUE = "test-value";
-    protected string $attribute = "test-attribute";
-    protected string $value = "test-value";
+    public const DEFAULT_ATTR = 'test-attribute';
+    public const DEFAULT_VALUE = 'test-value';
+
+    protected string $attribute = 'test-attribute';
+    protected string $value = 'test-value';
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {

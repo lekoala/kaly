@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
-use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 
 /**
  * A cookies wrapper that works in psr-7 or using a regular setcookie call
@@ -39,7 +39,7 @@ class Cookies implements ArrayDataInterface
         $this->data = $this->originalData = $request->getCookieParams();
     }
 
-    #region Interface
+    // region Interface
 
     /**
      * {@inheritDoc}
@@ -133,7 +133,7 @@ class Cookies implements ArrayDataInterface
         return (object) $this->data;
     }
 
-    #endregion
+    // endregion
 
     /**
      * @param string $k
@@ -180,7 +180,7 @@ class Cookies implements ArrayDataInterface
 
             // Force expiry
             if ($value === null || $value === '') {
-                $params['lifetime'] =  time() - 3600;
+                $params['lifetime'] = time() - 3600;
             }
 
             $expires = isset($params['lifetime']) ? $now + intval($params['lifetime']) : 0;
@@ -196,7 +196,7 @@ class Cookies implements ArrayDataInterface
                 'path' => (string) $path,
                 'domain' => (string) $domain,
                 'secure' => $secure,
-                'httponly' => $httponly
+                'httponly' => $httponly,
             ]);
         }
 

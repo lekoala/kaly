@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
-use Psr\Http\Message\RequestInterface;
+use Exception;
+use Kaly\Core\Ex;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
-use Kaly\Core\Ex;
-use Exception;
 
 /**
  * A session that can work in workers even if we use $_SESSION under the hood
@@ -33,7 +32,7 @@ class Session implements ArrayDataInterface
     protected static array $config = [
         'regen_interval' => 3600,
         'expiry_key' => '_expiry',
-        'remember_lifetime' => 31536000,
+        'remember_lifetime' => 31_536_000,
         'remember_key' => '_remember',
         'lifetime' => 0, // When the browser closes
         'httponly' => true,
@@ -64,8 +63,8 @@ class Session implements ArrayDataInterface
             $cookiesParameters = session_get_cookie_params();
         }
         $cookiesParameters = array_combine(
-            array_map(fn($v): string => "cookie_$v", array_keys($cookiesParameters)),
-            $cookiesParameters
+            array_map(static fn($v): string => "cookie_{$v}", array_keys($cookiesParameters)),
+            $cookiesParameters,
         );
         $this->options = array_merge($cookiesParameters, $options);
         if ($request) {
@@ -82,7 +81,7 @@ class Session implements ArrayDataInterface
         $this->options['read_and_close'] = true;
     }
 
-    #region Interface
+    // region Interface
 
     /**
      * {@inheritDoc}
@@ -180,7 +179,7 @@ class Session implements ArrayDataInterface
         return (object) $_SESSION;
     }
 
-    #endregion
+    // endregion
 
     /**
      * @return bool True if session was closed by this call
@@ -246,7 +245,7 @@ class Session implements ArrayDataInterface
                     $this->sessionId = session_id() ?: null;
                 }
             } catch (Throwable $e) {
-                throw new Exception('Failed to regenerate ID', (int)$e->getCode(), $e);
+                throw new Exception('Failed to regenerate ID', (int) $e->getCode(), $e);
             }
         }
     }
@@ -274,10 +273,8 @@ class Session implements ArrayDataInterface
      * @param int|bool|string|float|array<mixed>|null $default
      * @return int|bool|string|float|array<mixed>|null
      */
-    public function pull(
-        string $key,
-        int|bool|string|float|array|null $default = null
-    ): int|bool|string|float|array|null {
+    public function pull(string $key, int|bool|string|float|array|null $default = null): int|bool|string|float|array|null
+    {
         $value = $this->get($key, $default);
         $this->remove($key);
         return $value;
@@ -299,7 +296,7 @@ class Session implements ArrayDataInterface
     public function getIdFromRequest(ServerRequestInterface $request): ?string
     {
         $cookies = $request->getCookieParams();
-        $param =  $cookies[$this->getName()] ?? null;
+        $param = $cookies[$this->getName()] ?? null;
         assert(is_null($param) || is_string($param));
         return $param;
     }
@@ -339,7 +336,7 @@ class Session implements ArrayDataInterface
      */
     public static function configureExtra(array $arr = []): void
     {
-        self::$config = array_merge($arr, self::$config);
+        self::$config = array_merge(self::$config, $arr);
     }
 
     /**
@@ -356,7 +353,7 @@ class Session implements ArrayDataInterface
     public static function configureForPsr7(): void
     {
         // No auto-start! You should only use a session when needed
-        ini_set('session.auto_start ', '0');
+        ini_set('session.auto_start', '0');
 
         // PSR-7 compatibility
         ini_set('session.use_trans_sid', '0');
@@ -386,7 +383,7 @@ class Session implements ArrayDataInterface
     public static function isRememberMe(ServerRequestInterface $request): bool
     {
         //@phpstan-ignore-next-line
-        return $request->getMethod() === "POST" && !empty($request->getParsedBody()[self::$config['remember_key']]);
+        return $request->getMethod() === 'POST' && !empty($request->getParsedBody()[self::$config['remember_key']]);
     }
 
     /**
@@ -429,9 +426,11 @@ class Session implements ArrayDataInterface
     {
         $arr = [];
         foreach ($this->options as $k => $v) {
-            if (str_starts_with($k, 'cookie_')) {
-                $arr[str_replace('cookie_', '', $k)] = $v;
+            if (!str_starts_with($k, 'cookie_')) {
+                continue;
             }
+
+            $arr[str_replace('cookie_', '', $k)] = $v;
         }
         //@phpstan-ignore-next-line
         return $arr;

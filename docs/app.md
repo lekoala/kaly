@@ -80,25 +80,22 @@ They get instantiated by the DI container.
 ```php
 $app = new App(dirname(__DIR__));
 $app->getMiddlewareRunner()
-    ->addErrorHandler(Whoops::class, function (App $app) {
-        return $app->getDebug();
-    })
-    ->addMiddleware(BasicAuthentication::class, function (ServerRequestInterface $request) {
+    ->push(ClientIp::class, function (ServerRequestInterface $request) {
         return str_starts_with($request->getUri()->getPath(), '/admin');
-    })
-    ->addMiddleware(ClientIp::class, null, true);
+    });
 
 $app->run();
 
 ```
 
-### Linear middlewares
+### Middlewares
 
-By default middlewares are calling each other in a stack. This means that you get very
-large call stacks to inspect if you are running small middlewares.
+Middlewares are plain PSR-15 `MiddlewareInterface` implementations. They are
+resolved from the container and called in the order they were pushed. The request
+dispatcher is the final handler of the stack.
 
-For middlewares that are only updating the request (like the ClientIp above) you can pass
-a third parameter to execute linearly the middleware and it _won't be visible in the call stack_.
+For middlewares that need both a "before" and an "after" phase, you can extend
+`Kaly\Middleware\GeneratorMiddleware` and implement the `before()` / `after()` hooks.
 
 ## Env variables
 

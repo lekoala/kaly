@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Kaly\Util;
 
-use ReflectionParameter;
-use ReflectionObject;
+use Psr\Container\ContainerInterface;
 use ReflectionClass;
-use ReflectionProperty;
-use ReflectionUnionType;
 use ReflectionIntersectionType;
 use ReflectionNamedType;
+use ReflectionObject;
+use ReflectionParameter;
+use ReflectionProperty;
 use ReflectionType;
-use Psr\Container\ContainerInterface;
+use ReflectionUnionType;
 
 /**
  * @link https://github.com/nette/utils/blob/master/src/Utils/Reflection.php
@@ -29,7 +29,7 @@ final class Refl
             return $default;
         }
         $matches = [];
-        preg_match("/@$var (.*)/", $doc, $matches);
+        preg_match("/@{$var} (.*)/", $doc, $matches);
         if (isset($matches[1])) {
             return trim($matches[1]);
         }
@@ -144,9 +144,7 @@ final class Refl
         }
 
         //@phpstan-ignore-next-line
-        return $reflectionType instanceof ReflectionUnionType
-            ? $reflectionType->getTypes()
-            : [$reflectionType];
+        return $reflectionType instanceof ReflectionUnionType ? $reflectionType->getTypes() : [$reflectionType];
     }
 
     public static function valueMatchType(mixed $value, ?ReflectionType $type): bool
@@ -187,7 +185,6 @@ final class Refl
         return false;
     }
 
-
     /**
      * Given an array of ReflectionParameters, returns resolved parameters
      * @param ReflectionParameter[] $parameters
@@ -225,7 +222,10 @@ final class Refl
                 $providedArg = $arguments[$argumentKey];
 
                 // Provided argument doesn't match type
-                assert(Refl::valueMatchType($providedArg, $paramType), "parameter `$name` doesn't support " . get_debug_type($providedArg));
+                assert(
+                    Refl::valueMatchType($providedArg, $paramType),
+                    "parameter `{$name}` doesn't support " . get_debug_type($providedArg),
+                );
 
                 $args[$argumentKey] = $providedArg;
                 continue;
@@ -236,24 +236,26 @@ final class Refl
             // Or resolve using the container for any valid type
             $types = Refl::getParameterTypes($parameter);
             foreach ($types as $type) {
-                if ($type instanceof ReflectionNamedType) {
-                    $name = $type->getName();
-                    $isBuiltIn = $type->isBuiltin();
+                if (!$type instanceof ReflectionNamedType) {
+                    continue;
+                }
 
-                    // It's a built-in value
-                    if ($isBuiltIn) {
-                        // and the parameter doesn't allow null
-                        if (!$parameter->allowsNull() && $defaultValue === null) {
-                            $defaultValue = self::defaultTypeValue($type);
-                        }
-                        continue;
-                    }
+                $name = $type->getName();
+                $isBuiltIn = $type->isBuiltin();
 
-                    // The container must use the class or interface name as ID.
-                    if ($container && $container->has($name)) {
-                        $args[$argumentKey] = $container->get($name);
-                        break;
+                // It's a built-in value
+                if ($isBuiltIn) {
+                    // and the parameter doesn't allow null
+                    if (!$parameter->allowsNull() && $defaultValue === null) {
+                        $defaultValue = self::defaultTypeValue($type);
                     }
+                    continue;
+                }
+
+                // The container must use the class or interface name as ID.
+                if ($container && $container->has($name)) {
+                    $args[$argumentKey] = $container->get($name);
+                    break;
                 }
             }
             // A value was found in the container
@@ -298,7 +300,7 @@ final class Refl
         // Provide default built in value if no default is available
         // Built in is : string, float, bool, int, iterable, mixed, array
         return match ($name) {
-            'array' =>  [],
+            'array' => [],
             'string' => '',
             'bool' => false,
             'int' => 0,

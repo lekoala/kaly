@@ -2,7 +2,7 @@
 
 return [
     'global' => [
-        'test' => 'Message de test'
+        'test' => 'Message de test',
     ],
-    'Welcome' => "Bienvenue sur cette app",
+    'Welcome' => 'Bienvenue sur cette app',
 ];

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Middleware;
+namespace Kaly\Middleware\Builtin;
 
-use Psr\Http\Server\MiddlewareInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
-use Psr\Http\Message\ResponseInterface;
-use Kaly\Util\Fs;
 use Kaly\Core\App;
+use Kaly\Util\Fs;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
 class FileServer implements MiddlewareInterface
 {
@@ -19,10 +19,10 @@ class FileServer implements MiddlewareInterface
         $path = $request->getUri()->getPath();
         $filename = Fs::toDir($app->getPublicDir(), $path);
         if (!is_file($filename)) {
-            throw new SkipMiddlewareException();
+            return $handler->handle($request);
         }
         $contents = Fs::getFile($filename);
         $contentType = Fs::contentType($filename);
-        return $app->respond($contents, 200);
+        return $app->respond($contents, 200)->withHeader('Content-Type', $contentType);
     }
 }

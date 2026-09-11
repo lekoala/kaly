@@ -12,9 +12,9 @@ class SiteConfig implements FaviconProviderInterface
     public const ICON_ROUNDED_SQUARE = 20;
     public const ICON_ROUND = 50;
 
-    protected string $themeColor = "#000000";
-    protected string $siteIcon = "";
-    protected string $siteTitle = "My Website";
+    protected string $themeColor = '#000000';
+    protected string $siteIcon = '';
+    protected string $siteTitle = 'My Website';
     /**
      * @var array<string, mixed>
      */
@@ -24,15 +24,14 @@ class SiteConfig implements FaviconProviderInterface
 
     public function getSvgIcon(): string
     {
-        $svg = <<<SVG
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 100 100">
-    <rect width="100" height="100" rx="{$this->iconRounding}" fill="{$this->themeColor}"></rect>
-    <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="{$this->iconSize}">
-    {$this->siteIcon}
-    </text>
-</svg>
-SVG;
-        return $svg;
+        return <<<SVG
+            <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 100 100">
+                <rect width="100" height="100" rx="{$this->iconRounding}" fill="{$this->themeColor}"></rect>
+                <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="{$this->iconSize}">
+                {$this->siteIcon}
+                </text>
+            </svg>
+            SVG;
     }
 
     public function getThemeColor(): string

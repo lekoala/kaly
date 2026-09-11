@@ -1,36 +1,99 @@
 name: CI
 
-on: [push]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  run:
-    runs-on: ${{ matrix.operating-system }}
-    strategy:
-      matrix:
-        operating-system: ['ubuntu-latest']
-        php-versions: ['8.3', '8.4']
-        phpunit-versions: ['latest']
+  lint:
+    name: Lint & Static Analysis
+    runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          ini-values: zend.assertions=1
+          extensions: zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer Cache Directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.json') }}
+          restore-keys: ${{ runner.os }}-composer-
 
       - name: Composer install
-        uses: php-actions/composer@v6
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
 
-      - name: PHPUnit
-        uses: php-actions/phpunit@v4
-        with:
-          php_version: ${{ matrix.php-versions }}
-          configuration: phpunit.xml.dist
+      - name: Mago Format Check
+        run: composer mago:format
+
+      - name: Mago Lint
+        if: success() || failure()
+        run: composer mago:lint
 
       - name: PHPStan
-        uses: php-actions/phpstan@v3
-        with:
-          php_version: ${{ matrix.php-versions }}
-          path: src/
+        if: success() || failure()
+        run: composer phpstan
 
-      - name: PHP Code Sniffer
-        uses: php-actions/phpcs@v1
+  test:
+    name: PHPUnit PHP ${{ matrix.php }}
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.3", "8.4", "8.5"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
-          php_version: ${{ matrix.php-versions }}
-          path: src/
-          standard: phpcs.xml.dist
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          ini-values: zend.assertions=1
+          extensions: zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Get Composer Cache Directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ matrix.php }}-${{ hashFiles('composer.json') }}
+          restore-keys: ${{ runner.os }}-composer-${{ matrix.php }}-
+
+      - name: Composer install
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+      - name: PHPUnit
+        run: composer phpunit

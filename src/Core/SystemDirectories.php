@@ -9,10 +9,10 @@ use Kaly\Util\Refl;
 
 trait SystemDirectories
 {
-    public const FOLDER_MODULES = "modules";
-    public const FOLDER_PUBLIC = "public";
-    public const FOLDER_TEMP = "temp";
-    public const FOLDER_RESOURCES = "resources";
+    public const FOLDER_MODULES = 'modules';
+    public const FOLDER_PUBLIC = 'public';
+    public const FOLDER_TEMP = 'temp';
+    public const FOLDER_RESOURCES = 'resources';
 
     protected string $baseDir;
 

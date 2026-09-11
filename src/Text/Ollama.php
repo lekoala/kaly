@@ -43,7 +43,7 @@ class Ollama
         $decoded = json_decode($result, true);
 
         if (!$decoded) {
-            throw new Exception("Failed to decode json: " . json_last_error_msg());
+            throw new Exception('Failed to decode json: ' . json_last_error_msg());
         }
 
         //@phpstan-ignore-next-line

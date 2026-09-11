@@ -34,7 +34,7 @@ class FileLogger extends AbstractLogger
             LogLevel::NOTICE => 2,
             LogLevel::INFO => 1,
             LogLevel::DEBUG => 0,
-            default => throw new RuntimeException("Invalid log level: '$level'")
+            default => throw new RuntimeException("Invalid log level: '{$level}'"),
         };
     }
 
@@ -66,7 +66,7 @@ class FileLogger extends AbstractLogger
         }
         $date = date('Y-m-d H:i:s');
         $message = self::interpolate($message, $context);
-        $message = "[$date] [$level] $message";
+        $message = "[{$date}] [{$level}] {$message}";
         file_put_contents($this->destination, $message . "\n", FILE_APPEND);
     }
 }

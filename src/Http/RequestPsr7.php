@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
+use Psr\Http\Message\MessageInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamInterface;
-use Psr\Http\Message\UriInterface;
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\UploadedFileInterface;
+use Psr\Http\Message\UriInterface;
 
 /**
  * Implements everything from server request interface

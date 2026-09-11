@@ -19,17 +19,17 @@ class Request
      */
     public static function make(
         string $url,
-        string $method = "GET",
+        string $method = 'GET',
         array $headers = [],
         string|array|null $data = null,
         array $options = [],
-        bool $json = false
+        bool $json = false,
     ): string {
         $ch = curl_init();
         $method = strtoupper($method);
 
         if (is_array($data) && !empty($data)) {
-            if ($method === "GET") {
+            if ($method === 'GET') {
                 $url .= '?' . http_build_query($data);
             } elseif ($json) {
                 $data = Json::encode($data);
@@ -39,14 +39,18 @@ class Request
         }
 
         // Headers
-        $headers = array_map(function ($k, $v): string {
-            if (is_int($k)) {
-                return $v;
-            }
-            return "$k: $v";
-        }, array_keys($headers), array_values($headers));
+        $headers = array_map(
+            static function ($k, $v): string {
+                if (is_int($k)) {
+                    return $v;
+                }
+                return "{$k}: {$v}";
+            },
+            array_keys($headers),
+            array_values($headers),
+        );
         if ($json && !in_array('Content-Type: application/json', $headers)) {
-            $headers[] = "Content-Type: application/json";
+            $headers[] = 'Content-Type: application/json';
         }
         if (!empty($headers)) {
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
@@ -83,13 +87,13 @@ class Request
                 }
                 break;
             case 'PUT':
-                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
                 if ($hasData) {
                     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
                 }
                 break;
             case 'DELETE':
-                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "DELETE");
+                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
                 break;
         }
 

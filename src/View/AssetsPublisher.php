@@ -54,7 +54,7 @@ class AssetsPublisher
                 $destFile = $publicResourceDir . DIRECTORY_SEPARATOR . $baseFile;
                 $destFileDir = dirname($destFile);
                 if (!is_dir($destFileDir)) {
-                    mkdir($destFileDir, 0755, true);
+                    mkdir($destFileDir, 0o755, true);
                 }
                 copy($file, $destFile);
                 $i++;

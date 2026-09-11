@@ -19,7 +19,7 @@ class Fake
         'ipsum',
         'loquor',
         'sic',
-        'amet'
+        'amet',
     ];
     private const FN = ['Julia', 'Lucius', 'Julius', 'Anna'];
     private const SN = ['Maximus', 'Corneli', 'Postumius', 'Servilius'];
@@ -46,6 +46,9 @@ class Fake
      */
     public static function picka(array $arr, int $c = 1): array
     {
+        if ($arr === []) {
+            return [];
+        }
         $r = [];
         while ($c > 0) {
             $c--;
@@ -118,7 +121,8 @@ class Fake
 
     public static function words(int $a = 5, int $b = 10): string
     {
-        return implode(' ', self::picka(self::WORDS, random_int($a, $b)));
+        $words = array_map(static fn($w): string => \Kaly\Util\Str::stringify($w), self::picka(self::WORDS, random_int($a, $b)));
+        return implode(' ', $words);
     }
 
     public static function ucWords(int $a = 5, int $b = 10): string
@@ -128,7 +132,7 @@ class Fake
 
     public static function b(): bool
     {
-        return (bool)random_int(0, 1);
+        return (bool) random_int(0, 1);
     }
 
     public static function city(): string

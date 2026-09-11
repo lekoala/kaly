@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Kaly\Core;
 
-use Kaly\Util\Fs;
-use Kaly\Di\Definitions;
-use Kaly\Util\Str;
-use Kaly\View\Engine;
 use Closure;
+use Kaly\Di\Definitions;
+use Kaly\Util\Fs;
+use Kaly\Util\Str;
+use Kaly\View\RendererInterface;
+use Kaly\View\TemplatePathRegistryInterface;
 
 class Module
 {
@@ -29,7 +30,7 @@ class Module
         $this->namespace = $this->buildDefaultNamespace();
 
         $config = $this->getConfigPath();
-        assert($this->addHeader($config), "could not add header to $config");
+        assert($this->addHeader($config), "could not add header to {$config}");
 
         $this->definitions = new Definitions();
     }
@@ -136,11 +137,13 @@ class Module
      */
     public static function findModulesInDir(string $dir): array
     {
-        // Don't sort results as it is faster - modules can be discovered in any order
-        $files = glob($dir . "/*/config.php", GLOB_NOSORT);
+        // Sort results by name so that module discovery is deterministic
+        // across filesystems. Priority is assigned in this order.
+        $files = glob($dir . '/*/config.php');
         if (!$files) {
             $files = [];
         }
+        sort($files);
         return $files;
     }
 
@@ -149,10 +152,12 @@ class Module
         $file = $this->getConfigPath();
         assert(is_file($file));
 
-        // Set templates dir automatically
+        // Set templates dir automatically for renderers that support paths
         if ($this->hasTemplates()) {
-            $this->definitions->callback(Engine::class, function (Engine $engine): void {
-                $engine->setPath($this->getName(), $this->getTemplatesDir());
+            $this->definitions->callback(RendererInterface::class, function (RendererInterface $renderer): void {
+                if ($renderer instanceof TemplatePathRegistryInterface) {
+                    $renderer->setPath($this->getName(), $this->getTemplatesDir());
+                }
             });
         }
 
@@ -185,7 +190,6 @@ class Module
         }
         return true;
     }
-
 
     /**
      * Get the value of priority

@@ -14,11 +14,9 @@ trait HasCallbacks
      */
     protected array $callbacks = [];
 
-    /**
-     */
     public function addCallback(string $id, callable $callable): self
     {
-        assert(self::isValidCallbackId($id), "$id is not valid");
+        assert(self::isValidCallbackId($id), "{$id} is not valid");
         $this->callbacks[$id][] = $callable;
         return $this;
     }
@@ -39,7 +37,7 @@ trait HasCallbacks
      */
     public function runCallbacks(string $id, ...$params): void
     {
-        assert(self::isValidCallbackId($id), "$id is not valid");
+        assert(self::isValidCallbackId($id), "{$id} is not valid");
         if (empty($this->callbacks[$id])) {
             return;
         }

@@ -27,8 +27,11 @@ class AssetsExtension implements ExtensionInterface
      * @param string $baseUrl base URL through which the published asset files can be accessed.
      * @param bool $appendTimestamp whether to append a timestamp to the URL of every published asset.
      */
-    public function __construct(string $basePath, string $baseUrl = '', protected bool $appendTimestamp = false)
-    {
+    public function __construct(
+        string $basePath,
+        string $baseUrl = '',
+        protected bool $appendTimestamp = false,
+    ) {
         $this->basePath = rtrim($basePath, '\/');
         $this->baseUrl = rtrim($baseUrl, '/');
     }
@@ -55,10 +58,7 @@ class AssetsExtension implements ExtensionInterface
         $path = $this->basePath . '/' . ltrim($file, '/');
 
         if (!is_file($path)) {
-            throw new RuntimeException(sprintf(
-                'Asset file "%s" does not exist',
-                $path
-            ));
+            throw new RuntimeException(sprintf('Asset file "%s" does not exist', $path));
         }
         if ($this->appendTimestamp) {
             return $url . '?v=' . filemtime($path);
@@ -67,36 +67,36 @@ class AssetsExtension implements ExtensionInterface
     }
 
     /*
-    't' => function (string $message, array $parameters = [], string $domain = null) {
-        return t($message, $parameters, $domain);
-    },
-    'set_base_domain' => function (string $domain) use ($app) {
-        $translator = $app->getDi()->get(Translator::class);
-        $translator->setBaseDomain($domain);
-    },
-    'asset' => function (string $file) use ($app) {
-        $route = $app->getRequest()->getAttribute(App::ATTR_ROUTE_REQUEST);
-        if (!$route || !is_array($route)) {
-            throw new RuntimeException("Invalid route request attribute");
-        }
-        $module = $route[RouterInterface::MODULE] ?? '';
-        $resourcesFolder = App::FOLDER_RESOURCES;
-
-        // Copy on the fly requested assets
-        if ($app->getDebug()) {
-            $destFile = $app->getResourceDir($module, true) . DIRECTORY_SEPARATOR . $file;
-            $sourceFile = $app->getClientModuleDir($module) . DIRECTORY_SEPARATOR . $file;
-            if (is_file($sourceFile)) {
-                $destFileDir = dirname($destFile);
-                if (!is_dir($destFileDir)) {
-                    mkdir($destFileDir, 0755, true);
-                }
-                // File is overwritten if it already exists
-                copy($sourceFile, $destFile);
-            }
-        }
-
-        return "/$resourcesFolder/$module/$file";
-    }
-    */
+     * 't' => function (string $message, array $parameters = [], string $domain = null) {
+     * return t($message, $parameters, $domain);
+     * },
+     * 'set_base_domain' => function (string $domain) use ($app) {
+     * $translator = $app->getDi()->get(Translator::class);
+     * $translator->setBaseDomain($domain);
+     * },
+     * 'asset' => function (string $file) use ($app) {
+     * $route = $app->getRequest()->getAttribute(App::ATTR_ROUTE_REQUEST);
+     * if (!$route || !is_array($route)) {
+     * throw new RuntimeException("Invalid route request attribute");
+     * }
+     * $module = $route[RouterInterface::MODULE] ?? '';
+     * $resourcesFolder = App::FOLDER_RESOURCES;
+     *
+     * // Copy on the fly requested assets
+     * if ($app->getDebug()) {
+     * $destFile = $app->getResourceDir($module, true) . DIRECTORY_SEPARATOR . $file;
+     * $sourceFile = $app->getClientModuleDir($module) . DIRECTORY_SEPARATOR . $file;
+     * if (is_file($sourceFile)) {
+     * $destFileDir = dirname($destFile);
+     * if (!is_dir($destFileDir)) {
+     * mkdir($destFileDir, 0755, true);
+     * }
+     * // File is overwritten if it already exists
+     * copy($sourceFile, $destFile);
+     * }
+     * }
+     *
+     * return "/$resourcesFolder/$module/$file";
+     * }
+     */
 }

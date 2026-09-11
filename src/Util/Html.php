@@ -16,7 +16,7 @@ final class Html
     {
         $name = Session::getExtraConfig()['csrf_key'];
         $value = ''; //TODO: get value
-        return "<input type=\"hidden\" name=\"$name\" value=\"$value\" />";
+        return "<input type=\"hidden\" name=\"{$name}\" value=\"{$value}\" />";
     }
 
     /**
@@ -35,12 +35,14 @@ final class Html
     public static function selected(string $k, string $v): string
     {
         return '';
+
         // return HTTP::requestString($k) == $v ? ' selected="selected"' : '';
     }
 
     public static function checked(string $k, string $v): string
     {
         return '';
+
         // return HTTP::requestString($k) == $v ? ' checked="checked"' : '';
     }
 }

@@ -21,4 +21,4 @@ foreach (glob(__DIR__ . '/mocks/*.php') as $f) {
 // require_once __DIR__ . "/modules/MappedModule/src/Controller/IndexController.php";
 
 // Mock functions that will get called instead of regular php function due to namespace
-require_once __DIR__ . "/_functions.php";
+require_once __DIR__ . '/_functions.php';

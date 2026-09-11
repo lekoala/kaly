@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use RuntimeException;
-use PHPUnit\Framework\TestCase;
 use Kaly\Core\App;
 use Kaly\Util\Env;
+use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 class EnvTest extends TestCase
 {
@@ -34,9 +34,9 @@ class EnvTest extends TestCase
         $this->assertEquals('souper_seekret_key', Env::get('SECRET_KEY'));
         $this->assertEquals('souper_seekret_key', Env::getString('SECRET_KEY'));
         $this->assertEquals('default_val', Env::getString('SECRET_KEY_NOT_FOUND', 'default_val'));
-        $this->assertEquals("true", Env::get('SOME_TRUE_BOOL'));
+        $this->assertEquals('true', Env::get('SOME_TRUE_BOOL'));
         $this->assertTrue(Env::getBool('SOME_TRUE_BOOL'));
-        $this->assertEquals("false", Env::get('SOME_FALSE_BOOL'));
+        $this->assertEquals('false', Env::get('SOME_FALSE_BOOL'));
         $this->assertFalse(Env::getBool('SOME_FALSE_BOOL'));
         $this->assertNull(Env::get('SOME_NULL_VAL'));
         $this->assertFalse(Env::getBool('SOME_NULL_VAL')); // default value is false

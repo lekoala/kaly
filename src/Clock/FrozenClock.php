@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Kaly\Clock;
 
+use DateInvalidTimeZoneException;
 use DateTimeImmutable;
 use DateTimeZone;
-use DateInvalidTimeZoneException;
 
 /**
  * A clock frozen in time.
@@ -46,8 +46,6 @@ final class FrozenClock extends AbstractClock
      */
     public static function fromUtc(): FrozenClock
     {
-        return new FrozenClock(
-            new DateTimeImmutable('now', new DateTimeZone('UTC'))
-        );
+        return new FrozenClock(new DateTimeImmutable('now', new DateTimeZone('UTC')));
     }
 }

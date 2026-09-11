@@ -63,18 +63,18 @@ class Escaper implements EscaperInterface
             return $string ? '✓' : '⨯';
         }
         if (is_array($string)) {
-            return implode(', ', array_values($string));
+            return implode(', ', array_map(self::convertMixedToString(...), array_values($string)));
         }
         if (is_object($string)) {
             if ($string instanceof Stringable) {
-                return (string)$string;
+                return (string) $string;
             }
         }
         if (is_numeric($string)) {
-            return (string)$string;
+            return (string) $string;
         }
         $type = get_debug_type($string);
-        throw new Exception("Cannot convert $type to string");
+        throw new Exception("Cannot convert {$type} to string");
     }
 
     public function escHtml(mixed $string): string

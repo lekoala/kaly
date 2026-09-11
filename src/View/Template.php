@@ -104,7 +104,7 @@ class Template
      */
     public function include(string $name, array $data = []): string
     {
-        return $this->engine->render("includes/$name", $data);
+        return $this->engine->render("includes/{$name}", $data);
     }
 
     /**
@@ -142,7 +142,7 @@ class Template
         if ($this->blockName === null) {
             throw new RuntimeException('You must begin a block before you can stop it.');
         }
-        $this->engine->setBlock($this->blockName, ob_get_clean() ?: "");
+        $this->engine->setBlock($this->blockName, ob_get_clean() ?: '');
         $this->blockName = null;
     }
 
@@ -159,7 +159,7 @@ class Template
         foreach ($this->engine->getExtensions() as $extension) {
             foreach ($extension->getFunctions() as $function => $callback) {
                 if ($function === $name) {
-                    return ($callback)(...$arguments);
+                    return $callback(...$arguments);
                 }
             }
         }

@@ -28,11 +28,11 @@ final class Fs
     public static function open($filename, string $mode = 'rb', bool $use_include_path = true, mixed $context = null)
     {
         if (is_bool($filename)) {
-            throw new Exception("fopen cannot get a boolean filename");
+            throw new Exception('fopen cannot get a boolean filename');
         }
         $res = fopen($filename, $mode, $use_include_path, $context);
         if ($res === false) {
-            throw new Exception("Failed to open $filename");
+            throw new Exception("Failed to open {$filename}");
         }
         return $res;
     }
@@ -48,7 +48,7 @@ final class Fs
     {
         $res = fclose($stream);
         if ($res === false) {
-            throw new Exception("Failed to close stream");
+            throw new Exception('Failed to close stream');
         }
     }
 
@@ -64,7 +64,7 @@ final class Fs
 
     public static function memoryLimit(): int
     {
-        return self::convertToByte(ini_get("memory_limit"));
+        return self::convertToByte(ini_get('memory_limit'));
     }
 
     public static function rmDir(string $dir, bool $recursive = true): bool
@@ -88,7 +88,7 @@ final class Fs
         return rmdir($dir);
     }
 
-    public static function mkDir(string $dir, int $flags = 0755, bool $recursive = true): bool
+    public static function mkDir(string $dir, int $flags = 0o755, bool $recursive = true): bool
     {
         if (!is_dir($dir)) {
             return mkdir($dir, $flags, $recursive);
@@ -108,7 +108,7 @@ final class Fs
         $result = false;
         if ($dh = opendir($dir)) {
             while (!$result && ($file = readdir($dh)) !== false) {
-                $result = $file !== "." && $file !== "..";
+                $result = $file !== '.' && $file !== '..';
             }
             closedir($dh);
         }
@@ -171,9 +171,9 @@ final class Fs
     public static function ensureDir(string $dir): void
     {
         if (!is_dir($dir)) {
-            $result = mkdir($dir, 0755, true);
+            $result = mkdir($dir, 0o755, true);
             if (!$result) {
-                throw new Exception("Could not create $dir");
+                throw new Exception("Could not create {$dir}");
             }
         }
     }
@@ -188,10 +188,9 @@ final class Fs
         if ($bytes < 1024) {
             return $bytes . ' B';
         }
-        $factor = floor(log($bytes, 1024));
-        return sprintf("%.{$decimals}f ", $bytes / 1024 ** $factor) . ['B', 'KB', 'MB', 'GB', 'TB', 'PB'][$factor];
+        $factor = (int) floor(log($bytes, 1024));
+        return sprintf("%.{$decimals}f ", $bytes / (1024 ** $factor)) . ['B', 'KB', 'MB', 'GB', 'TB', 'PB'][$factor];
     }
-
 
     /**
      * Slightly modified version of http://www.geekality.net/2011/05/28/php-tail-tackling-large-files/
@@ -202,7 +201,7 @@ final class Fs
     public static function tail(string $filename, int $lines = 1, bool $adaptive = true): string
     {
         // Open file in read only - force binary mode
-        $f = fopen($filename, "rb");
+        $f = fopen($filename, 'rb');
         if ($f === false) {
             return '';
         }
@@ -212,7 +211,7 @@ final class Fs
         if (!$adaptive) {
             $buffer = 4096;
         } else {
-            $buffer = ($lines < 2 ? 64 : ($lines < 10 ? 512 : 4096));
+            $buffer = $lines < 2 ? 64 : ($lines < 10 ? 512 : 4096);
         }
         // Jump to last character
         fseek($f, -1, SEEK_END);

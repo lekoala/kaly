@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
-use Throwable;
-use Kaly\Http\HttpFactory;
-use Psr\Http\Message\ResponseInterface;
 use Kaly\Core\Ex;
+use Psr\Http\Message\ResponseInterface;
+use Throwable;
 
 class NotFoundException extends Ex implements ResponseProviderInterface
 {
@@ -19,7 +18,7 @@ class NotFoundException extends Ex implements ResponseProviderInterface
     public function __construct($message = '', int $code = 404, ?Throwable $previous = null)
     {
         if (!$message) {
-            $message =  "Not found";
+            $message = 'Not found';
         }
         parent::__construct($message, $code, $previous);
     }

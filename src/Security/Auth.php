@@ -4,23 +4,23 @@ declare(strict_types=1);
 
 namespace Kaly\Security;
 
-use RuntimeException;
-use Psr\Http\Message\ServerRequestInterface;
 use Kaly\Core\App;
 use Kaly\Http\RedirectException;
+use Psr\Http\Message\ServerRequestInterface;
+use RuntimeException;
 
 class Auth
 {
-    protected const ONE_WEEK = 604800;
+    protected const ONE_WEEK = 604_800;
 
-    public const KEY_USER_ID = "user_id";
-    public const CALLBACK_SUCCESS = "success";
-    public const CALLBACK_FAILED = "failed";
-    public const CALLBACK_CLEARED = "cleared";
+    public const KEY_USER_ID = 'user_id';
+    public const CALLBACK_SUCCESS = 'success';
+    public const CALLBACK_FAILED = 'failed';
+    public const CALLBACK_CLEARED = 'cleared';
 
     protected App $app;
-    protected string $loginUrl = "/auth/login/";
-    protected string $logoutUrl = "/auth/logout/";
+    protected string $loginUrl = '/auth/login/';
+    protected string $logoutUrl = '/auth/logout/';
 
     public function __construct(App $app)
     {
@@ -36,7 +36,7 @@ class Auth
         if (is_string($user)) {
             return $user;
         }
-        throw new RuntimeException("Invalid user attribute value");
+        throw new RuntimeException('Invalid user attribute value');
     }
 
     public function setUser(string $id): self
@@ -90,7 +90,8 @@ class Auth
     public static function basicAuth(
         ServerRequestInterface $request,
         string $username = '',
-        string $password = ''
+        #[\SensitiveParameter]
+        string $password = '',
     ): void {
         if (!$username || !$password) {
             return;
@@ -104,25 +105,25 @@ class Auth
         $phpAuthPw = $server['PHP_AUTH_PW'] ?? null;
 
         $matches = [];
-        if (
-            $authHeader &&
-            preg_match('/Basic\s+(.*)$/i', $authHeader, $matches)
-        ) {
-            [$name, $password] = explode(':', base64_decode($matches[1]));
-            $phpAuthUser = strip_tags($name);
-            $phpAuthPw = strip_tags($password);
+        if ($authHeader && preg_match('/Basic\s+(.*)$/i', $authHeader, $matches)) {
+            $decoded = base64_decode($matches[1], true);
+            if ($decoded !== false && str_contains($decoded, ':')) {
+                [$name, $clientPassword] = explode(':', $decoded, 2);
+                $phpAuthUser = strip_tags($name);
+                $phpAuthPw = strip_tags($clientPassword);
+            }
         }
         $authSuccess = false;
-        if ($phpAuthUser && $phpAuthPw) {
-            if ($phpAuthUser == $username && $phpAuthPw == $password) {
+        if (is_string($phpAuthUser) && is_string($phpAuthPw)) {
+            if (hash_equals($username, $phpAuthUser) && hash_equals($password, $phpAuthPw)) {
                 $authSuccess = true;
             }
         }
         if (!$authSuccess) {
             if ($phpAuthUser) {
-                $message = t(self::class . ".user_not_found", [], "kaly");
+                $message = t(self::class . '.user_not_found', [], 'kaly');
             } else {
-                $message = t(self::class . ".enter_your_credentials", [], "kaly");
+                $message = t(self::class . '.enter_your_credentials', [], 'kaly');
             }
 
             // This implements ResponseProvider interface and it's response will be served by our app

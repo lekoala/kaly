@@ -15,7 +15,7 @@ use Transliterator;
  */
 final class Str
 {
-    public static function ucFirst(?string $str, ?string $encoding = "UTF-8"): string
+    public static function ucFirst(?string $str, ?string $encoding = 'UTF-8'): string
     {
         $str ??= '';
         $firstChar = mb_substr($str, 0, 1, $encoding);
@@ -23,22 +23,22 @@ final class Str
         return mb_strtoupper($firstChar, $encoding) . $then;
     }
 
-    public static function uppercaseFirst(?string $str, ?string $encoding = "UTF-8"): string
+    public static function uppercaseFirst(?string $str, ?string $encoding = 'UTF-8'): string
     {
         return self::ucFirst($str, $encoding);
     }
 
-    public static function uc(?string $str, ?string $encoding = "UTF-8"): string
+    public static function uc(?string $str, ?string $encoding = 'UTF-8'): string
     {
         return mb_strtoupper($str ?? '', $encoding);
     }
 
-    public static function uppercase(?string $str, ?string $encoding = "UTF-8"): string
+    public static function uppercase(?string $str, ?string $encoding = 'UTF-8'): string
     {
         return self::uc($str, $encoding);
     }
 
-    public static function lcLast(?string $str, ?string $encoding = "UTF-8"): string
+    public static function lcLast(?string $str, ?string $encoding = 'UTF-8'): string
     {
         $str ??= '';
         $firstChar = mb_substr($str, 0, 1, $encoding);
@@ -46,22 +46,22 @@ final class Str
         return $firstChar . mb_strtolower($then);
     }
 
-    public static function lowercaseLast(?string $str, ?string $encoding = "UTF-8"): string
+    public static function lowercaseLast(?string $str, ?string $encoding = 'UTF-8'): string
     {
         return self::lcLast($str, $encoding);
     }
 
-    public static function lc(?string $str, ?string $encoding = "UTF-8"): string
+    public static function lc(?string $str, ?string $encoding = 'UTF-8'): string
     {
         return mb_strtolower($str ?? '', $encoding);
     }
 
-    public static function lowercase(?string $str, ?string $encoding = "UTF-8"): string
+    public static function lowercase(?string $str, ?string $encoding = 'UTF-8'): string
     {
         return self::lc($str, $encoding);
     }
 
-    public static function firstChar(?string $str, ?string $encoding = "UTF-8"): string
+    public static function firstChar(?string $str, ?string $encoding = 'UTF-8'): string
     {
         return mb_substr($str ?? '', 0, 1, $encoding);
     }
@@ -69,12 +69,12 @@ final class Str
     /**
      * Convert the first character of each word to uppercase and all the other characters to lowercase
      */
-    public static function ucWords(?string $str, ?string $encoding = "UTF-8"): string
+    public static function ucWords(?string $str, ?string $encoding = 'UTF-8'): string
     {
         return mb_convert_case((string) $str, MB_CASE_TITLE, $encoding);
     }
 
-    public static function uppercaseWords(?string $str, ?string $encoding = "UTF-8"): string
+    public static function uppercaseWords(?string $str, ?string $encoding = 'UTF-8'): string
     {
         return self::ucWords($str, $encoding);
     }
@@ -123,16 +123,16 @@ final class Str
             return '';
         }
         $rules = <<<'RULES'
-:: Any-Latin;
-:: NFD;
-:: [:Nonspacing Mark:] Remove;
-:: NFC;
-:: [^-[:^Punctuation:]] Remove;
-:: Lower();
-[:^L:] { [-] > ;
-[-] } [:^L:] > ;
-[-[:Separator:]]+ > '-';
-RULES;
+            :: Any-Latin;
+            :: NFD;
+            :: [:Nonspacing Mark:] Remove;
+            :: NFC;
+            :: [^-[:^Punctuation:]] Remove;
+            :: Lower();
+            [:^L:] { [-] > ;
+            [-] } [:^L:] > ;
+            [-[:Separator:]]+ > '-';
+            RULES;
         return Transliterator::createFromRules($rules)?->transliterate($str) ?: '';
     }
 
@@ -178,7 +178,7 @@ RULES;
         if (self::isUtf8($str)) {
             return $str ?? '';
         }
-        return self::convertEncoding($str, "UTF-8", $fromEncoding);
+        return self::convertEncoding($str, 'UTF-8', $fromEncoding);
     }
 
     /**
@@ -190,7 +190,7 @@ RULES;
      */
     public static function fromUtf8(?string $str, string $toEncoding): string
     {
-        return self::convertEncoding($str, $toEncoding, "UTF-8");
+        return self::convertEncoding($str, $toEncoding, 'UTF-8');
     }
 
     public static function isUtf8(?string $str): bool
@@ -207,7 +207,7 @@ RULES;
      */
     public static function convertEncoding(?string $str, ?string $to = null, string|array|null $from = null): string
     {
-        $result = mb_convert_encoding($str ?? '', $to ?? "UTF-8", $from);
+        $result = mb_convert_encoding($str ?? '', $to ?? 'UTF-8', $from);
         if ($result === false) {
             return ''; // return non-fatal blank string on encoding errors from users
         }
@@ -220,21 +220,21 @@ RULES;
             $val = json_encode($val, JSON_THROW_ON_ERROR);
         } elseif (is_object($val)) {
             if ($val instanceof ResponseInterface) {
-                $val = "Response: " . Str::truncate((string)$val->getBody());
+                $val = 'Response: ' . Str::truncate((string) $val->getBody());
             } elseif ($val instanceof Stringable) {
-                $val = (string)$val;
+                $val = (string) $val;
             } else {
                 $val = $val::class;
             }
         } elseif (is_bool($val)) {
-            $val = $val ? "(bool) true" : "(bool) false";
+            $val = $val ? '(bool) true' : '(bool) false';
         } elseif (!is_string($val)) {
             $val = get_debug_type($val);
         }
         return $val;
     }
 
-    public static function truncate(?string $str, int $chars = 120, string $append = "..."): string
+    public static function truncate(?string $str, int $chars = 120, string $append = '...'): string
     {
         if ($str === null) {
             return '';
@@ -276,7 +276,6 @@ RULES;
         if (!$str) {
             return '';
         }
-        $str = mb_strtolower($str);
-        return $str;
+        return mb_strtolower($str);
     }
 }

@@ -1,5 +1,5 @@
 <?php
 
 return [
-    'Welcome' => "Welcome to this domain test",
+    'Welcome' => 'Welcome to this domain test',
 ];

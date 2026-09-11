@@ -41,7 +41,7 @@ final class Json
     public static function decode(?string $value = null, bool $assoc = true): mixed
     {
         if ($value === null) {
-            $value = "[]";
+            $value = '[]';
         }
         $result = json_decode($value, $assoc);
         if ($result === null) {
@@ -60,7 +60,7 @@ final class Json
         }
         $res = self::decode($value, true);
         if (!is_array($res)) {
-            throw new RuntimeException("Decoded value is not an array");
+            throw new RuntimeException('Decoded value is not an array');
         }
         return $res;
     }
@@ -75,7 +75,7 @@ final class Json
         }
         $res = self::decode($value, false);
         if (!is_object($res)) {
-            throw new RuntimeException("Decoded value is not an object");
+            throw new RuntimeException('Decoded value is not an object');
         }
         return $res;
     }

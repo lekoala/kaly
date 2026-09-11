@@ -11,13 +11,8 @@ use RuntimeException;
  */
 final class Img
 {
-    public static function resize(
-        string $src,
-        ?string $dst = null,
-        int $width = 0,
-        int $height = 0,
-        bool $crop = false
-    ): bool {
+    public static function resize(string $src, ?string $dst = null, int $width = 0, int $height = 0, bool $crop = false): bool
+    {
         $type = strtolower(pathinfo($src, PATHINFO_EXTENSION));
         if ($type === 'jpeg') {
             $type = 'jpg';
@@ -27,20 +22,13 @@ final class Img
         $w = $size[0] ?? 0;
         $h = $size[1] ?? 0;
         if ($w <= 0 || $h <= 0) {
-            throw new RuntimeException("Unsupported picture type: `$type`!");
+            throw new RuntimeException("Unsupported picture type: `{$type}`!");
         }
 
         $width = $width > 0 ? $width : $w;
-        $height = $height > 0 ?  $height : $h;
+        $height = $height > 0 ? $height : $h;
 
-        $img = match ($type) {
-            'bmp' => imagecreatefromwbmp($src),
-            'gif' => imagecreatefromgif($src),
-            'jpg' => imagecreatefromjpeg($src),
-            'png' => imagecreatefrompng($src),
-            'webp' => imagecreatefromwebp($src),
-            default => throw new RuntimeException("Unsupported picture type: `$type`!"),
-        };
+        $img = self::loadImage($type, $src);
         if (!$img) {
             return false;
         }
@@ -51,10 +39,10 @@ final class Img
                 return false;
             }
             $ratio = max($width / $w, $height / $h);
-            $x = (int)round(($w - $width / $ratio) / 2);
-            $y = (int)round(($h - $height / $ratio) / 2);
-            $h = (int)round($height / $ratio);
-            $w = (int)round($width / $ratio);
+            $x = (int) round(($w - ($width / $ratio)) / 2);
+            $y = (int) round(($h - ($height / $ratio)) / 2);
+            $h = (int) round($height / $ratio);
+            $w = (int) round($width / $ratio);
         } else {
             if ($w < $width && $h < $height) {
                 return false;
@@ -62,8 +50,8 @@ final class Img
             $ratio = min($width / $w, $height / $h);
             $x = 0;
             $y = 0;
-            $width = (int)round($w * $ratio);
-            $height = (int)round($h * $ratio);
+            $width = (int) round($w * $ratio);
+            $height = (int) round($h * $ratio);
         }
 
         if ($width <= 0 || $height <= 0) {
@@ -82,22 +70,38 @@ final class Img
 
         $dst ??= $src;
 
-        $res = match ($type) {
-            'bmp' => imagewbmp($new, $dst),
-            'gif' => imagegif($new, $dst),
-            'jpg' => imagejpeg($new, $dst),
-            'png' => imagepng($new, $dst),
-            'webp' => imagewebp($new, $dst),
-            default => throw new RuntimeException("Unsupported picture type: `$type`!"),
+        return self::saveImage($type, $new, $dst);
+    }
+
+    private static function loadImage(string $type, string $src): \GdImage|false
+    {
+        return match ($type) {
+            'bmp' => imagecreatefromwbmp($src),
+            'gif' => imagecreatefromgif($src),
+            'jpg' => imagecreatefromjpeg($src),
+            'png' => imagecreatefrompng($src),
+            'webp' => imagecreatefromwebp($src),
+            default => throw new RuntimeException("Unsupported picture type: `{$type}`!"),
         };
-        return $res;
+    }
+
+    private static function saveImage(string $type, \GdImage $img, string $dst): bool
+    {
+        return match ($type) {
+            'bmp' => imagewbmp($img, $dst),
+            'gif' => imagegif($img, $dst),
+            'jpg' => imagejpeg($img, $dst),
+            'png' => imagepng($img, $dst),
+            'webp' => imagewebp($img, $dst),
+            default => throw new RuntimeException("Unsupported picture type: `{$type}`!"),
+        };
     }
 
     public static function toBase64(string $filename, int $width = 0): string
     {
         $contents = file_get_contents($filename);
         if (!$contents) {
-            throw new RuntimeException("File $filename is empty");
+            throw new RuntimeException("File {$filename} is empty");
         }
         if ($width > 0) {
             $temp = tmpfile();
@@ -107,11 +111,10 @@ final class Img
             $contents = stream_get_contents($temp);
             fclose($temp);
             if (!$contents) {
-                throw new RuntimeException("Resized file $filename is empty");
+                throw new RuntimeException("Resized file {$filename} is empty");
             }
         }
         $mime = mime_content_type($filename);
-        $src = "data:$mime;base64," . str_replace("\n", "", base64_encode($contents));
-        return $src;
+        return "data:$mime;base64," . str_replace("\n", '', base64_encode($contents));
     }
 }

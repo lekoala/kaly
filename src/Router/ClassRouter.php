@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace Kaly\Router;
 
 use InvalidArgumentException;
+use Kaly\Http\RedirectException;
+use Kaly\Util\Refl;
+use Kaly\Util\Str;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\UriInterface;
 use ReflectionClass;
 use ReflectionNamedType;
-use Psr\Http\Message\UriInterface;
-use Kaly\Util\Refl;
-use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
-use Kaly\Util\Str;
-use Kaly\Http\RedirectException;
 
 /**
  * Takes an uri and map it to a class
@@ -23,7 +23,7 @@ use Kaly\Http\RedirectException;
  */
 class ClassRouter implements RouterInterface
 {
-    protected const PARAM_LOCALE = "locale";
+    protected const PARAM_LOCALE = 'locale';
 
     protected string $defaultNamespace = 'App';
     protected string $controllerNamespace = 'Controller';
@@ -109,8 +109,7 @@ class ClassRouter implements RouterInterface
     protected function collectParts(): array
     {
         $trimmedPath = trim($this->request->getUri()->getPath(), '/');
-        $parts = array_filter(explode("/", $trimmedPath));
-        return $parts;
+        return array_filter(explode('/', $trimmedPath));
     }
 
     /**
@@ -122,7 +121,7 @@ class ClassRouter implements RouterInterface
         $path = $uri->getPath();
         if ($force) {
             if (!str_ends_with($path, '/')) {
-                $newUri = $uri->withPath($path . "/");
+                $newUri = $uri->withPath($path . '/');
                 throw new RedirectException($newUri);
             }
         } else {
@@ -144,8 +143,8 @@ class ClassRouter implements RouterInterface
         if (is_string($handler) || array_is_list($handler)) {
             // Split string
             if (is_string($handler)) {
-                $handler = str_replace("->", "::", $handler);
-                $parts = explode("::", $handler);
+                $handler = str_replace('->', '::', $handler);
+                $parts = explode('::', $handler);
             } else {
                 // Use array as an exploded string
                 $parts = $handler;
@@ -161,11 +160,11 @@ class ClassRouter implements RouterInterface
             }
         } else {
             if (empty($handler[RouterInterface::CONTROLLER])) {
-                throw new RuntimeException("Cannot generate an url without a controller");
+                throw new RuntimeException('Cannot generate an url without a controller');
             }
             $class = $handler[RouterInterface::CONTROLLER];
             if (!is_string($class)) {
-                throw new RuntimeException("Controller must be a string");
+                throw new RuntimeException('Controller must be a string');
             }
             /** @var string $action */
             $action = $handler[RouterInterface::ACTION] ?? $this->defaultAction;
@@ -175,10 +174,10 @@ class ClassRouter implements RouterInterface
 
         // Validate it's a real class and action
         if (!class_exists($class)) {
-            throw new RuntimeException("Handler '$class' does not exist");
+            throw new RuntimeException("Handler '{$class}' does not exist");
         }
         if (!method_exists($class, $action)) {
-            throw new RuntimeException("Invalid handler method '$action'");
+            throw new RuntimeException("Invalid handler method '{$action}'");
         }
 
         $refl = new ReflectionClass($class);
@@ -186,39 +185,36 @@ class ClassRouter implements RouterInterface
 
         $classParts = explode("\\", $class);
         $baseClass = array_pop($classParts);
-        $controllerName = (string)preg_replace("/" . $this->controllerSuffix . "$/", "", $baseClass);
+        $controllerName = (string) preg_replace('/' . $this->controllerSuffix . '$/', '', $baseClass);
         $namespace = implode("\\", $classParts);
 
         // Get module for class
         $allowedNamespaces = array_flip($this->allowedNamespaces);
-        $realModuleNamespace = $moduleNamespace = str_replace("\\" . $this->controllerNamespace, "", $namespace);
+        $realModuleNamespace = $moduleNamespace = str_replace("\\" . $this->controllerNamespace, '', $namespace);
         if (isset($allowedNamespaces[$moduleNamespace])) {
             $realModuleNamespace = $allowedNamespaces[$moduleNamespace];
         }
 
         $url = '';
         if ($locale && !in_array($locale, $this->allowedLocales)) {
-            throw new RuntimeException("Invalid locale '$locale'");
+            throw new RuntimeException("Invalid locale '{$locale}'");
         }
         if ($this->defaultNamespace != $realModuleNamespace) {
             $strmodule = Str::decamelize($realModuleNamespace);
-            $url .= "/$strmodule";
+            $url .= "/{$strmodule}";
         }
         if ($controllerName != $this->defaultControllerName || $action != $this->defaultAction || count($params)) {
             $strcontroller = Str::decamelize($controllerName);
-            $url .= "/$strcontroller";
+            $url .= "/{$strcontroller}";
         }
         if ($action != $this->defaultAction || count($params)) {
             // Check for rest style action
-            $action = preg_replace("/(Post|Delete|Put|Head|Patch)$/", "", $action);
-            $url .= "/$action";
+            $action = preg_replace('/(Post|Delete|Put|Head|Patch)$/', '', $action);
+            $url .= "/{$action}";
         }
         if ($locale && $url) {
-            if (
-                empty($this->restrictLocaleToNamespaces)
-                || in_array($realModuleNamespace, $this->restrictLocaleToNamespaces)
-            ) {
-                $url = "/$locale" . $url;
+            if (empty($this->restrictLocaleToNamespaces) || in_array($realModuleNamespace, $this->restrictLocaleToNamespaces)) {
+                $url = "/{$locale}" . $url;
             }
         }
         // append params
@@ -226,10 +222,10 @@ class ClassRouter implements RouterInterface
             if (!is_string($v)) {
                 continue;
             }
-            $url .= "/$v";
+            $url .= "/{$v}";
         }
         if ($this->forceTrailingSlash) {
-            $url .= "/";
+            $url .= '/';
         }
 
         return $url;
@@ -256,8 +252,8 @@ class ClassRouter implements RouterInterface
             return null;
         }
         $controllerFolder = Refl::getClassName($controller);
-        $controllerFolder = preg_replace("/$end$/", "", $controllerFolder) ?? '';
-        $controllerFolder = preg_replace("/^$start/", "", $controllerFolder) ?? '';
+        $controllerFolder = preg_replace("/{$end}$/", '', $controllerFolder) ?? '';
+        $controllerFolder = preg_replace("/^{$start}/", '', $controllerFolder) ?? '';
         $controllerFolder = Str::lc($controllerFolder);
 
         $viewName = $controllerFolder;
@@ -393,7 +389,7 @@ class ClassRouter implements RouterInterface
 
         // Default to index or match controller
         if (!$part) {
-            $defaultController =  $this->defaultControllerName . $this->controllerSuffix;
+            $defaultController = $this->defaultControllerName . $this->controllerSuffix;
             $class = $namespace . '\\' . $this->controllerNamespace . '\\' . $defaultController;
         } else {
             $controller = $camelPart . $this->controllerSuffix;
@@ -402,11 +398,11 @@ class ClassRouter implements RouterInterface
 
         // Does controller exists ? it must be autoloadable
         if (!class_exists($class)) {
-            throw new RouteNotFoundException("Route '$path' not found, '$class' doesn't exists");
+            throw new RouteNotFoundException("Route '{$path}' not found, '{$class}' doesn't exists");
         }
         $refl = new ReflectionClass($class);
         if ($refl->isAbstract()) {
-            throw new RouteNotFoundException("Route '$path' not found, '$class' isn't instantiable");
+            throw new RouteNotFoundException("Route '{$path}' not found, '{$class}' isn't instantiable");
         }
 
         array_shift($this->parts);
@@ -426,9 +422,7 @@ class ClassRouter implements RouterInterface
         $testPart = $this->parts[0] ?? '';
 
         // Index or __invoke is used by default
-        $action = $refl->hasMethod(RouterInterface::FALLBACK_ACTION) ?
-            RouterInterface::FALLBACK_ACTION :
-            $this->defaultAction;
+        $action = $refl->hasMethod(RouterInterface::FALLBACK_ACTION) ? RouterInterface::FALLBACK_ACTION : $this->defaultAction;
 
         // If first parameter is a valid method, use that instead
         if ($testPart) {
@@ -459,7 +453,7 @@ class ClassRouter implements RouterInterface
 
         // Is this action available ?
         if (!$refl->hasMethod($action)) {
-            throw new RouteNotFoundException("Controller '$class' does not have an action '$action'");
+            throw new RouteNotFoundException("Controller '{$class}' does not have an action '{$action}'");
         }
 
         return $action;
@@ -477,7 +471,7 @@ class ClassRouter implements RouterInterface
 
         $method = $refl->getMethod($action);
         if (!$method->isPublic()) {
-            throw new RouteNotFoundException("Action '$action' is not public on '$class'");
+            throw new RouteNotFoundException("Action '{$action}' is not public on '{$class}'");
         }
 
         // Verify parameters
@@ -491,7 +485,7 @@ class ClassRouter implements RouterInterface
             $paramName = $actionParam->getName();
 
             if (!$actionParam->isOptional() && !$actionParam->isDefaultValueAvailable() && !isset($this->parts[$i])) {
-                throw new RouteNotFoundException("Param '$paramName' is required for action '$action' on '$class'");
+                throw new RouteNotFoundException("Param '{$paramName}' is required for action '{$action}' on '{$class}'");
             }
 
             $value = $this->parts[$i] ?? '';
@@ -502,10 +496,10 @@ class ClassRouter implements RouterInterface
                 // Transform & validate
                 $value = match ($type->getName()) {
                     'bool' => boolval($value),
-                    'array' => explode(",", $value),
+                    'array' => explode(',', $value),
                     'int' => intval($value),
                     'float' => floatval($value),
-                    default => (string)$value,
+                    default => (string) $value,
                 };
 
                 // Update value
@@ -519,7 +513,7 @@ class ClassRouter implements RouterInterface
             $i++;
         }
         if (!$extra && count($params) > count($actionParams)) {
-            throw new RouteNotFoundException("Too many parameters for action '$action' on '$class'");
+            throw new RouteNotFoundException("Too many parameters for action '{$action}' on '{$class}'");
         }
         return $params;
     }
@@ -549,7 +543,7 @@ class ClassRouter implements RouterInterface
             $mapping = $namespace;
         }
         if (str_contains($mapping, "\\")) {
-            throw new InvalidArgumentException("Mapping cannot contain namespace separator");
+            throw new InvalidArgumentException('Mapping cannot contain namespace separator');
         }
         $this->allowedNamespaces[$mapping] = $namespace;
         return $this;

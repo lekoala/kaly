@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use PHPUnit\Framework\TestCase;
 use Kaly\Util\Arr;
 use Kaly\Util\Refl;
 use Kaly\Util\Str;
+use PHPUnit\Framework\TestCase;
 use ReflectionFunction;
 
 class UtilTest extends TestCase
@@ -15,15 +15,15 @@ class UtilTest extends TestCase
     public function testCamelize(): void
     {
         $arr = [
-            'my_string' => "My_String",
-            'my-string' => "MyString",
-            'mystring' => "Mystring",
-            'Mystring' => "Mystring",
-            'MYSTRING' => "Mystring",
-            'MySTRING' => "Mystring",
+            'my_string' => 'My_String',
+            'my-string' => 'MyString',
+            'mystring' => 'Mystring',
+            'Mystring' => 'Mystring',
+            'MYSTRING' => 'Mystring',
+            'MySTRING' => 'Mystring',
             // utf 8 support
-            'MySTRINGÜ' => "Mystringü",
-            'üstring' => "Üstring",
+            'MySTRINGÜ' => 'Mystringü',
+            'üstring' => 'Üstring',
         ];
         foreach ($arr as $str => $expected) {
             $this->assertEquals($expected, Str::camelize($str));
@@ -59,30 +59,30 @@ class UtilTest extends TestCase
     public function testArrayMergeDistinct(): void
     {
         $arr1 = [
-            'one'
+            'one',
         ];
         $arr2 = [
-            'two'
+            'two',
         ];
 
         $res = Arr::mergeDistinct($arr1, $arr2);
         $this->assertEquals(['one', 'two'], $res);
 
         $arr1 = [
-            'key' => 'wrong'
+            'key' => 'wrong',
         ];
         $arr2 = [
-            'key' => 'right'
+            'key' => 'right',
         ];
 
         $res = Arr::mergeDistinct($arr1, $arr2);
         $this->assertEquals(['key' => 'right'], $res);
 
         $arr1 = [
-            'key' => ['one']
+            'key' => ['one'],
         ];
         $arr2 = [
-            'key' => ['two']
+            'key' => ['two'],
         ];
 
         $res = Arr::mergeDistinct($arr1, $arr2);
@@ -92,7 +92,7 @@ class UtilTest extends TestCase
     public function testReflGetAllTypes(): void
     {
         // noType
-        $fn = fn($noType) => $noType;
+        $fn = static fn($noType) => $noType;
 
         $reflFn = new ReflectionFunction($fn);
         $param = $reflFn->getParameters()[0];
@@ -101,7 +101,7 @@ class UtilTest extends TestCase
         $this->assertEquals([], $types);
 
         // builtIn
-        $fn = fn(string $builtIn) => $builtIn;
+        $fn = static fn(string $builtIn) => $builtIn;
 
         $reflFn = new ReflectionFunction($fn);
         $param = $reflFn->getParameters()[0];
@@ -110,7 +110,7 @@ class UtilTest extends TestCase
         $this->assertEquals(['string'], $types);
 
         // builtInUnion
-        $fn = fn(string|bool $builtInUnion) => $builtInUnion;
+        $fn = static fn(string|bool $builtInUnion) => $builtInUnion;
 
         $reflFn = new ReflectionFunction($fn);
         $param = $reflFn->getParameters()[0];
@@ -119,7 +119,7 @@ class UtilTest extends TestCase
         $this->assertEquals(['string', 'bool'], $types);
 
         // nullable
-        $fn = fn(?string $nullable) => $nullable;
+        $fn = static fn(?string $nullable) => $nullable;
 
         $reflFn = new ReflectionFunction($fn);
         $param = $reflFn->getParameters()[0];
@@ -128,7 +128,7 @@ class UtilTest extends TestCase
         $this->assertEquals(['?string'], $types);
 
         // intersection
-        $fn = fn(\Iterator&\Countable $nullable) => $nullable;
+        $fn = static fn(\Iterator&\Countable $nullable) => $nullable;
 
         $reflFn = new ReflectionFunction($fn);
         $param = $reflFn->getParameters()[0];

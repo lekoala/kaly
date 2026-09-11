@@ -1,6 +1,8 @@
 composer.lock
 vendor
 .phpunit.cache
+.trash
+.tmp
 
 # demo
 demos/*.log
@@ -9,3 +11,6 @@ demos/app/temp
 
 # tests
 tests/temp
+
+# temporary
+.tmp

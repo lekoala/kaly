@@ -1,5 +1,6 @@
 {
     "name": "lekoala/kaly",
+    "description": "A small modular PSR HTTP framework with convention-based routing and first-class dependency injection",
     "type": "library",
     "license": "MIT",
     "authors": [
@@ -8,10 +9,18 @@
             "email": "thomas@lekoala.be"
         }
     ],
-    "version": "0.1",
+    "keywords": [
+        "framework",
+        "http",
+        "middleware",
+        "psr-7",
+        "psr-11",
+        "psr-15",
+        "router"
+    ],
     "require": {
         "php": "^8.3",
-        "lekoala/kaly-di": "*",
+        "lekoala/kaly-di": "^0.1",
         "laminas/laminas-escaper": "^2.13",
         "nyholm/psr7": "^1.8",
         "nyholm/psr7-server": "^1.1",
@@ -26,11 +35,10 @@
         "symfony/polyfill-php84": "^1.30"
     },
     "require-dev": {
+        "carthage-software/mago": "^1",
         "composer/ca-bundle": "^1.5",
-        "phpstan/phpstan": "^2",
+        "phpstan/phpstan": "^2.2",
         "phpunit/phpunit": "^12",
-        "rector/rector": "^2",
-        "squizlabs/php_codesniffer": "^3.10",
         "symfony/var-dumper": "^7.1"
     },
     "autoload": {
@@ -41,24 +49,27 @@
             "src/_functions/global.php"
         ]
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Kaly\\Tests\\": "tests"
+        }
+    },
     "config": {
         "sort-packages": true
     },
     "scripts": {
         "test": [
             "@phpunit",
-            "@phpcs",
-            "@phpstan"
+            "@phpstan",
+            "@mago:lint",
+            "@mago:format"
         ],
-        "phpunit": "phpunit",
-        "phpunit-only": "phpunit --group only",
-        "phpunit-util": "phpunit --filter 'UtilTest'",
-        "phpunit-di": "phpunit --filter 'DiTest'",
-        "phpunit-view": "phpunit --filter 'ViewTest'",
-        "phpcs": "phpcs",
+        "phpunit": "@php -d zend.assertions=1 vendor/bin/phpunit",
+        "phpunit-only": "@php -d zend.assertions=1 vendor/bin/phpunit --group only",
         "phpstan": "phpstan analyse src --memory-limit=-1",
-        "rector-dry": "rector --dry-run",
-        "rector": "rector",
+        "mago:lint": "mago lint --minimum-report-level warning src tests",
+        "mago:format": "mago fmt --check",
+        "fmt": "mago fmt",
         "docsify": "docsify serve docs",
         "docs": [
             "Composer\\Config::disableProcessTimeout",
@@ -73,6 +84,5 @@
             "php -S 127.0.0.1:8080 demos/app/public/index.php"
         ]
     },
-    "minimum-stability": "dev",
     "prefer-stable": true
 }

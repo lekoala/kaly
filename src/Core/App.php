@@ -4,43 +4,43 @@ declare(strict_types=1);
 
 namespace Kaly\Core;
 
-use Throwable;
-use Kaly\Util\Fs;
-use Kaly\Util\Env;
-use Kaly\Util\Json;
-use Kaly\Di\Injector;
-use Kaly\View\Engine;
-use Kaly\Di\Container;
-use Kaly\Http\Session;
-use Psr\Log\NullLogger;
-use Kaly\Di\Definitions;
-use Kaly\Log\FileLogger;
-use Kaly\Text\Translator;
-use Kaly\Http\HttpFactory;
 use Kaly\Clock\SystemClock;
-use Kaly\Http\ServerRequest;
-use Kaly\Router\ClassRouter;
-use Psr\Log\LoggerInterface;
-use Psr\Clock\ClockInterface;
+use Kaly\Di\Container;
+use Kaly\Di\Definitions;
+use Kaly\Di\Injector;
+use Kaly\Http\HttpFactory;
 use Kaly\Http\ResponseEmitter;
-use Kaly\Router\RouterInterface;
-use Kaly\Router\RequestDispatcher;
-use Nyholm\Psr7\Factory\Psr17Factory;
-use Psr\Http\Message\ResponseInterface;
 use Kaly\Http\ResponseProviderInterface;
+use Kaly\Http\ServerRequest;
+use Kaly\Http\Session;
+use Kaly\Log\FileLogger;
+use Kaly\Middleware\MiddlewareRunner;
+use Kaly\Middleware\MiddlewareToHandlerAdapter;
+use Kaly\Router\ClassRouter;
 use Kaly\Router\FaviconProviderInterface;
-use Psr\Http\Message\UriFactoryInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\StreamFactoryInterface;
-use Psr\Http\Server\RequestHandlerInterface;
+use Kaly\Router\RequestDispatcher;
+use Kaly\Router\RouterInterface;
+use Kaly\Text\Translator;
+use Kaly\Util\Env;
+use Kaly\Util\Fs;
+use Kaly\Util\Json;
+use Kaly\View\Engine;
+use Kaly\View\EngineInterface;
+use Nyholm\Psr7\Factory\Psr17Factory;
+use Psr\Clock\ClockInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
-use Kaly\View\EngineInterface;
-use Psr\Http\Message\UploadedFileFactoryInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestFactoryInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+use Psr\Http\Message\UploadedFileFactoryInterface;
+use Psr\Http\Message\UriFactoryInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Psr\SimpleCache\CacheInterface;
-use Kaly\Middleware\MiddlewareRunner;
-use RuntimeException;
+use Throwable;
 
 /**
  * A basic app that should be created from the entry file
@@ -53,20 +53,20 @@ class App implements RequestHandlerInterface
     use HasCache;
 
     // Named entries in di
-    public const DEBUG_LOGGER = "debugLogger";
-    public const APP_CACHE = "appCache";
+    public const DEBUG_LOGGER = 'debugLogger';
+    public const APP_CACHE = 'appCache';
     // Env params
-    public const IGNORE_DOT_ENV = "IGNORE_DOT_ENV";
-    public const ENV_DEBUG = "APP_DEBUG";
-    public const ENV_TIMEZONE = "APP_TIMEZONE";
-    public const ENV_IDE_PLACEHOLDER = "DUMP_IDE_PLACEHOLDER";
+    public const IGNORE_DOT_ENV = 'IGNORE_DOT_ENV';
+    public const ENV_DEBUG = 'APP_DEBUG';
+    public const ENV_TIMEZONE = 'APP_TIMEZONE';
+    public const ENV_IDE_PLACEHOLDER = 'DUMP_IDE_PLACEHOLDER';
     // Callbacks
-    public const CB_BOOTED = "booted";
-    public const CB_ERROR = "error";
-    public const CB_BEFORE_DEFINTITIONS = "beforeDefinitions";
-    public const CB_AFTER_DEFINITIONS = "afterDefinitions";
-    public const CB_BEFORE_REQUEST = "beforeRequest";
-    public const CB_AFTER_REQUEST = "afterRequest";
+    public const CB_BOOTED = 'booted';
+    public const CB_ERROR = 'error';
+    public const CB_BEFORE_DEFINTITIONS = 'beforeDefinitions';
+    public const CB_AFTER_DEFINITIONS = 'afterDefinitions';
+    public const CB_BEFORE_REQUEST = 'beforeRequest';
+    public const CB_AFTER_REQUEST = 'afterRequest';
     public const AVAILABLE_CALLBACKS = [
         'booted',
         'beforeDefinitions',
@@ -79,8 +79,6 @@ class App implements RequestHandlerInterface
     protected const DEFAULT_IMPLEMENTATIONS = [
         // PSR-20
         ClockInterface::class => SystemClock::class,
-        // PSR-15
-        RequestHandlerInterface::class => MiddlewareRunner::class,
         // PSR-7
         RequestFactoryInterface::class => Psr17Factory::class,
         ResponseFactoryInterface::class => Psr17Factory::class,
@@ -166,7 +164,7 @@ class App implements RequestHandlerInterface
      */
     protected function loadModules(): Definitions
     {
-        $files = Module::findModulesInDir($this->baseDir . "/" . App::FOLDER_MODULES);
+        $files = Module::findModulesInDir($this->baseDir . '/' . App::FOLDER_MODULES);
         $modules = [];
         $definitions = new Definitions();
 
@@ -195,9 +193,11 @@ class App implements RequestHandlerInterface
             // Load config file
             $module->loadConfig();
 
-            // If no priority, assign one (100,200...)
+            // If no priority, assign one (100,200...) based on the sorted
+            // discovery order so that configuration is deterministic.
+            // An explicit priority set by the module always wins.
+            $i += 100;
             if (!$module->getPriority()) {
-                $i += 100;
                 $module->setPriority($i);
             }
 
@@ -235,9 +235,7 @@ class App implements RequestHandlerInterface
 
         $this->modules = $modules;
 
-        $definitions = $this->updateDefinitions($definitions);
-
-        return $definitions;
+        return $this->updateDefinitions($definitions);
     }
 
     /**
@@ -264,20 +262,22 @@ class App implements RequestHandlerInterface
         $def->set(static::class, $this);
         // Create an alias if necessary
         if (self::class !== static::class) {
-            $def->set(self::class, static::class);
+            $def->set(self::class, $this);
         }
 
         // Register our default implementations if none are provided through modules
         foreach (self::DEFAULT_IMPLEMENTATIONS as $interface => $className) {
-            if ($def->miss($interface)) {
-                $def->bind($className, $interface);
+            if ($def->has($interface)) {
+                continue;
             }
+
+            $def->bind($interface, $className);
         }
 
         // Register a debug logger (null logger if debug is disabled) if none are provided
-        if ($def->miss(self::DEBUG_LOGGER)) {
+        if (!$def->has(self::DEBUG_LOGGER)) {
             if ($this->debug) {
-                $def->set(self::DEBUG_LOGGER, new FileLogger($this->baseDir . "/debug.log"));
+                $def->set(self::DEBUG_LOGGER, new FileLogger($this->baseDir . '/debug.log'));
             } else {
                 $def->set(self::DEBUG_LOGGER, NullLogger::class);
             }
@@ -348,17 +348,35 @@ class App implements RequestHandlerInterface
         $this->container = new Container($definitions);
         $this->injector = new Injector($this->container);
 
+        $this->requestHandler = $this->createRequestHandler();
+
         $this->setServicesFromContainer();
         $this->runCallbacks(self::CB_BOOTED);
+    }
+
+    /**
+     * Build the request handler. By default, this is a middleware runner
+     * whose final handler is the request dispatcher.
+     *
+     * A custom RequestHandlerInterface binding takes precedence.
+     */
+    protected function createRequestHandler(): RequestHandlerInterface
+    {
+        assert($this->container !== null);
+
+        if ($this->container->has(RequestHandlerInterface::class)) {
+            return $this->container->get(RequestHandlerInterface::class);
+        }
+
+        $dispatcher = $this->container->get(RequestDispatcher::class);
+        return new MiddlewareRunner(new MiddlewareToHandlerAdapter($dispatcher), $this->container);
     }
 
     public function respond(string $body, int $code = 200): ResponseInterface
     {
         if ($this->container) {
             $response = $this->container->get(ResponseFactoryInterface::class)->createResponse($code);
-            return $response->withBody(
-                $this->container->get(StreamFactoryInterface::class)->createStream($body)
-            );
+            return $response->withBody($this->container->get(StreamFactoryInterface::class)->createStream($body));
         }
         return HttpFactory::createResponse($body, $code);
     }
@@ -369,16 +387,7 @@ class App implements RequestHandlerInterface
      */
     public function handle(?ServerRequestInterface $request = null): ResponseInterface
     {
-        assert($this->booted === true, "App must be booted first");
-
-        // On first request, add dispatcher if needed
-        // If we use middlewares, add our request dispatcher
-        if ($this->hasMiddlewareRunner()) {
-            $runner = $this->getMiddlewareRunner();
-            if (!$runner->has(RequestDispatcher::class)) {
-                $runner->push(RequestDispatcher::class);
-            }
-        }
+        assert($this->booted === true, 'App must be booted first');
 
         if ($request === null) {
             $request = HttpFactory::createRequestFromGlobals();
@@ -387,17 +396,9 @@ class App implements RequestHandlerInterface
 
         $this->runCallbacks(self::CB_BEFORE_REQUEST, $request);
 
-        // Run through the middlewares
+        // Run through the middlewares, the request dispatcher being the final handler
         try {
-            $handler = $this->getRequestHandler();
-
-            // Reset so that handling multiple request with the same app is not an issue
-            if ($handler instanceof MiddlewareRunner) {
-                $result = $handler->handleNewRequest($request);
-            } else {
-                $result = $handler->handle($request);
-            }
-            return $result;
+            return $this->getRequestHandler()->handle($request);
         } catch (Throwable $ex) {
             if ($ex instanceof ResponseProviderInterface) {
                 return $ex->getResponse();
@@ -405,8 +406,9 @@ class App implements RequestHandlerInterface
 
             $this->runCallbacks(self::CB_ERROR, $ex);
 
+            // Only a valid HTTP error status is meaningful, anything else is a server error
             $code = $ex->getCode();
-            if (!$code) {
+            if ($code < 400 || $code > 599) {
                 $code = 500;
             }
 
@@ -483,15 +485,12 @@ class App implements RequestHandlerInterface
     }
 
     /**
-     * Get the app request handler. By default, this should be the middleware runner
-     * @return RequestHandlerInterface|MiddlewareRunner
+     * Get the app request handler. It is built once during boot.
      */
     public function getRequestHandler(): RequestHandlerInterface
     {
         assert($this->booted);
-        if ($this->requestHandler === null) {
-            $this->requestHandler = $this->get(RequestHandlerInterface::class);
-        }
+        assert($this->requestHandler !== null);
         return $this->requestHandler;
     }
 
@@ -513,8 +512,7 @@ class App implements RequestHandlerInterface
 
     public function getLogger(): LoggerInterface
     {
-        $logger = $this->getContainer()->get(LoggerInterface::class);
-        return $logger;
+        return $this->getContainer()->get(LoggerInterface::class);
     }
 
     public function getDebugLogger(): LoggerInterface

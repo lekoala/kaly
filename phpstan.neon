@@ -1,10 +1,11 @@
 parameters:
   level: max
   treatPhpDocTypesAsCertain: false
+  editorUrlTitle: '%%relFile%%:%%line%%'
+  editorUrl: 'vscode://file/%%file%%:%%line%%'
   ignoreErrors:
     - '#has invalid type Composer\\Script\\Event#'
     - '#Call to function assert\(\) with true#'
     - '#function preg_replace_callback#'
-  editorUrl: 'vscode://open?file=%%file%%&line=%%line%%'
 includes:
   - phar://phpstan.phar/conf/bleedingEdge.neon

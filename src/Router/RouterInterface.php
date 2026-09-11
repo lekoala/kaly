@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Kaly\Router;
 
 use Exception;
-use Psr\Http\Message\ServerRequestInterface;
-use Kaly\Http\RedirectException;
 use Kaly\Http\NotFoundException;
+use Kaly\Http\RedirectException;
+use Psr\Http\Message\ServerRequestInterface;
 
 /**
  * Routers should implement a simple "match" function
@@ -15,15 +15,15 @@ use Kaly\Http\NotFoundException;
  */
 interface RouterInterface
 {
-    public const MODULE = "module";
-    public const NAMESPACE = "namespace";
-    public const CONTROLLER = "controller";
-    public const ACTION = "action";
-    public const PARAMS = "params";
-    public const LOCALE = "locale";
-    public const SEGMENTS = "segments";
-    public const TEMPLATE = "template";
-    public const FALLBACK_ACTION = "__invoke";
+    public const MODULE = 'module';
+    public const NAMESPACE = 'namespace';
+    public const CONTROLLER = 'controller';
+    public const ACTION = 'action';
+    public const PARAMS = 'params';
+    public const LOCALE = 'locale';
+    public const SEGMENTS = 'segments';
+    public const TEMPLATE = 'template';
+    public const FALLBACK_ACTION = '__invoke';
 
     /**
      * @throws RedirectException Will be converted to 3xx redirect

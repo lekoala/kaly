@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Middleware;
+namespace Kaly\Middleware\Builtin;
 
-use Psr\Http\Server\MiddlewareInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
-use Psr\Http\Message\ResponseInterface;
 use Kaly\Http\NotFoundException;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
 class PreventFileAccess implements MiddlewareInterface
 {
@@ -18,10 +18,10 @@ class PreventFileAccess implements MiddlewareInterface
 
         // Prevent other file requests to go through routing
         $basePath = basename($path);
-        if (str_contains($basePath, ".") && !str_ends_with($path, '/')) {
-            throw new NotFoundException("File not found");
+        if (str_contains($basePath, '.') && !str_ends_with($path, '/')) {
+            throw new NotFoundException('File not found');
         }
 
-        throw new SkipMiddlewareException();
+        return $handler->handle($request);
     }
 }

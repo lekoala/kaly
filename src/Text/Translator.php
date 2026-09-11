@@ -6,8 +6,8 @@ namespace Kaly\Text;
 
 use Kaly\Http\ServerRequest;
 use Kaly\Util\Arr;
-use RuntimeException;
 use Kaly\Util\Fs;
+use RuntimeException;
 
 /**
  * This basic translator supports a limited subset of symfony translator features.
@@ -15,16 +15,16 @@ use Kaly\Util\Fs;
  */
 class Translator
 {
-    public const ATTR_LOCALE_REQUEST = "locale";
+    public const ATTR_LOCALE_REQUEST = 'locale';
 
-    public const DEFAULT_DOMAIN = "messages";
+    public const DEFAULT_DOMAIN = 'messages';
     // ISO 639 2 or 3, or 4 for future use, alpha
-    public const LOCALE_LANGUAGE = "language";
+    public const LOCALE_LANGUAGE = 'language';
     // ISO 15924 4 alpha
-    public const LOCALE_SCRIPT = "script";
+    public const LOCALE_SCRIPT = 'script';
     // ISO 3166-1 2 alpha or 3 digit
-    public const LOCALE_COUNTRY = "country";
-    public const LOCALE_PRIVATE = "private";
+    public const LOCALE_COUNTRY = 'country';
+    public const LOCALE_PRIVATE = 'private';
 
     /**
      * @var array<string,array<string,array<string,mixed>>>
@@ -67,7 +67,7 @@ class Translator
         }
         if ($locale) {
             if (!is_string($locale)) {
-                throw new RuntimeException("Locale must be a string");
+                throw new RuntimeException('Locale must be a string');
             }
             // Make sure it's valid
             self::parseLocale($locale);
@@ -75,7 +75,6 @@ class Translator
         }
         return $this;
     }
-
 
     /**
      * @return array<string, string>
@@ -90,9 +89,9 @@ class Translator
         $matches = [];
         $results = preg_match($pattern, $locale, $matches);
         if (!$results) {
-            throw new RuntimeException("Failed to parse locale string '$locale'");
+            throw new RuntimeException("Failed to parse locale string '{$locale}'");
         }
-        $matches = array_filter($matches, "is_string", ARRAY_FILTER_USE_KEY);
+        $matches = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
         $matches['script'] ??= '';
         $matches['country'] ??= '';
         $matches['private'] ??= '';
@@ -101,7 +100,7 @@ class Translator
 
     public static function getLangFromLocale(string $locale): string
     {
-        return strtolower(explode("-", str_replace("_", "-", $locale), 3)[0]);
+        return strtolower(explode('-', str_replace('_', '-', $locale), 3)[0]);
     }
 
     /**
@@ -139,7 +138,7 @@ class Translator
         if (is_array($catalog)) {
             return $catalog;
         }
-        throw new RuntimeException("Ran into an invalid catalog value, check buildCatalog function");
+        throw new RuntimeException('Ran into an invalid catalog value, check buildCatalog function');
     }
 
     /**
@@ -164,34 +163,30 @@ class Translator
             if (!isset($this->catalogs[$name][$locale])) {
                 $this->catalogs[$name][$locale] = [];
             }
-            $file = $path . "/$name.$locale.php";
+            $file = $path . "/{$name}.{$locale}.php";
             if (!is_file($file)) {
                 continue;
             }
             $result = require $file;
             if (!is_array($result)) {
-                throw new RuntimeException("Translation file '$file' must return an array");
+                throw new RuntimeException("Translation file '{$file}' must return an array");
             }
             //@phpstan-ignore-next-line
             $this->catalogs[$name][$locale] = $result;
         }
         // Update cache file if set
         if ($this->cacheDir) {
-            $file = $this->cacheDir . DIRECTORY_SEPARATOR . "$name.$locale.php";
+            $file = $this->cacheDir . DIRECTORY_SEPARATOR . "{$name}.{$locale}.php";
             $export = var_export($this->catalogs, true);
-            file_put_contents($file, "<?php return $export;");
+            file_put_contents($file, "<?php return {$export};");
         }
     }
 
     /**
      * @param array<string, mixed> $parameters
      */
-    public function translate(
-        string $message,
-        array $parameters = [],
-        ?string $domain = null,
-        ?string $locale = null
-    ): string {
+    public function translate(string $message, array $parameters = [], ?string $domain = null, ?string $locale = null): string
+    {
         if (!$domain) {
             $domain = $this->baseDomain ?? self::DEFAULT_DOMAIN;
         }
@@ -199,12 +194,12 @@ class Translator
             $locale = $this->currentLocale;
         }
         if (!$locale) {
-            throw new RuntimeException("No locale set for translation");
+            throw new RuntimeException('No locale set for translation');
         }
         $catalog = $this->getCatalog($domain, $locale);
 
         // nested ids supports à la symfony
-        $parts = explode(".", $message);
+        $parts = explode('.', $message);
         $index = 0;
         $translation = $catalog;
         do {
@@ -272,7 +267,7 @@ class Translator
     {
         // This could be a simple convention singular|plural
         // Or have specific rules if starts with { or ][
-        $parts = explode("|", $translation);
+        $parts = explode('|', $translation);
         // The last one is the valid one by default
         $translation = end($parts);
         $partsNum = count($parts);
@@ -368,7 +363,7 @@ class Translator
             foreach ($files as $file) {
                 $arr = require $file;
                 if (!is_array($arr)) {
-                    throw new RuntimeException("Cached translation file did not return an array");
+                    throw new RuntimeException('Cached translation file did not return an array');
                 }
                 // @phpstan-ignore-next-line
                 $this->catalogs = Arr::mergeDistinct($this->catalogs, $arr);

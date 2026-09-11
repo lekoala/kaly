@@ -21,15 +21,10 @@ final class Arr
      * @param boolean $subdesc sort in desc for subcol
      * @return void
      */
-    public static function sortField(
-        array &$arr,
-        string $col,
-        ?string $subcol = null,
-        bool $desc = false,
-        ?bool $subdesc = null
-    ): void {
+    public static function sortField(array &$arr, string $col, ?string $subcol = null, bool $desc = false, ?bool $subdesc = null): void
+    {
         $subdesc ??= $desc;
-        usort($arr, function ($a, $b) use ($col, $subcol, $desc, $subdesc): int {
+        usort($arr, static function ($a, $b) use ($col, $subcol, $desc, $subdesc): int {
             $retval = $desc ? $b->$col <=> $a->$col : $a->$col <=> $b->$col;
             if ($retval == 0) {
                 $retval = $subdesc ? $b->$subcol <=> $a->$subcol : $a->$subcol <=> $b->$subcol;
@@ -46,7 +41,7 @@ final class Arr
      */
     public static function searchMulti(array $array, string $column, string $key): int|string|false
     {
-        return (self::find($key, array_column($array, $column)));
+        return self::find($key, array_column($array, $column));
     }
 
     /**
@@ -141,11 +136,8 @@ final class Arr
      */
     public static function mapKeys(callable $fn, array $arr): array
     {
-        return array_combine(
-            //@phpstan-ignore-next-line
-            array_map($fn, array_keys($arr)),
-            $arr
-        );
+        $keys = array_map(static fn($key): string => Str::stringify($fn($key)), array_keys($arr));
+        return array_combine($keys, $arr);
     }
 
     /**
@@ -163,7 +155,7 @@ final class Arr
      */
     public static function mapAssoc(callable $callback, array $array): array
     {
-        return array_map(fn($key) => $callback($key, $array[$key]), array_keys($array));
+        return array_map(static fn($key) => $callback($key, $array[$key]), array_keys($array));
     }
 
     /**
@@ -173,7 +165,7 @@ final class Arr
      */
     public static function mapRecursive(callable $n, array $arr): array
     {
-        array_walk_recursive($arr, function (&$v) use ($n): void {
+        array_walk_recursive($arr, static function (&$v) use ($n): void {
             $v = $n($v);
         });
         return $arr;
@@ -187,12 +179,12 @@ final class Arr
     public static function stringValues(array $arr): array
     {
         //@phpstan-ignore-next-line
-        return self::map(function ($v) {
+        return self::map(static function ($v) {
             if (is_array($v)) {
                 return self::stringValues($v);
             }
             if ($v instanceof Stringable) {
-                return (string)$v;
+                return (string) $v;
             }
             return Str::stringify($v);
         }, $arr);

@@ -33,19 +33,19 @@ class IndexController extends AbstractController
 
     public function arr(array $arr): object
     {
-        $obj = new class($arr) implements JsonSerializable
-        {
+        return new class($arr) implements JsonSerializable {
             protected array $data;
+
             public function __construct(array $data)
             {
                 $this->data = $data;
             }
+
             public function jsonSerialize(): mixed
             {
                 return $this->data;
             }
         };
-        return $obj;
     }
 
     public function methodGet(): string
@@ -60,38 +60,38 @@ class IndexController extends AbstractController
 
     public function middleware(): string
     {
-        $attr = $this->request->getAttribute("test-attribute");
-        return (string)$attr;
+        $attr = $this->request->getAttribute('test-attribute');
+        return (string) $attr;
     }
 
     public function middlewareException(): never
     {
-        throw new Exception($this->request->getAttribute("test-attribute"));
+        throw new Exception($this->request->getAttribute('test-attribute'));
     }
 
     public function getip()
     {
-        return $this->request->getAttribute("client-ip");
+        return $this->request->getAttribute('client-ip');
     }
 
     public function getipstate()
     {
-        return $this->request->getAttribute("client-ip");
+        return $this->request->getAttribute('client-ip');
     }
 
     public function redirect(): never
     {
-        throw new RedirectException("/test-module");
+        throw new RedirectException('/test-module');
     }
 
     public function validation(): never
     {
-        throw new ValidationException("This is invalid");
+        throw new ValidationException('This is invalid');
     }
 
     public function auth(): void
     {
         $auth = $this->app->get(Auth::class);
-        $auth->basicAuth($this->request, "unit", "test");
+        $auth->basicAuth($this->request, 'unit', 'test');
     }
 }

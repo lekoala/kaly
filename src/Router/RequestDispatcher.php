@@ -4,31 +4,28 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
-use Psr\Http\Server\MiddlewareInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
-use Kaly\Text\Translator;
-use Kaly\Router\RouterInterface;
-use Kaly\Http\ServerRequest;
-use Psr\Http\Message\ResponseInterface;
-use Kaly\Router\Route;
+use JsonSerializable;
+use Kaly\Core\AbstractController;
 use Kaly\Core\App;
 use Kaly\Core\Ex;
 use Kaly\Http\ContentType;
 use Kaly\Http\HttpFactory;
-use Kaly\Router\JsonRouteInterface;
-use Kaly\View\TemplateProviderInterface;
-use JsonSerializable;
-use Kaly\Core\AbstractController;
 use Kaly\Http\NotFoundException;
+use Kaly\Http\ServerRequest;
+use Kaly\Text\Translator;
+use Kaly\View\TemplateProviderInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
 class RequestDispatcher implements MiddlewareInterface
 {
     // Request attributes
-    public const ATTR_IP_REQUEST = "client-ip";
-    public const ATTR_REQUEST_ID_REQUEST = "request-id";
-    public const ATTR_ROUTE_REQUEST = "route";
-    public const ATTR_LOCALE_REQUEST = "locale";
+    public const ATTR_IP_REQUEST = 'client-ip';
+    public const ATTR_REQUEST_ID_REQUEST = 'request-id';
+    public const ATTR_ROUTE_REQUEST = 'route';
+    public const ATTR_LOCALE_REQUEST = 'locale';
 
     protected App $app;
 
@@ -49,13 +46,18 @@ class RequestDispatcher implements MiddlewareInterface
         $router = $container->get(RouterInterface::class);
         $route = $router->match($request);
 
-        $response = $this->dispatch($request, $route);
-
-        $request = $request->withAttribute(self::ATTR_ROUTE_REQUEST, $route->toArray());
+        // Apply the locale before invoking the controller so that actions run
+        // with the correct locale.
         if ($route->locale) {
             $request = $request->withAttribute(self::ATTR_LOCALE_REQUEST, $route->locale);
             $translator->setCurrentLocale($route->locale);
         }
+
+        $response = $this->dispatch($request, $route);
+
+        // Capture the route after dispatch: json/template flags may be set
+        // based on the controller instance and its result.
+        $request = $request->withAttribute(self::ATTR_ROUTE_REQUEST, $route->toArray());
 
         return $this->prepareResponse($request, $response);
     }
@@ -67,7 +69,7 @@ class RequestDispatcher implements MiddlewareInterface
     {
         $class = $route->controller;
         if (!$class) {
-            throw new Ex("Controller not found");
+            throw new Ex('Controller not found');
         }
 
         $injector = $this->app->getInjector();
@@ -90,7 +92,7 @@ class RequestDispatcher implements MiddlewareInterface
         $action = $route->action ?? '__invoke';
 
         // Routing params gets passed to the action
-        $arguments = $route->params ?? [];
+        $arguments = $route->params;
 
         // Syntax sugar for handling post
         if (in_array($request->getMethod(), ['POST', 'PUT', 'PATCH'])) {
@@ -100,8 +102,7 @@ class RequestDispatcher implements MiddlewareInterface
         $result = null;
         $callable = [$inst, $action];
         if (is_callable($callable)) {
-            //@phpstan-ignore-next-line
-            $result = $injector->invokeArray($callable, $arguments);
+            $result = $injector->invoke($callable, ...$arguments);
         }
 
         // Special handling for JsonSerializable
@@ -145,12 +146,12 @@ class RequestDispatcher implements MiddlewareInterface
         $route = Route::fromArray($attr);
         $forceJson = boolval($request->getQueryParams()['_json'] ?? false);
         $priorityList = [
-            ContentType::HTML
+            ContentType::HTML,
         ];
         if ($forceJson || $route->json) {
             $priorityList = [
                 ContentType::JSON,
-                ContentType::HTML
+                ContentType::HTML,
             ];
         }
 
@@ -172,7 +173,7 @@ class RequestDispatcher implements MiddlewareInterface
             }
         }
 
-        if (!($response instanceof ResponseInterface)) {
+        if (!$response instanceof ResponseInterface) {
             // We don't have a suitable response, transform body
             $headers = [];
 
@@ -182,7 +183,7 @@ class RequestDispatcher implements MiddlewareInterface
             } elseif (!is_array($response)) {
                 $response = HttpFactory::createHtmlResponse($response, 200, $headers);
             } else {
-                throw new Ex("Invalid response");
+                throw new Ex('Invalid response');
             }
         }
 

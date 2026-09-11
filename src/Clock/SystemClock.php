@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Kaly\Clock;
 
+use DateInvalidTimeZoneException;
 use DateTimeImmutable;
 use DateTimeZone;
 use Throwable;
-use DateInvalidTimeZoneException;
 
 /**
  * A clock that relies on system time.
@@ -19,21 +19,18 @@ final class SystemClock extends AbstractClock
     /**
      * @throws DateInvalidTimeZoneException If $timezone is passed as string and is invalid.
      */
-    public function __construct(null|DateTimeZone|string $timezone = null)
+    public function __construct(DateTimeZone|string|null $timezone = null)
     {
         if (!$timezone instanceof DateTimeZone) {
             $timezone ??= 'UTC';
 
             try {
                 $this->timezone = new DateTimeZone($timezone === '' ? 'UTC' : $timezone);
+
                 // \Exception < PHP 8.3, \DateInvalidTimeZoneException >= PHP 8.3
                 // DateInvalidTimeZoneException is polyfilled via symfony/polyfill-php83
             } catch (Throwable $throwable) {
-                throw new DateInvalidTimeZoneException(
-                    $throwable->getMessage(),
-                    intval($throwable->getCode()),
-                    $throwable
-                );
+                throw new DateInvalidTimeZoneException($throwable->getMessage(), intval($throwable->getCode()), $throwable);
             }
             return;
         }

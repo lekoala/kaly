@@ -1,0 +1,47 @@
+# Welcome to Mago!
+# For full documentation, see https://mago.carthage.software/tools/overview
+php-version = "8.3.0"
+
+[source]
+workspace = "."
+paths = ["src", "tests"]
+includes = []
+excludes = []
+
+[formatter]
+print-width = 140
+tab-width = 4
+use-tabs = false
+
+[linter]
+integrations = ["phpunit"]
+
+[linter.rules]
+ambiguous-function-call = { enabled = false }
+literal-named-argument = { enabled = false }
+assert-description = { enabled = false }
+assertion-style = { style = "this" }
+strict-assertions = { enabled = false }
+single-class-per-file = { enabled = false }
+excessive-parameter-list = { enabled = false }
+no-empty = { enabled = false }
+no-error-control-operator = { enabled = false }
+cyclomatic-complexity = { threshold = 150 }
+kan-defect = { threshold = 12 }
+too-many-methods = { threshold = 80 }
+too-many-properties = { threshold = 50 }
+halstead = { effort-threshold = 12000, difficulty-threshold = 30 }
+
+[analyzer]
+find-unused-definitions = true
+find-unused-expressions = false
+analyze-dead-code = false
+memoize-properties = true
+allow-possibly-undefined-array-keys = true
+check-throws = false
+check-missing-override = false
+find-unused-parameters = false
+strict-list-index-checks = false
+no-boolean-literal-comparison = false
+check-missing-type-hints = false
+register-super-globals = true

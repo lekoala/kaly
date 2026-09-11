@@ -4,8 +4,9 @@
 
 use Kaly\Router\ClassRouter;
 
-$this->definitions()
+$this
+    ->definitions()
     ->callback(ClassRouter::class, function (ClassRouter $router): void {
-        $router->addAllowedNamespace("LangModule");
+        $router->addAllowedNamespace('LangModule');
     })
     ->lock();

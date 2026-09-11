@@ -23,7 +23,7 @@ class ViewTest extends TestCase
     {
         $html = $this->engine->render('test', [
             'world' => 'world',
-            'global_over' => 'local'
+            'global_over' => 'local',
         ]);
         $this->assertStringContainsString('hello world', $html);
         $this->assertStringContainsString('global world', $html);
@@ -35,6 +35,7 @@ class ViewTest extends TestCase
         $user = new class {
             public string $firstname = 'Test';
             public string $lastname = 'Surname';
+
             public function fullname(): string
             {
                 return $this->firstname . ' ' . $this->lastname;

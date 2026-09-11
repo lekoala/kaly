@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
-use Kaly\Http\HttpFactory;
-use Psr\Http\Message\ResponseInterface;
 use Kaly\Core\Ex;
-use Kaly\Http\ResponseProviderInterface;
 use Kaly\Util\Json;
+use Psr\Http\Message\ResponseInterface;
 
 class ResponseException extends Ex implements ResponseProviderInterface
 {
@@ -23,7 +21,7 @@ class ResponseException extends Ex implements ResponseProviderInterface
         }
         return match ($this->dataType) {
             'svg' => HttpFactory::createResponse($this->getMessage(), $code, [
-                'Content-Type' => ContentType::SVG
+                'Content-Type' => ContentType::SVG,
             ]),
             'json' => HttpFactory::createJsonResponse($this->getMessage(), $code),
             'html' => HttpFactory::createHtmlResponse($this->getMessage(), $code),

@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
-use Throwable;
 use InvalidArgumentException;
-use Kaly\Http\HttpFactory;
-use Psr\Http\Message\UriInterface;
-use Psr\Http\Message\ResponseInterface;
 use Kaly\Core\Ex;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\UriInterface;
+use Throwable;
 
 class RedirectException extends Ex implements ResponseProviderInterface
 {
@@ -60,9 +59,9 @@ class RedirectException extends Ex implements ResponseProviderInterface
     public function __construct($url, int $code = 307, ?Throwable $previous = null)
     {
         if ($code < 300 || $code > 399) {
-            throw new InvalidArgumentException("$code should be between 300 and 399");
+            throw new InvalidArgumentException("{$code} should be between 300 and 399");
         }
-        $this->url = (string)$url;
+        $this->url = (string) $url;
         $message = 'You are being redirected to ' . $url;
         parent::__construct($message, $code, $previous);
     }

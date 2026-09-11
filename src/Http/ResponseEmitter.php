@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
-use Psr\Http\Message\ResponseInterface;
-use RuntimeException;
-use Psr\Http\Message\StreamInterface;
 use InvalidArgumentException;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamInterface;
+use RuntimeException;
 
 /**
  * @link https://github.com/laminas/laminas-httphandlerrunner/blob/2.11.x/src/Emitter/SapiEmitter.php
@@ -32,7 +32,7 @@ class ResponseEmitter implements ResponseEmitterInterface
             throw new InvalidArgumentException(sprintf(
                 'Buffer length for `%s` must be greater than zero; received `%d`',
                 self::class,
-                $bufferLength
+                $bufferLength,
             ));
         }
 
@@ -65,11 +65,11 @@ class ResponseEmitter implements ResponseEmitterInterface
     private function assertNoPreviousOutput(): void
     {
         if (headers_sent($filename, $line)) {
-            throw new RuntimeException("Headers already sent in $filename on line $line");
+            throw new RuntimeException("Headers already sent in {$filename} on line {$line}");
         }
 
         if (ob_get_level() > 0 && ob_get_length() > 0) {
-            throw new RuntimeException("Output already sent");
+            throw new RuntimeException('Output already sent');
         }
     }
 
@@ -86,7 +86,7 @@ class ResponseEmitter implements ResponseEmitterInterface
         http_response_code($response->getStatusCode());
         foreach ($response->getHeaders() as $name => $values) {
             $name = str_replace(' ', '-', ucwords(strtolower(str_replace('-', ' ', (string) $name))));
-            $firstReplace = ($name === 'Set-Cookie') ? false : true;
+            $firstReplace = $name === 'Set-Cookie' ? false : true;
 
             foreach ($values as $value) {
                 header("{$name}: {$value}", $firstReplace);
@@ -111,11 +111,7 @@ class ResponseEmitter implements ResponseEmitterInterface
         $statusCode = $response->getStatusCode();
         $protocol = $response->getProtocolVersion();
 
-        header(
-            sprintf('HTTP/%s %s %s', $protocol, $statusCode, $reasonPhrase),
-            true,
-            $statusCode
-        );
+        header(sprintf('HTTP/%s %s %s', $protocol, $statusCode, $reasonPhrase), true, $statusCode);
     }
 
     /**
@@ -206,7 +202,7 @@ class ResponseEmitter implements ResponseEmitterInterface
                 'unit' => $matches['unit'],
                 'first' => (int) $matches['first'],
                 'last' => (int) $matches['last'],
-                'length' => ($matches['length'] === '*') ? '*' : (int) $matches['length'],
+                'length' => $matches['length'] === '*' ? '*' : (int) $matches['length'],
             ];
         }
         return null;

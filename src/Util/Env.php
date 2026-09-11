@@ -25,12 +25,12 @@ final class Env
     {
         $result = parse_ini_file($envFile);
         if (!$result) {
-            throw new RuntimeException("Failed to parse `$envFile`");
+            throw new RuntimeException("Failed to parse `{$envFile}`");
         }
         foreach ($result as $k => $v) {
             // Make sure that we are not overwriting variables
             if (isset($_ENV[$k]) && !$overwrite) {
-                throw new RuntimeException("Could not overwrite `$k` in ENV");
+                throw new RuntimeException("Could not overwrite `{$k}` in ENV");
             }
             // Store in $_ENV as string
             $_ENV[$k] = $v;
@@ -95,7 +95,7 @@ final class Env
     {
         $value = static::get($key) ?? $default;
         if (!is_string($value)) {
-            throw new RuntimeException("Env variable `$key` is not a string");
+            throw new RuntimeException("Env variable `{$key}` is not a string");
         }
         return $value;
     }
@@ -113,7 +113,7 @@ final class Env
             if (is_numeric($value)) {
                 $value = intval($value);
             } else {
-                throw new RuntimeException("Env variable `$key` is not a int");
+                throw new RuntimeException("Env variable `{$key}` is not a int");
             }
         }
         return $value;
@@ -132,7 +132,7 @@ final class Env
             if (is_numeric($value)) {
                 $value = floatval($value);
             } else {
-                throw new RuntimeException("Env variable `$key` is not a float");
+                throw new RuntimeException("Env variable `{$key}` is not a float");
             }
         }
         return $value;
@@ -146,14 +146,14 @@ final class Env
      * @return array<mixed>
      * @throws RuntimeException
      */
-    public static function getArray(string $key, array $default = [], string $separator = ";"): array
+    public static function getArray(string $key, array $default = [], string $separator = ';'): array
     {
         $value = static::get($key) ?? $default;
         if (is_string($value) && $separator) {
             $value = array_map('trim', explode($separator, $value));
         }
         if (!is_array($value)) {
-            throw new RuntimeException("Env variable `$key` is not an array");
+            throw new RuntimeException("Env variable `{$key}` is not an array");
         }
         return $value;
     }
@@ -177,7 +177,7 @@ final class Env
             };
         }
         if (!is_bool($value)) {
-            throw new RuntimeException("Env variable `$key` is not a bool");
+            throw new RuntimeException("Env variable `{$key}` is not a bool");
         }
         return $value;
     }

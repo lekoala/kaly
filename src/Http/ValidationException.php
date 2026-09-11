@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
-use Throwable;
-use Psr\Http\Message\ResponseInterface;
-use Kaly\Http\HttpFactory;
 use Kaly\Core\Ex;
-use Kaly\Http\ResponseProviderInterface;
+use Psr\Http\Message\ResponseInterface;
+use Throwable;
 
 /**
  * Validation error that should show as an alert or a form error

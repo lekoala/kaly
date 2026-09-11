@@ -5,144 +5,150 @@ declare(strict_types=1);
 namespace Kaly\Middleware;
 
 use Closure;
-use Kaly\Di\Injector;
-use Kaly\Http\ResponseException;
-use Psr\Http\Message\ResponseFactoryInterface;
+use InvalidArgumentException;
+use LogicException;
+use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
+/**
+ * A stateless PSR-15 middleware stack.
+ *
+ * The stack is resolved once and can safely handle multiple requests: no
+ * per-request state is kept internally.
+ */
 class MiddlewareRunner implements RequestHandlerInterface
 {
     /**
-     * @var array<array{middleware:class-string|MiddlewareInterface,condition:Closure|null,linear:bool}>
+     * @var array<int,array{middleware:class-string|MiddlewareInterface|GeneratorMiddlewareInterface,condition:Closure|null}>
      */
-    protected array $middlewares = [];
-    protected ResponseFactoryInterface $factory;
-    protected ?ServerRequestInterface $request = null;
-    protected Injector $injector;
-    private bool $linear = false;
+    protected array $config = [];
+    protected RequestHandlerInterface $requestHandler;
+    protected ?ContainerInterface $container;
 
-    public function __construct(Injector $injector)
-    {
-        $this->injector = $injector;
-        $this->factory = $this->injector->make(ResponseFactoryInterface::class);
+    /**
+     * @param class-string|callable|RequestHandlerInterface|MiddlewareInterface $requestHandler The final handler of the stack
+     * @param ContainerInterface|null $container Used to resolve middleware class strings
+     */
+    public function __construct(
+        string|callable|RequestHandlerInterface|MiddlewareInterface $requestHandler,
+        ?ContainerInterface $container = null,
+    ) {
+        $this->container = $container;
+        $this->requestHandler = $this->resolveFinalHandler($requestHandler);
     }
 
     /**
-     * @param class-string|MiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
      */
-    protected function resolveMiddleware($middleware): MiddlewareInterface
+    protected function resolveMiddleware(string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware): MiddlewareInterface|GeneratorMiddlewareInterface
     {
         if (is_string($middleware)) {
-            $middleware = $this->injector->make($middleware);
+            if ($this->container === null) {
+                throw new LogicException('A container is required to resolve a middleware class string.');
+            }
+            $middleware = $this->container->get($middleware);
         }
-        assert($middleware instanceof MiddlewareInterface);
-        return $middleware;
+        if ($middleware instanceof MiddlewareInterface || $middleware instanceof GeneratorMiddlewareInterface) {
+            return $middleware;
+        }
+        throw new LogicException('Resolved middleware is of an unknown type.');
     }
 
-    protected function shouldSkip(?Closure $condition, ServerRequestInterface $request): bool
+    /**
+     * @param class-string|callable|RequestHandlerInterface|MiddlewareInterface $handler
+     */
+    protected function resolveFinalHandler(string|callable|RequestHandlerInterface|MiddlewareInterface $handler): RequestHandlerInterface
+    {
+        if ($handler instanceof RequestHandlerInterface) {
+            return $handler;
+        }
+        if (is_callable($handler)) {
+            return new CallableToHandlerAdapter($handler);
+        }
+        if ($handler instanceof MiddlewareInterface) {
+            return new MiddlewareToHandlerAdapter($handler);
+        }
+        throw new InvalidArgumentException(
+            'The final handler must be a RequestHandlerInterface, a callable, or a terminating psr-15 MiddlewareInterface.',
+        );
+    }
+
+    /**
+     * Checks if the middleware should run based on a closure that gets the request instance and the container if set
+     */
+    protected function shouldRun(?Closure $condition, ServerRequestInterface $request): bool
     {
         if ($condition) {
-            // If the condition returns false, it means we should skip
-            return !$this->injector->invoke($condition, request: $request);
+            return $condition($request, $this->container) !== false;
         }
-        return false;
+        return true;
     }
 
+    /**
+     * This is the entry point and represents the entire stack as a single handler.
+     */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        // Keep a request reference
-        $this->request = $request;
+        // We start processing at the first middleware (index 0).
+        // If the stack is empty, the final handler is called directly.
+        return $this->processNext($request, 0);
+    }
 
-        // handle() is called back in the goto loop,
-        if ($this->linear) {
-            // Return a dummy response to comply with interface
-            return $this->factory->createResponse();
+    /**
+     * This is the core recursive method.
+     * It processes the middleware at the given index.
+     */
+    public function processNext(ServerRequestInterface $request, int $index): ResponseInterface
+    {
+        // If we've run out of middlewares, execute the final application handler.
+        if ($index >= count($this->config)) {
+            return $this->requestHandler->handle($request);
         }
 
-        assert(!empty($this->middlewares));
+        $opt = $this->config[$index];
 
-        $response = null;
+        // Check if the middleware should run
+        if (!$this->shouldRun($opt['condition'], $request)) {
+            return $this->processNext($request, $index + 1);
+        }
 
-        // Yeah what's a good project without a goto
-        start:
+        $middleware = $this->resolveMiddleware($opt['middleware']);
 
-        try {
-            // Keep this into handle function to avoid spamming the stack with method calls
-            $opts = current($this->middlewares);
-            next($this->middlewares);
+        if ($middleware instanceof GeneratorMiddlewareInterface) {
+            // Native middleware using the generator model.
+            $generator = $middleware->process($request);
 
-            if ($opts) {
-                if ($this->shouldSkip($opts['condition'], $this->request)) {
-                    // Skip this and handle next
-                    return $this->handle($this->request);
-                }
-
-                // Resolve middleware
-                $middleware = $this->resolveMiddleware($opts['middleware']);
-                $linear = $opts['linear'];
-
-                // Linear middlewares only update the request and are not nested into the stack
-                // Response is discarded
-                if ($linear) {
-                    // Set the linear flag so that we will only care about the updated request
-                    $this->linear = true;
-                    $middleware->process($this->request, $this);
-                    // Process will call MiddlewareRunner::handle and request reference will be updated
-                    $this->linear = false;
-                    // Use goto to avoid stack trace
-                    goto start;
-                } else {
-                    return $middleware->process($this->request, $this);
-                }
+            if (!$generator->valid()) {
+                // Short-circuiting generator
+                return $generator->getReturn();
             }
-        } catch (SkipMiddlewareException) {
-            // Skip this and handle next
-            $this->linear = false;
-            return $this->handle($this->request);
-        } catch (ResponseException $e) {
-            // Maybe the middleware wants to prevent other to execute
-            $response = $e->getResponse();
+
+            // Get the modified request from the generator's "before" phase.
+            $requestAfterBefore = $generator->current();
+
+            // Execute the rest of the stack to get the inner response.
+            $responseFromInside = $this->processNext($requestAfterBefore, $index + 1);
+
+            // Now, perform the "after" phase by resuming the generator.
+            $generator->send($responseFromInside);
+            return $generator->getReturn();
         }
 
-        // We may never reach this part if the middleware did not call back this
-
-        // No responses provided by our middlewares
-        if ($response === null) {
-            $response = $this->factory->createResponse(404);
-        }
-        return $response;
+        // Standard PSR-15 middleware: the nested model.
+        // The next handler represents "the rest of the stack".
+        $nextHandler = new RunNextHandler($this, $index + 1);
+        return $middleware->process($request, $nextHandler);
     }
 
     /**
-     * Automatically calls reset before handling the request
-     * @param ServerRequestInterface $request
-     * @return ResponseInterface
+     * @param class-string $middlewareClass
      */
-    public function handleNewRequest(ServerRequestInterface $request): ResponseInterface
-    {
-        $this->reset();
-        return $this->handle($request);
-    }
-
-    /**
-     * Reset the dispatcher and make sure we will run all the middlewares again
-     * This should be called before calling handle()
-     * @return void
-     */
-    public function reset(): void
-    {
-        // Reset so that next incoming request will run through all the middlewares
-        reset($this->middlewares);
-        // All middlewares have been processed
-        $this->request = null;
-    }
-
     public function has(string $middlewareClass): bool
     {
-        foreach ($this->middlewares as $middlewareDetails) {
+        foreach ($this->config as $middlewareDetails) {
             $middleware = $middlewareDetails['middleware'];
             if (is_object($middleware)) {
                 if ($middleware instanceof $middlewareClass) {
@@ -158,29 +164,25 @@ class MiddlewareRunner implements RequestHandlerInterface
     }
 
     /**
-     * @param class-string|MiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
      */
-    public function unshift($middleware, ?Closure $condition = null, bool $linear = false): self
+    public function unshift(string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware, ?Closure $condition = null): self
     {
-        array_unshift($this->middlewares, [
+        array_unshift($this->config, [
             'middleware' => $middleware,
             'condition' => $condition,
-            'linear' => $linear,
         ]);
         return $this;
     }
 
     /**
-     * @param class-string|MiddlewareInterface $middleware
-     * @param ?Closure $condition
-     * @param bool $linear Pass true to avoid nesting the middleware in the stack. Ignores the response.
+     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
      */
-    public function push($middleware, ?Closure $condition = null, bool $linear = false): self
+    public function push(string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware, ?Closure $condition = null): self
     {
-        $this->middlewares[] = [
+        $this->config[] = [
             'middleware' => $middleware,
             'condition' => $condition,
-            'linear' => $linear,
         ];
         return $this;
     }
