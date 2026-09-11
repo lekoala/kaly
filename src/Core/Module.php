@@ -7,7 +7,6 @@ namespace Kaly\Core;
 use Closure;
 use InvalidArgumentException;
 use Kaly\Di\Definitions;
-use Kaly\Util\Env;
 use Kaly\Util\Fs;
 use Kaly\Util\Str;
 use Kaly\View\RendererInterface;
@@ -15,8 +14,6 @@ use Kaly\View\TemplatePathRegistryInterface;
 
 class Module
 {
-    public const HEADER = '/** @var Kaly\Core\Module $this */';
-
     protected string $dir;
     protected string $name;
     protected string $namespace;
@@ -32,14 +29,6 @@ class Module
         $this->dir = Fs::dir($dir);
         $this->name = basename($this->dir);
         $this->namespace = $this->buildDefaultNamespace();
-
-        $config = $this->getConfigPath();
-        // Prepend a docblock header in debug mode only. This is a DX helper,
-        // not something that should depend on zend.assertions being enabled.
-        if (Env::getBool(App::ENV_DEBUG)) {
-            $this->addHeader($config);
-        }
-
         $this->definitions = new Definitions();
     }
 
@@ -177,26 +166,6 @@ class Module
 
         // After including the definitions, it should be locked
         assert($this->definitions->isLocked());
-    }
-
-    /**
-     * Automatically prepend docblock at start of file to make dx better
-     * This only runs in debug mode (APP_DEBUG)
-     * @param string $filename
-     * @return bool
-     */
-    protected function addHeader(string $filename): bool
-    {
-        $contents = file_get_contents($filename);
-        if (!$contents) {
-            return false;
-        }
-        $header = self::HEADER;
-        if (!str_contains($contents, $header)) {
-            $contents = preg_replace("/^<\?php/", "<?php\n\n" . $header, $contents);
-            file_put_contents($filename, $contents);
-        }
-        return true;
     }
 
     /**

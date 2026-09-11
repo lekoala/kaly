@@ -79,9 +79,9 @@ Nothing enforces this: module dependencies are a convention, not a constraint.
 
 ## config.php
 
-Inside `config.php`, `$this` is the `Kaly\Core\Module`. In debug mode the
-`/** @var Kaly\Core\Module $this */` header is prepended automatically for IDE support.
-Local variables do not leak, and the definitions must be locked at the end.
+Inside `config.php`, `$this` is the `Kaly\Core\Module`. Add the `@var` docblock below so
+your IDE knows it. Local variables do not leak, and the definitions must be locked at
+the end.
 
 ```php
 <?php

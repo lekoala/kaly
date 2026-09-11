@@ -8,6 +8,7 @@ use Exception;
 use Kaly\Core\AbstractController;
 use Kaly\Http\RedirectException;
 use Kaly\Http\ValidationException;
+use Kaly\Tests\Mocks\SaveInput;
 use Kaly\View\View;
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
@@ -49,14 +50,17 @@ class IndexController extends AbstractController
         return 'post';
     }
 
-    public function changePost(array $body = []): string
+    public function changePost(): string
     {
         return 'mutation-called';
     }
 
-    public function requiredPost(array $body): array
+    /**
+     * @return array<string,string>
+     */
+    public function requiredPost(SaveInput $input): array
     {
-        return $body;
+        return ['test' => $input->test];
     }
 
     public function middleware(): string

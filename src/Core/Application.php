@@ -11,6 +11,8 @@ use Kaly\Di\Definitions;
 use Kaly\Di\Injector;
 use Kaly\Http\ExceptionHandler;
 use Kaly\Http\ExceptionHandlerInterface;
+use Kaly\Http\InputMapper;
+use Kaly\Http\InputMapperInterface;
 use Kaly\Log\FileLogger;
 use Kaly\Middleware\MiddlewareBand;
 use Kaly\Middleware\MiddlewareRegistry;
@@ -81,6 +83,7 @@ class Application
         RouterInterface::class => ClassRouter::class,
         ExceptionHandlerInterface::class => ExceptionHandler::class,
         TranslatorInterface::class => Translator::class,
+        InputMapperInterface::class => InputMapper::class,
     ];
 
     protected bool $debug = false;
@@ -94,7 +97,6 @@ class Application
     protected ?RequestHandlerInterface $requestHandler = null;
     protected ?Kernel $kernel = null;
     protected ?MiddlewareRegistry $middlewareRegistry = null;
-    protected static Application $instance;
 
     /**
      * Create a new instance of the application
@@ -117,13 +119,6 @@ class Application
         }
 
         $this->configure();
-
-        self::$instance = $this;
-    }
-
-    public static function inst(): self
-    {
-        return self::$instance;
     }
 
     /**

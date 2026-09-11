@@ -251,7 +251,7 @@ class AppTest extends TestCase
 
         // HTTP exceptions are expected and are not reported as errors
         $response = $app->handle($base->withUri(new Uri('/test-module/index/validation/')));
-        $this->assertSame(403, $response->getStatusCode());
+        $this->assertSame(422, $response->getStatusCode());
         $this->assertSame(0, $errors);
 
         // Generic errors are reported
@@ -354,7 +354,8 @@ class AppTest extends TestCase
             ->routed(new TestMiddleware())
             ->incoming(new ContextProbeMiddleware(static function (): void {}))
             // Never entered, so it must not show up in the context
-            ->incoming(new FileServer(), when: static fn(): bool => false);
+            // (and as a class string, it must never even be resolved)
+            ->incoming(FileServer::class, when: static fn(): bool => false);
 
         $app->addCallback(App::CB_AFTER_REQUEST, function (HttpContext $ctx) use (&$executed): void {
             $executed = $ctx->middlewares();
@@ -421,7 +422,7 @@ class AppTest extends TestCase
         $app = new App(__DIR__);
         $app->boot();
         $response = $app->handle($request);
-        $this->assertEquals(403, $response->getStatusCode(), 'Error with : ' . (string) $response->getBody());
+        $this->assertEquals(422, $response->getStatusCode(), 'Error with : ' . (string) $response->getBody());
     }
 
     public function testDemoController(): void

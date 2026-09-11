@@ -44,8 +44,6 @@ class Translator implements TranslatorInterface
         if ($defaultLocale) {
             $this->setDefaultLocale($defaultLocale);
         }
-        // Add system path
-        $this->addPath(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'lang');
     }
 
     /**

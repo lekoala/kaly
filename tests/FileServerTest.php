@@ -49,7 +49,7 @@ class FileServerTest extends TestCase
     private function serve(string $method, string $uri): ResponseInterface
     {
         $handler = new PredefinedResponseHandler(new Response(404));
-        return (new FileServer())->process(new ServerRequest($method, $uri), $handler);
+        return (new FileServer($this->app))->process(new ServerRequest($method, $uri), $handler);
     }
 
     public function testServesStaticFile(): void

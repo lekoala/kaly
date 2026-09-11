@@ -8,13 +8,14 @@ use Kaly\Core\Ex;
 use Throwable;
 
 /**
- * Validation error that should show as an alert or a form error
- * Nested error will be concatenated
- * It would result in a "fail" status in json
+ * The input is well typed and still refused by a business rule.
+ *
+ * This is 422, distinct from an InputException (400) where the data could not
+ * be represented by the declared type at all.
  */
 class ValidationException extends Ex implements HttpExceptionInterface
 {
-    public function __construct(string $message, int $code = 403, ?Throwable $previous = null)
+    public function __construct(string $message, int $code = 422, ?Throwable $previous = null)
     {
         parent::__construct($message, $code, $previous);
     }

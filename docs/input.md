@@ -2,19 +2,6 @@
 
 > Where the arguments of a controller action come from
 
-> **Status: partially implemented.** The signature rules below are enforced by the
-> router and the dispatcher. The mapper that actually builds an input is not shipped
-> yet: bind your own `Kaly\Http\InputMapperInterface` until it is.
->
-> | | |
-> | --- | --- |
-> | signature rules, route segments, status of a bad segment | enforced |
-> | no service can reach an action | enforced |
-> | `InputMapperInterface` seam and its exceptions | in place |
-> | the mapper itself, and its conversions | to do |
-> | removal of the automatic parsed body argument | to do |
-> | `ValidationException` moved from 403 to 422 | to do |
-
 ## The rule
 
 An action signature must be readable without knowing kaly. Each argument has exactly
@@ -189,25 +176,39 @@ The three failures are distinct and must not collapse into one:
 A 404 means *there is no such route*. A 400 means *the route exists, the data is
 unusable*. A 422 means *the data is well formed and still unacceptable*.
 
-> `Kaly\Http\ValidationException` currently returns **403** and must be moved to 422
-> for this contract.
+`Kaly\Http\InputException` carries the 400, `Kaly\Http\ValidationException` the 422.
+Both are `HttpExceptionInterface`, so the kernel turns them into responses on its own.
 
 ## Supported conversions
 
-The first version covers, and only covers:
+`Kaly\Http\InputMapper` is bound by default and covers, deliberately, only this:
 
-- `string`, `int`, `float`, `bool`, `array`
-- nullability and default values
-- backed enums
+| Declared type | Accepted |
+| --- | --- |
+| `string` | any scalar |
+| `int` | an integer, or a string that is exactly one (`"1.5"` is not) |
+| `float` | a number, or a numeric string |
+| `bool` | `1/0`, `true/false`, `on/off`, `yes/no` |
+| `array` | a real array — `?tag[]=a&tag[]=b`, never a separator convention |
+| backed enum | a value matching one of its cases |
 
-`DateTimeImmutable`, nested input objects and value objects are deliberately left out
-until the convention for each is decided explicitly. An unsupported property type is a
-programming error, reported at dispatch in debug mode — not a silent `null`.
+Plus nullability and default values. A missing property falls back to its default, then
+to `null` if the type allows it, otherwise it is a 400.
+
+An **empty value counts as missing** for every type but `string`: a form posts all of
+its empty fields, so `?page=` means "no page", not "page is the empty string".
+
+`DateTimeImmutable`, nested inputs and value objects are left out until the convention
+for each is decided explicitly. A property the mapper cannot build throws a
+`LogicException`: it would fail for every single client, so it is a programming error,
+not a bad request.
+
+Bind your own `Kaly\Http\InputMapperInterface` to replace the whole thing.
 
 ## Breaking change
 
-An action parameter typed as an object that is not a `RequestInput` is now refused,
-where it used to be filled from the container when it was optional:
+An action parameter typed as an object that is not a `RequestInput` is refused, where it
+used to be filled from the container when it was optional:
 
 ```php
 // was silently injected, now an error at routing time
@@ -217,9 +218,13 @@ public function search(string $q = '', ?LoggerInterface $logger = null)
 Move it to the constructor. This is the whole point of the contract: the injector
 constructs controllers, it never supplies action arguments.
 
-## What this replaces
+The parsed body is no longer appended automatically as the last action argument on
+POST/PUT/PATCH, which used to make `save(array $data)` a second, untyped door:
 
-The parsed body is currently appended automatically as the last action argument on
-POST/PUT/PATCH, which makes `save(array $data)` a second, untyped door. When
-`RequestInput` lands, that sugar is removed: `save(SaveInput $input)` becomes the only
-application form.
+```php
+// before
+public function savePost(array $data)
+
+// now
+public function savePost(SaveInput $input)
+```

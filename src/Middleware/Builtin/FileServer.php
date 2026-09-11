@@ -13,6 +13,10 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class FileServer implements MiddlewareInterface
 {
+    public function __construct(
+        protected App $app,
+    ) {}
+
     /**
      * Extensions that must never be served as static files.
      */
@@ -38,7 +42,7 @@ class FileServer implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        $app = App::inst();
+        $app = $this->app;
         $publicDir = $app->getPublicDir();
         $path = $request->getUri()->getPath();
         $filename = Fs::toDir($publicDir, $path);

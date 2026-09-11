@@ -74,17 +74,8 @@ class RequestDispatcher implements RequestHandlerInterface
             throw new Ex("Action '{$action}' is not callable");
         }
 
-        // Routing params get passed to the action
+        // Route segments get passed to the action
         $arguments = $route->params;
-
-        // Syntax sugar for handling post: only forward a real parsed body so
-        // that an empty request does not override an optional/default argument.
-        if (in_array($request->getMethod(), ['POST', 'PUT', 'PATCH'], true)) {
-            $body = $request->getParsedBody();
-            if (is_array($body) || is_object($body)) {
-                $arguments[] = $body;
-            }
-        }
 
         // The trailing input is built from the query and the body
         if ($route->inputClass !== null) {

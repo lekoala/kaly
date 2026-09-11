@@ -547,9 +547,6 @@ class ClassRouter implements RouterInterface
         // A trailing RequestInput is supplied by the dispatcher, not by the url
         $this->inputClass = $this->extractInputClass($actionParams, $class, $action);
 
-        $partsCount = count($this->parts);
-        $hasBody = $this->hasRequestBody();
-
         /** @var array<string,mixed> $params  */
         $params = $this->parts;
         $i = 0;
@@ -557,12 +554,10 @@ class ClassRouter implements RouterInterface
         foreach ($actionParams as $actionParam) {
             $paramName = $actionParam->getName();
 
-            // A required parameter is satisfied by a url part, or by the parsed
-            // request body when it is the (single) trailing argument appended
-            // by the dispatcher for POST/PUT/PATCH requests.
+            // Every remaining parameter is a url segment: the trailing input
+            // has already been removed above.
             $satisfiedByUrl = isset($this->parts[$i]);
-            $satisfiedByBody = $hasBody && $i === $partsCount && $this->bodySatisfiesType($actionParam);
-            if (!$actionParam->isOptional() && !$actionParam->isDefaultValueAvailable() && !$satisfiedByUrl && !$satisfiedByBody) {
+            if (!$actionParam->isOptional() && !$actionParam->isDefaultValueAvailable() && !$satisfiedByUrl) {
                 throw new RouteNotFoundException("Param '{$paramName}' is required for action '{$action}' on '{$class}'");
             }
 
@@ -671,55 +666,6 @@ class ClassRouter implements RouterInterface
             }
         }
         return false;
-    }
-
-    /**
-     * Does the request carry a parsed body that the dispatcher will append as
-     * an extra argument to the action?
-     */
-    protected function hasRequestBody(): bool
-    {
-        if (!in_array($this->request->getMethod(), ['POST', 'PUT', 'PATCH'], true)) {
-            return false;
-        }
-        $body = $this->request->getParsedBody();
-        return is_array($body) || is_object($body);
-    }
-
-    /**
-     * Can the parsed request body satisfy this parameter? Only array-like
-     * parameters are considered, so a required scalar still results in a 404
-     * instead of a type error.
-     */
-    protected function bodySatisfiesType(ReflectionParameter $param): bool
-    {
-        if ($param->isVariadic()) {
-            return false;
-        }
-        $type = $param->getType();
-        if ($type === null) {
-            return true;
-        }
-        if ($type instanceof ReflectionUnionType) {
-            foreach ($type->getTypes() as $unionType) {
-                if ($unionType instanceof ReflectionNamedType && $this->isArrayLikeType($unionType)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-        if ($type instanceof ReflectionNamedType) {
-            return $this->isArrayLikeType($type);
-        }
-        return false;
-    }
-
-    protected function isArrayLikeType(ReflectionNamedType $type): bool
-    {
-        if (!$type->isBuiltin()) {
-            return false;
-        }
-        return in_array($type->getName(), ['array', 'iterable', 'mixed'], true);
     }
 
     protected function parseIntParam(string $value): int

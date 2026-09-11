@@ -1,18 +1,12 @@
 <?php
 
-// These are helpers function that are only declared if they don't exist
-// They are not required by the framework that should work without them
-
-if (!function_exists('t')) {
-    /**
-     * @param array<string,mixed> $parameters
-     */
-    function t(string $message, array $parameters = [], ?string $domain = null, ?string $locale = null): string
-    {
-        $translator = \Kaly\Core\App::inst()->getContainer()->get(\Kaly\Text\TranslatorInterface::class);
-        return $translator->translate($message, $parameters, $domain, $locale);
-    }
-}
+// Optional debugging helpers, only declared if they don't exist already.
+// They are not autoloaded and not required by the framework: require this file
+// from your entry point if you want them.
+//
+// Nothing here reaches into the application: there is no global container in
+// kaly. To translate, use the $i18n variable of your views or inject a
+// TranslatorInterface. To log, inject a LoggerInterface.
 
 if (!function_exists('is_cli')) {
     function is_cli(): bool
@@ -103,29 +97,6 @@ if (!function_exists('d')) {
             echo $content;
             exit(1);
         }
-    }
-}
-
-if (!function_exists('l')) {
-    /**
-     * Log message with debug logger
-     * @param array<string,mixed> $context
-     */
-    function l(mixed $message, array $context = []): void
-    {
-        if (!is_string($message)) {
-            $message = \Kaly\Util\Str::stringify($message);
-        }
-
-        // Track log origin otherwise it's hard to say where this comes from
-        $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 1);
-        $file = basename($backtrace[0]['file'] ?? '(undefined file)');
-        $line = $backtrace[0]['line'] ?? 0;
-        $message .= " ({$file}:{$line})";
-
-        /** @var \Psr\Log\LoggerInterface $logger */
-        $logger = \Kaly\Core\App::inst()->getContainer()->get(\Kaly\Core\App::DEBUG_LOGGER);
-        $logger->log(\Psr\Log\LogLevel::DEBUG, $message, $context);
     }
 }
 

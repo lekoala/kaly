@@ -92,7 +92,7 @@ class RouterTest extends TestCase
         $this->assertSame('0', (string) $response->getBody());
     }
 
-    public function testRequiredPostBodyIsAvailable(): void
+    public function testRequiredPostBodyIsMappedToAnInput(): void
     {
         $response = $this->request('/test-module/index/required-post/', 'POST', ['test' => 'body']);
         $this->assertSame(200, $response->getStatusCode());
@@ -100,10 +100,11 @@ class RouterTest extends TestCase
         $this->assertStringContainsString('"body"', (string) $response->getBody());
     }
 
-    public function testRequiredPostWithoutBodyIsNotFound(): void
+    public function testRequiredPostWithoutBodyIsABadRequest(): void
     {
+        // The route matches, the input cannot be built: 400, not 404
         $response = $this->request('/test-module/index/required-post/', 'POST');
-        $this->assertSame(404, $response->getStatusCode());
+        $this->assertSame(400, $response->getStatusCode());
     }
 
     public function testMethodSuffixedActionMatchesVerb(): void
