@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaly\Text;
 
-use Kaly\Http\ServerRequest;
 use Kaly\Util\Arr;
 use Kaly\Util\Fs;
 use RuntimeException;
@@ -12,11 +11,13 @@ use RuntimeException;
 /**
  * This basic translator supports a limited subset of symfony translator features.
  * It's php storage format is mostly similar so they are interchangeable.
+ *
+ * It is a shared service: it holds catalogs and a default locale, never the
+ * locale of the current request. Pass the locale explicitly, or wrap it in a
+ * LocalizedTranslator built from the locale resolved for the request.
  */
-class Translator
+class Translator implements TranslatorInterface
 {
-    public const ATTR_LOCALE_REQUEST = 'locale';
-
     public const DEFAULT_DOMAIN = 'messages';
     // ISO 639 2 or 3, or 4 for future use, alpha
     public const LOCALE_LANGUAGE = 'language';
@@ -35,54 +36,16 @@ class Translator
      */
     protected array $paths = [];
     protected string $defaultLocale = 'en';
-    protected ?string $currentLocale = null;
     protected ?string $cacheDir = null;
     protected ?string $baseDomain = null;
 
-    public function __construct(string $defaultLocale = 'en', ?string $currentLocale = null)
+    public function __construct(string $defaultLocale = 'en')
     {
-        if (!$currentLocale) {
-            $currentLocale = $defaultLocale;
-        }
         if ($defaultLocale) {
             $this->setDefaultLocale($defaultLocale);
         }
-        if ($currentLocale) {
-            $this->setCurrentLocale($currentLocale);
-        }
         // Add system path
         $this->addPath(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'lang');
-    }
-
-    /**
-     * @param array<string> $allowed
-     */
-    public function setLocaleFromRequest(ServerRequest $request, ?array $allowed = null): self
-    {
-        // In case it has been injected by a middleware
-        $locale = $request->getAttribute(self::ATTR_LOCALE_REQUEST);
-        // Use http headers
-        if (!$locale) {
-            $locale = $request->getPreferredLanguage($allowed);
-        }
-        if (!$locale) {
-            // No usable preference: reset to the default locale rather than
-            // keeping whatever a previous request may have set.
-            $this->setCurrentLocale($this->defaultLocale);
-            return $this;
-        }
-        if (!is_string($locale)) {
-            throw new RuntimeException('Locale must be a string');
-        }
-        try {
-            // Make sure it's valid
-            self::parseLocale($locale);
-        } catch (RuntimeException) {
-            // Unknown or malformed locale: fall back to the default
-            $locale = $this->defaultLocale;
-        }
-        $this->setCurrentLocale($locale);
-        return $this;
     }
 
     /**
@@ -200,7 +163,7 @@ class Translator
             $domain = $this->baseDomain ?? self::DEFAULT_DOMAIN;
         }
         if (!$locale) {
-            $locale = $this->currentLocale;
+            $locale = $this->defaultLocale;
         }
         if (!$locale) {
             throw new RuntimeException('No locale set for translation');
@@ -264,10 +227,12 @@ class Translator
     {
         $replace = [];
         foreach ($replacements as $key => $val) {
-            // We support two style : {} replacements and raw %param% replacements
-            if (str_starts_with($key, '%')) {
+            // Keys already carrying their delimiters are used as is, so the
+            // same parameter bag works with other engines (eg: Symfony).
+            if (str_starts_with($key, '%') || str_starts_with($key, '{')) {
                 $replace[$key] = $val;
             } else {
+                // Bare keys are the shorthand for the {} style
                 $replace['{' . $key . '}'] = $val;
             }
         }
@@ -334,17 +299,6 @@ class Translator
     public function setDefaultLocale(string $defaultLocale): self
     {
         $this->defaultLocale = $defaultLocale;
-        return $this;
-    }
-
-    public function getCurrentLocale(): ?string
-    {
-        return $this->currentLocale;
-    }
-
-    public function setCurrentLocale(string $currentLocale): self
-    {
-        $this->currentLocale = $currentLocale;
         return $this;
     }
 

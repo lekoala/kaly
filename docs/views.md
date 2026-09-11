@@ -10,6 +10,9 @@ Controllers return a `View`; the dispatcher renders it through the configured
 `RendererInterface`. An `array` is returned as JSON, a `string` as HTML. If no renderer is
 configured, returning a `View` throws.
 
+Every render also receives an `i18n` variable: a translator bound to the locale of the
+current request. It is reserved, so view data never overrides it. See [i18n](i18n.md).
+
 ## Choosing a renderer
 
 | Engine   | When                             | Adapter                             |

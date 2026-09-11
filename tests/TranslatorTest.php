@@ -4,33 +4,30 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Http\ServerRequest;
+use Kaly\Text\LocalizedTranslator;
 use Kaly\Text\Translator;
-use Nyholm\Psr7\ServerRequest as BaseServerRequest;
 use PHPUnit\Framework\TestCase;
 
 class TranslatorTest extends TestCase
 {
     public function testTranslate(): void
     {
-        $translator = new Translator('en', 'en');
+        $translator = new Translator('en');
         $translator->addPath(__DIR__ . '/data/lang');
         $result = $translator->translate('global.test');
         $this->assertEquals('Test message', $result);
         $result = $translator->translate('Welcome', ['name' => 'Test']);
         $this->assertEquals('Welcome to this app Test', $result);
 
-        $translator->setCurrentLocale('fr');
-        $result = $translator->translate('global.test');
+        $result = $translator->translate('global.test', [], null, 'fr');
         $this->assertEquals('Message de test', $result);
 
         // Check that we fallback to lang if locale is not found
-        $translator->setCurrentLocale('fr_FR');
-        $result = $translator->translate('global.test');
+        $result = $translator->translate('global.test', [], null, 'fr_FR');
         $this->assertEquals('Message de test', $result);
 
         // Check that we fallback to default if not found
-        $result = $translator->translate('NotTranslated', ['str' => 'test']);
+        $result = $translator->translate('NotTranslated', ['str' => 'test'], null, 'fr_FR');
         $this->assertEquals('This is not translated for test', $result);
 
         $result = $translator->translate('not_found');
@@ -42,7 +39,7 @@ class TranslatorTest extends TestCase
 
     public function testPlural(): void
     {
-        $translator = new Translator('en', 'en');
+        $translator = new Translator('en');
         $translator->addPath(__DIR__ . '/data/lang');
         $result = $translator->translate('apples', ['%count%' => 0]);
         $this->assertEquals('%name% has no apples', $result);
@@ -69,28 +66,6 @@ class TranslatorTest extends TestCase
         $this->assertEquals('öëBC', $result);
         $result = $translator->translate('utf8plural', ['%count%' => 2]);
         $this->assertEquals('öëBC', $result);
-    }
-
-    public function testLocaleResetsBetweenRequests(): void
-    {
-        $translator = new Translator('en', 'en');
-
-        $french = new ServerRequest((new BaseServerRequest('GET', '/'))->withHeader('Accept-Language', 'fr'));
-        $translator->setLocaleFromRequest($french, ['en', 'fr']);
-        $this->assertSame('fr', $translator->getCurrentLocale());
-
-        // A request without any preference must not inherit the previous locale
-        $plain = new ServerRequest(new BaseServerRequest('GET', '/'));
-        $translator->setLocaleFromRequest($plain, ['en', 'fr']);
-        $this->assertSame('en', $translator->getCurrentLocale());
-    }
-
-    public function testWildcardLanguageDoesNotThrow(): void
-    {
-        $translator = new Translator('en', 'en');
-        $request = new ServerRequest((new BaseServerRequest('GET', '/'))->withHeader('Accept-Language', '*'));
-        $translator->setLocaleFromRequest($request, ['en', 'fr']);
-        $this->assertSame('en', $translator->getCurrentLocale());
     }
 
     public function testParse(): void
@@ -151,5 +126,28 @@ class TranslatorTest extends TestCase
         foreach ($arr as $input => $output) {
             $this->assertEquals($output, Translator::getLangFromLocale($input), "Failed for {$input}");
         }
+    }
+
+    public function testLocalizedTranslatorDoesNotLeakBetweenRenders(): void
+    {
+        $translator = new Translator('en');
+        $translator->addPath(__DIR__ . '/data/lang');
+
+        $fr = new LocalizedTranslator($translator, 'fr');
+        $en = new LocalizedTranslator($translator, 'en');
+
+        $this->assertSame('fr', $fr->getLocale());
+        $this->assertEquals('Message de test', $fr->translate('global.test'));
+        $this->assertEquals('Test message', $en->translate('global.test'));
+        // The shared engine still answers with its own default locale
+        $this->assertEquals('Test message', $translator->translate('global.test'));
+
+        // An explicit locale always wins over the bound one
+        $this->assertEquals('Test message', $fr->translate('global.test', [], null, 'en'));
+
+        // withLocale is immutable
+        $this->assertSame($fr, $fr->withLocale('fr'));
+        $this->assertNotSame($fr, $fr->withLocale('en'));
+        $this->assertEquals('Test message', $fr->withLocale('en')->translate('global.test'));
     }
 }

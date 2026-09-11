@@ -9,7 +9,7 @@ if (!function_exists('t')) {
      */
     function t(string $message, array $parameters = [], ?string $domain = null, ?string $locale = null): string
     {
-        $translator = \Kaly\Core\App::inst()->getContainer()->get(\Kaly\Text\Translator::class);
+        $translator = \Kaly\Core\App::inst()->getContainer()->get(\Kaly\Text\TranslatorInterface::class);
         return $translator->translate($message, $parameters, $domain, $locale);
     }
 }

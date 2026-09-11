@@ -43,4 +43,18 @@ class DispatcherController extends AbstractController
     {
         return ['route' => $this->request->getAttribute('route')];
     }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function localeResult(): array
+    {
+        return ['locale' => $this->request->getAttribute('locale')];
+    }
+
+    public function viewResultWithI18n(): View
+    {
+        // i18n is reserved: the dispatcher always overrides it
+        return new View('template', ['i18n' => 'should be overridden']);
+    }
 }

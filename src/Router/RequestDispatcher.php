@@ -7,8 +7,9 @@ namespace Kaly\Router;
 use Kaly\Core\Ex;
 use Kaly\Di\Injector;
 use Kaly\Http\ContentType;
-use Kaly\Http\ServerRequest;
-use Kaly\Text\Translator;
+use Kaly\Text\LocaleResolver;
+use Kaly\Text\LocalizedTranslator;
+use Kaly\Text\TranslatorInterface;
 use Kaly\Util\Json;
 use Kaly\View\RendererInterface;
 use Kaly\View\View;
@@ -25,12 +26,16 @@ class RequestDispatcher implements MiddlewareInterface
     public const ATTR_IP_REQUEST = 'client-ip';
     public const ATTR_REQUEST_ID_REQUEST = 'request-id';
     public const ATTR_ROUTE_REQUEST = 'route';
-    public const ATTR_LOCALE_REQUEST = 'locale';
+    public const ATTR_LOCALE_REQUEST = LocaleResolver::ATTR_LOCALE_REQUEST;
+
+    // Reserved render variable holding the translator bound to the request locale
+    public const VAR_I18N = 'i18n';
 
     public function __construct(
         protected RouterInterface $router,
         protected Injector $injector,
-        protected Translator $translator,
+        protected TranslatorInterface $translator,
+        protected LocaleResolver $localeResolver,
         protected ResponseFactoryInterface $responseFactory,
         protected StreamFactoryInterface $streamFactory,
         protected ?RendererInterface $renderer = null,
@@ -38,10 +43,6 @@ class RequestDispatcher implements MiddlewareInterface
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        if ($request instanceof ServerRequest) {
-            $this->translator->setLocaleFromRequest($request);
-        }
-
         $route = $this->router->match($request);
 
         // Expose the client IP as a request attribute for controllers
@@ -54,12 +55,11 @@ class RequestDispatcher implements MiddlewareInterface
             $request = $request->withAttribute(self::ATTR_IP_REQUEST, $ip);
         }
 
-        // Apply the locale before invoking the controller so that actions run
-        // with the correct locale.
-        if ($route->locale) {
-            $request = $request->withAttribute(self::ATTR_LOCALE_REQUEST, $route->locale);
-            $this->translator->setCurrentLocale($route->locale);
-        }
+        // Resolve the locale before invoking the controller so that actions run
+        // with the correct locale. The shared translator is never mutated: the
+        // locale travels with the request and with the localized translator.
+        $locale = $this->localeResolver->resolve($request, $route->locale);
+        $request = $request->withAttribute(self::ATTR_LOCALE_REQUEST, $locale);
 
         // Expose the resolved route on the request before building and
         // invoking the controller so that actions can read it.
@@ -67,7 +67,7 @@ class RequestDispatcher implements MiddlewareInterface
 
         $result = $this->dispatch($request, $route);
 
-        return $this->prepareResponse($result);
+        return $this->prepareResponse($result, $locale);
     }
 
     /**
@@ -119,7 +119,7 @@ class RequestDispatcher implements MiddlewareInterface
     /**
      * @param ResponseInterface|View|array<mixed>|string|null $result
      */
-    protected function prepareResponse(ResponseInterface|View|array|string|null $result): ResponseInterface
+    protected function prepareResponse(ResponseInterface|View|array|string|null $result, string $locale): ResponseInterface
     {
         if ($result instanceof ResponseInterface) {
             return $result;
@@ -128,7 +128,13 @@ class RequestDispatcher implements MiddlewareInterface
             if ($this->renderer === null) {
                 throw new Ex('A View was returned but no renderer is configured. Bind a Kaly\View\RendererInterface implementation.');
             }
-            return $this->createResponse($this->renderer->render($result->template, $result->data), ContentType::HTML);
+            // Each render gets its own localized translator under a reserved
+            // variable, so templates never depend on shared translator state.
+            $data = [
+                ...$result->data,
+                self::VAR_I18N => new LocalizedTranslator($this->translator, $locale),
+            ];
+            return $this->createResponse($this->renderer->render($result->template, $data), ContentType::HTML);
         }
         if (is_array($result)) {
             return $this->createResponse(Json::encode($result), ContentType::JSON);

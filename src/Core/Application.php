@@ -17,6 +17,7 @@ use Kaly\Router\ClassRouter;
 use Kaly\Router\RequestDispatcher;
 use Kaly\Router\RouterInterface;
 use Kaly\Text\Translator;
+use Kaly\Text\TranslatorInterface;
 use Kaly\Util\Env;
 use Kaly\Util\Fs;
 use Kaly\Util\Json;
@@ -75,6 +76,7 @@ class Application
         // Our interfaces
         RouterInterface::class => ClassRouter::class,
         ExceptionHandlerInterface::class => ExceptionHandler::class,
+        TranslatorInterface::class => Translator::class,
     ];
 
     protected bool $debug = false;

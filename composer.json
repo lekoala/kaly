@@ -42,6 +42,7 @@
         "nyholm/psr7-server": "^1.1",
         "phpstan/phpstan": "^2.2",
         "phpunit/phpunit": "^12",
+        "symfony/translation": "^7.1",
         "symfony/var-dumper": "^7.1",
         "twig/twig": "^3.0"
     },
@@ -51,6 +52,7 @@
         "lekoala/kaly-tpl": "Lightweight native PHP templates, through Kaly\\View\\Adapter\\KalyTplRenderer",
         "nyholm/psr7": "Recommended PSR-7 implementation for your application",
         "nyholm/psr7-server": "Build a ServerRequest from PHP globals in your entry point",
+        "symfony/translation": "Full featured translations (ICU, loaders), through Kaly\\Text\\Adapter\\SymfonyTranslator",
         "twig/twig": "Supported template engine, through Kaly\\View\\Adapter\\TwigRenderer"
     },
     "autoload": {
