@@ -7,7 +7,15 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
     <meta name="description" content="Documentation for the Kaly php framework" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0" />
-    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css" />
+
+    <!-- Docsify v5: core theme + Vue add-on (same look as the v4 Vue theme) -->
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@5/dist/themes/core.min.css" />
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@5/dist/themes/addons/vue.min.css" />
+    <style>
+        :root {
+            --theme-color: #8bc53f;
+        }
+    </style>
 
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
@@ -21,14 +29,13 @@
     <script>
         window.$docsify = {
             loadSidebar: true,
-            themeColor: "#8bc53f",
             name: "Kaly",
             repo: "https://github.com/lekoala/kaly/",
         };
     </script>
-    <!-- Docsify v4 -->
-    <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
-    <script src="//cdn.jsdelivr.net/npm/docsify-copy-code"></script>
+    <!-- Docsify v5 -->
+    <script src="//cdn.jsdelivr.net/npm/docsify@5/dist/docsify.min.js"></script>
+    <script src="//cdn.jsdelivr.net/npm/docsify-copy-code@3"></script>
     <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-php.min.js"></script>
 </body>
 
