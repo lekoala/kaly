@@ -67,7 +67,7 @@ class Session implements ArrayDataInterface
         if ($request) {
             $cookiesParameters = self::getOptionsForRequest($request);
         } else {
-            $cookiesParameters = session_get_cookie_params();
+            $cookiesParameters = self::getCookieDefaults();
         }
         $cookiesParameters = array_combine(
             array_map(static fn($v): string => "cookie_{$v}", array_keys($cookiesParameters)),
@@ -336,20 +336,48 @@ class Session implements ArrayDataInterface
      */
     public static function configureDefaults(?string $path = null, ?string $name = null, bool $psr = true): void
     {
-        session_set_cookie_params([
-            'lifetime' => self::$config['lifetime'],
-            'httponly' => self::$config['httponly'],
-            'samesite' => self::$config['samesite'],
-        ]);
         if ($path) {
             session_save_path($path);
         }
         if ($name) {
             session_name($name);
         }
+
         if ($psr) {
+            // We emit the Set-Cookie header ourselves, so php is never told
+            // about the cookie params: they live in our own config and are
+            // read through getCookieDefaults().
             self::configureForPsr7();
+            return;
         }
+
+        // Php emits the session cookie itself, so it needs the params
+        session_set_cookie_params([
+            'lifetime' => self::$config['lifetime'],
+            'httponly' => self::$config['httponly'],
+            'samesite' => self::$config['samesite'],
+        ]);
+    }
+
+    /**
+     * The cookie params a session cookie is built from.
+     *
+     * Php stays the source of the settings it alone knows about (path, domain,
+     * secure, partitioned as configured in php.ini), while what kaly exposes
+     * through configureExtra() wins over it. Nothing is ever written back to
+     * php: mutating global ini state to read it again later made the values
+     * order dependent and, since php 8.4, warned when session.use_cookies was
+     * disabled for psr-7.
+     *
+     * @return array{lifetime:int,path:string,domain:string,secure:bool,httponly:bool,samesite:string,partitioned?:bool}
+     */
+    public static function getCookieDefaults(): array
+    {
+        return array_merge(session_get_cookie_params(), [
+            'lifetime' => self::$config['lifetime'],
+            'httponly' => self::$config['httponly'],
+            'samesite' => self::$config['samesite'],
+        ]);
     }
 
     /**
@@ -394,7 +422,7 @@ class Session implements ArrayDataInterface
      */
     public static function getOptionsForRequest(ServerRequestInterface $request): array
     {
-        $options = array_merge(session_get_cookie_params(), [
+        $options = array_merge(self::getCookieDefaults(), [
             'secure' => $request->getUri()->getScheme() === 'https',
             'domain' => $request->getUri()->getHost(),
         ]);

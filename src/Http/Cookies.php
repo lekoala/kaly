@@ -182,7 +182,9 @@ class Cookies implements ArrayDataInterface
 
     public function write(): bool
     {
-        $defaultParams = session_get_cookie_params();
+        // Application cookies inherit the same baseline as the session cookie
+        // (httponly, samesite...), which is configured through Session
+        $defaultParams = Session::getCookieDefaults();
         $result = false;
         foreach ($this->getChanges() as $name => $arr) {
             $value = $arr[1] ?? null;
@@ -218,7 +220,8 @@ class Cookies implements ArrayDataInterface
 
     public function addToResponse(ResponseInterface $response): ResponseInterface
     {
-        $defaultParams = session_get_cookie_params();
+        // Same baseline as the session cookie, see write()
+        $defaultParams = Session::getCookieDefaults();
 
         foreach ($this->getChanges() as $name => $arr) {
             $value = $arr[1] ?? null;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use Kaly\Http\Cookies;
+use Kaly\Http\Session;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
 use PHPUnit\Framework\TestCase;
@@ -17,6 +18,24 @@ class CookiesTest extends TestCase
     private function cookies(array $cookieParams): Cookies
     {
         return new Cookies((new BaseServerRequest('GET', '/'))->withCookieParams($cookieParams));
+    }
+
+    public function testCookiesInheritTheConfiguredBaseline(): void
+    {
+        Session::configureExtra(['httponly' => true, 'samesite' => 'Strict']);
+        try {
+            $cookies = $this->cookies([]);
+            $cookies->set('theme', 'dark');
+            $header = $cookies->addToResponse(new Response())->getHeaderLine('Set-Cookie');
+
+            // Application cookies share the session cookie baseline rather than
+            // whatever php.ini happens to hold
+            $this->assertStringContainsString('theme=dark', $header);
+            $this->assertStringContainsString('; HttpOnly', $header);
+            $this->assertStringContainsString('; SameSite=Strict', $header);
+        } finally {
+            Session::configureExtra(['httponly' => true, 'samesite' => 'Lax']);
+        }
     }
 
     public function testGetChangesReportsRemoval(): void
