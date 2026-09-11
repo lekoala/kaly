@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
-use JsonSerializable;
-use Kaly\Core\AbstractController;
-use Kaly\Core\App;
 use Kaly\Core\Ex;
+use Kaly\Di\Injector;
 use Kaly\Http\ContentType;
-use Kaly\Http\HttpFactory;
-use Kaly\Http\NotFoundException;
 use Kaly\Http\ServerRequest;
 use Kaly\Text\Translator;
-use Kaly\View\TemplateProviderInterface;
+use Kaly\Util\Json;
+use Kaly\View\RendererInterface;
+use Kaly\View\View;
+use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
@@ -27,194 +27,110 @@ class RequestDispatcher implements MiddlewareInterface
     public const ATTR_ROUTE_REQUEST = 'route';
     public const ATTR_LOCALE_REQUEST = 'locale';
 
-    protected App $app;
-
-    public function __construct(App $app)
-    {
-        $this->app = $app;
-    }
+    public function __construct(
+        protected RouterInterface $router,
+        protected Injector $injector,
+        protected Translator $translator,
+        protected ResponseFactoryInterface $responseFactory,
+        protected StreamFactoryInterface $streamFactory,
+        protected RendererInterface $renderer,
+    ) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $container = $this->app->getContainer();
-
-        $translator = $container->get(Translator::class);
         if ($request instanceof ServerRequest) {
-            $translator->setLocaleFromRequest($request);
+            $this->translator->setLocaleFromRequest($request);
         }
 
-        $router = $container->get(RouterInterface::class);
-        $route = $router->match($request);
+        $route = $this->router->match($request);
+
+        // Expose the client IP as a request attribute for controllers
+        if ($request->getAttribute(self::ATTR_IP_REQUEST) === null) {
+            $serverParams = $request->getServerParams();
+            $ip = $serverParams['REMOTE_ADDR'] ?? '0.0.0.0';
+            assert(is_string($ip));
+            $request = $request->withAttribute(self::ATTR_IP_REQUEST, $ip);
+        }
 
         // Apply the locale before invoking the controller so that actions run
         // with the correct locale.
         if ($route->locale) {
             $request = $request->withAttribute(self::ATTR_LOCALE_REQUEST, $route->locale);
-            $translator->setCurrentLocale($route->locale);
+            $this->translator->setCurrentLocale($route->locale);
         }
 
-        $response = $this->dispatch($request, $route);
+        $result = $this->dispatch($request, $route);
 
-        // Capture the route after dispatch: json/template flags may be set
-        // based on the controller instance and its result.
+        // Keep the resolved route available on the request for downstream use
         $request = $request->withAttribute(self::ATTR_ROUTE_REQUEST, $route->toArray());
 
-        return $this->prepareResponse($request, $response);
+        return $this->prepareResponse($result);
     }
 
     /**
-     * @return string|array<mixed>|ResponseInterface
+     * @return ResponseInterface|View|array<mixed>|string|null
      */
-    protected function dispatch(ServerRequestInterface $request, Route &$route): string|\Psr\Http\Message\ResponseInterface|array
+    protected function dispatch(ServerRequestInterface $request, Route $route): ResponseInterface|View|array|string|null
     {
         $class = $route->controller;
         if (!$class) {
             throw new Ex('Controller not found');
         }
 
-        $injector = $this->app->getInjector();
-
         // Each request gets a fresh instance of the controller
-        if (is_subclass_of($class, AbstractController::class)) {
-            $inst = new $class($request, $this->app);
-        } else {
-            $inst = $injector->make($class, request: $request, app: $this->app);
-        }
+        $instance = $this->injector->make($class, request: $request);
 
-        // Check for interfaces
-        if ($inst instanceof JsonRouteInterface) {
-            $route->json = true;
-        }
-        if ($inst instanceof TemplateProviderInterface) {
-            $route->template = $inst->getTemplate();
-        }
+        $action = $route->action ?? RouterInterface::FALLBACK_ACTION;
 
-        $action = $route->action ?? '__invoke';
-
-        // Routing params gets passed to the action
+        // Routing params get passed to the action
         $arguments = $route->params;
 
         // Syntax sugar for handling post
-        if (in_array($request->getMethod(), ['POST', 'PUT', 'PATCH'])) {
+        if (in_array($request->getMethod(), ['POST', 'PUT', 'PATCH'], true)) {
             $arguments[] = $request->getParsedBody();
         }
 
-        $result = null;
-        $callable = [$inst, $action];
-        if (is_callable($callable)) {
-            $result = $injector->invoke($callable, ...$arguments);
+        $callable = [$instance, $action];
+        if (!is_callable($callable)) {
+            throw new Ex("Action '{$action}' is not callable");
         }
 
-        // Special handling for JsonSerializable
-        if ($result && is_object($result) && $result instanceof JsonSerializable) {
-            $route->json = true;
-            $result = $result->jsonSerialize();
+        $result = $this->injector->invoke($callable, ...$arguments);
+        if (
+            $result === null
+            || is_string($result)
+            || is_array($result)
+            || $result instanceof ResponseInterface
+            || $result instanceof View
+        ) {
+            return $result;
         }
 
-        // Special handling for boolean results
-        if (is_bool($result)) {
-            if ($result) {
-                $result = 'OK';
-            } else {
-                throw new NotFoundException();
-            }
-        }
-
-        assert(is_string($result) || is_array($result) || $result instanceof ResponseInterface);
-
-        return $result;
+        throw new Ex('Controllers must return a ResponseInterface, a View, an array, a string or null. Got: ' . get_debug_type($result));
     }
 
     /**
-     * @param ResponseInterface|string|array<mixed>|null $response
+     * @param ResponseInterface|View|array<mixed>|string|null $result
      */
-    protected function prepareResponse(
-        ServerRequestInterface $request,
-        ResponseInterface|string|array|null $response = null,
-    ): ResponseInterface {
-        // We have a response, return early
-        if ($response && $response instanceof ResponseInterface) {
-            return $response;
-        }
-
-        $attr = $request->getAttribute(self::ATTR_ROUTE_REQUEST);
-        if (!is_array($attr)) {
-            $attr = [];
-        }
-
-        //@phpstan-ignore-next-line
-        $route = Route::fromArray($attr);
-        $forceJson = boolval($request->getQueryParams()['_json'] ?? false);
-        $priorityList = [
-            ContentType::HTML,
-        ];
-        if ($forceJson || $route->json) {
-            $priorityList = [
-                ContentType::JSON,
-                ContentType::HTML,
-            ];
-        }
-
-        $acceptHtml = true;
-        $requestedJson = false;
-        if ($request instanceof ServerRequest) {
-            $preferredType = $request->getPreferredContentType($priorityList);
-            $acceptHtml = $preferredType == ContentType::HTML;
-            $acceptJson = $preferredType == ContentType::JSON;
-            $requestedJson = $acceptJson || $forceJson;
-        }
-
-        // We may want to return a template that matches route params if possible
-        if ($acceptHtml && !$route->json && $route->template) {
-            $renderedBody = $this->renderTemplate($route, $response);
-            if ($renderedBody) {
-                $body = $renderedBody;
-                $response = $this->app->respond($body);
-            }
-        }
-
-        if (!$response instanceof ResponseInterface) {
-            // We don't have a suitable response, transform body
-            $headers = [];
-
-            // We want and can return a json response
-            if ($requestedJson && $route->json) {
-                $response = HttpFactory::createJsonResponse($response, 200, $headers);
-            } elseif (!is_array($response)) {
-                $response = HttpFactory::createHtmlResponse($response, 200, $headers);
-            } else {
-                throw new Ex('Invalid response');
-            }
-        }
-
-        return $response;
-    }
-
-    /**
-     * @param string|array<mixed>|null $body
-     */
-    protected function renderTemplate(Route $route, string|array|null $body = null): ?string
+    protected function prepareResponse(ResponseInterface|View|array|string|null $result): ResponseInterface
     {
-        // We only support empty body or a context array
-        if ($body && !is_array($body)) {
-            return null;
+        if ($result instanceof ResponseInterface) {
+            return $result;
         }
-        // We need a template param
-        if (empty($route->template)) {
-            return null;
+        if ($result instanceof View) {
+            return $this->createResponse($this->renderer->render($result->template, $result->data), ContentType::HTML);
         }
+        if (is_array($result)) {
+            return $this->createResponse(Json::encode($result), ContentType::JSON);
+        }
+        return $this->createResponse((string) $result, ContentType::HTML);
+    }
 
-        $engine = $this->app->getViewEngine();
-        if ($engine->has($route->template)) {
-            /** @var array<string, mixed> $body  */
-            if (!$body) {
-                $body = [];
-            }
-            $body = $engine->render($route->template, $body);
-        } else {
-            $body = $engine->getEscaper()->escape($body);
-        }
-
-        return $body;
+    protected function createResponse(string $body, string $contentType): ResponseInterface
+    {
+        return $this->responseFactory
+            ->createResponse(200)
+            ->withHeader('Content-Type', $contentType)
+            ->withBody($this->streamFactory->createStream($body));
     }
 }

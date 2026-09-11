@@ -5,17 +5,13 @@ declare(strict_types=1);
 namespace TestModule\Controller;
 
 use Exception;
-use JsonSerializable;
 use Kaly\Core\AbstractController;
-use Kaly\Core\App;
 use Kaly\Http\RedirectException;
 use Kaly\Http\ValidationException;
-use Kaly\Security\Auth;
+use Kaly\View\View;
 
 class IndexController extends AbstractController
 {
-    protected App $app;
-
     public function index(): string
     {
         return 'hello';
@@ -31,21 +27,9 @@ class IndexController extends AbstractController
         return 'foo';
     }
 
-    public function arr(array $arr): object
+    public function arr(array $arr): array
     {
-        return new class($arr) implements JsonSerializable {
-            protected array $data;
-
-            public function __construct(array $data)
-            {
-                $this->data = $data;
-            }
-
-            public function jsonSerialize(): mixed
-            {
-                return $this->data;
-            }
-        };
+        return $arr;
     }
 
     public function methodGet(): string
@@ -74,6 +58,26 @@ class IndexController extends AbstractController
         return $this->request->getAttribute('client-ip');
     }
 
+    public function typedInt(int $value): string
+    {
+        return (string) $value;
+    }
+
+    public function typedFloat(float $value): string
+    {
+        return (string) $value;
+    }
+
+    public function typedBool(bool $value): string
+    {
+        return $value ? 'true' : 'false';
+    }
+
+    public function view(): View
+    {
+        return new View('@TestModule/view', ['title' => 'View test']);
+    }
+
     public function getipstate()
     {
         return $this->request->getAttribute('client-ip');
@@ -87,11 +91,5 @@ class IndexController extends AbstractController
     public function validation(): never
     {
         throw new ValidationException('This is invalid');
-    }
-
-    public function auth(): void
-    {
-        $auth = $this->app->get(Auth::class);
-        $auth->basicAuth($this->request, 'unit', 'test');
     }
 }

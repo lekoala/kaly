@@ -149,17 +149,12 @@ The routing is done by a class implementing the `RouterInterface`.
 
 See our `ClassRouter` docs for more information.
 
-The router is also responsible to call your controllers in any way you see fit.
+The router is also responsible to call your controllers.
 
-Result of the controller call should be a `Response` object or a string/Stringable object.
-An array is also valid for json responses.
+A controller must return one of:
+- a `ResponseInterface` (used as-is)
+- a `Kaly\View\View` (rendered to HTML by the configured renderer)
+- an `array` (JSON response)
+- a `string` (HTML response)
+- `null` (empty response)
 
-## Json responses
-
-Any request accept json responses or using the ?\_json flag can get a json response.
-
-This is only triggered if the route parameters have a json flag set to true.
-
-There are two ways to generate json response:
-- Either have your controller implement `JsonRouteInterface` and return arrays
-- For a single method, you can return a `JsonSerializable` object that will be converted to json

@@ -53,24 +53,20 @@ class AppTest extends TestCase
         // first one is the fallback locale
         $this->assertEquals(['en', 'fr'], $router->getAllowedLocales());
 
+        // The controller runs with the locale applied before dispatch
         $request = HttpFactory::createRequestFromGlobals();
         $request = $request->withUri(new Uri('/fr/lang-module/index/getlang/'));
-        $response = (string) $app->handle($request)->getBody();
+        $response = $app->handle($request);
+        $this->assertSame('fr', (string) $response->getBody());
 
-        /*
-         * $appRequest = $app->getRequest();
-         * $this->assertEquals("fr", $response);
-         * $this->assertEquals("fr", $appRequest->getAttribute(App::ATTR_LOCALE_REQUEST));
-         * // no lang should redirect to a lang
-         * $request = $request->withUri(new Uri("/lang-module/index/getlang/"));
-         * $response = $app->handle($request);
-         * $this->assertEquals(307, $response->getStatusCode());
-         * $request = $request->withUri(new Uri("/en/lang-module/index/getlang/"));
-         * $response = (string)$app->handle($request)->getBody();
-         * $this->assertEquals("en", $response);
-         * $request = $request->withUri(new Uri("/ja/lang-module/index/getlang/"));
-         * $response = (string)$app->handle($request)->getBody();
-         * $this->assertStringContainsString("not found", $response);*/
+        $request = $request->withUri(new Uri('/en/lang-module/index/getlang/'));
+        $response = $app->handle($request);
+        $this->assertSame('en', (string) $response->getBody());
+
+        // No locale prefix on a restricted module redirects to a locale
+        $request = $request->withUri(new Uri('/lang-module/index/getlang/'));
+        $response = $app->handle($request);
+        $this->assertEquals(307, $response->getStatusCode());
     }
 
     public function testAppInit(): void
@@ -205,6 +201,18 @@ class AppTest extends TestCase
         $response = $app->handle($request);
         // $body = (string)$response->getBody();
         $this->assertEquals(ContentType::JSON, $response->getHeaderLine('Content-type'));
+    }
+
+    public function testViewController(): void
+    {
+        $request = HttpFactory::createRequestFromGlobals();
+        $request = $request->withUri(new Uri('/test-module/index/view/'));
+        $app = new App(__DIR__);
+        $app->boot();
+        $response = $app->handle($request);
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertEquals(ContentType::HTML, $response->getHeaderLine('Content-type'));
+        $this->assertStringContainsString('View test', (string) $response->getBody());
     }
 
     public function testMiddleware(): void

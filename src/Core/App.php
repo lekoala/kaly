@@ -15,7 +15,6 @@ use Kaly\Http\ServerRequest;
 use Kaly\Http\Session;
 use Kaly\Log\FileLogger;
 use Kaly\Middleware\MiddlewareRunner;
-use Kaly\Middleware\MiddlewareToHandlerAdapter;
 use Kaly\Router\ClassRouter;
 use Kaly\Router\FaviconProviderInterface;
 use Kaly\Router\RequestDispatcher;
@@ -25,7 +24,7 @@ use Kaly\Util\Env;
 use Kaly\Util\Fs;
 use Kaly\Util\Json;
 use Kaly\View\Engine;
-use Kaly\View\EngineInterface;
+use Kaly\View\RendererInterface;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Clock\ClockInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -89,7 +88,7 @@ class App implements RequestHandlerInterface
         // PSR-3
         LoggerInterface::class => NullLogger::class,
         // Our interfaces
-        EngineInterface::class => Engine::class,
+        RendererInterface::class => Engine::class,
         FaviconProviderInterface::class => SiteConfig::class,
         RouterInterface::class => ClassRouter::class,
     ];
@@ -103,7 +102,6 @@ class App implements RequestHandlerInterface
     protected ?Container $container = null;
     protected ?Injector $injector = null;
     protected ?RequestHandlerInterface $requestHandler = null;
-    protected ?Engine $viewEngine = null;
     protected static App $instance;
 
     /**
@@ -369,7 +367,7 @@ class App implements RequestHandlerInterface
         }
 
         $dispatcher = $this->container->get(RequestDispatcher::class);
-        return new MiddlewareRunner(new MiddlewareToHandlerAdapter($dispatcher), $this->container);
+        return new MiddlewareRunner($dispatcher, $this->container);
     }
 
     public function respond(string $body, int $code = 200): ResponseInterface
@@ -473,15 +471,6 @@ class App implements RequestHandlerInterface
         assert($this->booted);
         assert($this->injector !== null);
         return $this->injector;
-    }
-
-    public function getViewEngine(): Engine
-    {
-        assert($this->booted);
-        if ($this->viewEngine === null) {
-            $this->viewEngine = $this->get(Engine::class);
-        }
-        return $this->viewEngine;
     }
 
     /**

@@ -4,20 +4,13 @@ declare(strict_types=1);
 
 namespace LangModule\Controller;
 
-use Kaly\App;
-use Psr\Http\Message\ServerRequestInterface;
+use Kaly\Core\AbstractController;
+use Kaly\Router\RequestDispatcher;
 
-class IndexController
+class IndexController extends AbstractController
 {
-    protected App $app;
-
-    public function __construct(App $app)
+    public function getlang(): mixed
     {
-        $this->app = $app;
-    }
-
-    public function getlang(ServerRequestInterface $request)
-    {
-        return $request->getAttribute(App::ATTR_LOCALE_REQUEST);
+        return $this->request->getAttribute(RequestDispatcher::ATTR_LOCALE_REQUEST);
     }
 }

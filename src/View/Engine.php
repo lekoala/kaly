@@ -14,7 +14,7 @@ use Closure;
  * @link https://github.com/devanych/view-renderer
  * @link https://github.com/qiqphp/qiq
  */
-class Engine implements EngineInterface
+class Engine implements RendererInterface, TemplateLocatorInterface, TemplatePathRegistryInterface
 {
     public const HEADER = '/** @var Kaly\View\Template $this */';
 

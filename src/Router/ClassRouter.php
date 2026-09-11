@@ -491,14 +491,14 @@ class ClassRouter implements RouterInterface
             $value = $this->parts[$i] ?? '';
             $type = $actionParam->getType();
 
-            // getName is only available for ReflectionNamedType and __toString is deprecated
-            if ($type instanceof ReflectionNamedType && $value && $type->isBuiltin()) {
-                // Transform & validate
+            // Strictly coerce and validate built-in typed parameters.
+            // An invalid value does not match the route (404).
+            if ($type instanceof ReflectionNamedType && $value !== '' && $type->isBuiltin()) {
                 $value = match ($type->getName()) {
-                    'bool' => boolval($value),
+                    'bool' => $this->parseBoolParam($value),
                     'array' => explode(',', $value),
-                    'int' => intval($value),
-                    'float' => floatval($value),
+                    'int' => $this->parseIntParam($value),
+                    'float' => $this->parseFloatParam($value),
                     default => (string) $value,
                 };
 
@@ -516,6 +516,33 @@ class ClassRouter implements RouterInterface
             throw new RouteNotFoundException("Too many parameters for action '{$action}' on '{$class}'");
         }
         return $params;
+    }
+
+    protected function parseIntParam(string $value): int
+    {
+        $int = filter_var($value, FILTER_VALIDATE_INT);
+        if ($int === false) {
+            throw new RouteNotFoundException("Invalid integer value '{$value}'");
+        }
+        return $int;
+    }
+
+    protected function parseFloatParam(string $value): float
+    {
+        $float = filter_var($value, FILTER_VALIDATE_FLOAT);
+        if ($float === false) {
+            throw new RouteNotFoundException("Invalid float value '{$value}'");
+        }
+        return $float;
+    }
+
+    protected function parseBoolParam(string $value): bool
+    {
+        $bool = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if ($bool === null) {
+            throw new RouteNotFoundException("Invalid boolean value '{$value}'");
+        }
+        return $bool;
     }
 
     /**
