@@ -17,9 +17,13 @@ abstract class GeneratorMiddleware implements GeneratorMiddlewareInterface
     /**
      * Logic to execute on the request BEFORE inner layers are run.
      *
-     * @return ServerRequestInterface The (potentially modified) request.
+     * Returning a response short-circuits the stack: the inner layers never
+     * run, and this middleware's own after() is skipped since it already owns
+     * the response. This is what an auth or a cache middleware needs.
+     *
+     * @return ServerRequestInterface|ResponseInterface The (potentially modified) request, or a response to return right away.
      */
-    public function before(ServerRequestInterface $request): ServerRequestInterface
+    public function before(ServerRequestInterface $request): ServerRequestInterface|ResponseInterface
     {
         // Default is to do nothing.
         return $request;
@@ -28,7 +32,7 @@ abstract class GeneratorMiddleware implements GeneratorMiddlewareInterface
     /**
      * Logic to execute on the response AFTER inner layers are run.
      *
-     * @param ServerRequestInterface $request The original request.
+     * @param ServerRequestInterface $request The request as returned by before().
      * @param ResponseInterface $response The response from the inner layers.
      * @return ResponseInterface The (potentially modified) response.
      */
@@ -51,10 +55,15 @@ abstract class GeneratorMiddleware implements GeneratorMiddlewareInterface
         // Run the "before" logic
         $modifiedRequest = $this->before($request);
 
+        // A response ends the cycle here, without running the inner layers
+        if ($modifiedRequest instanceof ResponseInterface) {
+            return $modifiedRequest;
+        }
+
         // Send request to the runner, get response in return
         $responseFromInside = yield $modifiedRequest;
 
-        // Run the "after" logic and return the final result
-        return $this->after($request, $responseFromInside);
+        // after() sees the request it produced itself, not the one it received
+        return $this->after($modifiedRequest, $responseFromInside);
     }
 }

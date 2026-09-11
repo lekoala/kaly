@@ -201,8 +201,68 @@ $app->middleware()->routed(
 Returning `false` skips the middleware for that request. Conditions are evaluated on
 every request, so they can also depend on external state.
 
+### Before and after hooks
+
 For middlewares that need both a "before" and an "after" phase, extend
-`Kaly\Middleware\GeneratorMiddleware` and implement the `before()` / `after()` hooks.
+`Kaly\Middleware\GeneratorMiddleware` and implement the hooks:
+
+```php
+final class Timing extends GeneratorMiddleware
+{
+    public function before(ServerRequestInterface $request): ServerRequestInterface|ResponseInterface
+    {
+        return $request->withAttribute('start', hrtime(true));
+    }
+
+    public function after(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        $ms = (hrtime(true) - $request->getAttribute('start')) / 1e6;
+        return $response->withHeader('X-Duration', (string) round($ms, 2));
+    }
+}
+```
+
+- `after()` receives the request **its own `before()` returned**, so anything set in
+  `before()` is there — as in the example above.
+- `before()` may return a **response** instead of a request. The inner layers never
+  run and this middleware's own `after()` is skipped, since it already owns the
+  response. Outer middlewares still wrap it. This is what an auth or a cache
+  middleware needs.
+
+### Handling downstream errors
+
+An exception thrown further down the stack is rethrown **at the yield point**, so a
+middleware can catch it, or clean up in a `finally`:
+
+```php
+final class Transaction implements GeneratorMiddlewareInterface
+{
+    public function process(ServerRequestInterface $request): Generator
+    {
+        $this->db->begin();
+        try {
+            $response = yield $request;
+            $this->db->commit();
+            return $response;
+        } catch (Throwable $e) {
+            $this->db->rollback();
+            throw $e;
+        }
+    }
+}
+```
+
+An exception nobody catches simply keeps going up, and the kernel turns it into a
+response. Note that a response built by the kernel this way has not gone back through
+the `after()` phases: they belong to a response returned by the stack, not to the
+outer safety net.
+
+The generator protocol is deliberately narrow, and a violation is reported as such
+rather than as a cryptic generator error:
+
+- yield the request **at most once** — zero to short-circuit;
+- yield a `ServerRequestInterface`, never anything else;
+- **return** a `ResponseInterface`.
 
 ## Env variables
 

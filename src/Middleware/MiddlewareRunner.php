@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Middleware;
 
 use Closure;
+use Generator;
 use InvalidArgumentException;
 use Kaly\Core\HttpContext;
 use LogicException;
@@ -13,6 +14,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Throwable;
 
 /**
  * A stateless PSR-15 middleware stack.
@@ -99,6 +101,14 @@ class MiddlewareRunner implements RequestHandlerInterface
      */
     protected function resolveFinalHandler(string|callable|RequestHandlerInterface|MiddlewareInterface $handler): RequestHandlerInterface
     {
+        // A class string is resolved like a middleware. A plain function name
+        // stays a callable.
+        if (is_string($handler) && class_exists($handler)) {
+            if ($this->container === null) {
+                throw new LogicException('A container is required to resolve a final handler class string.');
+            }
+            $handler = $this->container->get($handler);
+        }
         if ($handler instanceof RequestHandlerInterface) {
             return $handler;
         }
@@ -123,6 +133,32 @@ class MiddlewareRunner implements RequestHandlerInterface
             return $condition($ctx, $this->container) !== false;
         }
         return true;
+    }
+
+    /**
+     * The protocol of a generator middleware is deliberately narrow: it yields
+     * the request at most once and returns a response. Anything else is a
+     * programming error and must not surface as a cryptic generator error.
+     *
+     * @param Generator<int,mixed,ResponseInterface,mixed> $generator
+     */
+    protected function generatorResponse(Generator $generator, GeneratorMiddlewareInterface $middleware): ResponseInterface
+    {
+        if ($generator->valid()) {
+            throw new LogicException(sprintf('A generator middleware must yield at most once, %s yielded again.', $middleware::class));
+        }
+
+        $response = $generator->getReturn();
+        if (!$response instanceof ResponseInterface) {
+            throw new LogicException(sprintf(
+                'A generator middleware must return a %s, %s returned %s.',
+                ResponseInterface::class,
+                $middleware::class,
+                get_debug_type($response),
+            ));
+        }
+
+        return $response;
     }
 
     /**
@@ -172,19 +208,34 @@ class MiddlewareRunner implements RequestHandlerInterface
             $generator = $middleware->process($request);
 
             if (!$generator->valid()) {
-                // Short-circuiting generator
-                return $generator->getReturn();
+                // Short-circuiting generator: it never yielded
+                return $this->generatorResponse($generator, $middleware);
             }
 
             // Get the modified request from the before phase of the generator.
             $requestAfterBefore = $generator->current();
+            if (!$requestAfterBefore instanceof ServerRequestInterface) {
+                throw new LogicException(sprintf(
+                    'A generator middleware must yield a %s, %s yielded %s.',
+                    ServerRequestInterface::class,
+                    $middleware::class,
+                    get_debug_type($requestAfterBefore),
+                ));
+            }
 
-            // Execute the rest of the stack to get the inner response.
-            $responseFromInside = $this->processNext($requestAfterBefore, $index + 1, $ctx);
+            try {
+                // Execute the rest of the stack to get the inner response.
+                $responseFromInside = $this->processNext($requestAfterBefore, $index + 1, $ctx);
+            } catch (Throwable $e) {
+                // Resume at the yield with the failure so that a middleware can
+                // catch it. If it does not, the exception simply keeps going up.
+                $generator->throw($e);
+                return $this->generatorResponse($generator, $middleware);
+            }
 
             // Now, perform the after phase by resuming the generator.
             $generator->send($responseFromInside);
-            return $generator->getReturn();
+            return $this->generatorResponse($generator, $middleware);
         }
 
         // Standard PSR-15 middleware: the nested model.

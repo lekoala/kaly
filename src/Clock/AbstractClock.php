@@ -9,7 +9,9 @@ use Psr\Clock\ClockInterface;
 use Stringable;
 
 /**
- * A base clock
+ * A base clock.
+ *
+ * Code depending on the current time should depend on ClockInterface; avoid reading system time directly.
  *
  * Credits to
  * @link https://github.com/ericsizemore/clock
