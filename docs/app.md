@@ -219,17 +219,13 @@ mode, so INI specific conversions and interpolation do not apply: use the typed
 
 ## Modules
 
-In a kaly app, all folders in the modules dir with a `config.php` are considered
-modules. Config files are executed during bootstrap and can return definitions for the
-DI container.
+All folders in the modules dir with a `config.php` are modules. Config files are
+executed during bootstrap and provide definitions for the DI container. They are
+discovered in a deterministic order (sorted by folder name) and executed by priority
+(lower first); an explicit priority set by the module always wins.
 
-Modules are discovered in a deterministic order (sorted by folder name) and executed by
-priority (lower first). An explicit priority set by the module always wins; otherwise a
-priority is assigned from the discovery order.
-
-> You still need to autoload your modules yourself in composer.json.
-
-> Convention: the modules folder should match their namespace.
+Registration is eager, resolution is lazy, request behaviour is route aware. See
+[Modules](modules.md).
 
 ## The DI container
 

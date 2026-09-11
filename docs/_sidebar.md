@@ -1,6 +1,7 @@
 * [Home](/)
 * [DI](di.md)
 * [App](app.md)
+* [Modules](modules.md)
 * [Http context](http-context.md)
 * [ClassRouter](class-router.md)
 * [Views](views.md)
