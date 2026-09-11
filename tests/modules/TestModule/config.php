@@ -6,12 +6,16 @@ use Kaly\Log\FileLogger;
 use Kaly\Router\ClassRouter;
 use Kaly\Tests\Mocks\TestInterface;
 use Kaly\Tests\Mocks\TestObject;
+use Kaly\Tpl\ViewEngine;
+use Kaly\View\Adapter\KalyTplRenderer;
+use Kaly\View\RendererInterface;
 
 $value_is_not_leaked = 'test';
 
 $this
     ->definitions()
     ->bind(TestInterface::class, TestObject::class)
+    ->set(RendererInterface::class, new KalyTplRenderer(new ViewEngine(__DIR__ . '/templates')))
     ->callback(ClassRouter::class, function (ClassRouter $router): void {
         $router->setAllowedLocales(['en', 'fr'], ['LangModule']);
         $router->addAllowedNamespace('TestModule');

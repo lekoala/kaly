@@ -22,8 +22,6 @@ class Route
      * @var array<int<0,max>|string,mixed>
      */
     public array $params = [];
-    public ?string $template = null;
-    public bool $json = false;
 
     /**
      * @return array<string,mixed>
@@ -38,21 +36,6 @@ class Route
             'controller' => $this->controller,
             'action' => $this->action,
             'params' => $this->params,
-            'template' => $this->template,
-            'json' => $this->json,
         ];
-    }
-
-    /**
-     * @param array<string,mixed> $arr
-     * @return self
-     */
-    public static function fromArray(array $arr): self
-    {
-        $inst = new self();
-        foreach ($arr as $k => $v) {
-            $inst->$k = $v;
-        }
-        return $inst;
     }
 }

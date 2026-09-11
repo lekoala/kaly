@@ -12,8 +12,14 @@ Kaly is an opinionated but lightweight application framework built on PHP standa
 - **Modular architecture:** each module has its own config, controllers, templates and assets.
 - **Middleware support:** plain PSR-15 middleware, plus an optional generator style for before/after hooks.
 - **Multilingual support:** built-in locale detection.
-- **Renderer agnostic:** bring your own template engine (Twig, Kaly Tpl, ...).
+- **Renderer agnostic:** Latte (recommended), [kaly-tpl](https://github.com/lekoala/kaly-tpl) (lightweight native PHP) or Twig, through tiny adapters.
 - **No database, no ORM, no forms:** Kaly stays a small HTTP framework.
+
+## Views
+
+Kaly ships no template engine: return a `Kaly\View\View` from a controller and register a
+`Kaly\View\RendererInterface` (see [docs/views.md](docs/views.md)). Optional adapters are
+provided for Latte, kaly-tpl and Twig.
 
 ## Requirements
 

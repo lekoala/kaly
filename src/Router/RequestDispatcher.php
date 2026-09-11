@@ -33,7 +33,7 @@ class RequestDispatcher implements MiddlewareInterface
         protected Translator $translator,
         protected ResponseFactoryInterface $responseFactory,
         protected StreamFactoryInterface $streamFactory,
-        protected RendererInterface $renderer,
+        protected ?RendererInterface $renderer = null,
     ) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -118,6 +118,9 @@ class RequestDispatcher implements MiddlewareInterface
             return $result;
         }
         if ($result instanceof View) {
+            if ($this->renderer === null) {
+                throw new Ex('A View was returned but no renderer is configured. Bind a Kaly\View\RendererInterface implementation.');
+            }
             return $this->createResponse($this->renderer->render($result->template, $result->data), ContentType::HTML);
         }
         if (is_array($result)) {

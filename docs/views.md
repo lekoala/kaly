@@ -1,61 +1,83 @@
 # Views
 
-> Displaying stuff
+Kaly is renderer agnostic. The core only exposes:
 
-## Using Twig
+- `Kaly\View\View` — a controller result: `new View('@module/template', $data)`;
+- `Kaly\View\RendererInterface` — `render(string $template, array $data = []): string`;
+- optional capabilities `TemplateLocatorInterface` (`has()`) and `TemplatePathRegistryInterface` (`setPath()`).
 
-Kaly doesn't provide a view component out of the box (after all, maybe you don't need one!),
-but supports Twig.
+Controllers return a `View`; the dispatcher renders it through the configured
+`RendererInterface`. An `array` is returned as JSON, a `string` as HTML. If no renderer is
+configured, returning a `View` throws.
 
-Simply require Twig in your project
+## Choosing a renderer
 
+| Engine   | When                            | Adapter                                 |
+| -------- | ------------------------------- | --------------------------------------- |
+| Latte    | recommended template language   | `Kaly\View\Adapter\LatteRenderer`       |
+| kaly-tpl | lightweight native PHP templates | `Kaly\View\Adapter\KalyTplRenderer`    |
+| Twig     | existing Twig ecosystem         | `Kaly\View\Adapter\TwigRenderer`        |
+
+Adapters are optional: install the engine you want and register the adapter as the
+`RendererInterface`. Kaly never abstracts engine-specific features (extensions, filters,
+sandbox, blocks): configure those directly on the engine.
+
+### Latte (recommended)
+
+```bash
+composer require latte/latte
 ```
-composer require "twig/twig:^3.0"
-```
-
-## Configuring Di for Twig
-
-In the app router, we check if there is a definition for the `\Twig\Loader\LoaderInterface`.
-
-Example configuration below
 
 ```php
-return [
-    \Twig\Loader\FilesystemLoader::class . ':paths' => [
-        __DIR__ . '/views'
-    ],
-    \Twig\Loader\FilesystemLoader::class . '->' => [
-        [
-            'addPath' => [
-                'path' => __DIR__ . '/views',
-                'namespace' => 'app',
-            ]
-        ]
-    ],
-    \Twig\Loader\FilesystemLoader::class . ':rootPath' => function () {
-        return getcwd() . '/..';
-    },
-    \Twig\Loader\LoaderInterface::class => function (\Kaly\Di $di) {
-        return $di->get(\Twig\Loader\FilesystemLoader::class);
-    }
-];
+use Kaly\View\Adapter\LatteRenderer;
+use Kaly\View\RendererInterface;
+use Latte\Engine;
+use Latte\Loaders\FileLoader;
+
+$latte = new Engine();
+$latte->setLoader(new FileLoader(__DIR__ . '/views'));
+
+$definitions->set(RendererInterface::class, new LatteRenderer($latte));
 ```
 
-And you can of course add additional paths for your modules under another namespace like so
+### kaly-tpl (lightweight native PHP)
+
+```bash
+composer require lekoala/kaly-tpl
+```
 
 ```php
-return [
-    \Twig\Loader\FilesystemLoader::class . '->' => [
-        [
-            'addPath' => [
-                'path' => __DIR__ . '/views',
-                'namespace' => 'admin',
-            ]
-        ],
-    ],
-];
+use Kaly\Tpl\ViewEngine;
+use Kaly\View\Adapter\KalyTplRenderer;
+use Kaly\View\RendererInterface;
+
+$engine = new ViewEngine(__DIR__ . '/views');
+
+$definitions->set(RendererInterface::class, new KalyTplRenderer($engine));
 ```
 
-## Automatically match the template
+### Twig (also supported)
 
-Based on request attributes, views are automatically matched.
+```bash
+composer require twig/twig
+```
+
+```php
+use Kaly\View\Adapter\TwigRenderer;
+use Kaly\View\RendererInterface;
+use Twig\Environment;
+use Twig\Loader\FilesystemLoader;
+
+$twig = new Environment(new FilesystemLoader(__DIR__ . '/views'));
+
+$definitions->set(RendererInterface::class, new TwigRenderer($twig));
+```
+
+## Module templates
+
+When the configured renderer implements `TemplatePathRegistryInterface`, Kaly registers each
+module `templates/` directory under the module name, so templates can be referenced as
+`@Module/template`. This is automatic with `kaly-tpl`.
+
+Latte and Twig adapters do not implement that capability: register their namespaces/loaders
+directly on the engine instead.

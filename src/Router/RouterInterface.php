@@ -22,7 +22,6 @@ interface RouterInterface
     public const PARAMS = 'params';
     public const LOCALE = 'locale';
     public const SEGMENTS = 'segments';
-    public const TEMPLATE = 'template';
     public const FALLBACK_ACTION = '__invoke';
 
     /**

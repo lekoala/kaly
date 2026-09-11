@@ -21,7 +21,6 @@
     "require": {
         "php": "^8.3",
         "lekoala/kaly-di": "^0.1",
-        "laminas/laminas-escaper": "^2.13",
         "nyholm/psr7": "^1.8",
         "nyholm/psr7-server": "^1.1",
         "psr/clock": "^1.0",
@@ -37,9 +36,17 @@
     "require-dev": {
         "carthage-software/mago": "^1",
         "composer/ca-bundle": "^1.5",
+        "latte/latte": "^3.0",
+        "lekoala/kaly-tpl": "^0.1",
         "phpstan/phpstan": "^2.2",
         "phpunit/phpunit": "^12",
-        "symfony/var-dumper": "^7.1"
+        "symfony/var-dumper": "^7.1",
+        "twig/twig": "^3.0"
+    },
+    "suggest": {
+        "latte/latte": "Recommended template language, through Kaly\\View\\Adapter\\LatteRenderer",
+        "lekoala/kaly-tpl": "Lightweight native PHP templates, through Kaly\\View\\Adapter\\KalyTplRenderer",
+        "twig/twig": "Supported template engine, through Kaly\\View\\Adapter\\TwigRenderer"
     },
     "autoload": {
         "psr-4": {

@@ -6,7 +6,6 @@ namespace Kaly\Router;
 
 use InvalidArgumentException;
 use Kaly\Http\RedirectException;
-use Kaly\Util\Refl;
 use Kaly\Util\Str;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UriInterface;
@@ -96,9 +95,6 @@ class ClassRouter implements RouterInterface
         // Remaining parts are passed as arguments to the action
         $params = $this->collectParameters($reflectionClass, $action);
         $route->params = $params;
-
-        // This will allow us to find a matching template to render controller's result
-        $route->template = $this->matchTemplate($route);
 
         return $route;
     }
@@ -229,39 +225,6 @@ class ClassRouter implements RouterInterface
         }
 
         return $url;
-    }
-
-    /**
-     * Suggest a default template name for GET routes
-     * If the module of the route is not the default namespace, prepend @module
-     * @param Route $route
-     * @return string|null
-     */
-    protected function matchTemplate(Route $route): ?string
-    {
-        $method = $this->request->getMethod();
-        if ($method != 'GET') {
-            return null;
-        }
-
-        $start = $this->defaultNamespace . '\\\\' . $this->controllerNamespace . '\\\\';
-        $end = $this->controllerSuffix;
-
-        $controller = $route->controller;
-        if (!$controller) {
-            return null;
-        }
-        $controllerFolder = Refl::getClassName($controller);
-        $controllerFolder = preg_replace("/{$end}$/", '', $controllerFolder) ?? '';
-        $controllerFolder = preg_replace("/^{$start}/", '', $controllerFolder) ?? '';
-        $controllerFolder = Str::lc($controllerFolder);
-
-        $viewName = $controllerFolder;
-        if ($route->module !== $this->defaultNamespace) {
-            $viewName = '@' . $route->module . '/' . $viewName;
-        }
-
-        return $viewName;
     }
 
     /**

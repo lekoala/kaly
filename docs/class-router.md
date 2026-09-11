@@ -63,9 +63,8 @@ This is how the process of routing works. Segments of the path are examined one 
 -   We check for a controller. If no segment (passing / or /module/), index is assumed.
     -   Note: calling other methods on index require using the /index prefix (eg: /index/myaction)
 -   We look for an action. It will look for 'actionMethod' or 'action'. If none, index or \_\_invoke is assumed
--   We collect remaining parameters based on action signature
-
-Finally, the router will also compute a default template path based on the matched module/class/action.
+-   We collect remaining parameters based on action signature. Typed parameters are validated strictly:
+    a value that cannot be coerced to the declared `int`/`float`/`bool`/`array` type does not match the route (404).
 
 ## Dispatching actions
 
@@ -79,4 +78,3 @@ These parameters are:
 -   action
 -   params
 -   locale
--   template

@@ -12,7 +12,7 @@ class IndexController extends AbstractController
         return new View('@app/index', [
             'content' => 'hello from index',
             'unsafe' => '<script>alert("test")</script>',
-            'list' => ['a', 'list', 'of', 'items', 'un<safe>', 150, null, true, ['test', true, false, 10]], // including silly stuff to escape
+            'list' => ['a', 'list', 'of', 'items'],
         ]);
     }
 

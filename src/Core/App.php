@@ -21,8 +21,6 @@ use Kaly\Text\Translator;
 use Kaly\Util\Env;
 use Kaly\Util\Fs;
 use Kaly\Util\Json;
-use Kaly\View\Engine;
-use Kaly\View\RendererInterface;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Clock\ClockInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -86,7 +84,6 @@ class App implements RequestHandlerInterface
         // PSR-3
         LoggerInterface::class => NullLogger::class,
         // Our interfaces
-        RendererInterface::class => Engine::class,
         RouterInterface::class => ClassRouter::class,
     ];
 
