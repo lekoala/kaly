@@ -191,6 +191,71 @@ class AppTest extends TestCase
         $response = $app->handle($base->withUri(new Uri('/test-module/index/noop/')));
         $this->assertEquals(200, $response->getStatusCode());
         $this->assertSame('', (string) $response->getBody());
+
+        // ResponseInterface is used as-is
+        $response = $app->handle($base->withUri(new Uri('/test-module/index/raw/')));
+        $this->assertEquals(201, $response->getStatusCode());
+        $this->assertSame('yes', $response->getHeaderLine('X-Raw'));
+        $this->assertSame('raw', (string) $response->getBody());
+    }
+
+    public function testMultipleRequestsOnSameApp(): void
+    {
+        $app = new App(__DIR__);
+        $app->boot();
+        $base = HttpFactory::createRequestFromGlobals();
+
+        // Sequential requests must not leak state between each other
+        $response = $app->handle($base->withUri(new Uri('/test-module/index/foo/')));
+        $this->assertSame('foo', (string) $response->getBody());
+
+        $response = $app->handle($base->withUri(new Uri('/test-module/demo/')));
+        $this->assertSame('hello demo', (string) $response->getBody());
+
+        $response = $app->handle($base->withUri(new Uri('/test-module/index/foo/')));
+        $this->assertSame('foo', (string) $response->getBody());
+
+        // The kernel is built once and reused
+        $this->assertSame($app->getKernel(), $app->getKernel());
+    }
+
+    public function testRequestCallbacks(): void
+    {
+        $app = new App(__DIR__);
+        $app->boot();
+
+        $before = 0;
+        $after = 0;
+        $errors = 0;
+        $app->addCallback(App::CB_BEFORE_REQUEST, function () use (&$before): void {
+            $before++;
+        });
+        $app->addCallback(App::CB_AFTER_REQUEST, function () use (&$after): void {
+            $after++;
+        });
+        $app->addCallback(App::CB_ERROR, function () use (&$errors): void {
+            $errors++;
+        });
+
+        $base = HttpFactory::createRequestFromGlobals();
+
+        // A normal request
+        $app->handle($base->withUri(new Uri('/test-module/index/foo/')));
+        $this->assertSame(1, $before);
+        $this->assertSame(1, $after);
+        $this->assertSame(0, $errors);
+
+        // HTTP exceptions are expected and are not reported as errors
+        $response = $app->handle($base->withUri(new Uri('/test-module/index/validation/')));
+        $this->assertSame(403, $response->getStatusCode());
+        $this->assertSame(0, $errors);
+
+        // Generic errors are reported
+        $response = $app->handle($base->withUri(new Uri('/test-module/index/middlewareexception/')));
+        $this->assertSame(500, $response->getStatusCode());
+        $this->assertSame(1, $errors);
+        $this->assertSame(3, $before);
+        $this->assertSame(3, $after);
     }
 
     public function testMiddleware(): void

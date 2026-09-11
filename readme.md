@@ -24,6 +24,8 @@ provided for Latte, kaly-tpl and Twig.
 ## Requirements
 
 - PHP 8.3+
+- A PSR-7 implementation for your application (Nyholm is recommended); the core only
+  depends on the PSR interfaces.
 
 ## Installation
 

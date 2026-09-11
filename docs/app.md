@@ -1,40 +1,86 @@
 # App
 
-> Application kernel
+> Application bootstrap and request kernel
 
 ## Usage
 
-A kaly app is a simple class that wraps execution of your application.
+A kaly app is created from the entry file with the base directory that contains the
+system folders (`modules/`, `public/`, `temp/`, `resources/`).
 
-It takes one parameter : the base path.
-
-Note: the app kernel will look by default for a .env file (see "env variables" below).
-
-The env variables are following the same conventions as Laravel or Symfony.
+The app looks for a `.env` file in the base directory unless the `IGNORE_DOT_ENV`
+environment variable is set.
 
 ```
 APP_DEBUG=true
+APP_TIMEZONE=UTC
+```
+
+## PSR-7 implementation
+
+The core only depends on the PSR interfaces. You must provide a PSR-7
+implementation and bind the PSR-17 factories your app needs (Nyholm is recommended):
+
+```php
+use Nyholm\Psr7\Factory\Psr17Factory;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Http\Message\ServerRequestFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+use Psr\Http\Message\UploadedFileFactoryInterface;
+use Psr\Http\Message\UriFactoryInterface;
+
+$definitions
+    ->bind(RequestFactoryInterface::class, Psr17Factory::class)
+    ->bind(ResponseFactoryInterface::class, Psr17Factory::class)
+    ->bind(ServerRequestFactoryInterface::class, Psr17Factory::class)
+    ->bind(StreamFactoryInterface::class, Psr17Factory::class)
+    ->bind(UploadedFileFactoryInterface::class, Psr17Factory::class)
+    ->bind(UriFactoryInterface::class, Psr17Factory::class);
 ```
 
 ## Index file
 
-Here is a sample file to get you started
+The entry file builds the request (Nyholm is recommended) and passes it to `run()`:
 
 ```php
 <?php
 
+use Kaly\Core\App;
+
 require '../vendor/autoload.php';
 
-error_reporting(-1);
+$psr17Factory = new Nyholm\Psr7\Factory\Psr17Factory();
+$creator = new Nyholm\Psr7Server\ServerRequestCreator(
+    $psr17Factory, // ServerRequestFactory
+    $psr17Factory, // UriFactory
+    $psr17Factory, // UploadedFileFactory
+    $psr17Factory, // StreamFactory
+);
 
-$app = new Kaly\App(dirname(__DIR__));
-$app->run();
+$app = new App(dirname(__DIR__));
+$app->run($creator->fromGlobals());
 ```
+
+`run()` boots the app if needed, handles the request and emits the response.
+
+## Application and Kernel
+
+Boot and request handling are split in two objects:
+
+- `Kaly\Core\Application` — env, directories, modules, definitions, container,
+  injector; `boot()` builds everything once.
+- `Kaly\Core\Kernel` — a stateless PSR-15 `RequestHandlerInterface`. It wraps the
+  request, runs the request callbacks, delegates to the middleware stack and maps
+  exceptions to responses.
+
+`Kaly\Core\App` is a thin facade (`Application` + `Kernel`) and is what most apps use.
+
+Because the kernel holds no per-request state, the same `Application` can handle many
+requests, which makes worker setups (RoadRunner, Swoole, FrankenPHP...) straightforward.
 
 ## Using Road Runner
 
-You can also use RoadRunner to handle requests. Since the boot process
-happens only once, you get a really minimal overhead to handle requests.
+Since the boot process happens only once, you get a really minimal overhead per request.
 
 ```php
 <?php
@@ -49,7 +95,7 @@ $psrFactory = new Psr7\Factory\Psr17Factory();
 
 $worker = new RoadRunner\Http\PSR7Worker($worker, $psrFactory, $psrFactory, $psrFactory);
 
-$app = new Kaly\App(dirname(__DIR__));
+$app = new Kaly\Core\App(dirname(__DIR__));
 $app->boot();
 
 while ($req = $worker->waitRequest()) {
@@ -57,25 +103,45 @@ while ($req = $worker->waitRequest()) {
         $response = $app->handle($req);
         $worker->respond($response);
     } catch (\Throwable $e) {
-        $worker->getWorker()->error((string)$e);
+        $worker->getWorker()->error((string) $e);
     }
 }
 ```
 
 ## Bootstrap
 
-The `run` method will do a couple of things. It will:
+`boot()` will:
 
--   it will boot the app if not already done
--   it will handle the request (from globals if none passed)
--   and it will output the response
+- configure error handling and, in debug mode, ensure the system directories exist;
+- discover the modules and load their config files;
+- build the definitions, the DI container and the injector;
+- build the request kernel.
+
+You can start adding middlewares after `boot()`.
+
+## Callbacks
+
+Callbacks are a simple alternative to event dispatchers. Valid ids are exposed as
+`App::CB_*` constants:
+
+- `App::CB_BOOTED`
+- `App::CB_BEFORE_DEFINTITIONS`
+- `App::CB_AFTER_DEFINITIONS`
+- `App::CB_BEFORE_REQUEST`
+- `App::CB_AFTER_REQUEST`
+- `App::CB_ERROR` (generic errors only; HTTP exceptions are expected and skipped)
+
+```php
+$app->addCallback(App::CB_ERROR, function (Throwable $e): void {
+    // report to your error tracker
+});
+```
 
 ## Using middlewares
 
-It is possible to use middlewares like this. Middleware support is really simple:
-they run on each request if their matching condition is met.
-
-They get instantiated by the DI container.
+Middlewares are plain PSR-15 `MiddlewareInterface` implementations. They are resolved
+from the container and called in the order they were pushed. The request dispatcher is
+the final handler of the stack.
 
 ```php
 $app = new App(dirname(__DIR__));
@@ -84,77 +150,51 @@ $app->getMiddlewareRunner()
         return str_starts_with($request->getUri()->getPath(), '/admin');
     });
 
-$app->run();
-
+$app->run($request);
 ```
 
-### Middlewares
-
-Middlewares are plain PSR-15 `MiddlewareInterface` implementations. They are
-resolved from the container and called in the order they were pushed. The request
-dispatcher is the final handler of the stack.
-
-For middlewares that need both a "before" and an "after" phase, you can extend
+For middlewares that need both a "before" and an "after" phase, extend
 `Kaly\Middleware\GeneratorMiddleware` and implement the `before()` / `after()` hooks.
 
 ## Env variables
 
-Any env variables should be defined in the application server.
+Any env variable can be defined in the application server, otherwise an `.env` file in
+the base directory is loaded (`parse_ini_file` format). Set `IGNORE_DOT_ENV` to skip the
+filesystem lookup.
 
-Otherwise, you can also have an `.env` in the root of your folder.
-`.env` file are simply passed to `parse_ini_file` method.
-You can avoid the filesystem call (checking if .env exists) by setting
-a `IGNORE_DOT_ENV` environment variable.
-
-The only processing we do is converting "true" and "false" strings to actual booleans.
-
-Then we check our applications environment variables:
-
--   debug : toggle debug mode for the app. Useful in development.
+`APP_DEBUG` toggles debug mode (error reporting, debug logger, directory setup).
 
 ## Modules
 
-In a kaly app, all folders in the modules dir with a `config.php` are considered to be modules.
-Config files are executed during the bootstrap process and can return definitions
-to be injected in the DI container.
+In a kaly app, all folders in the modules dir with a `config.php` are considered
+modules. Config files are executed during bootstrap and can return definitions for the
+DI container.
 
-> You still need to autoload your modules yourself in composer.json
+Modules are discovered in a deterministic order (sorted by folder name) and executed by
+priority (lower first). An explicit priority set by the module always wins; otherwise a
+priority is assigned from the discovery order.
 
-> Convention: modules folder should match their namespace. We use uppercased folders for
-> consistency.
+> You still need to autoload your modules yourself in composer.json.
 
-> The default namespace for the built-in router is `App` and it makes sense to have
-> a module matching this.
-
-> Modules are not loaded in any particular order by default.
+> Convention: the modules folder should match their namespace.
 
 ## The DI container
 
-All definitions provided by the config modules are then loaded up in the Di container.
+All definitions provided by the module configs are merged, then the app defaults are
+registered if not already defined, and the definitions are locked.
 
-Look into the `App::configureDi` method to see what's being done here.
-
-Please note the the Di container is only instantiated ONCE, when the application is booted.
-This means that subsequent requests on the same app instance will use the same Di container.
-
-All returned instance are cached by default, except if they are part of no cache definition.
-This is the case for example for the `ServerRequestInterface` that is a uncached alias
-of `App::getRequest`.
-
-You can also request fresh classes using the ':new' suffix when calling `Di::get`
+The container is instantiated ONCE during boot. Subsequent requests on the same app
+instance reuse it.
 
 ## Routing
 
-The routing is done by a class implementing the `RouterInterface`.
-
-See our `ClassRouter` docs for more information.
-
-The router is also responsible to call your controllers.
+The routing is done by a class implementing the `RouterInterface`. See the
+`ClassRouter` docs for more information.
 
 A controller must return one of:
+
 - a `ResponseInterface` (used as-is)
 - a `Kaly\View\View` (rendered to HTML by the configured renderer)
 - an `array` (JSON response)
 - a `string` (HTML response)
 - `null` (empty response)
-

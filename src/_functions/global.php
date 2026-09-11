@@ -1,6 +1,5 @@
 <?php
 
-// This file is always included by the autoloader
 // These are helpers function that are only declared if they don't exist
 // They are not required by the framework that should work without them
 

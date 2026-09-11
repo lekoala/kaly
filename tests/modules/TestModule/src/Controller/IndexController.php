@@ -9,12 +9,19 @@ use Kaly\Core\AbstractController;
 use Kaly\Http\RedirectException;
 use Kaly\Http\ValidationException;
 use Kaly\View\View;
+use Nyholm\Psr7\Response;
+use Psr\Http\Message\ResponseInterface;
 
 class IndexController extends AbstractController
 {
     public function index(): string
     {
         return 'hello';
+    }
+
+    public function raw(): ResponseInterface
+    {
+        return new Response(201, ['X-Raw' => 'yes'], 'raw');
     }
 
     protected function isinvalid(): string
