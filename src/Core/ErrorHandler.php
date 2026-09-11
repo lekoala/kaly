@@ -89,7 +89,7 @@ class ErrorHandler
         // If we want error reporting, make it nice for DX
         if (error_reporting() === -1) {
             $body = '';
-            if (is_cli()) {
+            if (self::isCli()) {
                 $body .= "[{$type}] {$message} ({$file}:{$line})";
                 if ($prev) {
                     $body .= "\n" . $prev->getMessage();
@@ -110,5 +110,14 @@ class ErrorHandler
         }
 
         return $body;
+    }
+
+    /**
+     * http_response_code returns false when not invoked in a web server
+     * environment (such as from a CLI application).
+     */
+    private static function isCli(): bool
+    {
+        return php_sapi_name() === 'cli' || !http_response_code();
     }
 }

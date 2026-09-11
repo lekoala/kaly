@@ -8,10 +8,8 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ResponseInterface;
-use Kaly\Middleware\FileServer;
-use Kaly\Middleware\FaviconServer;
-use Kaly\Middleware\PreventFileAccess;
-use Kaly\Http\ResponseEmitter;
+use Kaly\Middleware\Builtin\FileServer;
+use Kaly\Middleware\Builtin\PreventFileAccess;
 
 ini_set('display_errors', 'on');
 error_reporting(-1);
@@ -37,12 +35,11 @@ ErrorHandler::handle(function () use ($demoMiddleware, $errorMiddleware) {
     $app = new App(dirname(__DIR__));
     $app->boot();
     $app->getMiddlewareRunner()
-        ->push(FaviconServer::class, null, true)
-        ->push(PreventFileAccess::class, null, true)
-        ->push($demoMiddleware, null, true);
+        ->push(PreventFileAccess::class)
+        ->push($demoMiddleware);
 
     // Uncomment this to test for errors during middleware processing
-    // $app->getMiddlewareRunner()->push($errorMiddleware, null, true);
+    // $app->getMiddlewareRunner()->push($errorMiddleware);
 
     $app->getMiddlewareRunner()->push(new FileServer());
 

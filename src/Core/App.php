@@ -12,11 +12,9 @@ use Kaly\Http\HttpFactory;
 use Kaly\Http\ResponseEmitter;
 use Kaly\Http\ResponseProviderInterface;
 use Kaly\Http\ServerRequest;
-use Kaly\Http\Session;
 use Kaly\Log\FileLogger;
 use Kaly\Middleware\MiddlewareRunner;
 use Kaly\Router\ClassRouter;
-use Kaly\Router\FaviconProviderInterface;
 use Kaly\Router\RequestDispatcher;
 use Kaly\Router\RouterInterface;
 use Kaly\Text\Translator;
@@ -89,7 +87,6 @@ class App implements RequestHandlerInterface
         LoggerInterface::class => NullLogger::class,
         // Our interfaces
         RendererInterface::class => Engine::class,
-        FaviconProviderInterface::class => SiteConfig::class,
         RouterInterface::class => ClassRouter::class,
     ];
 
@@ -151,9 +148,6 @@ class App implements RequestHandlerInterface
             $this->debug = Env::getBool(self::ENV_DEBUG);
         }
         date_default_timezone_set(Env::getString(self::ENV_TIMEZONE, 'UTC'));
-
-        // Initialize our services
-        Session::configureDefaults($this->getTempDirFor(Session::class));
     }
 
     /**

@@ -78,6 +78,8 @@ class IndexController extends AbstractController
         return new View('@TestModule/view', ['title' => 'View test']);
     }
 
+    public function noop(): void {}
+
     public function getipstate()
     {
         return $this->request->getAttribute('client-ip');

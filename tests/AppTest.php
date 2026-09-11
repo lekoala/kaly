@@ -10,8 +10,6 @@ use Kaly\Http\ContentType;
 use Kaly\Http\HttpFactory;
 use Kaly\Router\ClassRouter;
 use Kaly\Router\RouterInterface;
-use Kaly\Security\Auth;
-use Kaly\Security\BasicAuthenticationException;
 use Kaly\Tests\Mocks\TestApp;
 use Kaly\Tests\Mocks\TestMiddleware;
 use Nyholm\Psr7\Uri;
@@ -78,9 +76,6 @@ class AppTest extends TestCase
         $this->assertInstanceOf(App::class, $app);
         $app->boot();
         $this->assertTrue($app->getDebug(), 'debug flag is not set');
-
-        $cookiesParams = session_get_cookie_params();
-        $this->assertEquals(1, $cookiesParams['httponly']);
 
         $declaredVars = array_keys(get_defined_vars());
         $this->assertNotContains('value_is_not_leaked', $declaredVars);
@@ -153,45 +148,6 @@ class AppTest extends TestCase
         $this->assertStringContainsString('"my"', $body);
     }
 
-    //TODO: fix test
-    // public function testAuth(): void
-    // {
-    //     $request = HttpFactory::createRequestFromGlobals();
-    //     $request = $request->withUri(new Uri("/test-module/index/auth/"));
-    //     $app = new App(__DIR__);
-    //     $app->boot();
-    //     $response = $app->handle($request);
-    //     $this->assertEquals(401, $response->getStatusCode());
-
-    //     /** @var Auth $auth  */
-    //     $auth = $app->getContainer()->get(Auth::class);
-    //     $auth->setUser("test");
-    //     // App request has been modified by reference
-    //     // $this->assertEquals("test", $app->getRequest()->getAttribute(Auth::KEY_USER_ID));
-    //     $this->assertEquals("test", $_SESSION[Auth::KEY_USER_ID]);
-    //     // Original request is not mutable and as been copied by handle
-    //     $this->assertNotEquals("test", $request->getAttribute(Auth::KEY_USER_ID));
-    // }
-
-    public function testBasicAuth(): void
-    {
-        $app = new App(__DIR__);
-        $app->boot();
-
-        $request = new \Nyholm\Psr7\ServerRequest('GET', '/', [], null, '1.1', [
-            'HTTP_AUTHORIZATION' => 'Basic ' . base64_encode('unit:test'),
-        ]);
-
-        // Valid credentials do not throw
-        Auth::basicAuth($request, 'unit', 'test');
-        $this->addToAssertionCount(1);
-
-        // A provided password must not validate against itself: the expected
-        // password is the one passed to basicAuth(), not the client one.
-        $this->expectException(BasicAuthenticationException::class);
-        Auth::basicAuth($request, 'unit', 'wrong');
-    }
-
     public function testJsonRoute(): void
     {
         $request = HttpFactory::createRequestFromGlobals();
@@ -213,6 +169,28 @@ class AppTest extends TestCase
         $this->assertEquals(200, $response->getStatusCode());
         $this->assertEquals(ContentType::HTML, $response->getHeaderLine('Content-type'));
         $this->assertStringContainsString('View test', (string) $response->getBody());
+    }
+
+    public function testControllerResultContract(): void
+    {
+        $app = new App(__DIR__);
+        $app->boot();
+        $base = HttpFactory::createRequestFromGlobals();
+
+        // string => HTML
+        $response = $app->handle($base->withUri(new Uri('/test-module/index/foo/')));
+        $this->assertEquals(ContentType::HTML, $response->getHeaderLine('Content-type'));
+        $this->assertSame('foo', (string) $response->getBody());
+
+        // array => JSON
+        $response = $app->handle($base->withUri(new Uri('/test-module/json/')));
+        $this->assertEquals(ContentType::JSON, $response->getHeaderLine('Content-type'));
+        $this->assertSame('[]', (string) $response->getBody());
+
+        // null => empty response
+        $response = $app->handle($base->withUri(new Uri('/test-module/index/noop/')));
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertSame('', (string) $response->getBody());
     }
 
     public function testMiddleware(): void

@@ -25,22 +25,15 @@ Having a simple integration of Sentry is really easy with Kaly. It basically boi
 We use our callback feature to easily define hook points for sentry.
 
 ```php
+use Kaly\Core\App;
+use Throwable;
+
 if (isset($_ENV['SENTRY_DSN'])) {
     \Sentry\init([
         'dsn' => $_ENV['SENTRY_DSN'],
-        'environment' => $this->getDebug() ? 'dev' : 'prod'
+        'environment' => $app->getDebug() ? 'dev' : 'prod'
     ]);
-    $this->addCallback(\Kaly\Auth::class, \Kaly\Auth::CALLBACK_SUCCESS, function (ServerRequestInterface $request) {
-        \Sentry\configureScope(function (\Sentry\State\Scope $scope) use ($request) {
-            $scope->setUser(['id' => $request->getAttribute(\Kaly\Auth::ATTR_USER_ID)]);
-        });
-    });
-    $this->addCallback(\Kaly\Auth::class, \Kaly\Auth::CALLBACK_CLEARED, function (ServerRequestInterface $request) {
-        \Sentry\configureScope(function (\Sentry\State\Scope $scope) use ($request) {
-            $scope->removeUser();
-        });
-    });
-    $this->addCallback(\Kaly\App::class, \Kaly\App::CALLBACK_ERROR, function (Throwable $exception) {
+    $app->addCallback(App::CB_ERROR, function (Throwable $exception) {
         \Sentry\captureException($exception);
     });
 }

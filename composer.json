@@ -44,10 +44,7 @@
     "autoload": {
         "psr-4": {
             "Kaly\\": "src"
-        },
-        "files": [
-            "src/_functions/global.php"
-        ]
+        }
     },
     "autoload-dev": {
         "psr-4": {

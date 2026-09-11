@@ -4,6 +4,7 @@ use Kaly\View\AssetsExtension;
 use Kaly\View\Engine;
 
 require "../vendor/autoload.php";
+require dirname(__DIR__) . '/src/_functions/global.php';
 
 $engine = new Engine([
     __DIR__ . '/views',
