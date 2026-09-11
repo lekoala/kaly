@@ -49,6 +49,16 @@ class IndexController extends AbstractController
         return 'post';
     }
 
+    public function changePost(array $body = []): string
+    {
+        return 'mutation-called';
+    }
+
+    public function requiredPost(array $body): array
+    {
+        return $body;
+    }
+
     public function middleware(): string
     {
         $attr = $this->request->getAttribute('test-attribute');

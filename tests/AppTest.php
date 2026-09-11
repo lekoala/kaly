@@ -258,6 +258,40 @@ class AppTest extends TestCase
         $this->assertSame(3, $after);
     }
 
+    public function testFailingBeforeRequestCallbackReturnsResponse(): void
+    {
+        $app = new App(__DIR__);
+        $app->boot();
+        $errors = 0;
+        $app->addCallback(App::CB_BEFORE_REQUEST, function (): void {
+            throw new \RuntimeException('before failed');
+        });
+        $app->addCallback(App::CB_ERROR, function () use (&$errors): void {
+            $errors++;
+        });
+
+        $request = HttpFactory::createRequestFromGlobals()->withUri(new Uri('/test-module/index/foo/'));
+        $response = $app->handle($request);
+
+        $this->assertSame(500, $response->getStatusCode());
+        $this->assertSame(1, $errors);
+    }
+
+    public function testFailingAfterRequestCallbackDoesNotMaskResponse(): void
+    {
+        $app = new App(__DIR__);
+        $app->boot();
+        $app->addCallback(App::CB_AFTER_REQUEST, function (): void {
+            throw new \RuntimeException('after failed');
+        });
+
+        $request = HttpFactory::createRequestFromGlobals()->withUri(new Uri('/test-module/index/foo/'));
+        $response = $app->handle($request);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('foo', (string) $response->getBody());
+    }
+
     public function testMiddleware(): void
     {
         $middlewareInst = new TestMiddleware();

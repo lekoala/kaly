@@ -125,6 +125,11 @@ final class Str
         if (!$str) {
             return '';
         }
+        // intl is only suggested: fall back to a best-effort ascii slug
+        if (!class_exists(Transliterator::class)) {
+            $fallback = preg_replace('/[^a-z0-9]+/i', '-', $str) ?? '';
+            return trim(strtolower($fallback), '-');
+        }
         $rules = <<<'RULES'
             :: Any-Latin;
             :: NFD;

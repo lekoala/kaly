@@ -97,3 +97,52 @@ jobs:
 
       - name: PHPUnit
         run: composer phpunit
+
+  audit:
+    name: Composer audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          coverage: none
+          tools: composer:v2
+
+      - name: Composer install
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Composer validate
+        run: composer validate --strict --no-check-publish
+
+      - name: Composer audit
+        run: composer audit --no-interaction
+
+  production-deps:
+    name: Production dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          coverage: none
+          tools: composer:v2
+
+      - name: Composer install (no dev)
+        run: composer install --no-interaction --no-progress --prefer-dist --no-dev --optimize-autoloader
+
+      - name: Smoke test
+        run: php -r "require 'vendor/autoload.php'; echo Kaly\\Util\\Str::camelize('test-module');"

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Router;
 
 use Exception;
+use Kaly\Http\MethodNotAllowedException;
 use Kaly\Http\NotFoundException;
 use Kaly\Http\RedirectException;
 use Psr\Http\Message\ServerRequestInterface;
@@ -27,6 +28,7 @@ interface RouterInterface
     /**
      * @throws RedirectException Will be converted to 3xx redirect
      * @throws NotFoundException Will be converted to 404 error
+     * @throws MethodNotAllowedException Will be converted to 405 error
      * @throws RouteNotFoundException Will be converted to 404 error
      * @throws Exception Will be converted to 500 error
      */

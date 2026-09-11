@@ -15,7 +15,8 @@ If the controller does not exists, the default controller is called (`IndexContr
 
 ## Calling actions
 
-Any unmatched part will be passed on the action. Only public methods accepting a `ServerRequestInterface` object can be called.
+Any unmatched part will be passed on the action. Public methods are callable;
+non-public methods and magic methods other than `__invoke` are never exposed.
 
 Methods argument are validated by their type.
 
@@ -28,12 +29,23 @@ Works with
 ```php
 class SomeController
 {
-    function url(ServerRequestInterface $request, ...$args)
+    function url(...$args)
     {
     }
 ```
 
 Extra parameters will otherwise throw errors by default.
+
+## HTTP methods
+
+An action whose name ends with an HTTP verb is restricted to that verb:
+
+- `changePost()` answers `POST /change/`, but not `GET /change/`
+- `GET /change-post/` returns a `405` response with an `Allow: POST` header
+
+A bare action name (no verb suffix) remains callable with any method. The
+recognized suffixes are `Get`, `Post`, `Put`, `Patch`, `Delete`, `Head` and
+`Options`. A POST/PUT/PATCH body is passed as the last argument of the action.
 
 ## Debug
 

@@ -138,27 +138,53 @@ trait RequestUtils
         }
         foreach (explode(',', $header) as $part) {
             $subparts = explode(';q=', $part);
-            $arr[$subparts[0]] = floatval($subparts[1] ?? 1);
+            $language = trim($subparts[0]);
+            // Ignore the wildcard and empty entries: they carry no language
+            if ($language === '' || $language === '*') {
+                continue;
+            }
+            $arr[$language] = floatval(trim($subparts[1] ?? '1'));
         }
         arsort($arr);
         return $arr;
     }
 
     /**
+     * Return the preferred language for this request.
+     *
+     * When $allowed is provided, the best supported language is negotiated
+     * (a request for "en-US" matches the supported "en"). Returns null when
+     * nothing matches so the caller can fall back to its own default.
+     *
      * @param array<string>|null $allowed
      */
     public function getPreferredLanguage(?array $allowed = null): ?string
     {
         $arr = $this->parseAcceptedLanguages();
         if ($allowed === null) {
-            return key($arr);
+            return $arr === [] ? null : array_key_first($arr);
         }
-        foreach ($arr as $k => $v) {
-            if (in_array($k, $allowed)) {
-                return $k;
+        foreach (array_keys($arr) as $language) {
+            foreach ($allowed as $candidate) {
+                if ($this->languageMatches($language, $candidate)) {
+                    return $candidate;
+                }
             }
         }
-        return $allowed[0] ?? null;
+        return null;
+    }
+
+    private function languageMatches(string $language, string $candidate): bool
+    {
+        if ($candidate === '') {
+            return false;
+        }
+        if (strcasecmp($language, $candidate) === 0) {
+            return true;
+        }
+        $language = strtolower($language);
+        $candidate = strtolower($candidate);
+        return str_starts_with($language, $candidate . '-') || str_starts_with($language, $candidate . '_');
     }
 
     /**

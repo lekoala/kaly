@@ -22,6 +22,13 @@ use Throwable;
 final class Kernel implements RequestHandlerInterface
 {
     /**
+     * Exceptions thrown by the error callbacks themselves, kept for debugging.
+     *
+     * @var Throwable[]
+     */
+    private array $callbackErrors = [];
+
+    /**
      * @param Closure(string, mixed...): void $callbacks The application callback runner
      */
     public function __construct(
@@ -30,23 +37,70 @@ final class Kernel implements RequestHandlerInterface
         protected Closure $callbacks,
     ) {}
 
+    /**
+     * @return Throwable[]
+     */
+    public function getCallbackErrors(): array
+    {
+        return $this->callbackErrors;
+    }
+
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $request = ServerRequest::createFromRequest($request);
 
-        ($this->callbacks)(Application::CB_BEFORE_REQUEST, $request);
+        try {
+            ($this->callbacks)(Application::CB_BEFORE_REQUEST, $request);
+        } catch (Throwable $ex) {
+            $response = $this->handleException($ex);
+            $this->runAfterRequest($request);
+            return $response;
+        }
 
         try {
-            return $this->handler->handle($request);
+            $response = $this->handler->handle($request);
         } catch (Throwable $ex) {
-            // Generic errors get a chance to be reported, HTTP exceptions are expected
-            if (!$ex instanceof HttpExceptionInterface) {
-                ($this->callbacks)(Application::CB_ERROR, $ex);
-            }
+            $response = $this->handleException($ex);
+        }
 
-            return $this->exceptionHandler->toResponse($ex);
-        } finally {
+        $this->runAfterRequest($request);
+
+        return $response;
+    }
+
+    /**
+     * Convert an exception into a response, reporting non-HTTP errors.
+     */
+    private function handleException(Throwable $ex): ResponseInterface
+    {
+        // Generic errors get a chance to be reported, HTTP exceptions are expected
+        if (!$ex instanceof HttpExceptionInterface) {
+            try {
+                ($this->callbacks)(Application::CB_ERROR, $ex);
+            } catch (Throwable $callbackError) {
+                // A broken error callback must not prevent the error response
+                $this->callbackErrors[] = $callbackError;
+            }
+        }
+
+        return $this->exceptionHandler->toResponse($ex);
+    }
+
+    /**
+     * Run the afterRequest callbacks without letting them mask the response.
+     */
+    private function runAfterRequest(ServerRequestInterface $request): void
+    {
+        try {
             ($this->callbacks)(Application::CB_AFTER_REQUEST, $request);
+        } catch (Throwable $ex) {
+            if (!$ex instanceof HttpExceptionInterface) {
+                try {
+                    ($this->callbacks)(Application::CB_ERROR, $ex);
+                } catch (Throwable $callbackError) {
+                    $this->callbackErrors[] = $callbackError;
+                }
+            }
         }
     }
 }

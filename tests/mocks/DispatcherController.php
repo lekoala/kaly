@@ -35,4 +35,12 @@ class DispatcherController extends AbstractController
     {
         return new Response(201, ['X-Raw' => 'yes'], 'raw');
     }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function routeResult(): array
+    {
+        return ['route' => $this->request->getAttribute('route')];
+    }
 }

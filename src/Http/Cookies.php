@@ -100,13 +100,25 @@ class Cookies implements ArrayDataInterface
     public function getChanges(): array
     {
         $arr = [];
-        foreach ($this->data as $k => $v) {
+        // Compare the union of old and new keys so that removed cookies are
+        // represented (with a null value) and get their Set-Cookie emitted.
+        $keys = array_unique(array_merge(array_keys($this->originalData), array_keys($this->data)));
+        foreach ($keys as $k) {
             $old = $this->originalData[$k] ?? null;
-            if ($old != $v) {
-                $arr[$k] = [$old, $v];
+            $new = $this->data[$k] ?? null;
+            if ($old !== $new) {
+                $arr[$k] = [$old, $new];
             }
         }
         return $arr;
+    }
+
+    /**
+     * A cookie is deleted when it is removed or set to an empty value.
+     */
+    protected static function isRemoval(mixed $value): bool
+    {
+        return $value === null || $value === '';
     }
 
     /**
@@ -171,33 +183,34 @@ class Cookies implements ArrayDataInterface
     public function write(): bool
     {
         $defaultParams = session_get_cookie_params();
-        $now = time();
         $result = false;
         foreach ($this->getChanges() as $name => $arr) {
             $value = $arr[1] ?? null;
-
             $params = array_merge($defaultParams, $this->getParams($name) ?? []);
 
-            // Force expiry
-            if ($value === null || $value === '') {
-                $params['lifetime'] = time() - 3600;
+            $options = [
+                'path' => (string) ($params['path'] ?? '/'),
+                'domain' => (string) ($params['domain'] ?? ''),
+                'secure' => (bool) ($params['secure'] ?? false),
+                'httponly' => (bool) ($params['httponly'] ?? true),
+            ];
+            if (!empty($params['samesite'])) {
+                $options['samesite'] = (string) $params['samesite'];
             }
 
-            $expires = isset($params['lifetime']) ? $now + intval($params['lifetime']) : 0;
-            $path = $params['path'] ?? '/';
-            $domain = $params['domain'] ?? '';
-            $secure = $params['secure'] ?? false;
-            $httponly = $params['httponly'] ?? true;
+            if (self::isRemoval($value)) {
+                // Expire the cookie in the past
+                $options['expires'] = 1;
+            } elseif (!empty($params['lifetime'])) {
+                $options['expires'] = time() + intval($params['lifetime']);
+            } else {
+                // Expire at end of the session (when the browser closes)
+                $options['expires'] = 0;
+            }
 
             // Assume all will succeed or all will fail
             //@phpstan-ignore-next-line
-            $result = setcookie($name, (string) $value, [
-                'expires' => $expires,
-                'path' => (string) $path,
-                'domain' => (string) $domain,
-                'secure' => $secure,
-                'httponly' => $httponly,
-            ]);
+            $result = setcookie($name, is_scalar($value) ? (string) $value : '', $options);
         }
 
         return $result;
@@ -206,50 +219,59 @@ class Cookies implements ArrayDataInterface
     public function addToResponse(ResponseInterface $response): ResponseInterface
     {
         $defaultParams = session_get_cookie_params();
-        $now = time();
 
         foreach ($this->getChanges() as $name => $arr) {
             $value = $arr[1] ?? null;
-
             $params = array_merge($defaultParams, $this->getParams($name) ?? []);
 
-            // Force expiry
-            if ($value === null || $value === '') {
-                $params['lifetime'] = time() - 3600;
-            }
-
-            //@phpstan-ignore-next-line
-            $cookie = urlencode($name) . '=' . urlencode((string) $value);
-
-            // if omitted, the cookie will expire at end of the session (ie when the browser closes)
-            if (!empty($params['lifetime'])) {
-                $expires = gmdate('D, d M Y H:i:s T', $now + intval($params['lifetime']));
-                $cookie .= "; Expires={$expires}; Max-Age={$params['lifetime']}";
-            }
-
-            if (!empty($params['domain'])) {
-                $cookie .= "; Domain={$params['domain']}";
-            }
-
-            if (!empty($params['path'])) {
-                $cookie .= "; Path={$params['path']}";
-            }
-
-            if (!empty($params['samesite'])) {
-                $cookie .= "; SameSite={$params['samesite']}";
-            }
-
-            if (!empty($params['secure'])) {
-                $cookie .= '; Secure';
-            }
-
-            if (!empty($params['httponly'])) {
-                $cookie .= '; HttpOnly';
-            }
+            $isRemoval = self::isRemoval($value);
+            $stringValue = is_scalar($value) ? (string) $value : '';
+            $cookie = $this->buildSetCookieHeader($name, $isRemoval ? '' : $stringValue, $params, $isRemoval);
 
             $response = $response->withAddedHeader('Set-Cookie', $cookie);
         }
 
         return $response;
+    }
+
+    /**
+     * Build a raw Set-Cookie header value.
+     *
+     * @param CookieParams $params
+     */
+    protected function buildSetCookieHeader(string $name, string $value, array $params, bool $expire = false): string
+    {
+        $cookie = urlencode($name) . '=' . urlencode($value);
+
+        if ($expire) {
+            $cookie .= '; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0';
+        } elseif (!empty($params['lifetime'])) {
+            // lifetime is a duration, not an absolute timestamp
+            $lifetime = intval($params['lifetime']);
+            $expires = gmdate('D, d M Y H:i:s T', time() + $lifetime);
+            $cookie .= "; Expires={$expires}; Max-Age={$lifetime}";
+        }
+
+        if (!empty($params['domain'])) {
+            $cookie .= "; Domain={$params['domain']}";
+        }
+
+        if (!empty($params['path'])) {
+            $cookie .= "; Path={$params['path']}";
+        }
+
+        if (!empty($params['samesite'])) {
+            $cookie .= "; SameSite={$params['samesite']}";
+        }
+
+        if (!empty($params['secure'])) {
+            $cookie .= '; Secure';
+        }
+
+        if (!empty($params['httponly'])) {
+            $cookie .= '; HttpOnly';
+        }
+
+        return $cookie;
     }
 }

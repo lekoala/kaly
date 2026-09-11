@@ -257,6 +257,25 @@ final class Fs
     }
 
     /**
+     * Check that a path resolves inside the given directory.
+     *
+     * Both paths are resolved with realpath() first, so relative segments and
+     * symlinks cannot escape the base directory. A directory boundary is
+     * enforced so that "/var/www/public-other" is not considered inside
+     * "/var/www/public".
+     */
+    public static function isInside(string $dir, string $path): bool
+    {
+        $realDir = realpath($dir);
+        $realPath = realpath($path);
+        if ($realDir === false || $realPath === false) {
+            return false;
+        }
+        $realDir = rtrim($realDir, '/\\');
+        return $realPath === $realDir || str_starts_with($realPath, $realDir . DIRECTORY_SEPARATOR);
+    }
+
+    /**
      * A recursive glob
      * @return array<string>
      */

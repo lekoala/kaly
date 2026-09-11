@@ -61,10 +61,11 @@ class RequestDispatcher implements MiddlewareInterface
             $this->translator->setCurrentLocale($route->locale);
         }
 
-        $result = $this->dispatch($request, $route);
-
-        // Keep the resolved route available on the request for downstream use
+        // Expose the resolved route on the request before building and
+        // invoking the controller so that actions can read it.
         $request = $request->withAttribute(self::ATTR_ROUTE_REQUEST, $route->toArray());
+
+        $result = $this->dispatch($request, $route);
 
         return $this->prepareResponse($result);
     }
@@ -87,9 +88,13 @@ class RequestDispatcher implements MiddlewareInterface
         // Routing params get passed to the action
         $arguments = $route->params;
 
-        // Syntax sugar for handling post
+        // Syntax sugar for handling post: only forward a real parsed body so
+        // that an empty request does not override an optional/default argument.
         if (in_array($request->getMethod(), ['POST', 'PUT', 'PATCH'], true)) {
-            $arguments[] = $request->getParsedBody();
+            $body = $request->getParsedBody();
+            if (is_array($body) || is_object($body)) {
+                $arguments[] = $body;
+            }
         }
 
         $callable = [$instance, $action];

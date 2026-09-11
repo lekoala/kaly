@@ -16,6 +16,12 @@ use Throwable;
  * It can be used with a middleware, or without
  * Also work for non psr-7 contexts
  *
+ * Worker usage: since PHP's native session state is global to the process, a
+ * new Session instance must be created for every request and `$_SESSION` must
+ * not be shared between requests that could run concurrently (eg: coroutines).
+ * `start()` always resets the native session id so a previous request cannot
+ * leak into the next one.
+ *
  * @phpstan-type SessionParams array{'regen_interval'?:int,'expiry_key'?:string,'remember_lifetime'?:int,'remember_key'?:string,'lifetime'?:int,'httponly'?:bool,'samesite'?:('Lax'|'lax'|'None'|'none'|'Strict'|'strict'),'csrf_key'?:string}
  * @phpstan-type AllSessionParams array{'regen_interval':int,'expiry_key':string,'remember_lifetime':int,'remember_key':string,'lifetime':int,'httponly':bool,'samesite':('Lax'|'lax'|'None'|'none'|'Strict'|'strict'),'csrf_key':string}
  * @link https://github.com/upscalesoftware/swoole-session
@@ -190,7 +196,11 @@ class Session implements ArrayDataInterface
     public function close(): bool
     {
         if ($this->isActive()) {
-            return session_write_close();
+            $closed = session_write_close();
+            // Do not leave the native session id behind: it would be reused
+            // by the next request handled in the same process.
+            session_id('');
+            return $closed;
         }
         return false;
     }
@@ -214,10 +224,11 @@ class Session implements ArrayDataInterface
     {
         self::checkSessionCanStart();
 
-        // We got a session id from the request
-        if ($this->sessionId !== null) {
-            session_id($this->sessionId);
-        }
+        // Always reset the native session context to the id carried by this
+        // instance (or an empty id for a request without a session cookie).
+        // Without the empty reset, PHP would reuse the id left over by a
+        // previous request handled in the same worker process.
+        session_id($this->sessionId ?? '');
 
         try {
             session_start($this->options);
@@ -257,14 +268,17 @@ class Session implements ArrayDataInterface
     {
         if ($this->isActive()) {
             session_abort();
+            session_id('');
         }
     }
 
     public function getName(): string
     {
-        $name = $this->isActive() ? session_name() : '';
+        // session_name() is valid even when no session is active, so it is the
+        // reliable source of the configured name. An explicit option wins.
+        $name = $this->options['name'] ?? session_name();
         if (!is_string($name) || $name === '') {
-            $name = $this->options['name'] ?? '';
+            $name = session_name();
         }
         if (!is_string($name)) {
             throw new InvalidArgumentException('Session name must be a string');
@@ -289,6 +303,7 @@ class Session implements ArrayDataInterface
     {
         if ($this->isActive()) {
             session_destroy();
+            session_id('');
             $this->sessionId = null;
         }
     }
@@ -366,6 +381,8 @@ class Session implements ArrayDataInterface
         ini_set('session.use_trans_sid', '0');
         ini_set('session.use_cookies', '0');
         ini_set('session.use_only_cookies', '1');
+        // Reject user provided session ids that were not initialized by PHP
+        ini_set('session.use_strict_mode', '1');
         // Prevent PHP to send headers
         ini_set('session.cache_limiter', '');
     }

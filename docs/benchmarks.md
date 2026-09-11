@@ -12,7 +12,7 @@ We used a sample app as describe in [this article](https://loige.co/developing-a
 show a quote pulled from the database :
 - the request is routed
 - a database call is made (no cache) using Eloquent
-- a template is rendered (and cached) using Twig or Plates (Kaly) or Blade (Lumen)
+- a template is rendered (and cached) using Latte, Twig or kaly-tpl (Kaly) or Blade (Lumen)
 - the response is served
 
 Actual req/s are not representative, only relatives values make sense.
@@ -35,7 +35,7 @@ Let's see how we perform
 | Kaly     | 458   | Plain hello world |
 | Lumen    | 124   | 2 failed requests |
 | Kaly     | 117   |                   |
-| Kaly     | 124   | Using plates      |
+| Kaly     | 124   | Using Latte       |
 
 Both apps have `APP_DEBUG=false`. Surprisingly, some requests are failing for Lumen for some unknown reasons.
 
@@ -52,7 +52,7 @@ Using ab -n 1000 -c 100 as parameters
 | Kaly     | 1028  | Plain hello world  |
 | Lumen    | 572   | 64 failed requests |
 | Kaly     | 434   |                    |
-| Kaly     | 495   | Using plates       |
+| Kaly     | 495   | Using Latte        |
 
 These results are consistent with what we can see with West Wind Web Surge.
 

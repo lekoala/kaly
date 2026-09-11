@@ -20,6 +20,8 @@
     ],
     "require": {
         "php": "^8.3",
+        "ext-fileinfo": "*",
+        "ext-mbstring": "*",
         "lekoala/kaly-di": "^0.1",
         "psr/clock": "^1.0",
         "psr/container": "^1.1.2|^2.0.2",
@@ -44,6 +46,7 @@
         "twig/twig": "^3.0"
     },
     "suggest": {
+        "ext-intl": "Better slug transliteration in Kaly\\Util\\Str::slug",
         "latte/latte": "Recommended template language, through Kaly\\View\\Adapter\\LatteRenderer",
         "lekoala/kaly-tpl": "Lightweight native PHP templates, through Kaly\\View\\Adapter\\KalyTplRenderer",
         "nyholm/psr7": "Recommended PSR-7 implementation for your application",

@@ -85,6 +85,17 @@ class RequestDispatcherTest extends TestCase
         $this->assertSame('raw', (string) $response->getBody());
     }
 
+    public function testRouteAttributeIsAvailableToController(): void
+    {
+        $response = $this->dispatch($this->dispatcher('routeResult'));
+        $body = json_decode((string) $response->getBody(), true);
+
+        $this->assertIsArray($body);
+        $this->assertIsArray($body['route']);
+        $this->assertSame(DispatcherController::class, $body['route']['controller']);
+        $this->assertSame('routeResult', $body['route']['action']);
+    }
+
     public function testViewRequiresRenderer(): void
     {
         $this->expectException(Ex::class);

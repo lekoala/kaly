@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace Kaly\Router;
 
 use InvalidArgumentException;
+use Kaly\Http\MethodNotAllowedException;
 use Kaly\Http\RedirectException;
 use Kaly\Util\Str;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UriInterface;
 use ReflectionClass;
 use ReflectionNamedType;
+use ReflectionParameter;
+use ReflectionUnionType;
 use RuntimeException;
 
 /**
@@ -23,6 +26,11 @@ use RuntimeException;
 class ClassRouter implements RouterInterface
 {
     protected const PARAM_LOCALE = 'locale';
+
+    /**
+     * HTTP methods understood by the rest-style action suffix convention.
+     */
+    protected const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 
     protected string $defaultNamespace = 'App';
     protected string $controllerNamespace = 'Controller';
@@ -105,7 +113,10 @@ class ClassRouter implements RouterInterface
     protected function collectParts(): array
     {
         $trimmedPath = trim($this->request->getUri()->getPath(), '/');
-        return array_filter(explode('/', $trimmedPath));
+        // Only drop empty segments: "0" is a valid value and must be preserved.
+        // array_values keeps the parts as a list even with duplicated slashes.
+        $parts = array_filter(explode('/', $trimmedPath), static fn(string $part): bool => $part !== '');
+        return array_values($parts);
     }
 
     /**
@@ -205,7 +216,7 @@ class ClassRouter implements RouterInterface
         }
         if ($action != $this->defaultAction || count($params)) {
             // Check for rest style action
-            $action = preg_replace('/(Post|Delete|Put|Head|Patch)$/', '', $action);
+            $action = preg_replace('/(Post|Delete|Put|Head|Patch|Get|Options)$/', '', $action);
             $url .= "/{$action}";
         }
         if ($locale && $url) {
@@ -391,9 +402,10 @@ class ClassRouter implements RouterInterface
         if ($testPart) {
             // Action should be lowercase camelcase
             $testAction = Str::camelize($testPart, false);
-            // Rest style routing
-            // Method is added at the end to avoid confusion with getters
-            $testActionWithMethod = $testAction . ucfirst(strtolower($method));
+            // Rest style routing: the HTTP method is added at the end to avoid
+            // confusion with getters
+            $methodSuffix = self::getMethodSuffix($method);
+            $testActionWithMethod = $testAction . $methodSuffix;
 
             // Don't allow controller/index to be called directly because it would create duplicated urls
             // This only applies if no other parameters is passed in the url
@@ -402,24 +414,107 @@ class ClassRouter implements RouterInterface
                 throw new RedirectException($newUri);
             }
 
+            // A url naming an action suffixed by another HTTP verb must not
+            // run for this request (eg: GET /index/change-post/ is a 405).
+            $verbSuffix = self::getVerbSuffix($testAction);
+            if ($verbSuffix !== null && $this->isRoutableAction($refl, $testAction) && $verbSuffix !== $methodSuffix) {
+                $baseAction = self::stripVerbSuffix($testAction);
+                throw new MethodNotAllowedException(
+                    $this->findAllowedMethods($refl, $baseAction),
+                    "Method {$method} is not allowed for action '{$baseAction}'",
+                );
+            }
+
             // Shift param if method is found
-            if ($refl->hasMethod($testActionWithMethod)) {
+            if ($this->isRoutableAction($refl, $testActionWithMethod)) {
                 array_shift($this->parts);
                 $action = $testActionWithMethod;
-            } elseif ($refl->hasMethod($testAction)) {
+            } elseif ($this->isRoutableAction($refl, $testAction)) {
                 array_shift($this->parts);
                 $action = $testAction;
+            } else {
+                // The action may exist for other HTTP verbs only
+                $allowed = $this->findAllowedMethods($refl, $testAction);
+                if (!empty($allowed)) {
+                    throw new MethodNotAllowedException($allowed, "Method {$method} is not allowed for action '{$testAction}'");
+                }
             }
 
             // More validation will take place in collectParameters
         }
 
         // Is this action available ?
-        if (!$refl->hasMethod($action)) {
+        if (!$this->isRoutableAction($refl, $action)) {
             throw new RouteNotFoundException("Controller '{$class}' does not have an action '{$action}'");
         }
 
         return $action;
+    }
+
+    /**
+     * Can this method be reached through routing? Protected and magic methods
+     * (except __invoke) are never exposed.
+     *
+     * @param ReflectionClass<object> $refl
+     */
+    protected function isRoutableAction(ReflectionClass $refl, string $action): bool
+    {
+        if ($action === '' || !$refl->hasMethod($action)) {
+            return false;
+        }
+        if (str_starts_with($action, '__') && $action !== RouterInterface::FALLBACK_ACTION) {
+            return false;
+        }
+        return $refl->getMethod($action)->isPublic();
+    }
+
+    /**
+     * List the HTTP methods supported by a base action through the
+     * rest-style action suffix convention.
+     *
+     * @param ReflectionClass<object> $refl
+     * @return string[]
+     */
+    protected function findAllowedMethods(ReflectionClass $refl, string $baseAction): array
+    {
+        if ($baseAction === '') {
+            return [];
+        }
+        $allowed = [];
+        foreach (self::HTTP_METHODS as $httpMethod) {
+            if ($this->isRoutableAction($refl, $baseAction . self::getMethodSuffix($httpMethod))) {
+                $allowed[] = $httpMethod;
+            }
+        }
+        return $allowed;
+    }
+
+    /**
+     * Convert an HTTP method to the action suffix convention (eg: POST => Post).
+     */
+    protected static function getMethodSuffix(string $method): string
+    {
+        return ucfirst(strtolower($method));
+    }
+
+    /**
+     * Return the HTTP verb suffix of an action name, if any.
+     */
+    protected static function getVerbSuffix(string $action): ?string
+    {
+        if (preg_match('/(Post|Put|Patch|Delete|Head|Options|Get)$/', $action, $matches) === 1) {
+            return $matches[1];
+        }
+        return null;
+    }
+
+    protected static function stripVerbSuffix(string $action): string
+    {
+        $suffix = self::getVerbSuffix($action);
+        if ($suffix === null) {
+            return $action;
+        }
+        return substr($action, 0, -strlen($suffix));
     }
 
     /**
@@ -440,6 +535,9 @@ class ClassRouter implements RouterInterface
         // Verify parameters
         $actionParams = $method->getParameters();
 
+        $partsCount = count($this->parts);
+        $hasBody = $this->hasRequestBody();
+
         /** @var array<string,mixed> $params  */
         $params = $this->parts;
         $i = 0;
@@ -447,7 +545,12 @@ class ClassRouter implements RouterInterface
         foreach ($actionParams as $actionParam) {
             $paramName = $actionParam->getName();
 
-            if (!$actionParam->isOptional() && !$actionParam->isDefaultValueAvailable() && !isset($this->parts[$i])) {
+            // A required parameter is satisfied by a url part, or by the parsed
+            // request body when it is the (single) trailing argument appended
+            // by the dispatcher for POST/PUT/PATCH requests.
+            $satisfiedByUrl = isset($this->parts[$i]);
+            $satisfiedByBody = $hasBody && $i === $partsCount && $this->bodySatisfiesType($actionParam);
+            if (!$actionParam->isOptional() && !$actionParam->isDefaultValueAvailable() && !$satisfiedByUrl && !$satisfiedByBody) {
                 throw new RouteNotFoundException("Param '{$paramName}' is required for action '{$action}' on '{$class}'");
             }
 
@@ -479,6 +582,55 @@ class ClassRouter implements RouterInterface
             throw new RouteNotFoundException("Too many parameters for action '{$action}' on '{$class}'");
         }
         return $params;
+    }
+
+    /**
+     * Does the request carry a parsed body that the dispatcher will append as
+     * an extra argument to the action?
+     */
+    protected function hasRequestBody(): bool
+    {
+        if (!in_array($this->request->getMethod(), ['POST', 'PUT', 'PATCH'], true)) {
+            return false;
+        }
+        $body = $this->request->getParsedBody();
+        return is_array($body) || is_object($body);
+    }
+
+    /**
+     * Can the parsed request body satisfy this parameter? Only array-like
+     * parameters are considered, so a required scalar still results in a 404
+     * instead of a type error.
+     */
+    protected function bodySatisfiesType(ReflectionParameter $param): bool
+    {
+        if ($param->isVariadic()) {
+            return false;
+        }
+        $type = $param->getType();
+        if ($type === null) {
+            return true;
+        }
+        if ($type instanceof ReflectionUnionType) {
+            foreach ($type->getTypes() as $unionType) {
+                if ($unionType instanceof ReflectionNamedType && $this->isArrayLikeType($unionType)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if ($type instanceof ReflectionNamedType) {
+            return $this->isArrayLikeType($type);
+        }
+        return false;
+    }
+
+    protected function isArrayLikeType(ReflectionNamedType $type): bool
+    {
+        if (!$type->isBuiltin()) {
+            return false;
+        }
+        return in_array($type->getName(), ['array', 'iterable', 'mixed'], true);
     }
 
     protected function parseIntParam(string $value): int

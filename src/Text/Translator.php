@@ -34,7 +34,7 @@ class Translator
      * @var array<string>
      */
     protected array $paths = [];
-    protected string $defaultLocale;
+    protected string $defaultLocale = 'en';
     protected ?string $currentLocale = null;
     protected ?string $cacheDir = null;
     protected ?string $baseDomain = null;
@@ -65,14 +65,23 @@ class Translator
         if (!$locale) {
             $locale = $request->getPreferredLanguage($allowed);
         }
-        if ($locale) {
-            if (!is_string($locale)) {
-                throw new RuntimeException('Locale must be a string');
-            }
+        if (!$locale) {
+            // No usable preference: reset to the default locale rather than
+            // keeping whatever a previous request may have set.
+            $this->setCurrentLocale($this->defaultLocale);
+            return $this;
+        }
+        if (!is_string($locale)) {
+            throw new RuntimeException('Locale must be a string');
+        }
+        try {
             // Make sure it's valid
             self::parseLocale($locale);
-            $this->setCurrentLocale($locale);
+        } catch (RuntimeException) {
+            // Unknown or malformed locale: fall back to the default
+            $locale = $this->defaultLocale;
         }
+        $this->setCurrentLocale($locale);
         return $this;
     }
 

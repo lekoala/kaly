@@ -17,12 +17,18 @@ class RouterTest extends TestCase
         ErrorHandler::restoreDefaults();
     }
 
-    private function request(string $path): \Psr\Http\Message\ResponseInterface
+    /**
+     * @param array<string,mixed>|null $body
+     */
+    private function request(string $path, string $method = 'GET', ?array $body = null): \Psr\Http\Message\ResponseInterface
     {
         $app = new App(__DIR__);
         $app->boot();
 
-        $request = HttpFactory::createRequestFromGlobals()->withUri(new Uri($path));
+        $request = HttpFactory::createRequestFromGlobals()->withUri(new Uri($path))->withMethod($method);
+        if ($body !== null) {
+            $request = $request->withParsedBody($body);
+        }
         return $app->handle($request);
     }
 
@@ -53,6 +59,60 @@ class RouterTest extends TestCase
     {
         $response = $this->request('/test-module/index/typed-float/abc/');
         $this->assertSame(404, $response->getStatusCode());
+    }
+
+    public function testVerbSuffixedActionIsRestricted(): void
+    {
+        $response = $this->request('/test-module/index/change-post/', 'GET');
+        $this->assertSame(405, $response->getStatusCode());
+        $this->assertSame('POST', $response->getHeaderLine('Allow'));
+
+        $response = $this->request('/test-module/index/change-post/', 'POST');
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('mutation-called', (string) $response->getBody());
+    }
+
+    public function testBareActionMapsToSuffixedMethod(): void
+    {
+        // A bare name resolves to the method-suffixed action
+        $response = $this->request('/test-module/index/change/', 'POST');
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('mutation-called', (string) $response->getBody());
+
+        // ... but only for the matching verb
+        $response = $this->request('/test-module/index/change/', 'GET');
+        $this->assertSame(405, $response->getStatusCode());
+        $this->assertSame('POST', $response->getHeaderLine('Allow'));
+    }
+
+    public function testZeroSegmentIsPreserved(): void
+    {
+        $response = $this->request('/test-module/index/typed-int/0/');
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('0', (string) $response->getBody());
+    }
+
+    public function testRequiredPostBodyIsAvailable(): void
+    {
+        $response = $this->request('/test-module/index/required-post/', 'POST', ['test' => 'body']);
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertStringContainsString('"test"', (string) $response->getBody());
+        $this->assertStringContainsString('"body"', (string) $response->getBody());
+    }
+
+    public function testRequiredPostWithoutBodyIsNotFound(): void
+    {
+        $response = $this->request('/test-module/index/required-post/', 'POST');
+        $this->assertSame(404, $response->getStatusCode());
+    }
+
+    public function testMethodSuffixedActionMatchesVerb(): void
+    {
+        $response = $this->request('/test-module/index/method/', 'GET');
+        $this->assertSame('get', (string) $response->getBody());
+
+        $response = $this->request('/test-module/index/method/', 'POST');
+        $this->assertSame('post', (string) $response->getBody());
     }
 
     public function testBoolParameterIsCoerced(): void

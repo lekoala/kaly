@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use Kaly\Http\ServerRequest;
 use Kaly\Text\Translator;
+use Nyholm\Psr7\ServerRequest as BaseServerRequest;
 use PHPUnit\Framework\TestCase;
 
 class TranslatorTest extends TestCase
@@ -67,6 +69,28 @@ class TranslatorTest extends TestCase
         $this->assertEquals('öëBC', $result);
         $result = $translator->translate('utf8plural', ['%count%' => 2]);
         $this->assertEquals('öëBC', $result);
+    }
+
+    public function testLocaleResetsBetweenRequests(): void
+    {
+        $translator = new Translator('en', 'en');
+
+        $french = new ServerRequest((new BaseServerRequest('GET', '/'))->withHeader('Accept-Language', 'fr'));
+        $translator->setLocaleFromRequest($french, ['en', 'fr']);
+        $this->assertSame('fr', $translator->getCurrentLocale());
+
+        // A request without any preference must not inherit the previous locale
+        $plain = new ServerRequest(new BaseServerRequest('GET', '/'));
+        $translator->setLocaleFromRequest($plain, ['en', 'fr']);
+        $this->assertSame('en', $translator->getCurrentLocale());
+    }
+
+    public function testWildcardLanguageDoesNotThrow(): void
+    {
+        $translator = new Translator('en', 'en');
+        $request = new ServerRequest((new BaseServerRequest('GET', '/'))->withHeader('Accept-Language', '*'));
+        $translator->setLocaleFromRequest($request, ['en', 'fr']);
+        $this->assertSame('en', $translator->getCurrentLocale());
     }
 
     public function testParse(): void
