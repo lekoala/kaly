@@ -162,6 +162,11 @@ Any env variable can be defined in the application server, otherwise an `.env` f
 the base directory is loaded (`parse_ini_file` format). Set `IGNORE_DOT_ENV` to skip the
 filesystem lookup.
 
+The loader is strict: keys must be valid environment variable names
+(`^[A-Za-z_][A-Za-z0-9_]*$`) and each value must be a string. The file is read in raw
+mode, so INI specific conversions and interpolation do not apply: use the typed
+`Env::getBool()` / `getInt()` / `getFloat()` / `getArray()` accessors to interpret values.
+
 `APP_DEBUG` toggles debug mode (error reporting, debug logger, directory setup).
 
 ## Modules

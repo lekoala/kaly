@@ -12,11 +12,11 @@ configured, returning a `View` throws.
 
 ## Choosing a renderer
 
-| Engine   | When                            | Adapter                                 |
-| -------- | ------------------------------- | --------------------------------------- |
-| Latte    | recommended template language   | `Kaly\View\Adapter\LatteRenderer`       |
-| kaly-tpl | lightweight native PHP templates | `Kaly\View\Adapter\KalyTplRenderer`    |
-| Twig     | existing Twig ecosystem         | `Kaly\View\Adapter\TwigRenderer`        |
+| Engine   | When                             | Adapter                             |
+|----------|----------------------------------|-------------------------------------|
+| Latte    | recommended template language    | `Kaly\View\Adapter\LatteRenderer`   |
+| kaly-tpl | lightweight native PHP templates | `Kaly\View\Adapter\KalyTplRenderer` |
+| Twig     | existing Twig ecosystem          | `Kaly\View\Adapter\TwigRenderer`    |
 
 Adapters are optional: install the engine you want and register the adapter as the
 `RendererInterface`. Kaly never abstracts engine-specific features (extensions, filters,

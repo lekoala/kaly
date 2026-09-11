@@ -53,4 +53,34 @@ class EnvTest extends TestCase
         $this->expectException(RuntimeException::class);
         Env::load(__DIR__ . '/data/env/.env');
     }
+
+    public function testRejectsInvalidKeyName(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Invalid environment variable name');
+        Env::load(__DIR__ . '/data/env/invalid-key.env');
+    }
+
+    public function testRejectsArrayValue(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('must be a string');
+        Env::load(__DIR__ . '/data/env/array-value.env');
+    }
+
+    public function testEmptyFileIsAccepted(): void
+    {
+        $result = Env::load(__DIR__ . '/data/env/empty.env');
+        $this->assertSame([], $result);
+    }
+
+    public function testValuesAreRawStrings(): void
+    {
+        Env::load(__DIR__ . '/data/env/raw.env');
+
+        // Unquoted values must stay strings, the caller decides how to type them
+        $this->assertSame('true', Env::get('RAW_BOOL'));
+        $this->assertSame('42', Env::get('RAW_NUM'));
+        $this->assertSame('yes', Env::get('RAW_QUOTED'));
+    }
 }

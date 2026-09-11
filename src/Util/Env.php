@@ -18,25 +18,43 @@ final class Env
     /**
      * Load the .env and add the values to the $_ENV
      *
+     * The file is parsed in raw mode so that INI specific conversions and
+     * interpolations do not leak into the environment. Only valid environment
+     * variable names with string values are accepted.
+     *
      * @return array<string,string>
      * @throws RuntimeException
      */
     public static function load(string $envFile, bool $overwrite = false): array
     {
-        $result = parse_ini_file($envFile);
-        if (!$result) {
+        $result = parse_ini_file($envFile, false, INI_SCANNER_RAW);
+        if ($result === false) {
             throw new RuntimeException("Failed to parse `{$envFile}`");
         }
-        foreach ($result as $k => $v) {
-            // Make sure that we are not overwriting variables
-            if (isset($_ENV[$k]) && !$overwrite) {
-                throw new RuntimeException("Could not overwrite `{$k}` in ENV");
+        $env = [];
+        foreach ($result as $key => $value) {
+            // Only accept valid environment variable names
+            if (!is_string($key) || !preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $key)) {
+                throw new RuntimeException("Invalid environment variable name `{$key}`");
             }
+
+            // A .env entry is a name and a text value. INI array syntax would
+            // produce arrays (eg: FOO[]=bar), which we reject.
+            if (!is_string($value)) {
+                throw new RuntimeException("Environment variable `{$key}` must be a string");
+            }
+
+            // Make sure that we are not overwriting variables, but keep
+            // variables explicitly set to null as "already defined".
+            if (array_key_exists($key, $_ENV) && !$overwrite) {
+                throw new RuntimeException("Could not overwrite `{$key}` in ENV");
+            }
+
             // Store in $_ENV as string
-            $_ENV[$k] = $v;
+            $_ENV[$key] = $value;
+            $env[$key] = $value;
         }
-        //@phpstan-ignore-next-line
-        return $result;
+        return $env;
     }
 
     /**
