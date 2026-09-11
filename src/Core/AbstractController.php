@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Core;
 
+use Kaly\Http\HttpContext;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**
@@ -19,5 +20,13 @@ abstract class AbstractController
     public function __construct(ServerRequestInterface $request)
     {
         $this->request = $request;
+    }
+
+    /**
+     * The context of the current request cycle: route, locale, response...
+     */
+    protected function ctx(): HttpContext
+    {
+        return HttpContext::from($this->request);
     }
 }

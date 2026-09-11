@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Middleware;
 
+use Kaly\Http\HttpContext;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -16,12 +17,13 @@ final class RunNextHandler implements RequestHandlerInterface
     public function __construct(
         private MiddlewareRunner $runner,
         private int $nextIndex,
+        private ?HttpContext $ctx = null,
     ) {
         // promoted
     }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        return $this->runner->processNext($request, $this->nextIndex);
+        return $this->runner->processNext($request, $this->nextIndex, $this->ctx);
     }
 }

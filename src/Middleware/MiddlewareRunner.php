@@ -6,6 +6,7 @@ namespace Kaly\Middleware;
 
 use Closure;
 use InvalidArgumentException;
+use Kaly\Http\HttpContext;
 use LogicException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -16,28 +17,63 @@ use Psr\Http\Server\RequestHandlerInterface;
 /**
  * A stateless PSR-15 middleware stack.
  *
- * The stack is resolved once and can safely handle multiple requests: no
- * per-request state is kept internally.
+ * The runner only executes one band of an already ordered configuration: the
+ * ordering itself belongs to the MiddlewareRegistry. No per-request state is
+ * kept internally, so the same runner safely handles many requests.
+ *
+ * While running, it keeps the HttpContext in sync: the current request is
+ * rebound on every step, the middlewares that really entered are marked, and
+ * the last known response is stored back into the context.
  */
 class MiddlewareRunner implements RequestHandlerInterface
 {
-    /**
-     * @var array<int,array{middleware:class-string|MiddlewareInterface|GeneratorMiddlewareInterface,condition:Closure|null}>
-     */
-    protected array $config = [];
     protected RequestHandlerInterface $requestHandler;
-    protected ?ContainerInterface $container;
+    protected MiddlewareRegistry $registry;
 
     /**
      * @param class-string|callable|RequestHandlerInterface|MiddlewareInterface $requestHandler The final handler of the stack
      * @param ContainerInterface|null $container Used to resolve middleware class strings
+     * @param MiddlewareRegistry|null $registry The shared configuration, a private one is created if omitted
+     * @param MiddlewareBand $band The band this runner executes
      */
     public function __construct(
         string|callable|RequestHandlerInterface|MiddlewareInterface $requestHandler,
-        ?ContainerInterface $container = null,
+        protected ?ContainerInterface $container = null,
+        ?MiddlewareRegistry $registry = null,
+        protected MiddlewareBand $band = MiddlewareBand::Incoming,
     ) {
-        $this->container = $container;
         $this->requestHandler = $this->resolveFinalHandler($requestHandler);
+        $this->registry = $registry ?? new MiddlewareRegistry();
+    }
+
+    public function getRegistry(): MiddlewareRegistry
+    {
+        return $this->registry;
+    }
+
+    public function getBand(): MiddlewareBand
+    {
+        return $this->band;
+    }
+
+    /**
+     * Register a middleware in the band of this runner
+     *
+     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
+     */
+    public function add(string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware, int $priority = 0, ?Closure $when = null): self
+    {
+        $this->registry->add($this->band, $middleware, $priority, $when);
+
+        return $this;
+    }
+
+    /**
+     * @param class-string $middlewareClass
+     */
+    public function has(string $middlewareClass): bool
+    {
+        return $this->registry->has($middlewareClass, $this->band);
     }
 
     /**
@@ -77,45 +113,58 @@ class MiddlewareRunner implements RequestHandlerInterface
     }
 
     /**
-     * Checks if the middleware should run based on a closure that gets the request instance and the container if set
+     * Checks if the middleware should run based on a closure that gets the
+     * current context and the container if set
      */
-    protected function shouldRun(?Closure $condition, ServerRequestInterface $request): bool
+    protected function shouldRun(?Closure $condition, HttpContext $ctx): bool
     {
         if ($condition) {
-            return $condition($request, $this->container) !== false;
+            return $condition($ctx, $this->container) !== false;
         }
         return true;
     }
 
     /**
-     * This is the entry point and represents the entire stack as a single handler.
+     * This is the entry point and represents the entire band as a single handler.
      */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
+        $ctx = HttpContext::ensure($request);
+
         // We start processing at the first middleware (index 0).
-        // If the stack is empty, the final handler is called directly.
-        return $this->processNext($request, 0);
+        // If the band is empty, the final handler is called directly.
+        return $this->processNext($ctx->request, 0, $ctx);
     }
 
     /**
      * This is the core recursive method.
      * It processes the middleware at the given index.
      */
-    public function processNext(ServerRequestInterface $request, int $index): ResponseInterface
+    public function processNext(ServerRequestInterface $request, int $index, ?HttpContext $ctx = null): ResponseInterface
     {
-        // If we've run out of middlewares, execute the final application handler.
-        if ($index >= count($this->config)) {
-            return $this->requestHandler->handle($request);
+        // Always reattach our context: a third party middleware is free to
+        // hand over a brand new request object, the cycle must survive it.
+        $ctx ??= HttpContext::ensure($request);
+        $request = $ctx->bind($request);
+
+        $entries = $this->registry->band($this->band);
+
+        // Once we run out of middlewares, execute the final handler.
+        if ($index >= count($entries)) {
+            return $ctx->response = $this->requestHandler->handle($request);
         }
 
-        $opt = $this->config[$index];
+        $entry = $entries[$index];
 
         // Check if the middleware should run
-        if (!$this->shouldRun($opt['condition'], $request)) {
-            return $this->processNext($request, $index + 1);
+        if (!$this->shouldRun($entry->condition, $ctx)) {
+            return $this->processNext($request, $index + 1, $ctx);
         }
 
-        $middleware = $this->resolveMiddleware($opt['middleware']);
+        $middleware = $this->resolveMiddleware($entry->middleware);
+
+        // The context tracks what really entered, not what was configured
+        $ctx->markMiddleware($middleware::class);
 
         if ($middleware instanceof GeneratorMiddlewareInterface) {
             // Native middleware using the generator model.
@@ -123,67 +172,23 @@ class MiddlewareRunner implements RequestHandlerInterface
 
             if (!$generator->valid()) {
                 // Short-circuiting generator
-                return $generator->getReturn();
+                return $ctx->response = $generator->getReturn();
             }
 
-            // Get the modified request from the generator's "before" phase.
+            // Get the modified request from the before phase of the generator.
             $requestAfterBefore = $generator->current();
 
             // Execute the rest of the stack to get the inner response.
-            $responseFromInside = $this->processNext($requestAfterBefore, $index + 1);
+            $responseFromInside = $this->processNext($requestAfterBefore, $index + 1, $ctx);
 
-            // Now, perform the "after" phase by resuming the generator.
+            // Now, perform the after phase by resuming the generator.
             $generator->send($responseFromInside);
-            return $generator->getReturn();
+            return $ctx->response = $generator->getReturn();
         }
 
         // Standard PSR-15 middleware: the nested model.
-        // The next handler represents "the rest of the stack".
-        $nextHandler = new RunNextHandler($this, $index + 1);
-        return $middleware->process($request, $nextHandler);
-    }
-
-    /**
-     * @param class-string $middlewareClass
-     */
-    public function has(string $middlewareClass): bool
-    {
-        foreach ($this->config as $middlewareDetails) {
-            $middleware = $middlewareDetails['middleware'];
-            if (is_object($middleware)) {
-                if ($middleware instanceof $middlewareClass) {
-                    return true;
-                }
-            } elseif (is_string($middleware)) {
-                if ($middleware === $middlewareClass || is_a($middleware, $middlewareClass, true)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
-     */
-    public function unshift(string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware, ?Closure $condition = null): self
-    {
-        array_unshift($this->config, [
-            'middleware' => $middleware,
-            'condition' => $condition,
-        ]);
-        return $this;
-    }
-
-    /**
-     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
-     */
-    public function push(string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware, ?Closure $condition = null): self
-    {
-        $this->config[] = [
-            'middleware' => $middleware,
-            'condition' => $condition,
-        ];
-        return $this;
+        // The next handler represents the rest of the band.
+        $nextHandler = new RunNextHandler($this, $index + 1, $ctx);
+        return $ctx->response = $middleware->process($request, $nextHandler);
     }
 }

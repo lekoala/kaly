@@ -60,6 +60,7 @@ We use our callback feature to easily define hook points for sentry.
 
 ```php
 use Kaly\Core\App;
+use Kaly\Http\HttpContext;
 use Throwable;
 
 if (isset($_ENV['SENTRY_DSN'])) {
@@ -67,7 +68,7 @@ if (isset($_ENV['SENTRY_DSN'])) {
         'dsn' => $_ENV['SENTRY_DSN'],
         'environment' => $app->getDebug() ? 'dev' : 'prod'
     ]);
-    $app->addCallback(App::CB_ERROR, function (Throwable $exception) {
+    $app->addCallback(App::CB_ERROR, function (Throwable $exception, HttpContext $ctx) {
         \Sentry\captureException($exception);
     });
 }

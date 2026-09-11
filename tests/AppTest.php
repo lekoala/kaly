@@ -7,8 +7,12 @@ namespace Kaly\Tests;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Http\ContentType;
+use Kaly\Http\HttpContext;
+use Kaly\Middleware\Builtin\FileServer;
 use Kaly\Router\ClassRouter;
+use Kaly\Router\Route;
 use Kaly\Router\RouterInterface;
+use Kaly\Tests\Mocks\ContextProbeMiddleware;
 use Kaly\Tests\Mocks\TestApp;
 use Kaly\Tests\Mocks\TestMiddleware;
 use Kaly\Tests\Support\HttpFactory;
@@ -300,7 +304,7 @@ class AppTest extends TestCase
         $request = $request->withUri(new Uri('/test-module/index/middleware/'));
         $app = new App(__DIR__);
         $app->boot();
-        $app->getMiddlewareRunner()->unshift($middlewareInst);
+        $app->middleware()->incoming($middlewareInst);
         $response = $app->handle($request);
         $body = (string) $response->getBody();
         $this->assertEquals($middlewareInst->getValue(), $body);
@@ -310,6 +314,57 @@ class AppTest extends TestCase
         $response = $app->handle($request);
         $body = (string) $response->getBody();
         $this->assertEquals('new', $body);
+    }
+
+    public function testRoutedBandKnowsTheRouteWhileIncomingDoesNot(): void
+    {
+        $app = new App(__DIR__);
+        $app->boot();
+
+        $incomingRoute = 'unset';
+        $routedRoute = 'unset';
+
+        $app
+            ->middleware()
+            ->incoming(new ContextProbeMiddleware(function (HttpContext $ctx) use (&$incomingRoute): void {
+                $incomingRoute = $ctx->route;
+            }))
+            ->routed(new ContextProbeMiddleware(function (HttpContext $ctx) use (&$routedRoute): void {
+                $routedRoute = $ctx->route;
+            }));
+
+        $request = HttpFactory::createRequestFromGlobals()->withUri(new Uri('/test-module/index/foo/'));
+        $response = $app->handle($request);
+
+        $this->assertSame('foo', (string) $response->getBody());
+        $this->assertNull($incomingRoute, 'nothing is routed yet in the incoming band');
+        $this->assertInstanceOf(Route::class, $routedRoute);
+        $this->assertSame(IndexController::class, $routedRoute->controller);
+        $this->assertSame('foo', $routedRoute->action);
+    }
+
+    public function testExecutedMiddlewaresAreTrackedInPipelineOrder(): void
+    {
+        $app = new App(__DIR__);
+        $app->boot();
+
+        $executed = [];
+        $app
+            ->middleware()
+            ->routed(new TestMiddleware())
+            ->incoming(new ContextProbeMiddleware(static function (): void {}))
+            // Never entered, so it must not show up in the context
+            ->incoming(new FileServer(), when: static fn(): bool => false);
+
+        $app->addCallback(App::CB_AFTER_REQUEST, function (HttpContext $ctx) use (&$executed): void {
+            $executed = $ctx->middlewares();
+        });
+
+        $request = HttpFactory::createRequestFromGlobals()->withUri(new Uri('/test-module/index/middleware/'));
+        $response = $app->handle($request);
+
+        $this->assertSame(TestMiddleware::DEFAULT_VALUE, (string) $response->getBody());
+        $this->assertSame([ContextProbeMiddleware::class, TestMiddleware::class], $executed);
     }
 
     public function testConditionalMiddleware(): void
@@ -324,7 +379,7 @@ class AppTest extends TestCase
         $app->boot();
 
         // if condition returns true, it means execute
-        $app->getMiddlewareRunner()->unshift($middlewareInst, static function () use (&$flag): bool {
+        $app->middleware()->incoming($middlewareInst, when: static function () use (&$flag): bool {
             return $flag;
         });
 

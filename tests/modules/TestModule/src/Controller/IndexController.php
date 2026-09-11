@@ -70,9 +70,9 @@ class IndexController extends AbstractController
         throw new Exception($this->request->getAttribute('test-attribute'));
     }
 
-    public function getip()
+    public function getip(): string
     {
-        return $this->request->getAttribute('client-ip');
+        return $this->ctx()->clientIp();
     }
 
     public function typedInt(int $value): string
@@ -97,9 +97,9 @@ class IndexController extends AbstractController
 
     public function noop(): void {}
 
-    public function getipstate()
+    public function getipstate(): string
     {
-        return $this->request->getAttribute('client-ip');
+        return $this->ctx()->clientIp();
     }
 
     public function redirect(): never

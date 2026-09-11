@@ -7,81 +7,67 @@ namespace Kaly\Router;
 use Kaly\Core\Ex;
 use Kaly\Di\Injector;
 use Kaly\Http\ContentType;
-use Kaly\Text\LocaleResolver;
+use Kaly\Http\HttpContext;
 use Kaly\Text\LocalizedTranslator;
 use Kaly\Text\TranslatorInterface;
 use Kaly\Util\Json;
 use Kaly\View\RendererInterface;
 use Kaly\View\View;
+use LogicException;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
-use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
-class RequestDispatcher implements MiddlewareInterface
+/**
+ * The terminal handler of the pipeline.
+ *
+ * It no longer routes: the route and the locale are established by the
+ * RoutingHandler and read from the context. It only goes from a resolved route
+ * to a PSR-7 response.
+ */
+class RequestDispatcher implements RequestHandlerInterface
 {
-    // Request attributes
-    public const ATTR_IP_REQUEST = 'client-ip';
-    public const ATTR_REQUEST_ID_REQUEST = 'request-id';
-    public const ATTR_ROUTE_REQUEST = 'route';
-    public const ATTR_LOCALE_REQUEST = LocaleResolver::ATTR_LOCALE_REQUEST;
-
     // Reserved render variable holding the translator bound to the request locale
     public const VAR_I18N = 'i18n';
 
+    // Used when nothing resolved a locale, which should not happen behind the routing handler
+    public const FALLBACK_LOCALE = 'en';
+
     public function __construct(
-        protected RouterInterface $router,
         protected Injector $injector,
         protected TranslatorInterface $translator,
-        protected LocaleResolver $localeResolver,
         protected ResponseFactoryInterface $responseFactory,
         protected StreamFactoryInterface $streamFactory,
         protected ?RendererInterface $renderer = null,
     ) {}
 
-    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $route = $this->router->match($request);
+        $ctx = HttpContext::from($request);
 
-        // Expose the client IP as a request attribute for controllers
-        if ($request->getAttribute(self::ATTR_IP_REQUEST) === null) {
-            $serverParams = $request->getServerParams();
-            $ip = $serverParams['REMOTE_ADDR'] ?? '0.0.0.0';
-            if (!is_string($ip)) {
-                $ip = '0.0.0.0';
-            }
-            $request = $request->withAttribute(self::ATTR_IP_REQUEST, $ip);
-        }
+        $route = $ctx->route ?? throw new LogicException('Request has not been routed.');
 
-        // Resolve the locale before invoking the controller so that actions run
-        // with the correct locale. The shared translator is never mutated: the
-        // locale travels with the request and with the localized translator.
-        $locale = $this->localeResolver->resolve($request, $route->locale);
-        $request = $request->withAttribute(self::ATTR_LOCALE_REQUEST, $locale);
+        $result = $this->dispatch($ctx, $route);
 
-        // Expose the resolved route on the request before building and
-        // invoking the controller so that actions can read it.
-        $request = $request->withAttribute(self::ATTR_ROUTE_REQUEST, $route->toArray());
-
-        $result = $this->dispatch($request, $route);
-
-        return $this->prepareResponse($result, $locale);
+        return $this->prepareResponse($result, $ctx->locale ?? self::FALLBACK_LOCALE);
     }
 
     /**
      * @return ResponseInterface|View|array<mixed>|string|null
      */
-    protected function dispatch(ServerRequestInterface $request, Route $route): ResponseInterface|View|array|string|null
+    protected function dispatch(HttpContext $ctx, Route $route): ResponseInterface|View|array|string|null
     {
         $class = $route->controller;
         if (!$class) {
             throw new Ex('Controller not found');
         }
 
+        $request = $ctx->request;
+
         // Each request gets a fresh instance of the controller
-        $instance = $this->injector->make($class, request: $request);
+        $instance = $this->injector->make($class, request: $request, ctx: $ctx);
 
         $action = $route->action ?? RouterInterface::FALLBACK_ACTION;
 

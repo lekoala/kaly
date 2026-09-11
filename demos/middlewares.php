@@ -82,9 +82,9 @@ class AppHandler implements MiddlewareInterface
 echo "<h2>Test Case: Successful Run</h2>";
 
 $runner = (new MiddlewareRunner(new AppHandler()))
-    ->push(new AddTimestampMiddleware())
-    ->push(new SimplePsr15Logger())
-    ->push(new StandardAuthMiddleware());
+    ->add(new AddTimestampMiddleware())
+    ->add(new SimplePsr15Logger())
+    ->add(new StandardAuthMiddleware());
 
 $request = new ServerRequest('GET', '/welcome?name=Final', ['X-Api-Key' => '12345']);
 $response = $runner->handle($request);
@@ -197,8 +197,8 @@ $response = $psr17Factory->createResponse(200)->withBody($responseBody);
 
 $regularHandler = new RegularHandler();
 $stack = new MiddlewareRunner($regularHandler);
-$stack->push($middleware1);
-$stack->push($middleware2);
+$stack->add($middleware1);
+$stack->add($middleware2);
 
 echo '<pre>';
 $stackResponse = $stack->handle($serverRequest);
@@ -212,8 +212,8 @@ echo '<hr/>';
 
 $handler = new ExceptionHandler();
 $stack = new MiddlewareRunner($handler);
-$stack->push($middleware1);
-$stack->push($middleware2);
+$stack->add($middleware1);
+$stack->add($middleware2);
 
 echo '<pre>';
 $stackResponse = $stack->handle($serverRequest);

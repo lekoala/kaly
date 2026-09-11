@@ -12,10 +12,14 @@ use Kaly\Di\Injector;
 use Kaly\Http\ExceptionHandler;
 use Kaly\Http\ExceptionHandlerInterface;
 use Kaly\Log\FileLogger;
+use Kaly\Middleware\MiddlewareBand;
+use Kaly\Middleware\MiddlewareRegistry;
 use Kaly\Middleware\MiddlewareRunner;
 use Kaly\Router\ClassRouter;
 use Kaly\Router\RequestDispatcher;
 use Kaly\Router\RouterInterface;
+use Kaly\Router\RoutingHandler;
+use Kaly\Text\LocaleResolver;
 use Kaly\Text\Translator;
 use Kaly\Text\TranslatorInterface;
 use Kaly\Util\Env;
@@ -89,6 +93,7 @@ class Application
     protected ?Injector $injector = null;
     protected ?RequestHandlerInterface $requestHandler = null;
     protected ?Kernel $kernel = null;
+    protected ?MiddlewareRegistry $middlewareRegistry = null;
     protected static Application $instance;
 
     /**
@@ -246,6 +251,9 @@ class Application
             $def->set($class, $this);
         }
 
+        // Modules can register middlewares through the container
+        $def->set(MiddlewareRegistry::class, $this->middleware());
+
         // Register our default implementations if none are provided through modules
         foreach (self::DEFAULT_IMPLEMENTATIONS as $interface => $className) {
             if ($def->has($interface)) {
@@ -353,8 +361,29 @@ class Application
     }
 
     /**
-     * Build the request handler. By default, this is a middleware runner
-     * whose final handler is the request dispatcher.
+     * The middleware configuration. It can be used before or after boot:
+     *
+     * ```php
+     * $app->middleware()
+     *     ->incoming(TrustedProxy::class)
+     *     ->routed(AuthMiddleware::class, priority: 100);
+     * ```
+     */
+    public function middleware(): MiddlewareRegistry
+    {
+        if ($this->middlewareRegistry === null) {
+            $this->middlewareRegistry = new MiddlewareRegistry();
+        }
+        return $this->middlewareRegistry;
+    }
+
+    /**
+     * Build the request pipeline. The order is fixed by the framework, only
+     * the content of the two middleware bands is configurable:
+     *
+     * ```text
+     * incoming -> routing -> routed -> dispatcher
+     * ```
      *
      * A custom RequestHandlerInterface binding takes precedence.
      */
@@ -366,8 +395,20 @@ class Application
             return $this->container->get(RequestHandlerInterface::class);
         }
 
-        $dispatcher = $this->container->get(RequestDispatcher::class);
-        return new MiddlewareRunner($dispatcher, $this->container);
+        $registry = $this->middleware();
+
+        // The route is known from here on
+        $routed = new MiddlewareRunner(
+            $this->container->get(RequestDispatcher::class),
+            $this->container,
+            $registry,
+            MiddlewareBand::Routed,
+        );
+
+        // Fixed structural step of the framework, not a configurable middleware
+        $routing = new RoutingHandler($this->container->get(RouterInterface::class), $this->container->get(LocaleResolver::class), $routed);
+
+        return new MiddlewareRunner($routing, $this->container, $registry, MiddlewareBand::Incoming);
     }
 
     /**
@@ -438,7 +479,10 @@ class Application
     }
 
     /**
-     * Get the middleware runner (unless you changed it to something else)
+     * Get the outer middleware runner, the one executing the incoming band
+     * (unless you changed the request handler to something else).
+     *
+     * Prefer middleware() to configure the pipeline.
      */
     public function getMiddlewareRunner(): MiddlewareRunner
     {

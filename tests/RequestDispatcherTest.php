@@ -8,10 +8,11 @@ use Kaly\Core\Ex;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Di\Injector;
-use Kaly\Middleware\NullHandler;
+use Kaly\Http\HttpContext;
 use Kaly\Router\RequestDispatcher;
 use Kaly\Router\Route;
 use Kaly\Router\RouterInterface;
+use Kaly\Router\RoutingHandler;
 use Kaly\Tests\Mocks\DispatcherController;
 use Kaly\Text\LocaleResolver;
 use Kaly\Text\LocalizedTranslator;
@@ -20,6 +21,7 @@ use Kaly\View\RendererInterface;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
 class RequestDispatcherTest extends TestCase
@@ -29,7 +31,7 @@ class RequestDispatcherTest extends TestCase
         ?RendererInterface $renderer = null,
         ?string $routeLocale = null,
         ?LocaleResolver $localeResolver = null,
-    ): RequestDispatcher {
+    ): RoutingHandler {
         $router = new class($action, $routeLocale) implements RouterInterface {
             public function __construct(
                 private string $action,
@@ -57,24 +59,20 @@ class RequestDispatcherTest extends TestCase
 
         $translator = (new Translator('en'))->addPath(__DIR__ . '/data/lang');
 
-        return new RequestDispatcher(
-            $router,
-            $injector,
-            $translator,
-            $localeResolver ?? new LocaleResolver('en', ['en', 'fr']),
-            $factory,
-            $factory,
-            $renderer,
-        );
+        $dispatcher = new RequestDispatcher($injector, $translator, $factory, $factory, $renderer);
+
+        // The dispatcher only runs behind the routing step
+        return new RoutingHandler($router, $localeResolver ?? new LocaleResolver('en', ['en', 'fr']), $dispatcher);
     }
 
-    private function dispatch(RequestDispatcher $dispatcher, ?string $acceptLanguage = null): \Psr\Http\Message\ResponseInterface
+    private function dispatch(RoutingHandler $handler, ?string $acceptLanguage = null): ResponseInterface
     {
         $request = new ServerRequest('GET', '/');
         if ($acceptLanguage !== null) {
             $request = $request->withHeader('Accept-Language', $acceptLanguage);
         }
-        return $dispatcher->process($request, new NullHandler());
+        $ctx = new HttpContext($request);
+        return $handler->handle($ctx->bind($request));
     }
 
     public function testStringResultIsHtml(): void

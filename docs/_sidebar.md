@@ -1,6 +1,7 @@
 * [Home](/)
 * [DI](di.md)
 * [App](app.md)
+* [Http context](http-context.md)
 * [ClassRouter](class-router.md)
 * [Views](views.md)
 * [i18n](i18n.md)

@@ -69,14 +69,19 @@ Boot and request handling are split in two objects:
 
 - `Kaly\Core\Application` — env, directories, modules, definitions, container,
   injector; `boot()` builds everything once.
-- `Kaly\Core\Kernel` — a stateless PSR-15 `RequestHandlerInterface`. It wraps the
-  request, runs the request callbacks, delegates to the middleware stack and maps
-  exceptions to responses.
+- `Kaly\Core\Kernel` — a stateless PSR-15 `RequestHandlerInterface`. It creates the
+  [HttpContext](http-context.md) of the cycle, runs the request callbacks, delegates
+  to the pipeline and maps exceptions to responses.
 
 `Kaly\Core\App` is a thin facade (`Application` + `Kernel`) and is what most apps use.
 
 Because the kernel holds no per-request state, the same `Application` can handle many
 requests, which makes worker setups (RoadRunner, Swoole, FrankenPHP...) straightforward.
+Everything that belongs to a single cycle lives in its context instead:
+
+```text
+one request -> one context -> the whole cycle -> one response
+```
 
 ## Using Road Runner
 
@@ -131,27 +136,70 @@ Callbacks are a simple alternative to event dispatchers. Valid ids are exposed a
 - `App::CB_AFTER_REQUEST`
 - `App::CB_ERROR` (generic errors only; HTTP exceptions are expected and skipped)
 
+The request callbacks receive the [HttpContext](http-context.md) of the cycle:
+
+```text
+CB_BEFORE_REQUEST(HttpContext $ctx)
+CB_AFTER_REQUEST(HttpContext $ctx)
+CB_ERROR(Throwable $e, HttpContext $ctx)
+```
+
 ```php
-$app->addCallback(App::CB_ERROR, function (Throwable $e): void {
+$app->addCallback(App::CB_ERROR, function (Throwable $e, HttpContext $ctx): void {
     // report to your error tracker
+    myTracker()->report($e, [
+        'route' => $ctx->route?->controller,
+        'middlewares' => $ctx->middlewares(),
+    ]);
 });
 ```
 
 ## Using middlewares
 
-Middlewares are plain PSR-15 `MiddlewareInterface` implementations. They are resolved
-from the container and called in the order they were pushed. The request dispatcher is
-the final handler of the stack.
+Middlewares are plain PSR-15 `MiddlewareInterface` implementations, resolved from the
+container. They are not a free list though: kaly has a fixed request flow with a
+routing step in the middle, and a middleware is registered in one of the two bands
+around it.
+
+```text
+incoming -> routing -> routed -> dispatcher
+```
+
+- **incoming** runs before anything is routed: trusted proxies, request id, static
+  files, global rate limits...
+- **routing** is a structural step of the framework, not a configurable middleware. It
+  matches the route and resolves the locale.
+- **routed** runs with a route already known: auth, authorization, CSRF, per route
+  rate limits...
 
 ```php
 $app = new App(dirname(__DIR__));
-$app->getMiddlewareRunner()
-    ->push(ClientIp::class, function (ServerRequestInterface $request) {
-        return str_starts_with($request->getUri()->getPath(), '/admin');
-    });
+$app->middleware()
+    ->incoming(TrustedProxy::class)
+    ->incoming(RequestId::class)
+    ->routed(AuthMiddleware::class, priority: 100)
+    ->routed(RateLimitMiddleware::class, priority: 200);
 
 $app->run($request);
 ```
+
+Ordering is deliberately simple: the band order is fixed, and inside a band
+middlewares run by ascending priority, then by registration order. There is no
+`before()` / `after()` / `requires()` dependency graph to reason about — if a
+middleware needs the route, it belongs in the routed band.
+
+Conditions are expressed on the [HttpContext](http-context.md), so a routed condition
+can read state that has already been established:
+
+```php
+$app->middleware()->routed(
+    AdminAuth::class,
+    when: static fn(HttpContext $ctx): bool => $ctx->route?->module === 'Admin',
+);
+```
+
+Returning `false` skips the middleware for that request. Conditions are evaluated on
+every request, so they can also depend on external state.
 
 For middlewares that need both a "before" and an "after" phase, extend
 `Kaly\Middleware\GeneratorMiddleware` and implement the `before()` / `after()` hooks.

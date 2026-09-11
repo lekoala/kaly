@@ -34,14 +34,14 @@ $errorMiddleware = new class implements MiddlewareInterface {
 ErrorHandler::handle(function () use ($demoMiddleware, $errorMiddleware) {
     $app = new App(dirname(__DIR__));
     $app->boot();
-    $app->getMiddlewareRunner()
-        ->push(PreventFileAccess::class)
-        ->push($demoMiddleware);
+    $app->middleware()
+        ->incoming(PreventFileAccess::class)
+        ->incoming($demoMiddleware);
 
     // Uncomment this to test for errors during middleware processing
-    // $app->getMiddlewareRunner()->push($errorMiddleware);
+    // $app->middleware()->incoming($errorMiddleware);
 
-    $app->getMiddlewareRunner()->push(new FileServer());
+    $app->middleware()->incoming(new FileServer(), priority: 100);
 
     $app->addCallback(App::CB_AFTER_DEFINITIONS, function (Definitions &$definitions) {
         $definitions->set("test", Definitions::class);

@@ -36,7 +36,7 @@ class MiddlewareRunnerTest extends TestCase
     public function testPsr15MiddlewareRunsAroundHandler(): void
     {
         $runner = new MiddlewareRunner($this->finalHandler());
-        $runner->push(new class implements MiddlewareInterface {
+        $runner->add(new class implements MiddlewareInterface {
             public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
                 $updated = $request->withAttribute('seen', true);
@@ -53,7 +53,7 @@ class MiddlewareRunnerTest extends TestCase
     public function testPsr15MiddlewareCanShortCircuit(): void
     {
         $runner = new MiddlewareRunner($this->finalHandler());
-        $runner->push(new class implements MiddlewareInterface {
+        $runner->add(new class implements MiddlewareInterface {
             public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
                 return new Response(401, [], 'nope');
@@ -68,14 +68,14 @@ class MiddlewareRunnerTest extends TestCase
     public function testConditionSkipsMiddleware(): void
     {
         $runner = new MiddlewareRunner($this->finalHandler());
-        $runner->push(
+        $runner->add(
             new class implements MiddlewareInterface {
                 public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
                 {
                     return new Response(418);
                 }
             },
-            static fn(): bool => false,
+            when: static fn(): bool => false,
         );
 
         $response = $runner->handle(new ServerRequest('GET', '/'));
@@ -87,7 +87,7 @@ class MiddlewareRunnerTest extends TestCase
         $runner = new MiddlewareRunner(function (ServerRequestInterface $request): ResponseInterface {
             return new Response(200, [], (string) $request->getAttribute('before'));
         });
-        $runner->push(new class extends GeneratorMiddleware {
+        $runner->add(new class extends GeneratorMiddleware {
             public function before(ServerRequestInterface $request): ServerRequestInterface
             {
                 return $request->withAttribute('before', 'yes');
