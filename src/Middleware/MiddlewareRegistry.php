@@ -27,7 +27,7 @@ use Psr\Http\Server\MiddlewareInterface;
  * ```php
  * $app->middleware()->routed(
  *     AdminAuth::class,
- *     when: static fn(HttpContext $ctx): bool => $ctx->route?->module === 'Admin',
+ *     when: static fn(HttpContext $ctx): bool => $ctx->route()->module === 'Admin',
  * );
  * ```
  *

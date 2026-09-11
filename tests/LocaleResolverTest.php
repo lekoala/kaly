@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Http\ServerRequest;
 use Kaly\Text\LocaleResolver;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
 use PHPUnit\Framework\TestCase;
@@ -18,7 +17,7 @@ class LocaleResolverTest extends TestCase
         if ($acceptLanguage !== null) {
             $request = $request->withHeader('Accept-Language', $acceptLanguage);
         }
-        return new ServerRequest($request);
+        return $request;
     }
 
     public function testRouteLocaleWins(): void

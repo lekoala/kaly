@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use Kaly\Core\Ex;
+use Kaly\Core\HttpContext;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Di\Injector;
-use Kaly\Http\HttpContext;
 use Kaly\Router\RequestDispatcher;
 use Kaly\Router\Route;
 use Kaly\Router\RouterInterface;

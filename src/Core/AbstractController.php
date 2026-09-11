@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaly\Core;
 
-use Kaly\Http\HttpContext;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**

@@ -14,7 +14,7 @@ final class MiddlewareEntry
 {
     /**
      * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
-     * @param Closure(\Kaly\Http\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $condition
+     * @param Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $condition
      * @param int $sequence Registration order, used to keep the sort stable
      */
     public function __construct(

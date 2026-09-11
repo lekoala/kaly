@@ -6,8 +6,8 @@ namespace Kaly\Tests;
 
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
+use Kaly\Core\HttpContext;
 use Kaly\Http\ContentType;
-use Kaly\Http\HttpContext;
 use Kaly\Middleware\Builtin\FileServer;
 use Kaly\Router\ClassRouter;
 use Kaly\Router\Route;
@@ -321,23 +321,23 @@ class AppTest extends TestCase
         $app = new App(__DIR__);
         $app->boot();
 
-        $incomingRoute = 'unset';
-        $routedRoute = 'unset';
+        $incomingRouted = null;
+        $routedRoute = null;
 
         $app
             ->middleware()
-            ->incoming(new ContextProbeMiddleware(function (HttpContext $ctx) use (&$incomingRoute): void {
-                $incomingRoute = $ctx->route;
+            ->incoming(new ContextProbeMiddleware(function (HttpContext $ctx) use (&$incomingRouted): void {
+                $incomingRouted = $ctx->hasRoute();
             }))
             ->routed(new ContextProbeMiddleware(function (HttpContext $ctx) use (&$routedRoute): void {
-                $routedRoute = $ctx->route;
+                $routedRoute = $ctx->route();
             }));
 
         $request = HttpFactory::createRequestFromGlobals()->withUri(new Uri('/test-module/index/foo/'));
         $response = $app->handle($request);
 
         $this->assertSame('foo', (string) $response->getBody());
-        $this->assertNull($incomingRoute, 'nothing is routed yet in the incoming band');
+        $this->assertFalse($incomingRouted, 'nothing is routed yet in the incoming band');
         $this->assertInstanceOf(Route::class, $routedRoute);
         $this->assertSame(IndexController::class, $routedRoute->controller);
         $this->assertSame('foo', $routedRoute->action);

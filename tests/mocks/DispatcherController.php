@@ -41,7 +41,7 @@ class DispatcherController extends AbstractController
      */
     public function routeResult(): array
     {
-        return ['route' => $this->ctx()->route?->toArray()];
+        return ['route' => $this->ctx()->route()->toArray()];
     }
 
     /**
@@ -49,7 +49,7 @@ class DispatcherController extends AbstractController
      */
     public function localeResult(): array
     {
-        return ['locale' => $this->ctx()->locale];
+        return ['locale' => $this->ctx()->locale()];
     }
 
     public function viewResultWithI18n(): View

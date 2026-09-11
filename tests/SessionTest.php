@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Http\ServerRequest;
 use Kaly\Http\Session;
 use Kaly\Tests\Support\HttpFactory;
 use Kaly\Util\Fs;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ServerRequestInterface;
 
 class SessionTest extends TestCase
 {
@@ -31,9 +31,9 @@ class SessionTest extends TestCase
         Fs::rmDir($this->savePath);
     }
 
-    private function request(string $uri = 'https://example.test/'): ServerRequest
+    private function request(string $uri = 'https://example.test/'): ServerRequestInterface
     {
-        return new ServerRequest(new BaseServerRequest('GET', $uri));
+        return new BaseServerRequest('GET', $uri);
     }
 
     public function testNextRequestWithoutCookieDoesNotReuseSession(): void
@@ -59,7 +59,7 @@ class SessionTest extends TestCase
         $this->assertNotNull($id);
         $first->close();
 
-        $cookieRequest = new ServerRequest((new BaseServerRequest('GET', 'https://example.test/'))->withCookieParams(['KALYAUDIT' => $id]));
+        $cookieRequest = (new BaseServerRequest('GET', 'https://example.test/'))->withCookieParams(['KALYAUDIT' => $id]);
         $second = new Session([], $cookieRequest);
         $this->assertSame($id, $second->getId());
         $this->assertSame('AUDIT-USER-A', $second->get('user'));

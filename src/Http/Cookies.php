@@ -14,7 +14,7 @@ use Psr\Http\Message\ServerRequestInterface;
  * @link https://github.com/yiisoft/cookies
  * @link https://github.com/hansott/psr7-cookies
  *
- * @phpstan-type CookieParams array{lifetime?:int,path?:string,domain?:string,secure?:bool,httponly?:bool,samesite?:string}
+ * @phpstan-type CookieParams array{lifetime?:int,path?:string,domain?:string,secure?:bool,httponly?:bool,samesite?:string,partitioned?:bool}
  */
 class Cookies implements ArrayDataInterface
 {
@@ -270,6 +270,11 @@ class Cookies implements ArrayDataInterface
 
         if (!empty($params['httponly'])) {
             $cookie .= '; HttpOnly';
+        }
+
+        // CHIPS, php 8.4+. Browsers require it to be paired with Secure.
+        if (!empty($params['partitioned'])) {
+            $cookie .= '; Partitioned';
         }
 
         return $cookie;

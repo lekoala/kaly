@@ -6,7 +6,7 @@ namespace Kaly\Middleware;
 
 use Closure;
 use InvalidArgumentException;
-use Kaly\Http\HttpContext;
+use Kaly\Core\HttpContext;
 use LogicException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -22,8 +22,9 @@ use Psr\Http\Server\RequestHandlerInterface;
  * kept internally, so the same runner safely handles many requests.
  *
  * While running, it keeps the HttpContext in sync: the current request is
- * rebound on every step, the middlewares that really entered are marked, and
- * the last known response is stored back into the context.
+ * rebound on every step and the middlewares that really entered are marked.
+ * The response is not mirrored during the unwind, a middleware already owns
+ * the one returned by its own handler.
  */
 class MiddlewareRunner implements RequestHandlerInterface
 {
@@ -133,7 +134,7 @@ class MiddlewareRunner implements RequestHandlerInterface
 
         // We start processing at the first middleware (index 0).
         // If the band is empty, the final handler is called directly.
-        return $this->processNext($ctx->request, 0, $ctx);
+        return $this->processNext($ctx->request(), 0, $ctx);
     }
 
     /**
@@ -151,7 +152,7 @@ class MiddlewareRunner implements RequestHandlerInterface
 
         // Once we run out of middlewares, execute the final handler.
         if ($index >= count($entries)) {
-            return $ctx->response = $this->requestHandler->handle($request);
+            return $this->requestHandler->handle($request);
         }
 
         $entry = $entries[$index];
@@ -172,7 +173,7 @@ class MiddlewareRunner implements RequestHandlerInterface
 
             if (!$generator->valid()) {
                 // Short-circuiting generator
-                return $ctx->response = $generator->getReturn();
+                return $generator->getReturn();
             }
 
             // Get the modified request from the before phase of the generator.
@@ -183,12 +184,12 @@ class MiddlewareRunner implements RequestHandlerInterface
 
             // Now, perform the after phase by resuming the generator.
             $generator->send($responseFromInside);
-            return $ctx->response = $generator->getReturn();
+            return $generator->getReturn();
         }
 
         // Standard PSR-15 middleware: the nested model.
         // The next handler represents the rest of the band.
         $nextHandler = new RunNextHandler($this, $index + 1, $ctx);
-        return $ctx->response = $middleware->process($request, $nextHandler);
+        return $middleware->process($request, $nextHandler);
     }
 }

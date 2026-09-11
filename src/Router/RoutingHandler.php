@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
-use Kaly\Http\HttpContext;
+use Kaly\Core\HttpContext;
 use Kaly\Text\LocaleResolver;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -41,13 +41,14 @@ final class RoutingHandler implements RequestHandlerInterface
     {
         $ctx = HttpContext::ensure($request);
 
-        $route = $this->router->match($ctx->request);
-        $ctx->route = $route;
+        $route = $this->router->match($ctx->request());
+        $ctx->useRoute($route);
 
         // The route wins over a locale imposed by an incoming middleware,
         // which in turn wins over content negotiation.
-        $ctx->locale = $this->localeResolver->resolve($ctx->request, $route->locale ?? $ctx->locale);
+        $imposed = $ctx->hasLocale() ? $ctx->locale() : null;
+        $ctx->useLocale($this->localeResolver->resolve($ctx->request(), $route->locale ?? $imposed));
 
-        return $this->next->handle($ctx->request);
+        return $this->next->handle($ctx->request());
     }
 }

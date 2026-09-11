@@ -10,6 +10,6 @@ class IndexController extends AbstractController
 {
     public function getlang(): string
     {
-        return (string) $this->ctx()->locale;
+        return $this->ctx()->locale();
     }
 }

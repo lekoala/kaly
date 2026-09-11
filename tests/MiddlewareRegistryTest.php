@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Http\HttpContext;
+use Kaly\Core\HttpContext;
 use Kaly\Middleware\MiddlewareBand;
 use Kaly\Middleware\MiddlewareRegistry;
 use Kaly\Middleware\MiddlewareRunner;
@@ -134,7 +134,8 @@ class MiddlewareRegistryTest extends TestCase
         $response = $runner->handle($ctx->bind($request));
 
         $this->assertSame([TestMiddleware::class], $ctx->middlewares());
-        $this->assertSame($response, $ctx->response);
+        $this->assertFalse($ctx->hasResponse(), 'the runner does not mirror the response during the unwind');
+        $this->assertSame(204, $response->getStatusCode());
     }
 
     public function testContextSurvivesAMiddlewareBuildingABrandNewRequest(): void
@@ -152,7 +153,7 @@ class MiddlewareRegistryTest extends TestCase
             static fn(ServerRequestInterface $request): ResponseInterface => new Response(
                 200,
                 [],
-                HttpContext::from($request)->request->getUri()->getPath(),
+                HttpContext::from($request)->request()->getUri()->getPath(),
             ),
             null,
             $registry,
@@ -164,6 +165,6 @@ class MiddlewareRegistryTest extends TestCase
         $response = $runner->handle($ctx->bind($request));
 
         $this->assertSame('/rebuilt', (string) $response->getBody());
-        $this->assertSame('/rebuilt', $ctx->request->getUri()->getPath());
+        $this->assertSame('/rebuilt', $ctx->request()->getUri()->getPath());
     }
 }

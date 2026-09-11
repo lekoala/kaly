@@ -7,77 +7,65 @@ namespace Kaly\Http;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**
- * Additional method that makes the request object more useful
+ * Helpers that make a plain PSR-7 request more useful.
+ *
+ * These are deliberately static functions over a request rather than a request
+ * wrapper: a wrapper has to be rebuilt on every immutable mutation, which makes
+ * any state it carries unreliable. Request scoped state belongs to the
+ * HttpContext instead.
  */
-trait RequestUtils
+final class RequestUtils
 {
-    protected ServerRequestInterface $request;
-
-    public function getBaseRequest(): ServerRequestInterface
+    public static function getPath(ServerRequestInterface $request): string
     {
-        return $this->request;
-    }
-
-    public function getPath(): string
-    {
-        return $this->request->getUri()->getPath();
+        return $request->getUri()->getPath();
     }
 
     /**
-     * Get serverRequest content character set, if known.
-     *
-     * @return string|null
+     * Get request content character set, if known.
      */
-    public function getContentCharset(): ?string
+    public static function getContentCharset(ServerRequestInterface $request): ?string
     {
-        return $this->getMediaTypeParams()['charset'] ?? null;
+        return self::getMediaTypeParams($request)['charset'] ?? null;
     }
 
     /**
-     * Get serverRequest content type.
-     *
-     * @return string|null The serverRequest content type, if known
+     * Get request content type, if known.
      */
-    public function getContentType(): ?string
+    public static function getContentType(ServerRequestInterface $request): ?string
     {
-        $result = $this->request->getHeader('Content-Type');
+        $result = $request->getHeader('Content-Type');
         return $result ? $result[0] : null;
     }
 
     /**
-     * Get serverRequest content length, if known.
-     *
-     * @return int|null
+     * Get request content length, if known.
      */
-    public function getContentLength(): ?int
+    public static function getContentLength(ServerRequestInterface $request): ?int
     {
-        $result = $this->request->getHeader('Content-Length');
+        $result = $request->getHeader('Content-Length');
         return $result ? (int) $result[0] : null;
     }
 
     /**
      * Fetch cookie value from cookies sent by the client to the server.
      *
-     * @param string $key     The attribute name.
-     * @param mixed  $default Default value to return if the attribute does not exist.
      * @return mixed
      */
-    public function getCookieParam(string $key, mixed $default = null)
+    public static function getCookieParam(ServerRequestInterface $request, string $key, mixed $default = null)
     {
-        return $this->request->getCookieParams()[$key] ?? $default;
+        return $request->getCookieParams()[$key] ?? $default;
     }
 
     /**
-     * Get serverRequest media type, if known.
-     *
-     * @return string|null The serverRequest media type, minus content-type params
+     * Get request media type, minus content-type params, if known.
      */
-    public function getMediaType(): ?string
+    public static function getMediaType(ServerRequestInterface $request): ?string
     {
-        $contentType = $this->getContentType();
+        $contentType = self::getContentType($request);
 
         if ($contentType) {
-            $contentTypeParts = preg_split('/\s*[;,]\s*/', (string) $contentType);
+            $contentTypeParts = preg_split('/\s*[;,]\s*/', $contentType);
             if ($contentTypeParts === false) {
                 return null;
             }
@@ -88,17 +76,17 @@ trait RequestUtils
     }
 
     /**
-     * Get serverRequest media type params, if known.
+     * Get request media type params, if known.
      *
      * @return string[]
      */
-    public function getMediaTypeParams(): array
+    public static function getMediaTypeParams(ServerRequestInterface $request): array
     {
-        $contentType = $this->getContentType();
+        $contentType = self::getContentType($request);
         $contentTypeParams = [];
 
         if ($contentType) {
-            $contentTypeParts = preg_split('/\s*[;,]\s*/', (string) $contentType);
+            $contentTypeParts = preg_split('/\s*[;,]\s*/', $contentType);
             if ($contentTypeParts !== false) {
                 $contentTypePartsLength = count($contentTypeParts);
                 for ($i = 1; $i < $contentTypePartsLength; $i++) {
@@ -113,21 +101,21 @@ trait RequestUtils
     }
 
     /**
-     * @return string
+     * The client ip as reported by the server, without any proxy resolution
      */
-    public function getIp(): string
+    public static function getIp(ServerRequestInterface $request): string
     {
-        return $this->getServerParam('REMOTE_ADDR') ?? '0.0.0.0';
+        return self::getServerParam($request, 'REMOTE_ADDR') ?? '0.0.0.0';
     }
 
     /**
      * @return array<string,float>
      */
-    public function parseAcceptedLanguages(): array
+    public static function parseAcceptedLanguages(ServerRequestInterface $request): array
     {
-        $header = $this->request->getHeader('Accept-Language')[0] ?? '';
+        $header = $request->getHeader('Accept-Language')[0] ?? '';
         if (!$header) {
-            $header = $this->request->getServerParams()['HTTP_ACCEPT_LANGUAGE'] ?? '';
+            $header = $request->getServerParams()['HTTP_ACCEPT_LANGUAGE'] ?? '';
         }
         if (!is_string($header)) {
             $header = '';
@@ -158,15 +146,15 @@ trait RequestUtils
      *
      * @param array<string>|null $allowed
      */
-    public function getPreferredLanguage(?array $allowed = null): ?string
+    public static function getPreferredLanguage(ServerRequestInterface $request, ?array $allowed = null): ?string
     {
-        $arr = $this->parseAcceptedLanguages();
+        $arr = self::parseAcceptedLanguages($request);
         if ($allowed === null) {
             return $arr === [] ? null : array_key_first($arr);
         }
         foreach (array_keys($arr) as $language) {
             foreach ($allowed as $candidate) {
-                if ($this->languageMatches($language, $candidate)) {
+                if (self::languageMatches($language, $candidate)) {
                     return $candidate;
                 }
             }
@@ -174,7 +162,7 @@ trait RequestUtils
         return null;
     }
 
-    private function languageMatches(string $language, string $candidate): bool
+    private static function languageMatches(string $language, string $candidate): bool
     {
         if ($candidate === '') {
             return false;
@@ -188,16 +176,14 @@ trait RequestUtils
     }
 
     /**
-     * Fetch serverRequest parameter value from body or query string (in that order).
+     * Fetch a parameter value from the body or the query string (in that order).
      *
-     * @param  string $key The parameter key.
-     * @param  mixed  $default The default value.
-     * @return mixed The parameter value.
+     * @return mixed
      */
-    public function getRequestParam(string $key, mixed $default = null)
+    public static function getRequestParam(ServerRequestInterface $request, string $key, mixed $default = null)
     {
-        $postParams = $this->getParsedBody();
-        $getParams = $this->getQueryParams();
+        $postParams = $request->getParsedBody();
+        $getParams = $request->getQueryParams();
         $result = $default;
 
         if (is_array($postParams) && isset($postParams[$key])) {
@@ -212,14 +198,17 @@ trait RequestUtils
     }
 
     /**
+     * The best content type for this request. Falls back to the first entry of
+     * the priority list, or to plain text when none is given.
+     *
      * @param string[] $priorityList
      */
-    public function getPreferredContentType(array $priorityList = []): ?string
+    public static function getPreferredContentType(ServerRequestInterface $request, array $priorityList = []): string
     {
-        $accepted = $this->parseAcceptHeader();
+        $accepted = self::parseAcceptHeader($request);
         if (!empty($priorityList)) {
             foreach ($priorityList as $item) {
-                if (in_array($item, $accepted)) {
+                if (in_array($item, $accepted, true)) {
                     return $item;
                 }
             }
@@ -231,11 +220,11 @@ trait RequestUtils
     /**
      * @return array<string>
      */
-    public function parseAcceptHeader(): array
+    public static function parseAcceptHeader(ServerRequestInterface $request): array
     {
-        $header = $this->getHeader('Accept')[0] ?? '';
+        $header = $request->getHeader('Accept')[0] ?? '';
         $arr = [];
-        foreach (explode(',', (string) $header) as $part) {
+        foreach (explode(',', $header) as $part) {
             $subparts = explode(';', $part);
             $mime = $subparts[0] ?? '';
             $types = explode('/', $mime);
@@ -251,14 +240,14 @@ trait RequestUtils
     }
 
     /**
-     * Fetch associative array of body and query string parameters.
+     * Fetch an associative array of body and query string parameters.
      *
      * @return array<string,mixed>
      */
-    public function getRequestParams(): array
+    public static function getRequestParams(ServerRequestInterface $request): array
     {
-        $params = $this->getQueryParams();
-        $postParams = $this->getParsedBody();
+        $params = $request->getQueryParams();
+        $postParams = $request->getParsedBody();
 
         if ($postParams) {
             $params = array_merge($params, (array) $postParams);
@@ -269,14 +258,13 @@ trait RequestUtils
     }
 
     /**
-     * Fetch parameter value from serverRequest body.
+     * Fetch a parameter value from the request body.
      *
-     * @param string $key
      * @return mixed
      */
-    public function getParsedBodyParam(string $key, mixed $default = null)
+    public static function getParsedBodyParam(ServerRequestInterface $request, string $key, mixed $default = null)
     {
-        $postParams = $this->getParsedBody();
+        $postParams = $request->getParsedBody();
         $result = $default;
 
         if (is_array($postParams) && isset($postParams[$key])) {
@@ -289,14 +277,13 @@ trait RequestUtils
     }
 
     /**
-     * Fetch parameter value from query string.
+     * Fetch a parameter value from the query string.
      *
-     * @param string $key
      * @return mixed
      */
-    public function getQueryParam(string $key, mixed $default = null)
+    public static function getQueryParam(ServerRequestInterface $request, string $key, mixed $default = null)
     {
-        $getParams = $this->getQueryParams();
+        $getParams = $request->getQueryParams();
         $result = $default;
 
         if (isset($getParams[$key])) {
@@ -308,110 +295,63 @@ trait RequestUtils
 
     /**
      * Retrieve a server parameter.
-     *
-     * @param string $key
-     * @param ?string $default
-     * @return ?string
      */
-    public function getServerParam(string $key, ?string $default = null): ?string
+    public static function getServerParam(ServerRequestInterface $request, string $key, ?string $default = null): ?string
     {
-        $v = $this->request->getServerParams()[$key] ?? $default;
+        $v = $request->getServerParams()[$key] ?? $default;
         if (!is_string($v)) {
             return $default;
         }
         return $v;
     }
 
-    /**
-     * Does this serverRequest use a given method?
-     *
-     * @param  string $method HTTP method
-     * @return bool
-     */
-    public function isMethod(string $method): bool
+    public static function isMethod(ServerRequestInterface $request, string $method): bool
     {
-        return $this->request->getMethod() === $method;
+        return $request->getMethod() === $method;
+    }
+
+    public static function isDelete(ServerRequestInterface $request): bool
+    {
+        return self::isMethod($request, Method::DELETE);
+    }
+
+    public static function isGet(ServerRequestInterface $request): bool
+    {
+        return self::isMethod($request, Method::GET);
+    }
+
+    public static function isHead(ServerRequestInterface $request): bool
+    {
+        return self::isMethod($request, Method::HEAD);
+    }
+
+    public static function isOptions(ServerRequestInterface $request): bool
+    {
+        return self::isMethod($request, Method::OPTIONS);
+    }
+
+    public static function isPatch(ServerRequestInterface $request): bool
+    {
+        return self::isMethod($request, Method::PATCH);
+    }
+
+    public static function isPost(ServerRequestInterface $request): bool
+    {
+        return self::isMethod($request, Method::POST);
+    }
+
+    public static function isPut(ServerRequestInterface $request): bool
+    {
+        return self::isMethod($request, Method::PUT);
     }
 
     /**
-     * Is this a DELETE serverRequest?
+     * Is this an XHR request?
      *
-     * @return bool
+     * Note, X-Requested-With is not sent by default using the fetch api
      */
-    public function isDelete(): bool
+    public static function isXhr(ServerRequestInterface $request): bool
     {
-        return $this->isMethod(Method::DELETE);
-    }
-
-    /**
-     * Is this a GET serverRequest?
-     *
-     * @return bool
-     */
-    public function isGet(): bool
-    {
-        return $this->isMethod(Method::GET);
-    }
-
-    /**
-     * Is this a HEAD serverRequest?
-     *
-     * @return bool
-     */
-    public function isHead(): bool
-    {
-        return $this->isMethod(Method::HEAD);
-    }
-
-    /**
-     * Is this a OPTIONS serverRequest?
-     *
-     * @return bool
-     */
-    public function isOptions(): bool
-    {
-        return $this->isMethod(Method::OPTIONS);
-    }
-
-    /**
-     * Is this a PATCH serverRequest?
-     *
-     * @return bool
-     */
-    public function isPatch(): bool
-    {
-        return $this->isMethod(Method::PATCH);
-    }
-
-    /**
-     * Is this a POST serverRequest?
-     *
-     * @return bool
-     */
-    public function isPost(): bool
-    {
-        return $this->isMethod(Method::POST);
-    }
-
-    /**
-     * Is this a PUT serverRequest?
-     *
-     * @return bool
-     */
-    public function isPut(): bool
-    {
-        return $this->isMethod(Method::PUT);
-    }
-
-    /**
-     * Is this an XHR serverRequest?
-     *
-     * Note, X-Requested-With are not sent by default using fetch api
-     *
-     * @return bool
-     */
-    public function isXhr(): bool
-    {
-        return $this->request->getHeaderLine('X-Requested-With') === 'XMLHttpRequest';
+        return $request->getHeaderLine('X-Requested-With') === 'XMLHttpRequest';
     }
 }

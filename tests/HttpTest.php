@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use Kaly\Http;
+use Kaly\Http\RequestUtils;
 use Kaly\Http\ResponseEmitter;
-use Kaly\Http\ServerRequest;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
@@ -20,35 +20,31 @@ class HttpTest extends TestCase
 
     public function testParseLanguage(): void
     {
-        $baseRequest = new BaseServerRequest('GET', '/');
-        $request = new ServerRequest($baseRequest);
-        $request = $request->withHeader('Accept-Language', 'en-US,en;q=0.9,fr;q=0.8');
+        $request = (new BaseServerRequest('GET', '/'))->withHeader('Accept-Language', 'en-US,en;q=0.9,fr;q=0.8');
 
-        $result = $request->parseAcceptedLanguages();
+        $result = RequestUtils::parseAcceptedLanguages($request);
         $this->assertArrayHasKey('en-US', $result);
         $this->assertArrayHasKey('en', $result);
         $this->assertArrayHasKey('fr', $result);
         $this->assertEquals(0.8, $result['fr']);
 
-        $preferred = $request->getPreferredLanguage();
+        $preferred = RequestUtils::getPreferredLanguage($request);
         $this->assertEquals('en-US', $preferred);
 
-        $preferred = $request->getPreferredLanguage(['en', 'fr']);
+        $preferred = RequestUtils::getPreferredLanguage($request, ['en', 'fr']);
         $this->assertEquals('en', $preferred);
     }
 
     public function testParseAccept(): void
     {
-        $baseRequest = new BaseServerRequest('GET', '/');
-        $request = new ServerRequest($baseRequest);
-
         $v = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.9';
-        $request = $request->withHeader('Accept', $v);
-        $result = $request->parseAcceptHeader();
+        $request = (new BaseServerRequest('GET', '/'))->withHeader('Accept', $v);
+
+        $result = RequestUtils::parseAcceptHeader($request);
         $this->assertContains('text/html', $result);
         $this->assertContains('image/webp', $result);
 
-        $preferred = $request->getPreferredContentType();
+        $preferred = RequestUtils::getPreferredContentType($request);
         $this->assertEquals('text/html', $preferred);
     }
 

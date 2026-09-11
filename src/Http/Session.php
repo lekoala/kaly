@@ -390,7 +390,7 @@ class Session implements ArrayDataInterface
     /**
      * Returns a better set of cookie options based on current request
      * Cookie will be secured on https and scoped to the domain
-     * @return array{lifetime:int,path:string,domain:string,secure:bool,httponly:bool,samesite:string}
+     * @return array{lifetime:int,path:string,domain:string,secure:bool,httponly:bool,samesite:string,partitioned?:bool}
      */
     public static function getOptionsForRequest(ServerRequestInterface $request): array
     {
@@ -444,7 +444,7 @@ class Session implements ArrayDataInterface
     }
 
     /**
-     * @return array{lifetime:int,path:string,domain:string,secure:bool,httponly:bool,samesite:string}
+     * @return array{lifetime:int,path:string,domain:string,secure:bool,httponly:bool,samesite:string,partitioned?:bool}
      */
     public function getCookieParams(): array
     {
@@ -512,6 +512,11 @@ class Session implements ArrayDataInterface
 
         if (!empty($params['httponly'])) {
             $cookie .= '; HttpOnly';
+        }
+
+        // CHIPS, php 8.4+. Browsers require it to be paired with Secure.
+        if (!empty($params['partitioned'])) {
+            $cookie .= '; Partitioned';
         }
 
         return $response->withAddedHeader('Set-Cookie', $cookie);

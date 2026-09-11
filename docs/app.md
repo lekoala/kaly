@@ -148,7 +148,7 @@ CB_ERROR(Throwable $e, HttpContext $ctx)
 $app->addCallback(App::CB_ERROR, function (Throwable $e, HttpContext $ctx): void {
     // report to your error tracker
     myTracker()->report($e, [
-        'route' => $ctx->route?->controller,
+        'route' => $ctx->hasRoute() ? $ctx->route()->controller : null,
         'middlewares' => $ctx->middlewares(),
     ]);
 });
@@ -194,7 +194,7 @@ can read state that has already been established:
 ```php
 $app->middleware()->routed(
     AdminAuth::class,
-    when: static fn(HttpContext $ctx): bool => $ctx->route?->module === 'Admin',
+    when: static fn(HttpContext $ctx): bool => $ctx->route()->module === 'Admin',
 );
 ```
 

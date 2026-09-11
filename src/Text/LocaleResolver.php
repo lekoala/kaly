@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Text;
 
-use Kaly\Http\ServerRequest;
+use Kaly\Http\RequestUtils;
 use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
 
@@ -51,7 +51,7 @@ class LocaleResolver
 
         // 3. Negotiate with the browser
         $allowed = $this->allowedLocales === [] ? null : $this->allowedLocales;
-        $preferred = ServerRequest::createFromRequest($request)->getPreferredLanguage($allowed);
+        $preferred = RequestUtils::getPreferredLanguage($request, $allowed);
         if (is_string($preferred) && $preferred !== '') {
             return $this->normalize($preferred);
         }

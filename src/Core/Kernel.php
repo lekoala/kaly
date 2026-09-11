@@ -6,9 +6,7 @@ namespace Kaly\Core;
 
 use Closure;
 use Kaly\Http\ExceptionHandlerInterface;
-use Kaly\Http\HttpContext;
 use Kaly\Http\HttpExceptionInterface;
-use Kaly\Http\ServerRequest;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -38,24 +36,23 @@ final class Kernel implements RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $request = ServerRequest::createFromRequest($request);
-
         $ctx = new HttpContext($request);
         $ctx->bind($request);
 
         try {
             ($this->callbacks)(Application::CB_BEFORE_REQUEST, $ctx);
 
-            $ctx->response = $this->handler->handle($ctx->request);
+            $response = $this->handler->handle($ctx->request());
         } catch (Throwable $ex) {
-            $ctx->response = $this->handleException($ex, $ctx);
+            $response = $this->handleException($ex, $ctx);
         }
+
+        // The cycle is over: from here on the context exposes its response
+        $ctx->complete($response);
 
         $this->runAfterRequest($ctx);
 
-        assert($ctx->response !== null);
-
-        return $ctx->response;
+        return $ctx->response();
     }
 
     /**

@@ -5,15 +5,14 @@ declare(strict_types=1);
 namespace Kaly\Router;
 
 use Kaly\Core\Ex;
+use Kaly\Core\HttpContext;
 use Kaly\Di\Injector;
 use Kaly\Http\ContentType;
-use Kaly\Http\HttpContext;
 use Kaly\Text\LocalizedTranslator;
 use Kaly\Text\TranslatorInterface;
 use Kaly\Util\Json;
 use Kaly\View\RendererInterface;
 use Kaly\View\View;
-use LogicException;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -32,9 +31,6 @@ class RequestDispatcher implements RequestHandlerInterface
     // Reserved render variable holding the translator bound to the request locale
     public const VAR_I18N = 'i18n';
 
-    // Used when nothing resolved a locale, which should not happen behind the routing handler
-    public const FALLBACK_LOCALE = 'en';
-
     public function __construct(
         protected Injector $injector,
         protected TranslatorInterface $translator,
@@ -47,11 +43,11 @@ class RequestDispatcher implements RequestHandlerInterface
     {
         $ctx = HttpContext::from($request);
 
-        $route = $ctx->route ?? throw new LogicException('Request has not been routed.');
+        // Running unrouted or without a locale is a broken invariant, not
+        // something to paper over with a default: the routing step is fixed.
+        $result = $this->dispatch($ctx, $ctx->route());
 
-        $result = $this->dispatch($ctx, $route);
-
-        return $this->prepareResponse($result, $ctx->locale ?? self::FALLBACK_LOCALE);
+        return $this->prepareResponse($result, $ctx->locale());
     }
 
     /**
@@ -64,7 +60,7 @@ class RequestDispatcher implements RequestHandlerInterface
             throw new Ex('Controller not found');
         }
 
-        $request = $ctx->request;
+        $request = $ctx->request();
 
         // Each request gets a fresh instance of the controller
         $instance = $this->injector->make($class, request: $request, ctx: $ctx);

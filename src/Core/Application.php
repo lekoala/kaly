@@ -478,26 +478,6 @@ class Application
         return $this->requestHandler;
     }
 
-    /**
-     * Get the outer middleware runner, the one executing the incoming band
-     * (unless you changed the request handler to something else).
-     *
-     * Prefer middleware() to configure the pipeline.
-     */
-    public function getMiddlewareRunner(): MiddlewareRunner
-    {
-        $handler = $this->getRequestHandler();
-        if (!$handler instanceof MiddlewareRunner) {
-            throw new LogicException('The request handler is not a middleware runner');
-        }
-        return $handler;
-    }
-
-    public function hasMiddlewareRunner(): bool
-    {
-        return $this->getRequestHandler() instanceof MiddlewareRunner;
-    }
-
     public function getLogger(): LoggerInterface
     {
         return $this->getContainer()->get(LoggerInterface::class);
