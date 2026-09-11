@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Kaly\Router;
 
 use InvalidArgumentException;
+use Kaly\Core\Ex;
 use Kaly\Http\MethodNotAllowedException;
 use Kaly\Http\RedirectException;
+use Kaly\Http\RequestInput;
 use Kaly\Util\Str;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UriInterface;
@@ -62,6 +64,11 @@ class ClassRouter implements RouterInterface
      * @var string[]
      */
     protected array $parts;
+    /**
+     * The trailing input of the matched action, if any
+     * @var class-string<RequestInput>|null
+     */
+    protected ?string $inputClass = null;
 
     /**
      * Match a request and returns an array of parameters
@@ -71,6 +78,7 @@ class ClassRouter implements RouterInterface
         $this->request = $request;
 
         $route = new Route();
+        $this->inputClass = null;
 
         self::redirectTrailingSlash($request, $this->forceTrailingSlash);
         $this->parts = $this->collectParts();
@@ -103,6 +111,7 @@ class ClassRouter implements RouterInterface
         // Remaining parts are passed as arguments to the action
         $params = $this->collectParameters($reflectionClass, $action);
         $route->params = $params;
+        $route->inputClass = $this->inputClass;
 
         return $route;
     }
@@ -535,6 +544,9 @@ class ClassRouter implements RouterInterface
         // Verify parameters
         $actionParams = $method->getParameters();
 
+        // A trailing RequestInput is supplied by the dispatcher, not by the url
+        $this->inputClass = $this->extractInputClass($actionParams, $class, $action);
+
         $partsCount = count($this->parts);
         $hasBody = $this->hasRequestBody();
 
@@ -556,6 +568,17 @@ class ClassRouter implements RouterInterface
 
             $value = $this->parts[$i] ?? '';
             $type = $actionParam->getType();
+
+            // Services belong to the constructor: an action argument is either a
+            // route segment or the trailing input, never something the container
+            // could fill in silently.
+            if (self::hasClassType($actionParam)) {
+                throw new Ex(
+                    "Parameter '{$paramName}' of action '{$action}' on '{$class}' must be a route scalar"
+                    . ' or a trailing '
+                    . RequestInput::class,
+                );
+            }
 
             // Strictly coerce and validate built-in typed parameters.
             // An invalid value does not match the route (404).
@@ -582,6 +605,72 @@ class ClassRouter implements RouterInterface
             throw new RouteNotFoundException("Too many parameters for action '{$action}' on '{$class}'");
         }
         return $params;
+    }
+
+    /**
+     * Pull the trailing RequestInput out of the parameters the router has to
+     * satisfy from the url. There is at most one and it is always last.
+     *
+     * @param ReflectionParameter[] $actionParams Mutated: the input is removed
+     * @return class-string<RequestInput>|null
+     */
+    protected function extractInputClass(array &$actionParams, string $class, string $action): ?string
+    {
+        $last = count($actionParams) - 1;
+        $inputClass = null;
+        foreach ($actionParams as $i => $actionParam) {
+            $name = self::inputClassOf($actionParam);
+            if ($name === null) {
+                continue;
+            }
+            if ($i !== $last) {
+                throw new Ex(
+                    RequestInput::class
+                    . " parameter '{$actionParam->getName()}' must be the last parameter"
+                    . " of action '{$action}' on '{$class}'",
+                );
+            }
+            $inputClass = $name;
+        }
+
+        if ($inputClass !== null) {
+            array_pop($actionParams);
+        }
+
+        return $inputClass;
+    }
+
+    /**
+     * @return class-string<RequestInput>|null
+     */
+    protected static function inputClassOf(ReflectionParameter $param): ?string
+    {
+        $type = $param->getType();
+        if (!$type instanceof ReflectionNamedType || $type->isBuiltin()) {
+            return null;
+        }
+        $name = $type->getName();
+        if (!is_a($name, RequestInput::class, true)) {
+            return null;
+        }
+        /** @var class-string<RequestInput> $name */
+        return $name;
+    }
+
+    /**
+     * Does this parameter expect an object? Such a parameter can never be
+     * satisfied by a url segment.
+     */
+    protected static function hasClassType(ReflectionParameter $param): bool
+    {
+        $type = $param->getType();
+        $types = $type instanceof ReflectionUnionType ? $type->getTypes() : [$type];
+        foreach ($types as $t) {
+            if ($t instanceof ReflectionNamedType && !$t->isBuiltin()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

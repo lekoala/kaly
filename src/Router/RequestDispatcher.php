@@ -8,6 +8,8 @@ use Kaly\Core\Ex;
 use Kaly\Core\HttpContext;
 use Kaly\Di\Injector;
 use Kaly\Http\ContentType;
+use Kaly\Http\InputMapperInterface;
+use Kaly\Http\RequestInput;
 use Kaly\Text\LocalizedTranslator;
 use Kaly\Text\TranslatorInterface;
 use Kaly\Util\Json;
@@ -37,6 +39,7 @@ class RequestDispatcher implements RequestHandlerInterface
         protected ResponseFactoryInterface $responseFactory,
         protected StreamFactoryInterface $streamFactory,
         protected ?RendererInterface $renderer = null,
+        protected ?InputMapperInterface $inputMapper = null,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -67,6 +70,10 @@ class RequestDispatcher implements RequestHandlerInterface
 
         $action = $route->action ?? RouterInterface::FALLBACK_ACTION;
 
+        if (!is_callable([$instance, $action])) {
+            throw new Ex("Action '{$action}' is not callable");
+        }
+
         // Routing params get passed to the action
         $arguments = $route->params;
 
@@ -79,12 +86,14 @@ class RequestDispatcher implements RequestHandlerInterface
             }
         }
 
-        $callable = [$instance, $action];
-        if (!is_callable($callable)) {
-            throw new Ex("Action '{$action}' is not callable");
+        // The trailing input is built from the query and the body
+        if ($route->inputClass !== null) {
+            $arguments[] = $this->mapInput($request, $route->inputClass);
         }
 
-        $result = $this->injector->invoke($callable, ...$arguments);
+        // The injector constructs controllers, it never supplies action
+        // arguments: nothing can be resolved from the container here.
+        $result = $instance->{$action}(...$arguments);
         if (
             $result === null
             || is_string($result)
@@ -96,6 +105,18 @@ class RequestDispatcher implements RequestHandlerInterface
         }
 
         throw new Ex('Controllers must return a ResponseInterface, a View, an array, a string or null. Got: ' . get_debug_type($result));
+    }
+
+    /**
+     * @param class-string<RequestInput> $inputClass
+     */
+    protected function mapInput(ServerRequestInterface $request, string $inputClass): RequestInput
+    {
+        if ($this->inputMapper === null) {
+            throw new Ex("Action input '{$inputClass}' cannot be built: bind a " . InputMapperInterface::class);
+        }
+
+        return $this->inputMapper->map($request, $inputClass);
     }
 
     /**

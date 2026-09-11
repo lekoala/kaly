@@ -15,6 +15,11 @@ If the controller does not exists, the default controller is called (`IndexContr
 
 ## Calling actions
 
+Action parameters are url segments, and only url segments. An action may declare one
+trailing `Kaly\Http\RequestInput`, which is built from the query string and the body
+instead and consumes no segment; anything else typed as an object is refused. See
+[Request input](input.md).
+
 Any unmatched part will be passed on the action. Public methods are callable;
 non-public methods and magic methods other than `__invoke` are never exposed.
 

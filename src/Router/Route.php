@@ -22,6 +22,12 @@ class Route
      * @var array<int<0,max>|string,mixed>
      */
     public array $params = [];
+    /**
+     * The trailing input of the action, built from the query and the body by
+     * the dispatcher. Route segments are never mapped into it.
+     * @var class-string<\Kaly\Http\RequestInput>|null
+     */
+    public ?string $inputClass = null;
 
     /**
      * @return array<string,mixed>
@@ -36,6 +42,7 @@ class Route
             'controller' => $this->controller,
             'action' => $this->action,
             'params' => $this->params,
+            'inputClass' => $this->inputClass,
         ];
     }
 }

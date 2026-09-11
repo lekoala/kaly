@@ -4,6 +4,7 @@
 * [Modules](modules.md)
 * [Http context](http-context.md)
 * [ClassRouter](class-router.md)
+* [Request input](input.md)
 * [Views](views.md)
 * [i18n](i18n.md)
 * [Logging](logging.md)

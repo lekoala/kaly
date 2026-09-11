@@ -2,8 +2,10 @@
 
 /** @var Kaly\Core\Module $this */
 
+use Kaly\Http\InputMapperInterface;
 use Kaly\Log\FileLogger;
 use Kaly\Router\ClassRouter;
+use Kaly\Tests\Mocks\TestInputMapper;
 use Kaly\Tests\Mocks\TestInterface;
 use Kaly\Tests\Mocks\TestObject;
 use Kaly\Tpl\ViewEngine;
@@ -28,6 +30,7 @@ $this
     ->bind(UploadedFileFactoryInterface::class, Psr17Factory::class)
     ->bind(UriFactoryInterface::class, Psr17Factory::class)
     ->bind(TestInterface::class, TestObject::class)
+    ->bind(InputMapperInterface::class, TestInputMapper::class)
     ->set(RendererInterface::class, new KalyTplRenderer(new ViewEngine(__DIR__ . '/templates')))
     ->callback(ClassRouter::class, function (ClassRouter $router): void {
         $router->setAllowedLocales(['en', 'fr'], ['LangModule']);

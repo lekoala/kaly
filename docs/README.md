@@ -14,6 +14,7 @@ Use the sidebar to browse the guides:
 - [App](app.md)
 - [Modules](modules.md)
 - [ClassRouter](class-router.md)
+- [Request input](input.md)
 - [Views](views.md)
 - [i18n](i18n.md)
 - [Logging](logging.md)
