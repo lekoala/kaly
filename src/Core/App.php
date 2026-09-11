@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Kaly\Core;
 
+use InvalidArgumentException;
 use Kaly\Clock\SystemClock;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Di\Injector;
-use Kaly\Http\HttpFactory;
+use Kaly\Http\ExceptionHandler;
+use Kaly\Http\ExceptionHandlerInterface;
+use Kaly\Http\HttpExceptionInterface;
 use Kaly\Http\ResponseEmitter;
-use Kaly\Http\ResponseProviderInterface;
 use Kaly\Http\ServerRequest;
 use Kaly\Log\FileLogger;
 use Kaly\Middleware\MiddlewareRunner;
@@ -21,16 +23,12 @@ use Kaly\Text\Translator;
 use Kaly\Util\Env;
 use Kaly\Util\Fs;
 use Kaly\Util\Json;
-use Nyholm\Psr7\Factory\Psr17Factory;
+use LogicException;
 use Psr\Clock\ClockInterface;
-use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestFactoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
-use Psr\Http\Message\UploadedFileFactoryInterface;
-use Psr\Http\Message\UriFactoryInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -74,17 +72,11 @@ class App implements RequestHandlerInterface
     protected const DEFAULT_IMPLEMENTATIONS = [
         // PSR-20
         ClockInterface::class => SystemClock::class,
-        // PSR-7
-        RequestFactoryInterface::class => Psr17Factory::class,
-        ResponseFactoryInterface::class => Psr17Factory::class,
-        ServerRequestFactoryInterface::class => Psr17Factory::class,
-        StreamFactoryInterface::class => Psr17Factory::class,
-        UploadedFileFactoryInterface::class => Psr17Factory::class,
-        UriFactoryInterface::class => Psr17Factory::class,
         // PSR-3
         LoggerInterface::class => NullLogger::class,
         // Our interfaces
         RouterInterface::class => ClassRouter::class,
+        ExceptionHandlerInterface::class => ExceptionHandler::class,
     ];
 
     protected bool $debug = false;
@@ -108,8 +100,9 @@ class App implements RequestHandlerInterface
      */
     final public function __construct(string $dir, bool $loadEnv = true)
     {
-        assert($this->setDebug()); // set debug mode=true if assert are enabled
-        assert(is_dir($dir));
+        if (!is_dir($dir)) {
+            throw new InvalidArgumentException("Base directory '{$dir}' does not exist");
+        }
 
         $this->baseDir = Fs::dir($dir);
 
@@ -298,8 +291,7 @@ class App implements RequestHandlerInterface
         } elseif ($container->has(CacheInterface::class)) {
             $cache = $container->get(CacheInterface::class);
         }
-        if ($cache) {
-            assert($cache instanceof CacheInterface);
+        if ($cache instanceof CacheInterface) {
             $this->cache = $cache;
         }
     }
@@ -315,6 +307,16 @@ class App implements RequestHandlerInterface
     }
 
     /**
+     * Guard against using the app before boot
+     */
+    protected function assertBooted(): void
+    {
+        if (!$this->booted) {
+            throw new LogicException('App must be booted first');
+        }
+    }
+
+    /**
      * Init app state
      * - load modules from "modules" folder
      * - configure the di container
@@ -323,7 +325,9 @@ class App implements RequestHandlerInterface
      */
     public function boot(): void
     {
-        assert($this->booted === false);
+        if ($this->booted) {
+            throw new LogicException('App is already booted');
+        }
         $this->booted = true;
 
         ErrorHandler::configureDefaults($this->debug);
@@ -363,24 +367,19 @@ class App implements RequestHandlerInterface
 
     public function respond(string $body, int $code = 200): ResponseInterface
     {
-        if ($this->container) {
-            $response = $this->container->get(ResponseFactoryInterface::class)->createResponse($code);
-            return $response->withBody($this->container->get(StreamFactoryInterface::class)->createStream($body));
-        }
-        return HttpFactory::createResponse($body, $code);
+        $this->assertBooted();
+        $response = $this->getContainer()->get(ResponseFactoryInterface::class)->createResponse($code);
+        return $response->withBody($this->getContainer()->get(StreamFactoryInterface::class)->createStream($body));
     }
 
     /**
      * Handle a request and returns its response
      * This may be called back by middlewares
      */
-    public function handle(?ServerRequestInterface $request = null): ResponseInterface
+    public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        assert($this->booted === true, 'App must be booted first');
+        $this->assertBooted();
 
-        if ($request === null) {
-            $request = HttpFactory::createRequestFromGlobals();
-        }
         $request = ServerRequest::createFromRequest($request);
 
         $this->runCallbacks(self::CB_BEFORE_REQUEST, $request);
@@ -389,20 +388,12 @@ class App implements RequestHandlerInterface
         try {
             return $this->getRequestHandler()->handle($request);
         } catch (Throwable $ex) {
-            if ($ex instanceof ResponseProviderInterface) {
-                return $ex->getResponse();
+            // Generic errors get a chance to be reported, HTTP exceptions are expected
+            if (!$ex instanceof HttpExceptionInterface) {
+                $this->runCallbacks(self::CB_ERROR, $ex);
             }
 
-            $this->runCallbacks(self::CB_ERROR, $ex);
-
-            // Only a valid HTTP error status is meaningful, anything else is a server error
-            $code = $ex->getCode();
-            if ($code < 400 || $code > 599) {
-                $code = 500;
-            }
-
-            $body = ErrorHandler::generateError($ex, $this->getLogger());
-            return $this->respond($body, $code);
+            return $this->getContainer()->get(ExceptionHandlerInterface::class)->toResponse($ex);
         } finally {
             $this->runCallbacks(self::CB_AFTER_REQUEST, $request);
         }
@@ -412,7 +403,7 @@ class App implements RequestHandlerInterface
      * This utility method can be used for index scripts
      * It will send the response
      */
-    public function run(?ServerRequestInterface $request = null): void
+    public function run(ServerRequestInterface $request): void
     {
         if (!$this->booted) {
             $this->boot();
@@ -426,7 +417,7 @@ class App implements RequestHandlerInterface
 
     public function getCache(): ?CacheInterface
     {
-        assert($this->booted);
+        $this->assertBooted();
         return $this->cache;
     }
 
@@ -435,13 +426,13 @@ class App implements RequestHandlerInterface
      */
     public function getModules(): array
     {
-        assert($this->booted);
+        $this->assertBooted();
         return $this->modules;
     }
 
     public function getContainer(): Container
     {
-        assert($this->booted);
+        $this->assertBooted();
         assert($this->container !== null);
         return $this->container;
     }
@@ -459,7 +450,7 @@ class App implements RequestHandlerInterface
 
     public function getInjector(): Injector
     {
-        assert($this->booted);
+        $this->assertBooted();
         assert($this->injector !== null);
         return $this->injector;
     }
@@ -469,7 +460,7 @@ class App implements RequestHandlerInterface
      */
     public function getRequestHandler(): RequestHandlerInterface
     {
-        assert($this->booted);
+        $this->assertBooted();
         assert($this->requestHandler !== null);
         return $this->requestHandler;
     }
@@ -481,7 +472,9 @@ class App implements RequestHandlerInterface
     public function getMiddlewareRunner(): MiddlewareRunner
     {
         $handler = $this->getRequestHandler();
-        assert($handler instanceof MiddlewareRunner);
+        if (!$handler instanceof MiddlewareRunner) {
+            throw new LogicException('The request handler is not a middleware runner');
+        }
         return $handler;
     }
 

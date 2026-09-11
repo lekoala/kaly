@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Kaly\Http;
 
 use Kaly\Core\Ex;
-use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
-class NotFoundException extends Ex implements ResponseProviderInterface
+class NotFoundException extends Ex implements HttpExceptionInterface
 {
     /**
      * @param string $message
@@ -23,8 +22,13 @@ class NotFoundException extends Ex implements ResponseProviderInterface
         parent::__construct($message, $code, $previous);
     }
 
-    public function getResponse(): ResponseInterface
+    public function getResponseHeaders(): array
     {
-        return HttpFactory::createErrorResponse($this->getIntCode());
+        return [];
+    }
+
+    public function getResponseBody(): string
+    {
+        return '';
     }
 }

@@ -3,7 +3,5 @@ parameters:
   treatPhpDocTypesAsCertain: false
   editorUrlTitle: '%%relFile%%:%%line%%'
   editorUrl: 'vscode://file/%%file%%:%%line%%'
-  ignoreErrors:
-    - '#Call to function assert\(\) with true#'
 includes:
   - phar://phpstan.phar/conf/bleedingEdge.neon

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Util;
 
+use InvalidArgumentException;
 use Psr\Container\ContainerInterface;
 use ReflectionClass;
 use ReflectionIntersectionType;
@@ -222,10 +223,9 @@ final class Refl
                 $providedArg = $arguments[$argumentKey];
 
                 // Provided argument doesn't match type
-                assert(
-                    Refl::valueMatchType($providedArg, $paramType),
-                    "parameter `{$name}` doesn't support " . get_debug_type($providedArg),
-                );
+                if (!Refl::valueMatchType($providedArg, $paramType)) {
+                    throw new InvalidArgumentException("parameter `{$name}` doesn't support " . get_debug_type($providedArg));
+                }
 
                 $args[$argumentKey] = $providedArg;
                 continue;

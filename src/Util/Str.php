@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Util;
 
+use InvalidArgumentException;
 use Psr\Http\Message\ResponseInterface;
 use Stringable;
 use Transliterator;
@@ -99,8 +100,10 @@ final class Str
 
     public static function random(int $length = 13): string
     {
-        $int = intval(ceil($length / 2));
-        assert($int > 0);
+        if ($length < 1) {
+            throw new InvalidArgumentException('Random string length must be greater than zero');
+        }
+        $int = max(1, intval(ceil($length / 2)));
         $bytes = random_bytes($int);
         return substr(bin2hex($bytes), 0, $length);
     }

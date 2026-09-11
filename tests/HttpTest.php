@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use Kaly\Http;
-use Kaly\Http\HttpFactory;
 use Kaly\Http\ResponseEmitter;
 use Kaly\Http\ServerRequest;
+use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
 use PHPUnit\Framework\TestCase;

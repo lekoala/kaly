@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kaly\Http;
 
 use Kaly\Core\Ex;
-use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
 /**
@@ -13,15 +12,20 @@ use Throwable;
  * Nested error will be concatenated
  * It would result in a "fail" status in json
  */
-class ValidationException extends Ex implements ResponseProviderInterface
+class ValidationException extends Ex implements HttpExceptionInterface
 {
     public function __construct(string $message, int $code = 403, ?Throwable $previous = null)
     {
         parent::__construct($message, $code, $previous);
     }
 
-    public function getResponse(): ResponseInterface
+    public function getResponseHeaders(): array
     {
-        return HttpFactory::createResponse($this->getMessage(), $this->getIntCode());
+        return [];
+    }
+
+    public function getResponseBody(): string
+    {
+        return $this->getMessage();
     }
 }

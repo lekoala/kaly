@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Kaly\Core;
 
 use Closure;
+use InvalidArgumentException;
 use Kaly\Di\Definitions;
+use Kaly\Util\Env;
 use Kaly\Util\Fs;
 use Kaly\Util\Str;
 use Kaly\View\RendererInterface;
@@ -24,13 +26,19 @@ class Module
 
     public function __construct(string $dir)
     {
-        assert(is_dir($dir));
+        if (!is_dir($dir)) {
+            throw new InvalidArgumentException("Module directory '{$dir}' does not exist");
+        }
         $this->dir = Fs::dir($dir);
         $this->name = basename($this->dir);
         $this->namespace = $this->buildDefaultNamespace();
 
         $config = $this->getConfigPath();
-        assert($this->addHeader($config), "could not add header to {$config}");
+        // Prepend a docblock header in debug mode only. This is a DX helper,
+        // not something that should depend on zend.assertions being enabled.
+        if (Env::getBool(App::ENV_DEBUG)) {
+            $this->addHeader($config);
+        }
 
         $this->definitions = new Definitions();
     }
@@ -173,7 +181,7 @@ class Module
 
     /**
      * Automatically prepend docblock at start of file to make dx better
-     * This should only run in debug mode when assertion are enabled
+     * This only runs in debug mode (APP_DEBUG)
      * @param string $filename
      * @return bool
      */

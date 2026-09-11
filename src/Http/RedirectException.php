@@ -6,11 +6,10 @@ namespace Kaly\Http;
 
 use InvalidArgumentException;
 use Kaly\Core\Ex;
-use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\UriInterface;
 use Throwable;
 
-class RedirectException extends Ex implements ResponseProviderInterface
+class RedirectException extends Ex implements HttpExceptionInterface
 {
     /**
      * The URL of the requested resource has been changed permanently.
@@ -66,9 +65,14 @@ class RedirectException extends Ex implements ResponseProviderInterface
         parent::__construct($message, $code, $previous);
     }
 
-    public function getResponse(): ResponseInterface
+    public function getResponseHeaders(): array
     {
-        return HttpFactory::createRedirectResponse($this->getUrl(), $this->getIntCode(), $this->getMessage());
+        return ['Location' => $this->url];
+    }
+
+    public function getResponseBody(): string
+    {
+        return $this->getMessage();
     }
 
     /**

@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Http;
+namespace Kaly\Tests\Support;
 
 use InvalidArgumentException;
+use Kaly\Http\ContentType;
+use Kaly\Http\ResponseEmitter;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7Server\ServerRequestCreator;
@@ -14,7 +16,10 @@ use Psr\Http\Message\ServerRequestInterface;
 use Stringable;
 
 /**
- * This static factory allows creating request/responses without the DI Container
+ * Test/demo helper that builds requests and responses without the DI container.
+ *
+ * The core HTTP layer is implementation agnostic. Apps are expected to bring
+ * their own PSR-7 implementation (Nyholm is recommended).
  */
 class HttpFactory
 {
@@ -44,10 +49,7 @@ class HttpFactory
     }
 
     /**
-     * @param string $body
-     * @param int $code
      * @param array<string,string> $headers
-     * @return ResponseInterface
      */
     public static function createResponse(string $body = '', int $code = 200, array $headers = []): ResponseInterface
     {
@@ -55,9 +57,7 @@ class HttpFactory
     }
 
     /**
-     * @param int $code
      * @param array<string,string> $headers
-     * @return ResponseInterface
      */
     public static function createErrorResponse(int $code = 400, array $headers = []): ResponseInterface
     {
@@ -78,15 +78,7 @@ class HttpFactory
     }
 
     /**
-     * Create a lightweight json response that minimize data transfer without adding
-     * unnecessary stuff
-     *
-     * Strings are stored under the "message" key
-     *
-     * Clients are expected to check http status code, not response body
-     *
      * @param string|Stringable|MessageInterface|array<mixed>|null $data
-     * @param integer $code
      * @param array<string,string> $headers
      */
     public static function createJsonResponse(
@@ -115,9 +107,7 @@ class HttpFactory
 
     /**
      * @param string|Stringable|MessageInterface|null $body
-     * @param int $code
      * @param array<string,string> $headers
-     * @return ResponseInterface
      */
     public static function createHtmlResponse(
         string|Stringable|MessageInterface|null $body,

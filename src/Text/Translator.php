@@ -229,7 +229,9 @@ class Translator
             return $this->translate($message, $parameters, $domain, $this->defaultLocale);
         }
 
-        assert(is_string($translation));
+        if (!is_string($translation)) {
+            $translation = is_scalar($translation) ? (string) $translation : '';
+        }
 
         // Handling plurals in a minimalistic yet powerful fashion
         if (isset($parameters['%count%']) && is_numeric($parameters['%count%'])) {

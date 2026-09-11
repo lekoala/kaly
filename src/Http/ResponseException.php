@@ -6,27 +6,29 @@ namespace Kaly\Http;
 
 use Kaly\Core\Ex;
 use Kaly\Util\Json;
-use Psr\Http\Message\ResponseInterface;
 
-class ResponseException extends Ex implements ResponseProviderInterface
+class ResponseException extends Ex implements HttpExceptionInterface
 {
     protected ?string $dataType = null;
     protected ?string $contentType = null;
 
-    public function getResponse(): ResponseInterface
+    public function getResponseHeaders(): array
     {
-        $code = $this->getIntCode();
-        if ($code === 0) {
-            $code = 200;
-        }
         return match ($this->dataType) {
-            'svg' => HttpFactory::createResponse($this->getMessage(), $code, [
-                'Content-Type' => ContentType::SVG,
-            ]),
-            'json' => HttpFactory::createJsonResponse($this->getMessage(), $code),
-            'html' => HttpFactory::createHtmlResponse($this->getMessage(), $code),
-            default => HttpFactory::createResponse($this->getMessage(), $code),
+            'svg' => ['Content-Type' => ContentType::SVG],
+            'json' => ['Content-Type' => ContentType::JSON],
+            'html' => ['Content-Type' => ContentType::HTML],
+            default => [],
         };
+    }
+
+    public function getResponseBody(): string
+    {
+        $message = $this->getMessage();
+        if ($this->dataType === 'json') {
+            return $message === '' ? '[]' : Json::encode(['message' => $message]);
+        }
+        return $message;
     }
 
     public static function svg(string $message, int $code = 200): self

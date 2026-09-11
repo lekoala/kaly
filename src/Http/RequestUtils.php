@@ -129,7 +129,9 @@ trait RequestUtils
         if (!$header) {
             $header = $this->request->getServerParams()['HTTP_ACCEPT_LANGUAGE'] ?? '';
         }
-        assert(is_string($header));
+        if (!is_string($header)) {
+            $header = '';
+        }
         $arr = [];
         if (!$header) {
             return $arr;
@@ -288,7 +290,9 @@ trait RequestUtils
     public function getServerParam(string $key, ?string $default = null): ?string
     {
         $v = $this->request->getServerParams()[$key] ?? $default;
-        assert(is_null($v) || is_string($v));
+        if (!is_string($v)) {
+            return $default;
+        }
         return $v;
     }
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Core;
 
+use InvalidArgumentException;
+
 /**
  * This is a simple alternative to "event dispatchers"
  */
@@ -16,7 +18,9 @@ trait HasCallbacks
 
     public function addCallback(string $id, callable $callable): self
     {
-        assert(self::isValidCallbackId($id), "{$id} is not valid");
+        if (!self::isValidCallbackId($id)) {
+            throw new InvalidArgumentException("{$id} is not a valid callback id");
+        }
         $this->callbacks[$id][] = $callable;
         return $this;
     }
@@ -37,7 +41,9 @@ trait HasCallbacks
      */
     public function runCallbacks(string $id, ...$params): void
     {
-        assert(self::isValidCallbackId($id), "{$id} is not valid");
+        if (!self::isValidCallbackId($id)) {
+            throw new InvalidArgumentException("{$id} is not a valid callback id");
+        }
         if (empty($this->callbacks[$id])) {
             return;
         }

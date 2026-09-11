@@ -23,9 +23,8 @@ class ErrorHandler
 
         // Store previous level to restore it later
         self::$errLevel = error_reporting();
-        $debug = assert(true);
         // Configure errors (-1 = all, 0 = none)
-        error_reporting($debug ? -1 : 0);
+        error_reporting($debug ?? false ? -1 : 0);
 
         // Convert errors to exceptions (so that we can catch trigger_error for example)
         set_error_handler(static function (int $errno, string $errstr, string $errfile, int $errline): false {

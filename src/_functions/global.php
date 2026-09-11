@@ -33,7 +33,7 @@ if (!function_exists('d')) {
     function d(...$vars): void
     {
         // Avoid running this in production apps
-        $enabled = assert(true);
+        $enabled = \Kaly\Util\Env::getBool(\Kaly\Core\App::ENV_DEBUG);
         if (!$enabled) {
             return;
         }

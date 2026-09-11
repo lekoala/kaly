@@ -48,7 +48,9 @@ class RequestDispatcher implements MiddlewareInterface
         if ($request->getAttribute(self::ATTR_IP_REQUEST) === null) {
             $serverParams = $request->getServerParams();
             $ip = $serverParams['REMOTE_ADDR'] ?? '0.0.0.0';
-            assert(is_string($ip));
+            if (!is_string($ip)) {
+                $ip = '0.0.0.0';
+            }
             $request = $request->withAttribute(self::ATTR_IP_REQUEST, $ip);
         }
 

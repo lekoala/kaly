@@ -51,12 +51,15 @@ ErrorHandler::handle(function () use ($demoMiddleware, $errorMiddleware) {
         // d($app);
     });
 
-    $app->run();
-    // $response = $app->handle();
+    // The core is implementation agnostic: the entry point builds the request.
+    $psr17Factory = new \Nyholm\Psr7\Factory\Psr17Factory();
+    $creator = new \Nyholm\Psr7Server\ServerRequestCreator(
+        $psr17Factory, // ServerRequestFactory
+        $psr17Factory, // UriFactory
+        $psr17Factory, // UploadedFileFactory
+        $psr17Factory, // StreamFactory
+    );
+    $request = $creator->fromGlobals();
 
-    // handling a second time should work!
-    // $response = $app->handle();
-
-    // $emitter = new ResponseEmitter();
-    // $emitter->emit($response);
+    $app->run($request);
 });

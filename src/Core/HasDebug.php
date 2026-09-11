@@ -6,10 +6,8 @@ namespace Kaly\Core;
 
 /**
  * Makes a class "debuggable"
- * To make this work out of the box, we rely on assert = dev mode
- * This way, we can do
- * assert($this->setDebug()) => debug is only enabled in dev mode
- * You can still force true/false if needed for other reasons
+ * Debug is driven by the APP_DEBUG env var by default, but can always be
+ * forced true/false explicitly with setDebug().
  */
 trait HasDebug
 {
@@ -20,13 +18,9 @@ trait HasDebug
         return $this->debug;
     }
 
-    /**
-     * @param bool $debug
-     * @return true Returns true so that calls to assert($class->setDebug()) work (assert expects true)
-     */
-    public function setDebug(bool $debug = true): true
+    public function setDebug(bool $debug = true): static
     {
         $this->debug = $debug;
-        return true;
+        return $this;
     }
 }

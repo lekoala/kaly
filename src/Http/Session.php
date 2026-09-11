@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Http;
 
 use Exception;
+use InvalidArgumentException;
 use Kaly\Core\Ex;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -144,7 +145,9 @@ class Session implements ArrayDataInterface
     {
         $arr = [];
         foreach ($_SESSION as $k => $v) {
-            assert(is_string($k));
+            if (!is_string($k)) {
+                continue;
+            }
             $old = $this->originalData[$k] ?? null;
             if ($old != $v) {
                 $arr[$k] = [$old, $v];
@@ -260,10 +263,12 @@ class Session implements ArrayDataInterface
     public function getName(): string
     {
         $name = $this->isActive() ? session_name() : '';
-        if (!$name) {
-            $name = $this->options['name'];
+        if (!is_string($name) || $name === '') {
+            $name = $this->options['name'] ?? '';
         }
-        assert(is_string($name));
+        if (!is_string($name)) {
+            throw new InvalidArgumentException('Session name must be a string');
+        }
         return $name;
     }
 
@@ -297,7 +302,9 @@ class Session implements ArrayDataInterface
     {
         $cookies = $request->getCookieParams();
         $param = $cookies[$this->getName()] ?? null;
-        assert(is_null($param) || is_string($param));
+        if ($param !== null && !is_string($param)) {
+            throw new InvalidArgumentException('Session cookie value must be a string');
+        }
         return $param;
     }
 
