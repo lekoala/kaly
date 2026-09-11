@@ -185,20 +185,21 @@ class MiddlewareRunner implements RequestHandlerInterface
         $request = $ctx->bind($request);
 
         $entries = $this->registry->band($this->band);
+        $count = count($entries);
+
+        // Walk past the entries whose condition is false. A skipped middleware
+        // costs nothing: no stack frame, and never a resolution from the
+        // container. Only the next one that really runs recurses.
+        while ($index < $count && !$this->shouldRun($entries[$index]->condition, $ctx)) {
+            $index++;
+        }
 
         // Once we run out of middlewares, execute the final handler.
-        if ($index >= count($entries)) {
+        if ($index >= $count) {
             return $this->requestHandler->handle($request);
         }
 
-        $entry = $entries[$index];
-
-        // Check if the middleware should run
-        if (!$this->shouldRun($entry->condition, $ctx)) {
-            return $this->processNext($request, $index + 1, $ctx);
-        }
-
-        $middleware = $this->resolveMiddleware($entry->middleware);
+        $middleware = $this->resolveMiddleware($entries[$index]->middleware);
 
         // The context tracks what really entered, not what was configured
         $ctx->markMiddleware($middleware::class);

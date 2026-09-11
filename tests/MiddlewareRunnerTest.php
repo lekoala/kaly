@@ -15,6 +15,7 @@ use LogicException;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\TestCase;
+use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -287,6 +288,57 @@ class MiddlewareRunnerTest extends TestCase
         $this->expectException(LogicException::class);
         $this->expectExceptionMessage('A container is required');
         new MiddlewareRunner(PredefinedResponseHandler::class);
+    }
+
+    public function testSkippedMiddlewaresCostNoStackFrame(): void
+    {
+        $depthFor = function (int $count): int {
+            $depth = 0;
+            $runner = new MiddlewareRunner(function () use (&$depth): ResponseInterface {
+                $depth = count(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS));
+                return new Response(200);
+            });
+            for ($i = 0; $i < $count; $i++) {
+                $runner->add(
+                    new class implements MiddlewareInterface {
+                        public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+                        {
+                            return $handler->handle($request);
+                        }
+                    },
+                    when: static fn(): bool => false,
+                );
+            }
+            $runner->handle(new ServerRequest('GET', '/'));
+            return $depth;
+        };
+
+        // Walking past a false condition is a loop, not a recursion
+        $this->assertSame($depthFor(1), $depthFor(50));
+    }
+
+    public function testASkippedMiddlewareIsNeverResolved(): void
+    {
+        $container = new class implements ContainerInterface {
+            public bool $used = false;
+
+            public function get(string $id): mixed
+            {
+                $this->used = true;
+                throw new LogicException('must not be resolved');
+            }
+
+            public function has(string $id): bool
+            {
+                return true;
+            }
+        };
+
+        $runner = new MiddlewareRunner(fn(): ResponseInterface => new Response(200), $container);
+        $runner->add('Some\Middleware\That\Does\Not\Exist', when: static fn(): bool => false);
+
+        $this->assertSame(200, $runner->handle(new ServerRequest('GET', '/'))->getStatusCode());
+        $this->assertFalse($container->used);
     }
 
     public function testMultipleRequestsOnSameRunner(): void

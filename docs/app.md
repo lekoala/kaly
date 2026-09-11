@@ -156,10 +156,9 @@ $app->addCallback(App::CB_ERROR, function (Throwable $e, HttpContext $ctx): void
 
 ## Using middlewares
 
-Middlewares are plain PSR-15 `MiddlewareInterface` implementations, resolved from the
-container. They are not a free list though: kaly has a fixed request flow with a
-routing step in the middle, and a middleware is registered in one of the two bands
-around it.
+Middlewares are resolved from the container and are not a free list: kaly has a fixed
+request flow with a routing step in the middle, and a middleware is registered in one
+of the two bands around it.
 
 ```text
 incoming -> routing -> routed -> dispatcher
@@ -201,10 +200,23 @@ $app->middleware()->routed(
 Returning `false` skips the middleware for that request. Conditions are evaluated on
 every request, so they can also depend on external state.
 
+### Three ways to write one
+
+These are not three competing APIs, they are one progression. Start at the top and go
+down only when the problem asks for it.
+
+| | Use it for |
+| --- | --- |
+| PSR-15 `MiddlewareInterface` | third party middlewares, interop, the classic nested model |
+| `GeneratorMiddleware` | the native default: simple `before()` / `after()` hooks |
+| `GeneratorMiddlewareInterface` | the native advanced form: local state across both phases, `catch` / `finally` |
+
+All three are registered the same way and run in the same bands.
+
 ### Before and after hooks
 
 For middlewares that need both a "before" and an "after" phase, extend
-`Kaly\Middleware\GeneratorMiddleware` and implement the hooks:
+`Kaly\Middleware\GeneratorMiddleware` and implement the hooks. This covers most needs:
 
 ```php
 final class Timing extends GeneratorMiddleware
@@ -228,6 +240,33 @@ final class Timing extends GeneratorMiddleware
   run and this middleware's own `after()` is skipped, since it already owns the
   response. Outer middlewares still wrap it. This is what an auth or a cache
   middleware needs.
+
+### Keeping state across both phases
+
+When a middleware needs to hold something between its two phases — a timer, a
+transaction, an open resource — implement `GeneratorMiddlewareInterface` directly. The
+local variables of the method survive the suspension, so there is no per-request state
+to store anywhere else:
+
+```php
+final class Timing implements GeneratorMiddlewareInterface
+{
+    public function process(ServerRequestInterface $request): Generator
+    {
+        $start = hrtime(true);
+        try {
+            $response = yield $request;
+            return $response->withHeader('Server-Timing', $this->format($start));
+        } finally {
+            $this->record(hrtime(true) - $start);
+        }
+    }
+}
+```
+
+This is the one thing separate `before()` / `after()` hooks cannot express without
+inventing a parallel request-scoped store — which is exactly why the generator form is
+kept.
 
 ### Handling downstream errors
 
@@ -253,16 +292,37 @@ final class Transaction implements GeneratorMiddlewareInterface
 ```
 
 An exception nobody catches simply keeps going up, and the kernel turns it into a
-response. Note that a response built by the kernel this way has not gone back through
-the `after()` phases: they belong to a response returned by the stack, not to the
-outer safety net.
+response.
 
-The generator protocol is deliberately narrow, and a violation is reported as such
-rather than as a cryptic generator error:
+The generator protocol is deliberately narrow — it is a middleware mechanism, not a
+general coroutine — and a violation is reported as such rather than as a cryptic
+generator error:
 
 - yield the request **at most once** — zero to short-circuit;
 - yield a `ServerRequestInterface`, never anything else;
 - **return** a `ResponseInterface`.
+
+### What an after phase is not
+
+An error response built by the kernel has **not** gone back through the `after()`
+phases. This is deliberate: when the stack fails halfway, some middlewares were
+entered and some were not, so replaying their `after()` would give a result nobody can
+predict. Three distinct things are easy to confuse:
+
+| | Runs on |
+| --- | --- |
+| `after()` | a response the inner layers actually returned |
+| `finally` | every outcome, including an exception — for cleanup |
+| response finalization | every response that really leaves the application |
+
+The third one does not exist yet. If you need a header on *every* response, including a
+500 built by the kernel — CORS, security headers, a request id — say so: the place for
+it is a narrow transformation step in the kernel, between the `catch` and
+`HttpContext::complete()`, not a new middleware band and not a replay of the `after()`
+phases.
+
+`CB_AFTER_REQUEST` is not that hook either: it runs once the context is already
+complete, and it is a notification whose errors must not change the response.
 
 ## Env variables
 
