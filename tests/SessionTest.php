@@ -134,6 +134,23 @@ class SessionTest extends TestCase
         }
     }
 
+    public function testIsRememberMeNeedsPostWithRememberKey(): void
+    {
+        $get = new BaseServerRequest('GET', 'https://example.test/');
+        $this->assertFalse(Session::isRememberMe($get));
+
+        // No parsed body at all must not raise a warning, just return false
+        $postWithoutBody = new BaseServerRequest('POST', 'https://example.test/');
+        $this->assertFalse(Session::isRememberMe($postWithoutBody));
+
+        // An object body (eg: JSON parsed without assoc) must not fatal, just return false
+        $postWithObjectBody = (new BaseServerRequest('POST', 'https://example.test/'))->withParsedBody(new \stdClass());
+        $this->assertFalse(Session::isRememberMe($postWithObjectBody));
+
+        $post = (new BaseServerRequest('POST', 'https://example.test/'))->withParsedBody(['_remember' => '1']);
+        $this->assertTrue(Session::isRememberMe($post));
+    }
+
     public function testGetNameFallsBackToConfiguredNameBeforeStart(): void
     {
         $session = new Session([], null);

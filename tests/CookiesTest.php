@@ -99,4 +99,24 @@ class CookiesTest extends TestCase
         $response = $cookies->addToResponse(new Response());
         $this->assertSame([], $response->getHeader('Set-Cookie'));
     }
+
+    public function testSameSiteModesAreNormalized(): void
+    {
+        $this->assertSame('Lax', ExposedCookies::sameSite('lax'));
+        $this->assertSame('Lax', ExposedCookies::sameSite('Lax'));
+        $this->assertSame('Strict', ExposedCookies::sameSite('strict'));
+        $this->assertSame('None', ExposedCookies::sameSite('none'));
+        $this->assertNull(ExposedCookies::sameSite('bogus'));
+        $this->assertNull(ExposedCookies::sameSite(''));
+        $this->assertNull(ExposedCookies::sameSite(null));
+        $this->assertNull(ExposedCookies::sameSite(['Lax']));
+    }
+}
+
+class ExposedCookies extends Cookies
+{
+    public static function sameSite(mixed $value): ?string
+    {
+        return self::normalizeSameSite($value);
+    }
 }

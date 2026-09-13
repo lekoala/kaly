@@ -195,6 +195,24 @@ class Cookies implements ArrayDataInterface
         $this->params[$k] = $params;
     }
 
+    /**
+     * Normalize a SameSite value to a mode accepted by setcookie().
+     *
+     * Common casings are canonicalized, anything else is dropped instead
+     * of failing at runtime.
+     *
+     * @return 'Lax'|'lax'|'None'|'none'|'Strict'|'strict'|null
+     */
+    protected static function normalizeSameSite(mixed $value): ?string
+    {
+        return match ($value) {
+            'None', 'none' => 'None',
+            'Lax', 'lax' => 'Lax',
+            'Strict', 'strict' => 'Strict',
+            default => null,
+        };
+    }
+
     public function write(): bool
     {
         // Application cookies inherit the same baseline as the session cookie
@@ -212,14 +230,7 @@ class Cookies implements ArrayDataInterface
                 'httponly' => (bool) ($params['httponly'] ?? true),
             ];
             if (!empty($params['samesite'])) {
-                // setcookie() only accepts known modes; normalize common
-                // casings and drop anything else instead of failing at runtime
-                $samesite = match ($params['samesite']) {
-                    'None', 'none' => 'None',
-                    'Lax', 'lax' => 'Lax',
-                    'Strict', 'strict' => 'Strict',
-                    default => null,
-                };
+                $samesite = self::normalizeSameSite($params['samesite']);
                 if ($samesite !== null) {
                     $options['samesite'] = $samesite;
                 }
