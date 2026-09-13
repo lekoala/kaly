@@ -80,7 +80,7 @@ class ClassRouter implements RouterInterface
         $route = new Route();
         $this->inputClass = null;
 
-        self::redirectTrailingSlash($request, $this->forceTrailingSlash);
+        RedirectUris::ensureTrailingSlash($request, $this->forceTrailingSlash);
         $this->parts = $this->collectParts();
 
         $route->segments = array_merge([], $this->parts);
@@ -117,6 +117,17 @@ class ClassRouter implements RouterInterface
     }
 
     /**
+     * Build a redirect uri by replacing a path segment.
+     *
+     * Thin wrapper over RedirectUris: the router configuration travels
+     * implicitly so call sites stay intention-revealing.
+     */
+    protected function getRedirectUri(string $remove, string $replace = ''): UriInterface
+    {
+        return RedirectUris::replaceSegment($this->request, $remove, $replace, $this->forceTrailingSlash);
+    }
+
+    /**
      * @return string[]
      */
     protected function collectParts(): array
@@ -126,26 +137,6 @@ class ClassRouter implements RouterInterface
         // array_values keeps the parts as a list even with duplicated slashes.
         $parts = array_filter(explode('/', $trimmedPath), static fn(string $part): bool => $part !== '');
         return array_values($parts);
-    }
-
-    /**
-     * @throws RedirectException
-     */
-    protected static function redirectTrailingSlash(ServerRequestInterface $request, bool $force): void
-    {
-        $uri = $request->getUri();
-        $path = $uri->getPath();
-        if ($force) {
-            if (!str_ends_with($path, '/')) {
-                $newUri = $uri->withPath($path . '/');
-                throw new RedirectException($newUri);
-            }
-        } else {
-            if (str_ends_with($path, '/')) {
-                $newUri = $uri->withPath(rtrim($path, '/'));
-                throw new RedirectException($newUri);
-            }
-        }
     }
 
     /**
@@ -284,21 +275,6 @@ class ClassRouter implements RouterInterface
         }
     }
 
-    protected function getRedirectUri(string $remove, string $replace = ''): UriInterface
-    {
-        $uri = $this->request->getUri();
-        $path = $uri->getPath();
-        if ($replace) {
-            $replace = '/' . $replace;
-        }
-        $path = str_replace('/' . $remove, $replace, $path);
-        $path = rtrim($path, '/');
-        if ($this->forceTrailingSlash) {
-            $path .= '/';
-        }
-        return $uri->withPath($path);
-    }
-
     protected function findLocale(): ?string
     {
         if (empty($this->allowedLocales) || empty($this->parts[0])) {
@@ -414,7 +390,7 @@ class ClassRouter implements RouterInterface
             $testAction = Str::camelize($testPart, false);
             // Rest style routing: the HTTP method is added at the end to avoid
             // confusion with getters
-            $methodSuffix = self::getMethodSuffix($method);
+            $methodSuffix = RestActionNaming::methodSuffix($method);
             $testActionWithMethod = $testAction . $methodSuffix;
 
             // Don't allow controller/index to be called directly because it would create duplicated urls
@@ -426,9 +402,9 @@ class ClassRouter implements RouterInterface
 
             // A url naming an action suffixed by another HTTP verb must not
             // run for this request (eg: GET /index/change-post/ is a 405).
-            $verbSuffix = self::getVerbSuffix($testAction);
+            $verbSuffix = RestActionNaming::verbSuffix($testAction);
             if ($verbSuffix !== null && $this->isRoutableAction($refl, $testAction) && $verbSuffix !== $methodSuffix) {
-                $baseAction = self::stripVerbSuffix($testAction);
+                $baseAction = RestActionNaming::stripVerbSuffix($testAction);
                 throw new MethodNotAllowedException(
                     $this->findAllowedMethods($refl, $baseAction),
                     "Method {$method} is not allowed for action '{$baseAction}'",
@@ -492,39 +468,11 @@ class ClassRouter implements RouterInterface
         }
         $allowed = [];
         foreach (self::HTTP_METHODS as $httpMethod) {
-            if ($this->isRoutableAction($refl, $baseAction . self::getMethodSuffix($httpMethod))) {
+            if ($this->isRoutableAction($refl, $baseAction . RestActionNaming::methodSuffix($httpMethod))) {
                 $allowed[] = $httpMethod;
             }
         }
         return $allowed;
-    }
-
-    /**
-     * Convert an HTTP method to the action suffix convention (eg: POST => Post).
-     */
-    protected static function getMethodSuffix(string $method): string
-    {
-        return ucfirst(strtolower($method));
-    }
-
-    /**
-     * Return the HTTP verb suffix of an action name, if any.
-     */
-    protected static function getVerbSuffix(string $action): ?string
-    {
-        if (preg_match('/(Post|Put|Patch|Delete|Head|Options|Get)$/', $action, $matches) === 1) {
-            return $matches[1];
-        }
-        return null;
-    }
-
-    protected static function stripVerbSuffix(string $action): string
-    {
-        $suffix = self::getVerbSuffix($action);
-        if ($suffix === null) {
-            return $action;
-        }
-        return substr($action, 0, -strlen($suffix));
     }
 
     /**
@@ -579,13 +527,7 @@ class ClassRouter implements RouterInterface
             // Strictly coerce and validate built-in typed parameters.
             // An invalid value does not match the route (404).
             if ($type instanceof ReflectionNamedType && $value !== '' && $type->isBuiltin()) {
-                $value = match ($type->getName()) {
-                    'bool' => $this->parseBoolParam($value),
-                    'array' => explode(',', $value),
-                    'int' => $this->parseIntParam($value),
-                    'float' => $this->parseFloatParam($value),
-                    default => (string) $value,
-                };
+                $value = RouteParamCoercer::coerce($type->getName(), $value);
 
                 // Update value
                 $params[$i] = $value;
@@ -667,33 +609,6 @@ class ClassRouter implements RouterInterface
             }
         }
         return false;
-    }
-
-    protected function parseIntParam(string $value): int
-    {
-        $int = filter_var($value, FILTER_VALIDATE_INT);
-        if ($int === false) {
-            throw new RouteNotFoundException("Invalid integer value '{$value}'");
-        }
-        return $int;
-    }
-
-    protected function parseFloatParam(string $value): float
-    {
-        $float = filter_var($value, FILTER_VALIDATE_FLOAT);
-        if ($float === false) {
-            throw new RouteNotFoundException("Invalid float value '{$value}'");
-        }
-        return $float;
-    }
-
-    protected function parseBoolParam(string $value): bool
-    {
-        $bool = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-        if ($bool === null) {
-            throw new RouteNotFoundException("Invalid boolean value '{$value}'");
-        }
-        return $bool;
     }
 
     /**
