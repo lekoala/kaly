@@ -134,8 +134,12 @@ final class HttpContext
     }
 
     /**
-     * The route matched by the routing handler. It is guaranteed for anything
-     * running in the routed band or later.
+     * The route matched by the routing handler.
+     *
+     * It is guaranteed while executing the routed request phase and the
+     * dispatcher. It is not guaranteed in the outgoing phase, because outgoing
+     * also receives responses produced before routing completed (an incoming
+     * short-circuit or a routing 404): check hasRoute() first.
      */
     public function route(): Route
     {
@@ -156,8 +160,12 @@ final class HttpContext
     }
 
     /**
-     * The locale the request runs with. It is guaranteed for anything running
-     * in the routed band or later.
+     * The locale the request runs with.
+     *
+     * It is guaranteed while executing the routed request phase and the
+     * dispatcher. It is not guaranteed in the outgoing phase, because outgoing
+     * also receives responses produced before the locale was resolved: check
+     * hasLocale() first.
      */
     public function locale(): string
     {

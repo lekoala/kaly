@@ -26,8 +26,11 @@ use Psr\Http\Message\ResponseInterface;
  * }
  * ```
  *
- * It is executed exactly once. If it throws, the kernel converts the exception
- * into a new error response, it does not replay the band on that response.
+ * The outgoing phase is attempted once for each response produced by the
+ * request cycle. If an outgoing middleware throws, the phase stops; the
+ * exception is converted to a new error response, and the outgoing phase is
+ * not replayed. Headers that must survive an outgoing failure belong in
+ * `finalizeResponse`.
  */
 interface OutgoingMiddlewareInterface
 {

@@ -46,6 +46,11 @@ band, in the dispatcher and in every controller — `route()` and `locale()` are
 `LogicException` instead of returning a null that then contaminates every caller
 downstream.
 
+The outgoing phase is the exception to that guarantee: it also receives responses
+produced before routing completed — an incoming short-circuit or a routing 404 —
+so `route()` and `locale()` are **not guaranteed** there. Guard with `hasRoute()` /
+`hasLocale()` before reading them.
+
 That is exactly what removes the need for capability checks everywhere: you never ask
 *"do we have a route?"*, the band you registered in already answers it.
 

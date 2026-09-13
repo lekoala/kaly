@@ -319,10 +319,6 @@ class Application
      */
     public function finalizeResponse(ResponseInterface $response, HttpContext $ctx): ResponseInterface
     {
-        if ($this->debug) {
-            $this->logPipeline($response, $ctx);
-        }
-
         foreach ($this->callbacks[self::CB_FINALIZE_RESPONSE] ?? [] as $finalize) {
             try {
                 $next = $finalize($response, $ctx);
@@ -336,6 +332,13 @@ class Application
             }
             $response = $next;
         }
+
+        // Log after the finalizers: the dump records the response that really
+        // leaves the application.
+        if ($this->debug) {
+            $this->logPipeline($response, $ctx);
+        }
+
         return $response;
     }
 
@@ -346,23 +349,41 @@ class Application
      * boot — so the configured bands are read per request, not at boot time.
      * Showing the executed trace next to the configuration exposes a middleware
      * that was registered but never ran (eg: short-circuited upstream).
+     *
+     * Values are normalized before logging: the status is a string, and every
+     * configured or executed middleware is rendered as its class name.
      */
     private function logPipeline(ResponseInterface $response, HttpContext $ctx): void
     {
         try {
-            $logger = $this->getDebugLogger();
             $configured = $this->middleware()->toArray();
+            $logger = $this->getDebugLogger();
             $logger->debug('pipeline status={status} configured incoming={incoming} routed={routed} outgoing={outgoing} | executed={executed}', [
-                'status' => $response->getStatusCode(),
-                'incoming' => $configured['incoming'] ?? [],
-                'routed' => $configured['routed'] ?? [],
-                'outgoing' => $configured['outgoing'] ?? [],
+                'status' => (string) $response->getStatusCode(),
+                'incoming' => self::middlewareNames($configured['incoming'] ?? []),
+                'routed' => self::middlewareNames($configured['routed'] ?? []),
+                'outgoing' => self::middlewareNames($configured['outgoing'] ?? []),
                 'executed' => $ctx->middlewares(),
             ]);
         } catch (Throwable) {
             // The debug dump must never interfere with the cycle
             // @mago-expect lint:no-empty-catch-clause
         }
+    }
+
+    /**
+     * Render middleware entries as class names, for the debug log.
+     *
+     * @param array<array-key, class-string|\Psr\Http\Server\MiddlewareInterface|\Kaly\Middleware\GeneratorMiddlewareInterface|\Kaly\Middleware\OutgoingMiddlewareInterface> $entries
+     * @return array<array-key, string>
+     */
+    private static function middlewareNames(array $entries): array
+    {
+        $names = [];
+        foreach ($entries as $entry) {
+            $names[] = is_string($entry) ? $entry : $entry::class;
+        }
+        return $names;
     }
 
     /**

@@ -63,7 +63,7 @@ final class MiddlewareRegistry
      * Add a middleware that runs before routing
      *
      * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
-     * @param Closure|null $when Receives the context and the container, returning false skips the middleware
+     * @param Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the context and the container, returning false skips the middleware
      */
     public function incoming(
         string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware,
@@ -77,7 +77,7 @@ final class MiddlewareRegistry
      * Add a middleware that runs once the route is known
      *
      * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
-     * @param Closure|null $when Receives the context and the container, returning false skips the middleware
+     * @param Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the context and the container, returning false skips the middleware
      */
     public function routed(
         string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware,
@@ -92,7 +92,7 @@ final class MiddlewareRegistry
      * produced one, whatever its origin (happy path, short-circuit, exception).
      *
      * @param class-string|OutgoingMiddlewareInterface $middleware
-     * @param Closure|null $when Receives the current response, the context and the container; returning false skips the middleware
+     * @param Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the current response, the context and the container; returning false skips the middleware
      */
     public function outgoing(string|OutgoingMiddlewareInterface $middleware, int $priority = 0, ?Closure $when = null): self
     {
@@ -100,7 +100,14 @@ final class MiddlewareRegistry
     }
 
     /**
+     * Generic entry point. The typed facades (incoming, routed, outgoing) are
+     * the intended API; this stays wide so both runners can share one registry.
+     *
      * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware
+     * @param (
+     *     Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool
+     *     |Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool
+     * )|null $when Band-dependent condition, see MiddlewareEntry
      */
     public function add(
         MiddlewareBand $band,

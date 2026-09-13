@@ -31,6 +31,10 @@ use Psr\Http\Server\MiddlewareInterface;
  *
  * The runner is stateless and marks every middleware that really entered, so
  * the executed trace is available as on the request bands.
+ *
+ * The phase is attempted at most once per response: if an outgoing middleware
+ * throws, the phase stops and the whole previous transformation is replaced by
+ * the error response built by the kernel.
  */
 final class OutgoingRunner
 {

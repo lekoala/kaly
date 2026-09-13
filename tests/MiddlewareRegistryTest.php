@@ -8,7 +8,9 @@ use Kaly\Core\HttpContext;
 use Kaly\Middleware\MiddlewareBand;
 use Kaly\Middleware\MiddlewareRegistry;
 use Kaly\Middleware\MiddlewareRunner;
+use Kaly\Middleware\OutgoingMiddlewareInterface;
 use Kaly\Tests\Mocks\TestMiddleware;
+use LogicException;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\TestCase;
@@ -166,5 +168,21 @@ class MiddlewareRegistryTest extends TestCase
 
         $this->assertSame('/rebuilt', (string) $response->getBody());
         $this->assertSame('/rebuilt', $ctx->request()->getUri()->getPath());
+    }
+
+    public function testRequestBandRejectsAnOutgoingMiddleware(): void
+    {
+        $registry = new MiddlewareRegistry();
+        $registry->add(MiddlewareBand::Incoming, new class implements OutgoingMiddlewareInterface {
+            public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
+            {
+                return $response;
+            }
+        });
+
+        $runner = new MiddlewareRunner(static fn(): ResponseInterface => new Response(200), null, $registry, MiddlewareBand::Incoming);
+
+        $this->expectException(LogicException::class);
+        $runner->handle(new ServerRequest('GET', '/'));
     }
 }

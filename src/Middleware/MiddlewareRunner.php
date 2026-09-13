@@ -60,15 +60,15 @@ class MiddlewareRunner implements RequestHandlerInterface
     }
 
     /**
-     * Register a middleware in the band of this runner
+     * Register a request middleware in the band of this runner.
      *
-     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware
+     * An outgoing middleware cannot run in a request band: use the shared
+     * MiddlewareRegistry::add() if you really need to mix families.
+     *
+     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
      */
-    public function add(
-        string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware,
-        int $priority = 0,
-        ?Closure $when = null,
-    ): self {
+    public function add(string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware, int $priority = 0, ?Closure $when = null): self
+    {
         $this->registry->add($this->band, $middleware, $priority, $when);
 
         return $this;

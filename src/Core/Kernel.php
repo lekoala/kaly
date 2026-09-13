@@ -54,8 +54,9 @@ final class Kernel implements RequestHandlerInterface
         }
 
         // Second boundary: the outgoing phase sees the response whatever its
-        // origin. It runs exactly once: a failing outgoing middleware produces
-        // a new error response, it is not replayed on its own outcome.
+        // origin. It is attempted once for every response: if an outgoing
+        // middleware throws, the phase stops and the exception is converted to
+        // a new error response, without replaying the phase on its own outcome.
         if ($this->outgoing !== null) {
             try {
                 $response = $this->outgoing->process($response, $ctx);

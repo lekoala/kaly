@@ -331,11 +331,13 @@ predict. Four distinct things are easy to confuse:
 | `outgoing` | the response produced by the whole cycle, whatever its origin |
 | response finalization | the response that really leaves the application |
 
-The **outgoing middleware band** is the response phase with a real contract: it runs
-exactly once, after the kernel produced a response — from the happy path, a
-short-circuited request or an exception. It executes a `Response -> Response`
-transformation, and if it throws the kernel turns the exception into a new error
-response:
+The **outgoing middleware band** is the response phase with a real contract: the phase
+is attempted once for each response produced by the request cycle — from the happy
+path, a short-circuited request or an exception. It executes a `Response -> Response`
+transformation. If an outgoing middleware throws, the phase stops: the exception is
+converted to a new error response and the transformations applied earlier in the band
+are discarded. Headers that must survive an outgoing failure belong in
+`finalizeResponse`.
 
 ```php
 $app->middleware()->outgoing(WebpResponse::class);
@@ -346,6 +348,21 @@ final class WebpResponse implements OutgoingMiddlewareInterface
     public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
     {
         return $response->withHeader('X-Format', 'webp');
+    }
+}
+```
+
+An outgoing middleware also runs on responses with no route at all (an incoming
+short-circuit, a routing 404) — guard `route()` and `locale()`:
+
+```php
+final class RouteHeader implements OutgoingMiddlewareInterface
+{
+    public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
+    {
+        return $ctx->hasRoute()
+            ? $response->withHeader('X-Route', $ctx->route()->controller)
+            : $response;
     }
 }
 ```
