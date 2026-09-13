@@ -23,6 +23,11 @@ use ReflectionParameter;
  */
 class InputMapper implements InputMapperInterface
 {
+    /**
+     * @template T of RequestInput
+     * @param class-string<T> $class
+     * @return T
+     */
     public function map(ServerRequestInterface $request, string $class): RequestInput
     {
         $data = $this->collect($request);
@@ -128,6 +133,8 @@ class InputMapper implements InputMapperInterface
 
         if (!$type->isBuiltin()) {
             if (is_a($name, BackedEnum::class, true)) {
+                // is_a() just proved $name is a backed enum class-string
+                /** @var class-string<BackedEnum> $name */
                 return $this->toEnum($parameter, $name, $value);
             }
             throw $this->unsupported($parameter);
@@ -206,6 +213,8 @@ class InputMapper implements InputMapperInterface
     protected function toEnum(ReflectionParameter $parameter, string $enum, mixed $value): BackedEnum
     {
         if ($value instanceof $enum) {
+            // $enum holds a backed enum class-string, so $value is one of its cases
+            /** @var BackedEnum $value */
             return $value;
         }
         if (!is_scalar($value)) {

@@ -240,31 +240,6 @@ final class RequestUtils
     }
 
     /**
-     * Fetch an associative array of body and query string parameters.
-     *
-     * @return array<string,mixed>
-     */
-    public static function getRequestParams(ServerRequestInterface $request): array
-    {
-        $params = [];
-        foreach ($request->getQueryParams() as $k => $v) {
-            $params[(string) $k] = $v;
-        }
-
-        $body = $request->getParsedBody();
-        if (is_object($body)) {
-            $body = get_object_vars($body);
-        }
-        if (is_array($body)) {
-            foreach ($body as $k => $v) {
-                $params[(string) $k] = $v;
-            }
-        }
-
-        return $params;
-    }
-
-    /**
      * Fetch a parameter value from the request body.
      *
      * @return mixed

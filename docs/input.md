@@ -107,9 +107,10 @@ Accepting equivalent duplicates matters in practice: a client doing
 `PUT /patients/12/` with the whole object in the body legitimately repeats values.
 Contradicting values are a client bug and must be reported as one.
 
-This is explicitly **not** the behaviour of `RequestUtils::getRequestParam()` and
-`getRequestParams()`, which let the body silently override the query. Those stay as
-infrastructure helpers and are not the application path.
+This is explicitly **not** a silent body-overrides-query merge: contradicting
+values are a client bug and must be reported as one. The low-level
+`RequestUtils::getRequestParam()` accessor stays as an infrastructure helper
+and is not the application path.
 
 ## Parsing is not validation
 
