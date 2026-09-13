@@ -101,11 +101,14 @@ final class RequestUtils
     }
 
     /**
-     * The client ip as reported by the server, without any proxy resolution
+     * The client ip as reported by the server, without any proxy resolution.
+     *
+     * Missing or blank values fall back to '0.0.0.0'.
      */
     public static function getIp(ServerRequestInterface $request): string
     {
-        return self::getServerParam($request, 'REMOTE_ADDR') ?? '0.0.0.0';
+        $ip = self::getServerParam($request, 'REMOTE_ADDR');
+        return $ip !== null && $ip !== '' ? $ip : '0.0.0.0';
     }
 
     /**

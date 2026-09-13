@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Core;
 
 use Kaly\Http\Cookies;
+use Kaly\Http\RequestUtils;
 use Kaly\Http\Session;
 use Kaly\Router\Route;
 use LogicException;
@@ -225,9 +226,7 @@ final class HttpContext
      */
     public function clientIp(): string
     {
-        $ip = $this->request->getServerParams()['REMOTE_ADDR'] ?? null;
-
-        return is_string($ip) && $ip !== '' ? $ip : '0.0.0.0';
+        return RequestUtils::getIp($this->request);
     }
 
     /**
