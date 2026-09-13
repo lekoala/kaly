@@ -6,6 +6,7 @@ namespace Kaly\Tests;
 
 use Kaly\Http\Cookies;
 use Kaly\Http\Session;
+use Kaly\Http\SetCookieHeader;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
 use PHPUnit\Framework\TestCase;
@@ -102,21 +103,13 @@ class CookiesTest extends TestCase
 
     public function testSameSiteModesAreNormalized(): void
     {
-        $this->assertSame('Lax', ExposedCookies::sameSite('lax'));
-        $this->assertSame('Lax', ExposedCookies::sameSite('Lax'));
-        $this->assertSame('Strict', ExposedCookies::sameSite('strict'));
-        $this->assertSame('None', ExposedCookies::sameSite('none'));
-        $this->assertNull(ExposedCookies::sameSite('bogus'));
-        $this->assertNull(ExposedCookies::sameSite(''));
-        $this->assertNull(ExposedCookies::sameSite(null));
-        $this->assertNull(ExposedCookies::sameSite(['Lax']));
-    }
-}
-
-class ExposedCookies extends Cookies
-{
-    public static function sameSite(mixed $value): ?string
-    {
-        return self::normalizeSameSite($value);
+        $this->assertSame('Lax', SetCookieHeader::normalizeSameSite('lax'));
+        $this->assertSame('Lax', SetCookieHeader::normalizeSameSite('Lax'));
+        $this->assertSame('Strict', SetCookieHeader::normalizeSameSite('strict'));
+        $this->assertSame('None', SetCookieHeader::normalizeSameSite('none'));
+        $this->assertNull(SetCookieHeader::normalizeSameSite('bogus'));
+        $this->assertNull(SetCookieHeader::normalizeSameSite(''));
+        $this->assertNull(SetCookieHeader::normalizeSameSite(null));
+        $this->assertNull(SetCookieHeader::normalizeSameSite(['Lax']));
     }
 }

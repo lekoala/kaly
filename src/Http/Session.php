@@ -544,41 +544,9 @@ class Session implements ArrayDataInterface
         }
 
         $name = $this->getName();
-        $now = time();
         $params = $this->getCookieParams();
 
-        $cookie = urlencode($name) . '=' . urlencode($id);
-
-        // if omitted, the cookie will expire at end of the session (ie when the browser closes)
-        if (!empty($params['lifetime'])) {
-            $expires = gmdate('D, d M Y H:i:s T', $now + $params['lifetime']);
-            $cookie .= "; Expires={$expires}; Max-Age={$params['lifetime']}";
-        }
-
-        if (!empty($params['domain'])) {
-            $cookie .= "; Domain={$params['domain']}";
-        }
-
-        if (!empty($params['path'])) {
-            $cookie .= "; Path={$params['path']}";
-        }
-
-        if (!empty($params['samesite']) && in_array($params['samesite'], self::SAMESITE_MODES, true)) {
-            $cookie .= '; SameSite=' . $params['samesite'];
-        }
-
-        if (!empty($params['secure'])) {
-            $cookie .= '; Secure';
-        }
-
-        if (!empty($params['httponly'])) {
-            $cookie .= '; HttpOnly';
-        }
-
-        // CHIPS, php 8.4+. Browsers require it to be paired with Secure.
-        if (!empty($params['partitioned'])) {
-            $cookie .= '; Partitioned';
-        }
+        $cookie = SetCookieHeader::build($name, $id, $params);
 
         return $response->withAddedHeader('Set-Cookie', $cookie);
     }

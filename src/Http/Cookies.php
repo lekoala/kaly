@@ -195,24 +195,6 @@ class Cookies implements ArrayDataInterface
         $this->params[$k] = $params;
     }
 
-    /**
-     * Normalize a SameSite value to a mode accepted by setcookie().
-     *
-     * Common casings are canonicalized, anything else is dropped instead
-     * of failing at runtime.
-     *
-     * @return 'Lax'|'lax'|'None'|'none'|'Strict'|'strict'|null
-     */
-    protected static function normalizeSameSite(mixed $value): ?string
-    {
-        return match ($value) {
-            'None', 'none' => 'None',
-            'Lax', 'lax' => 'Lax',
-            'Strict', 'strict' => 'Strict',
-            default => null,
-        };
-    }
-
     public function write(): bool
     {
         // Application cookies inherit the same baseline as the session cookie
@@ -230,7 +212,7 @@ class Cookies implements ArrayDataInterface
                 'httponly' => (bool) ($params['httponly'] ?? true),
             ];
             if (!empty($params['samesite'])) {
-                $samesite = self::normalizeSameSite($params['samesite']);
+                $samesite = SetCookieHeader::normalizeSameSite($params['samesite']);
                 if ($samesite !== null) {
                     $options['samesite'] = $samesite;
                 }
@@ -276,46 +258,13 @@ class Cookies implements ArrayDataInterface
     /**
      * Build a raw Set-Cookie header value.
      *
+     * Thin wrapper over SetCookieHeader: the params travel implicitly so
+     * call sites stay intention-revealing.
+     *
      * @param CookieParams $params
      */
     protected function buildSetCookieHeader(string $name, string $value, array $params, bool $expire = false): string
     {
-        $cookie = urlencode($name) . '=' . urlencode($value);
-
-        if ($expire) {
-            $cookie .= '; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0';
-        } elseif (!empty($params['lifetime'])) {
-            // lifetime is a duration, not an absolute timestamp
-            $lifetime = intval($params['lifetime']);
-            $expires = gmdate('D, d M Y H:i:s T', time() + $lifetime);
-            $cookie .= "; Expires={$expires}; Max-Age={$lifetime}";
-        }
-
-        if (!empty($params['domain'])) {
-            $cookie .= "; Domain={$params['domain']}";
-        }
-
-        if (!empty($params['path'])) {
-            $cookie .= "; Path={$params['path']}";
-        }
-
-        if (!empty($params['samesite'])) {
-            $cookie .= "; SameSite={$params['samesite']}";
-        }
-
-        if (!empty($params['secure'])) {
-            $cookie .= '; Secure';
-        }
-
-        if (!empty($params['httponly'])) {
-            $cookie .= '; HttpOnly';
-        }
-
-        // CHIPS, php 8.4+. Browsers require it to be paired with Secure.
-        if (!empty($params['partitioned'])) {
-            $cookie .= '; Partitioned';
-        }
-
-        return $cookie;
+        return SetCookieHeader::build($name, $value, $params, $expire);
     }
 }
