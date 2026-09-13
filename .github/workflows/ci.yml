@@ -98,6 +98,50 @@ jobs:
       - name: PHPUnit
         run: composer phpunit
 
+  coverage:
+    name: Coverage report (informational)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          ini-values: zend.assertions=1
+          extensions: zip
+          coverage: pcov
+          tools: composer:v2
+
+      - name: Get Composer Cache Directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-coverage-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-coverage-
+
+      - name: Composer install
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+      - name: PHPUnit with coverage
+        run: composer phpunit:coverage
+
+      - name: Upload coverage report
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-clover
+          path: coverage.xml
+          retention-days: 7
+
   audit:
     name: Composer audit
     runs-on: ubuntu-latest
