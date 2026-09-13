@@ -9,118 +9,23 @@ use Psr\Container\ContainerInterface;
 use ReflectionClass;
 use ReflectionIntersectionType;
 use ReflectionNamedType;
-use ReflectionObject;
 use ReflectionParameter;
-use ReflectionProperty;
 use ReflectionType;
 use ReflectionUnionType;
 
 /**
+ * Reflection helpers backing dependency injection and route dispatch.
+ *
+ * Reference implementation: nette/utils Reflection.
+ *
  * @link https://github.com/nette/utils/blob/master/src/Utils/Reflection.php
  */
 final class Refl
 {
     /**
-     * Get a @ something variable from a docblock property
-     */
-    public static function getDocVariable(ReflectionProperty $prop, string $var, ?string $default = null): ?string
-    {
-        $doc = $prop->getDocComment();
-        if (!$doc) {
-            return $default;
-        }
-        $matches = [];
-        preg_match("/@{$var} (.*)/", $doc, $matches);
-        if (isset($matches[1])) {
-            return trim($matches[1]);
-        }
-        return $default;
-    }
-
-    /**
-     * Update a property from an object even if it's not accessible
-     */
-    public static function updateProp(object $obj, string $prop, mixed $val): void
-    {
-        $refObject = new ReflectionObject($obj);
-        $refProperty = $refObject->getProperty($prop);
-        $refProperty->setAccessible(true);
-        $refProperty->setValue($obj, $val);
-    }
-
-    /**
-     * Update a property from an object even if it's not accessible using a callback
-     */
-    public static function updatePropCb(object $obj, string $prop, callable $cb): void
-    {
-        $refObject = new ReflectionObject($obj);
-        $refProperty = $refObject->getProperty($prop);
-        $refProperty->setAccessible(true);
-        $refProperty->setValue($obj, $cb($refProperty->getValue($obj)));
-    }
-
-    /**
-     * Get a property from an object even if it's not accessible
-     */
-    public static function getProp(object $obj, string $prop): mixed
-    {
-        $refObject = new ReflectionObject($obj);
-        $refProperty = $refObject->getProperty($prop);
-        $refProperty->setAccessible(true);
-        return $refProperty->getValue($obj);
-    }
-
-    /**
-     * Call a method from an object even if it's not accessible
-     */
-    public static function callMethod(object $obj, string $method): mixed
-    {
-        $refObject = new ReflectionObject($obj);
-        $refMethod = $refObject->getMethod($method);
-        $refMethod->setAccessible(true);
-        return $refMethod->invoke($obj);
-    }
-
-    /**
-     * Get a static property from a class even if it's not accessible
-     * @param class-string $class
-     */
-    public static function getStaticProp(string $class, string $prop): mixed
-    {
-        $refClass = new ReflectionClass($class);
-        return $refClass->getStaticPropertyValue($prop);
-    }
-
-    /**
-     * Update a static property from a class even if it's not accessible
-     * @param class-string $class
-     */
-    public static function updateStaticProp(string $class, string $prop, mixed $val): void
-    {
-        $refClass = new ReflectionClass($class);
-        $refClass->setStaticPropertyValue($prop, $val);
-    }
-
-    /**
-     * Get methods on the current class (without its ancestry)
-     * @return array<string>
-     */
-    public static function ownMethods(string|object $class): array
-    {
-        $array1 = get_class_methods($class);
-        $parent_class = get_parent_class($class);
-        if ($parent_class !== false) {
-            $array2 = get_class_methods($parent_class);
-            $array3 = array_diff($array1, $array2);
-        } else {
-            $array3 = $array1;
-        }
-        return $array3;
-    }
-
-    /**
-     * Get reflection class from a param easily in php 8
-     * @link https://php.watch/versions/8.0/deprecated-reflectionparameter-methods#getClass
+     * Resolve the class of a parameter, skipping builtin types.
+     *
+     * See https://php.watch/versions/8.0/deprecated-reflectionparameter-methods#getClass.
      */
     public static function getParameterClass(ReflectionParameter $param): ?ReflectionClass //@phpstan-ignore-line
     {
@@ -134,7 +39,8 @@ final class Refl
     }
 
     /**
-     * @param ReflectionParameter $param
+     * List all accepted types of a parameter, empty when untyped.
+     *
      * @return array<ReflectionNamedType|ReflectionIntersectionType>
      */
     public static function getParameterTypes(ReflectionParameter $param): array
@@ -149,6 +55,9 @@ final class Refl
         return $reflectionType instanceof ReflectionUnionType ? $reflectionType->getTypes() : [$reflectionType];
     }
 
+    /**
+     * Check whether a value satisfies a reflection type.
+     */
     public static function valueMatchType(mixed $value, ?ReflectionType $type): bool
     {
         if ($type === null) {
@@ -343,21 +252,5 @@ final class Refl
         $parts = explode("\\", $class);
         array_pop($parts);
         return implode("\\", $parts);
-    }
-
-    /**
-     * Sanitise a model class' name for inclusion in a link
-     */
-    public static function sanitiseClassName(string $class): string
-    {
-        return str_replace('\\', '-', $class);
-    }
-
-    /**
-     * Unsanitise a model class' name from a URL param
-     */
-    public static function unsanitiseClassName(string $class): string
-    {
-        return str_replace('-', '\\', $class);
     }
 }

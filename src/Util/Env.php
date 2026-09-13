@@ -59,9 +59,9 @@ final class Env
 
     /**
      * Get typed value of an environment variable.
-     * @param string $key
-     * @param string|bool|int|null|null $default
-     * @return mixed
+     *
+     * @param string|bool|int|null $default Returned when the value is missing, null or empty
+     * @return mixed The typed value or $default
      */
     public static function get(string $key, string|bool|int|null $default = null): mixed
     {
@@ -79,6 +79,8 @@ final class Env
     }
 
     /**
+     * Return all environment values.
+     *
      * @return array<string,mixed>
      */
     public static function getAll(): array

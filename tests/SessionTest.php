@@ -28,7 +28,25 @@ class SessionTest extends TestCase
             session_abort();
         }
         session_id('');
-        Fs::rmDir($this->savePath);
+        self::removeDir($this->savePath);
+    }
+
+    /**
+     * Delete a temp directory recursively (test-only helper).
+     */
+    private static function removeDir(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $items = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST,
+        );
+        foreach ($items as $item) {
+            $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+        }
+        rmdir($dir);
     }
 
     private function request(string $uri = 'https://example.test/'): ServerRequestInterface

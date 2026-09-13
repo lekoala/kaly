@@ -38,6 +38,11 @@ final class Json
         return $result;
     }
 
+    /**
+     * Decode a JSON string, throwing on invalid input.
+     *
+     * A null or missing input decodes to an empty array entry point.
+     */
     public static function decode(?string $value = null, bool $assoc = true): mixed
     {
         if ($value === null) {
@@ -51,6 +56,8 @@ final class Json
     }
 
     /**
+     * Decode a JSON object string, returning an array.
+     *
      * @return array<mixed>
      */
     public static function decodeArr(?string $value = null): array
@@ -66,7 +73,7 @@ final class Json
     }
 
     /**
-     * @return object
+     * Decode a JSON object string, returning an object.
      */
     public static function decodeObj(?string $value = null): object
     {

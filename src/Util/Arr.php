@@ -7,77 +7,25 @@ namespace Kaly\Util;
 use Stringable;
 
 /**
+ * Array helpers used by the framework and its consumers.
+ *
+ * Reference implementations: nette/utils Arrays, yiisoft/arrays ArrayHelper.
+ *
  * @link https://github.com/nette/utils/blob/master/src/Utils/Arrays.php
  * @link https://github.com/yiisoft/arrays/blob/master/src/ArrayHelper.php
  */
 final class Arr
 {
     /**
-     * @link https://stackoverflow.com/questions/2699086/how-to-sort-a-multi-dimensional-array-by-value
-     * @param array<mixed> $arr An array of objects
-     * @param string $col
-     * @param string $subcol
-     * @param boolean $desc sort in desc order
-     * @param boolean $subdesc sort in desc for subcol
-     * @return void
-     */
-    public static function sortField(array &$arr, string $col, ?string $subcol = null, bool $desc = false, ?bool $subdesc = null): void
-    {
-        $subdesc ??= $desc;
-        usort($arr, static function ($a, $b) use ($col, $subcol, $desc, $subdesc): int {
-            $retval = $desc ? $b->$col <=> $a->$col : $a->$col <=> $b->$col;
-            if ($retval === 0) {
-                $retval = $subdesc ? $b->$subcol <=> $a->$subcol : $a->$subcol <=> $b->$subcol;
-            }
-            return $retval;
-        });
-    }
-
-    /**
-     * @param array<string> $array
-     * @param string $column
-     * @param string $key
-     * @return int|string|false
-     */
-    public static function searchMulti(array $array, string $column, string $key): int|string|false
-    {
-        return self::find($key, array_column($array, $column));
-    }
-
-    /**
-     * @param string $needle
-     * @param array<string> $haystack
-     * @param string|null $column
-     * @return int|string|false
-     */
-    public static function find(string $needle, array $haystack, ?string $column = null): int|string|false
-    {
-        if (isset($haystack[0]) && is_array($haystack[0]) === true) { // check for multidimentional array
-            foreach (array_column($haystack, $column) as $key => $value) {
-                if (str_contains(strtolower((string) $value), strtolower((string) $needle))) {
-                    return $key;
-                }
-            }
-        } else {
-            foreach ($haystack as $key => $value) { // for normal array
-                if (str_contains(strtolower((string) $value), strtolower((string) $needle))) {
-                    return $key;
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * This function replaces array_merge_recursive which doesn't preserve datatypes
-     * (two strings will be merged into one array, instead of overwriting the value).
+     * Merge two arrays, overwriting string keys instead of casting them to arrays.
      *
-     * Arguments are passed as reference for performance reason
+     * Unlike array_merge_recursive, scalar values are overwritten. Integer keys
+     * are appended. Arguments are passed by reference for performance.
      *
-     * @param array<mixed> $arr1
-     * @param array<mixed> $arr2
-     * @param bool $deep
-     * @return array<mixed>
+     * @param array<mixed> $arr1 Base array, modified in place and returned
+     * @param array<mixed> $arr2 Values to merge into $arr1
+     * @param bool $deep Merge nested arrays recursively
+     * @return array<mixed> The merged array
      */
     public static function mergeDistinct(array &$arr1, array &$arr2, bool $deep = true): array
     {
@@ -103,9 +51,11 @@ final class Arr
     }
 
     /**
-     * @param array<mixed> $old
-     * @param array<mixed> $new
-     * @return array<mixed>
+     * Return keys where values differ between two arrays.
+     *
+     * @param array<mixed> $old Previous values
+     * @param array<mixed> $new New values
+     * @return array<mixed> Map of key to [old, new] pairs
      */
     public static function compare(array $old, array $new): array
     {
@@ -120,8 +70,10 @@ final class Arr
     }
 
     /**
-     * @param callable $fn
-     * @param array<mixed> $arr
+     * Map values, preserving keys.
+     *
+     * @param callable $fn Receives the value, returns the new value
+     * @param array<mixed> $arr Input array
      * @return array<mixed>
      */
     public static function map(callable $fn, array $arr): array
@@ -130,27 +82,14 @@ final class Arr
     }
 
     /**
-     * @param callable $fn
-     * @param array<mixed> $arr
-     * @return array<mixed>
-     */
-    public static function mapKeys(callable $fn, array $arr): array
-    {
-        $keys = array_map(static fn($key): string => Str::stringify($fn($key)), array_keys($arr));
-        return array_combine($keys, $arr);
-    }
-
-    /**
-     * Apply a mapping callback receiving key and value as arguments.
-     * The standard array_map doesn't pass the key to the callback. But in the case of associative arrays,
-     * it could be really helpful.
+     * Map with access to both key and value.
      *
-     * array_map_assoc(function ($key, $value) {
-     *  ...
-     * }, $items)
+     * Unlike array_map, the callback receives ($key, $value).
      *
-     * @param callable $callback
-     * @param array<mixed> $array
+     * Example: Arr::mapAssoc(fn($key, $value) => [$key => $value], $items)
+     *
+     * @param callable $callback Receives ($key, $value)
+     * @param array<mixed> $array Input array
      * @return array<mixed>
      */
     public static function mapAssoc(callable $callback, array $array): array
@@ -159,21 +98,9 @@ final class Arr
     }
 
     /**
-     * @param callable $n
-     * @param array<mixed> $arr
-     * @return array<mixed>
-     */
-    public static function mapRecursive(callable $n, array $arr): array
-    {
-        array_walk_recursive($arr, static function (&$v) use ($n): void {
-            $v = $n($v);
-        });
-        return $arr;
-    }
-
-    /**
-     * Convert values in an array into string or array of strings
-     * @param array<mixed,mixed> $arr
+     * Convert all values to string or nested arrays of strings.
+     *
+     * @param array<mixed,mixed> $arr Input array
      * @return array<array<string>|string>
      */
     public static function stringValues(array $arr): array

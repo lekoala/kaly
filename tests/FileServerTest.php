@@ -43,7 +43,25 @@ class FileServerTest extends TestCase
     protected function tearDown(): void
     {
         ErrorHandler::restoreDefaults();
-        Fs::rmDir($this->base);
+        self::removeDir($this->base);
+    }
+
+    /**
+     * Delete a temp directory recursively (test-only helper).
+     */
+    private static function removeDir(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $items = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST,
+        );
+        foreach ($items as $item) {
+            $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+        }
+        rmdir($dir);
     }
 
     private function serve(string $method, string $uri): ResponseInterface
