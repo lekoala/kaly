@@ -26,7 +26,7 @@ final class Arr
         $subdesc ??= $desc;
         usort($arr, static function ($a, $b) use ($col, $subcol, $desc, $subdesc): int {
             $retval = $desc ? $b->$col <=> $a->$col : $a->$col <=> $b->$col;
-            if ($retval == 0) {
+            if ($retval === 0) {
                 $retval = $subdesc ? $b->$subcol <=> $a->$subcol : $a->$subcol <=> $b->$subcol;
             }
             return $retval;
@@ -112,7 +112,7 @@ final class Arr
         $arr = [];
         foreach ($new as $k => $v) {
             $ov = $old[$k] ?? null;
-            if ($ov != $v) {
+            if ($ov !== $v) {
                 $arr[$k] = [$ov, $v];
             }
         }

@@ -155,7 +155,7 @@ class Session implements ArrayDataInterface
                 continue;
             }
             $old = $this->originalData[$k] ?? null;
-            if ($old != $v) {
+            if ($old !== $v) {
                 $arr[$k] = [$old, $v];
             }
         }
@@ -530,7 +530,7 @@ class Session implements ArrayDataInterface
             $cookie .= "; Path={$params['path']}";
         }
 
-        if (!empty($params['samesite']) && in_array($params['samesite'], self::SAMESITE_MODES)) {
+        if (!empty($params['samesite']) && in_array($params['samesite'], self::SAMESITE_MODES, true)) {
             $cookie .= '; SameSite=' . $params['samesite'];
         }
 

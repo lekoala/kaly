@@ -106,7 +106,8 @@ final class Fs
     public static function dirContainsChildren($dir)
     {
         $result = false;
-        if ($dh = opendir($dir)) {
+        $dh = opendir($dir);
+        if ($dh !== false) {
             while (!$result && ($file = readdir($dh)) !== false) {
                 $result = $file !== '.' && $file !== '..';
             }
@@ -189,7 +190,8 @@ final class Fs
             return $bytes . ' B';
         }
         $factor = (int) floor(log($bytes, 1024));
-        return sprintf("%.{$decimals}f ", $bytes / (1024 ** $factor)) . ['B', 'KB', 'MB', 'GB', 'TB', 'PB'][$factor];
+        $unit = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'][$factor];
+        return sprintf("%.{$decimals}f %s", $bytes / (1024 ** $factor), $unit);
     }
 
     /**
@@ -211,13 +213,18 @@ final class Fs
         if (!$adaptive) {
             $buffer = 4096;
         } else {
-            $buffer = $lines < 2 ? 64 : ($lines < 10 ? 512 : 4096);
+            // Small reads use a small buffer, larger reads a bigger one
+            $buffer = match (true) {
+                $lines < 2 => 64,
+                $lines < 10 => 512,
+                default => 4096,
+            };
         }
         // Jump to last character
         fseek($f, -1, SEEK_END);
         // Read it and adjust line number if necessary
         // (Otherwise the result would be wrong if file doesn't end with a blank line)
-        if (fread($f, 1) != "\n") {
+        if (fread($f, 1) !== "\n") {
             $lines -= 1;
         }
 

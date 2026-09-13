@@ -1,6 +1,7 @@
 # Benchmarks
 
-> See how fast this is
+> Archived: historical results below are obsolete (Lumen, West Wind Web Surge, `ab -n 1000 -c 100`).
+> Do not use them for decisions. Reproducible protocol TBD (FrankenPHP/RoadRunner, `APP_DEBUG=false`, `wrk` script).
 
 ## Versus Lumen
 

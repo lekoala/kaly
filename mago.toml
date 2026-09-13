@@ -26,6 +26,14 @@ single-class-per-file = { enabled = false }
 excessive-parameter-list = { enabled = false }
 no-empty = { enabled = false }
 no-error-control-operator = { enabled = false }
+# Disabled: idiomatic PHP false-positives (isset, session ini_set, ?:)
+no-isset = { enabled = false }
+no-ini-set = { enabled = false }
+no-shorthand-ternary = { enabled = false }
+# Disabled: low-value style (temporary variable aids phpstan @var)
+inline-variable-return = { enabled = false }
+# Disabled: chained assignment is intentional here (cookies snapshot)
+no-multi-assignments = { enabled = false }
 cyclomatic-complexity = { threshold = 150 }
 kan-defect = { threshold = 12 }
 too-many-methods = { threshold = 80 }

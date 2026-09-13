@@ -40,7 +40,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('composer.json') }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Composer install
@@ -89,7 +89,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ matrix.php }}-${{ hashFiles('composer.json') }}
+          key: ${{ runner.os }}-composer-${{ matrix.php }}-${{ hashFiles('composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-${{ matrix.php }}-
 
       - name: Composer install

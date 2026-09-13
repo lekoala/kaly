@@ -161,12 +161,12 @@ itself:
 ```php
 $ctx->middlewares();
 // [
-//     RequestIdMiddleware::class,
+//     RequestIdMiddleware::class, // example name — provide your own PSR-15 middleware
 //     SessionMiddleware::class,
 //     AuthMiddleware::class,
 // ]
 
-$ctx->hasMiddleware(AuthMiddleware::class);
+$ctx->hasMiddleware(AuthMiddleware::class); // example class name
 ```
 
 This is the list of middlewares that were *executed*, not the ones that were merely
@@ -178,7 +178,7 @@ API though: to get the current user, read the accessor, never
 
 ```php
 // don't
-if ($ctx->hasMiddleware(AuthMiddleware::class)) {
+if ($ctx->hasMiddleware(AuthMiddleware::class)) { // example class name
 ```
 
 ## The pipeline

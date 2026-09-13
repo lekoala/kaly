@@ -6,8 +6,10 @@ namespace Kaly\Middleware\Builtin;
 
 use Kaly\Core\App;
 use Kaly\Util\Fs;
+use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
@@ -57,13 +59,26 @@ class FileServer implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        $contents = Fs::getFile($filename);
+        // Stream from disk instead of loading the whole file in memory.
+        // HEAD returns headers only, GET streams the file body.
+        $container = $app->getContainer();
+        $size = filesize($filename);
+        if ($size === false) {
+            return $handler->handle($request);
+        }
         $contentType = Fs::contentType($filename);
-        $body = $request->getMethod() === 'HEAD' ? '' : $contents;
 
-        return $app
-            ->respond($body, 200)
+        $response = $container
+            ->get(ResponseFactoryInterface::class)
+            ->createResponse(200)
             ->withHeader('Content-Type', $contentType)
-            ->withHeader('Content-Length', (string) strlen($contents));
+            ->withHeader('Content-Length', (string) $size);
+
+        if ($request->getMethod() === 'HEAD') {
+            return $response;
+        }
+
+        $stream = $container->get(StreamFactoryInterface::class)->createStreamFromFile($filename, 'rb');
+        return $response->withBody($stream);
     }
 }

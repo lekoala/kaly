@@ -190,12 +190,12 @@ class Translator implements TranslatorInterface
 
         // Attempt fallback to lang
         $lang = self::getLangFromLocale($locale);
-        if (!$translation && $locale != $lang) {
+        if (!$translation && $locale !== $lang) {
             return $this->translate($message, $parameters, $domain, $lang);
         }
 
         // Attempt fallback in default locale
-        if (!$translation && $locale != $this->defaultLocale && $this->defaultLocale) {
+        if (!$translation && $locale !== $this->defaultLocale && $this->defaultLocale) {
             return $this->translate($message, $parameters, $domain, $this->defaultLocale);
         }
 
@@ -250,13 +250,14 @@ class Translator implements TranslatorInterface
             $matches = [];
 
             // It can start with a denominator or it is a simple array
-            if ($char == '{') {
+            if ($char === '{') {
                 $results = preg_match('/{([0-9]*)}(.*)/u', $part, $matches);
-                if ($results && $matches[1] == $c) {
+                // Cast to int: preg match returns string, $c is int
+                if ($results && (int) $matches[1] === $c) {
                     $translation = $matches[2];
                     break;
                 }
-            } elseif ($char == ']') {
+            } elseif ($char === ']') {
                 // We don't parse these, consider it's a good one
                 $results = preg_match('/\](.*)\[(.*)/u', $part, $matches);
                 if ($results) {
@@ -268,7 +269,7 @@ class Translator implements TranslatorInterface
                 if ($c <= 1 && $idx === 0) {
                     $translation = $part;
                     break;
-                } elseif ($c > 1 && $idx == 1) {
+                } elseif ($c > 1 && $idx === 1) {
                     $translation = $part;
                     break;
                 }
@@ -277,7 +278,7 @@ class Translator implements TranslatorInterface
                 if ($c === 0 && $idx === 0) {
                     $translation = $part;
                     break;
-                } elseif ($c === 1 && $idx == 1) {
+                } elseif ($c === 1 && $idx === 1) {
                     $translation = $part;
                     break;
                 } elseif ($c > 1 && $idx === 2) {

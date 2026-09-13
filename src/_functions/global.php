@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 // Optional debugging helpers, only declared if they don't exist already.
 // They are not autoloaded and not required by the framework: require this file
 // from your entry point if you want them.

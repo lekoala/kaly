@@ -206,30 +206,31 @@ class ClassRouter implements RouterInterface
 
         // Get module for class
         $allowedNamespaces = array_flip($this->allowedNamespaces);
-        $realModuleNamespace = $moduleNamespace = str_replace("\\" . $this->controllerNamespace, '', $namespace);
+        $moduleNamespace = str_replace("\\" . $this->controllerNamespace, '', $namespace);
+        $realModuleNamespace = $moduleNamespace;
         if (isset($allowedNamespaces[$moduleNamespace])) {
             $realModuleNamespace = $allowedNamespaces[$moduleNamespace];
         }
 
         $url = '';
-        if ($locale && !in_array($locale, $this->allowedLocales)) {
+        if ($locale && !in_array($locale, $this->allowedLocales, true)) {
             throw new RuntimeException("Invalid locale '{$locale}'");
         }
-        if ($this->defaultNamespace != $realModuleNamespace) {
+        if ($this->defaultNamespace !== $realModuleNamespace) {
             $strmodule = Str::decamelize($realModuleNamespace);
             $url .= "/{$strmodule}";
         }
-        if ($controllerName != $this->defaultControllerName || $action != $this->defaultAction || count($params)) {
+        if ($controllerName !== $this->defaultControllerName || $action !== $this->defaultAction || count($params)) {
             $strcontroller = Str::decamelize($controllerName);
             $url .= "/{$strcontroller}";
         }
-        if ($action != $this->defaultAction || count($params)) {
+        if ($action !== $this->defaultAction || count($params)) {
             // Check for rest style action
             $action = preg_replace('/(Post|Delete|Put|Head|Patch|Get|Options)$/', '', $action);
             $url .= "/{$action}";
         }
         if ($locale && $url) {
-            if (empty($this->restrictLocaleToNamespaces) || in_array($realModuleNamespace, $this->restrictLocaleToNamespaces)) {
+            if (empty($this->restrictLocaleToNamespaces) || in_array($realModuleNamespace, $this->restrictLocaleToNamespaces, true)) {
                 $url = "/{$locale}" . $url;
             }
         }
@@ -261,7 +262,7 @@ class ClassRouter implements RouterInterface
 
         $isRestricted = true;
         if (!empty($this->restrictLocaleToNamespaces)) {
-            $isRestricted = in_array($module, $this->restrictLocaleToNamespaces);
+            $isRestricted = in_array($module, $this->restrictLocaleToNamespaces, true);
         }
 
         // Is there a locale when it shouldn't be ?
@@ -306,13 +307,13 @@ class ClassRouter implements RouterInterface
         $part = strtolower($this->parts[0]);
 
         $locale = null;
-        if (in_array($part, $this->allowedLocales)) {
+        if (in_array($part, $this->allowedLocales, true)) {
             array_shift($this->parts);
             $locale = $part;
         }
 
         // Don't allow the default locale as the only parameter
-        if ($locale && count($this->parts) === 0 && $locale == $this->allowedLocales[0]) {
+        if ($locale && count($this->parts) === 0 && $locale === $this->allowedLocales[0]) {
             throw new RedirectException($this->getRedirectUri($locale, ''));
         }
 
@@ -330,7 +331,7 @@ class ClassRouter implements RouterInterface
         // Does it match a specific namespace? (not the default one)
         // More specific namespaces always have priority over default
         // Eg: /admin/something will match Admin module if set instead of AdminController
-        if (in_array($camelPart, array_values($this->allowedNamespaces))) {
+        if (in_array($camelPart, array_values($this->allowedNamespaces), true)) {
             // Don't allow calling camelized parts, we use lowercase
             if ($part && $part !== strtolower($part)) {
                 throw new RedirectException($this->getRedirectUri($part, Str::decamelize($part)));
@@ -418,7 +419,7 @@ class ClassRouter implements RouterInterface
 
             // Don't allow controller/index to be called directly because it would create duplicated urls
             // This only applies if no other parameters is passed in the url
-            if ($testAction == $this->defaultAction && count($this->parts) === 1) {
+            if ($testAction === $this->defaultAction && count($this->parts) === 1) {
                 $newUri = $this->getRedirectUri($this->defaultAction, '');
                 throw new RedirectException($newUri);
             }

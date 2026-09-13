@@ -108,7 +108,8 @@ final class Refl
     public static function ownMethods(string|object $class): array
     {
         $array1 = get_class_methods($class);
-        if ($parent_class = get_parent_class($class)) {
+        $parent_class = get_parent_class($class);
+        if ($parent_class !== false) {
             $array2 = get_class_methods($parent_class);
             $array3 = array_diff($array1, $array2);
         } else {

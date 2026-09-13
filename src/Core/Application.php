@@ -193,7 +193,7 @@ class Application
 
         foreach ($priorities as $name => $priority) {
             foreach ($modules as $module) {
-                if ($module->getName() != $name) {
+                if ($module->getName() !== $name) {
                     continue;
                 }
                 $definitions->merge($module->definitions());
@@ -203,7 +203,7 @@ class Application
         // Execute a second pass to allow conditional features across modules
         foreach ($priorities as $name => $priority) {
             foreach ($modules as $module) {
-                if ($module->getName() != $name) {
+                if ($module->getName() !== $name) {
                     continue;
                 }
 
@@ -300,7 +300,7 @@ class Application
 
     protected function isValidCallbackId(string $id): bool
     {
-        return in_array($id, self::AVAILABLE_CALLBACKS);
+        return in_array($id, self::AVAILABLE_CALLBACKS, true);
     }
 
     public function shutdown(): void

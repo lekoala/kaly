@@ -33,7 +33,7 @@ trait HasCallbacks
     protected static function isValidCallbackId(string $id): bool
     {
         // Overwrite this in class using traits to validate against an actual list
-        return $id != '' ? true : false;
+        return $id !== '' ? true : false;
     }
 
     /**

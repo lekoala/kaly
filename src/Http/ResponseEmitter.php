@@ -120,7 +120,7 @@ class ResponseEmitter implements ResponseEmitterInterface
     private function emitBody(ResponseInterface $response): void
     {
         // Don't emit body for empty responses
-        if (in_array($response->getStatusCode(), self::EMPTY_RESPONSES)) {
+        if (in_array($response->getStatusCode(), self::EMPTY_RESPONSES, true)) {
             return;
         }
 

@@ -102,7 +102,7 @@ class InputMapper implements InputMapperInterface
             return (string) $a === (string) $b;
         }
         if (is_array($a) && is_array($b)) {
-            return $a == $b;
+            return $a === $b;
         }
         return $a === $b;
     }

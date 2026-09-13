@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /** @var Kaly\Core\Module $this */
 
 use Kaly\Router\ClassRouter;

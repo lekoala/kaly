@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 // Flexible vendor location
 
 $dir = dirname(__DIR__);
