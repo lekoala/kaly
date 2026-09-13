@@ -73,15 +73,16 @@
             "@phpunit",
             "@phpstan",
             "@mago:lint",
-            "@mago:format"
+            "@format:check"
         ],
         "phpunit": "@php -d zend.assertions=1 vendor/bin/phpunit",
-        "phpunit-only": "@php -d zend.assertions=1 vendor/bin/phpunit --group only",
+        "phpunit:only": "@php -d zend.assertions=1 vendor/bin/phpunit --group only",
         "phpunit:coverage": "@php -d zend.assertions=1 vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml",
         "phpstan": "phpstan analyse src --memory-limit=-1",
         "mago:lint": "mago lint --minimum-report-level warning src tests",
-        "mago:format": "mago fmt --check",
-        "fmt": "mago fmt",
+        "mago:format": "mago fmt",
+        "format:check": "mago fmt --check",
+        "fmt": "@mago:format",
         "docsify": "docsify serve docs",
         "docs": [
             "Composer\\Config::disableProcessTimeout",
@@ -91,7 +92,7 @@
             "Composer\\Config::disableProcessTimeout",
             "php -S 127.0.0.1:8080 -t demos/"
         ],
-        "demo-app": [
+        "demo:app": [
             "Composer\\Config::disableProcessTimeout",
             "php -S 127.0.0.1:8080 demos/app/public/index.php"
         ]

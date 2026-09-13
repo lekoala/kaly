@@ -47,7 +47,7 @@ jobs:
         run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
 
       - name: Mago Format Check
-        run: composer mago:format
+        run: composer format:check
 
       - name: Mago Lint
         if: success() || failure()
