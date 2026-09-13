@@ -246,14 +246,21 @@ final class RequestUtils
      */
     public static function getRequestParams(ServerRequestInterface $request): array
     {
-        $params = $request->getQueryParams();
-        $postParams = $request->getParsedBody();
-
-        if ($postParams) {
-            $params = array_merge($params, (array) $postParams);
+        $params = [];
+        foreach ($request->getQueryParams() as $k => $v) {
+            $params[(string) $k] = $v;
         }
 
-        //@phpstan-ignore-next-line
+        $body = $request->getParsedBody();
+        if (is_object($body)) {
+            $body = get_object_vars($body);
+        }
+        if (is_array($body)) {
+            foreach ($body as $k => $v) {
+                $params[(string) $k] = $v;
+            }
+        }
+
         return $params;
     }
 

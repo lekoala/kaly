@@ -91,13 +91,27 @@ class Session implements ArrayDataInterface
     // region Interface
 
     /**
+     * Read the native session storage as a string-keyed array.
+     *
+     * Session values must stay serializable, hence the value union.
+     *
+     * @return array<string, int|bool|string|float|array<mixed>|object|null>
+     */
+    private static function sessionData(): array
+    {
+        /** @var array<string, int|bool|string|float|array<mixed>|object|null> $data */
+        $data = $_SESSION ?? [];
+        return $data;
+    }
+
+    /**
      * {@inheritDoc}
      */
     public function get(string $key, $default = null)
     {
         $this->open();
-        //@phpstan-ignore-next-line
-        return $_SESSION[$key] ?? $default;
+        $data = self::sessionData();
+        return array_key_exists($key, $data) ? $data[$key] : $default;
     }
 
     /**
@@ -168,8 +182,7 @@ class Session implements ArrayDataInterface
     public function all(): array
     {
         $this->open();
-        //@phpstan-ignore-next-line
-        return $_SESSION;
+        return self::sessionData();
     }
 
     /**
@@ -233,8 +246,7 @@ class Session implements ArrayDataInterface
         try {
             session_start($this->options);
             $this->sessionId = session_id() ?: null;
-            //@phpstan-ignore-next-line
-            $this->originalData = $_SESSION;
+            $this->originalData = self::sessionData();
             $this->runIdRegeneration();
         } catch (Throwable $e) {
             throw new Ex('Failed to start session', 0, $e);
@@ -289,10 +301,10 @@ class Session implements ArrayDataInterface
     /**
      * Retrieves and remove a value
      *
-     * @param int|bool|string|float|array<mixed>|null $default
-     * @return int|bool|string|float|array<mixed>|null
+     * @param int|bool|string|float|array<mixed>|object|null $default
+     * @return int|bool|string|float|array<mixed>|object|null
      */
-    public function pull(string $key, int|bool|string|float|array|null $default = null): int|bool|string|float|array|null
+    public function pull(string $key, int|bool|string|float|array|object|null $default = null): int|bool|string|float|array|object|null
     {
         $value = $this->get($key, $default);
         $this->remove($key);
@@ -434,8 +446,14 @@ class Session implements ArrayDataInterface
 
     public static function isRememberMe(ServerRequestInterface $request): bool
     {
-        //@phpstan-ignore-next-line
-        return $request->getMethod() === 'POST' && !empty($request->getParsedBody()[self::$config['remember_key']]);
+        if ($request->getMethod() !== 'POST') {
+            return false;
+        }
+        $body = $request->getParsedBody();
+        if (!is_array($body)) {
+            return false;
+        }
+        return !empty($body[self::$config['remember_key']]);
     }
 
     /**
@@ -476,16 +494,31 @@ class Session implements ArrayDataInterface
      */
     public function getCookieParams(): array
     {
-        $arr = [];
+        $options = [];
         foreach ($this->options as $k => $v) {
             if (!str_starts_with($k, 'cookie_')) {
                 continue;
             }
+            // Only scalar values can become cookie params; anything else
+            // (eg: a nested array from user options) is skipped
+            if (!is_scalar($v) && $v !== null) {
+                continue;
+            }
 
-            $arr[str_replace('cookie_', '', $k)] = $v;
+            $options[str_replace('cookie_', '', $k)] = $v;
         }
-        //@phpstan-ignore-next-line
-        return $arr;
+        $params = [
+            'lifetime' => (int) ($options['lifetime'] ?? 0),
+            'path' => (string) ($options['path'] ?? '/'),
+            'domain' => (string) ($options['domain'] ?? ''),
+            'secure' => (bool) ($options['secure'] ?? false),
+            'httponly' => (bool) ($options['httponly'] ?? true),
+            'samesite' => (string) ($options['samesite'] ?? 'Lax'),
+        ];
+        if (array_key_exists('partitioned', $options)) {
+            $params['partitioned'] = (bool) $options['partitioned'];
+        }
+        return $params;
     }
 
     /**

@@ -88,9 +88,13 @@ final class Json
     }
 
     /**
+     * Check whether a string holds valid JSON.
+     *
+     * Only JSON_INVALID_UTF8_IGNORE is meaningful for validation.
+     *
      * @param string|null $string
-     * @param int<0, max> $flags
-     * @param int $depth
+     * @param 0|JSON_INVALID_UTF8_IGNORE $flags
+     * @param int<1, max> $depth
      * @return bool
      */
     public static function validate(?string $string = null, int $flags = 0, int $depth = 512): bool
@@ -98,7 +102,6 @@ final class Json
         if (!$string) {
             return false;
         }
-        //@phpstan-ignore-next-line
-        return json_validate($string, $flags, $depth);
+        return json_validate($string, $depth, $flags);
     }
 }

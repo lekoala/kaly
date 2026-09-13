@@ -26,13 +26,16 @@ final class Refl
      * Resolve the class of a parameter, skipping builtin types.
      *
      * See https://php.watch/versions/8.0/deprecated-reflectionparameter-methods#getClass.
+     *
+     * @return ReflectionClass<object>|null
      */
-    public static function getParameterClass(ReflectionParameter $param): ?ReflectionClass //@phpstan-ignore-line
+    public static function getParameterClass(ReflectionParameter $param): ?ReflectionClass
     {
         foreach (self::getParameterTypes($param) as $type) {
             if ($type instanceof ReflectionNamedType && !$type->isBuiltin()) {
-                //@phpstan-ignore-next-line
-                return new ReflectionClass($type->getName());
+                /** @var class-string $name */
+                $name = $type->getName();
+                return new ReflectionClass($name);
             }
         }
         return null;
@@ -41,7 +44,7 @@ final class Refl
     /**
      * List all accepted types of a parameter, empty when untyped.
      *
-     * @return array<ReflectionNamedType|ReflectionIntersectionType>
+     * @return array<ReflectionType>
      */
     public static function getParameterTypes(ReflectionParameter $param): array
     {
@@ -51,7 +54,6 @@ final class Refl
             return [];
         }
 
-        //@phpstan-ignore-next-line
         return $reflectionType instanceof ReflectionUnionType ? $reflectionType->getTypes() : [$reflectionType];
     }
 

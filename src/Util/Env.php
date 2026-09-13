@@ -85,8 +85,9 @@ final class Env
      */
     public static function getAll(): array
     {
-        //@phpstan-ignore-next-line
-        return $_ENV;
+        /** @var array<string,mixed> $env */
+        $env = $_ENV;
+        return $env;
     }
 
     /**

@@ -14,8 +14,8 @@ interface ArrayDataInterface extends JsonSerializable
     /**
      * Retrieves a value - if the value doesn't exist, then it uses the given $default
      *
-     * @param int|bool|string|float|array<mixed>|null $default
-     * @return int|bool|string|float|array<mixed>|null
+     * @param int|bool|string|float|array<mixed>|object|null $default
+     * @return int|bool|string|float|array<mixed>|object|null
      */
     public function get(string $key, $default = null);
 

@@ -35,8 +35,23 @@ class Cookies implements ArrayDataInterface
 
     public function __construct(ServerRequestInterface $request)
     {
-        //@phpstan-ignore-next-line
-        $this->data = $this->originalData = $request->getCookieParams();
+        foreach ($request->getCookieParams() as $k => $v) {
+            // PSR-7 allows array values (eg: foo[]=bar); store a string baseline
+            if (is_array($v)) {
+                $parts = [];
+                foreach ($v as $part) {
+                    if (is_scalar($part)) {
+                        $parts[] = (string) $part;
+                    }
+                }
+                $this->data[(string) $k] = implode(',', $parts);
+            } elseif (is_scalar($v)) {
+                $this->data[(string) $k] = (string) $v;
+            } else {
+                $this->data[(string) $k] = '';
+            }
+        }
+        $this->originalData = $this->data;
     }
 
     // region Interface
@@ -197,7 +212,17 @@ class Cookies implements ArrayDataInterface
                 'httponly' => (bool) ($params['httponly'] ?? true),
             ];
             if (!empty($params['samesite'])) {
-                $options['samesite'] = (string) $params['samesite'];
+                // setcookie() only accepts known modes; normalize common
+                // casings and drop anything else instead of failing at runtime
+                $samesite = match ($params['samesite']) {
+                    'None', 'none' => 'None',
+                    'Lax', 'lax' => 'Lax',
+                    'Strict', 'strict' => 'Strict',
+                    default => null,
+                };
+                if ($samesite !== null) {
+                    $options['samesite'] = $samesite;
+                }
             }
 
             if (self::isRemoval($value)) {
@@ -211,7 +236,7 @@ class Cookies implements ArrayDataInterface
             }
 
             // Assume all will succeed or all will fail
-            //@phpstan-ignore-next-line
+            /** @var array{expires:int,path:string,domain:string,secure:bool,httponly:bool,samesite?:'Lax'|'lax'|'None'|'none'|'Strict'|'strict'} $options */
             $result = setcookie($name, is_scalar($value) ? (string) $value : '', $options);
         }
 

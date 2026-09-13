@@ -98,22 +98,25 @@ final class Arr
     }
 
     /**
-     * Convert all values to string or nested arrays of strings.
+     * Convert all values to string, preserving keys and nesting.
      *
-     * @param array<mixed,mixed> $arr Input array
-     * @return array<array<string>|string>
+     * Nested arrays are converted recursively. Values follow Str::stringify().
+     *
+     * @param array<mixed> $arr Input array
+     * @return array<mixed> Same structure with string values
      */
     public static function stringValues(array $arr): array
     {
-        //@phpstan-ignore-next-line
-        return self::map(static function ($v) {
+        $result = [];
+        foreach ($arr as $k => $v) {
             if (is_array($v)) {
-                return self::stringValues($v);
+                $result[$k] = self::stringValues($v);
+            } elseif ($v instanceof Stringable) {
+                $result[$k] = (string) $v;
+            } else {
+                $result[$k] = Str::stringify($v);
             }
-            if ($v instanceof Stringable) {
-                return (string) $v;
-            }
-            return Str::stringify($v);
-        }, $arr);
+        }
+        return $result;
     }
 }

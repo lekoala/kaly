@@ -228,8 +228,10 @@ class Application
         if (!is_file($filename)) {
             return [];
         }
-        //@phpstan-ignore-next-line
-        return Json::decodeArr(Fs::getFile($filename));
+        $data = Json::decodeArr(Fs::getFile($filename));
+        // composer.json is decoded as a plain array; callers read well-formed entries only
+        /** @var array{name?:string,autoload?:array{psr-4?:array<string,string>}} $data */
+        return $data;
     }
 
     /**

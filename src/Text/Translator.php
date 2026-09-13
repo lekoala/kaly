@@ -119,8 +119,14 @@ class Translator implements TranslatorInterface
         if (!isset($this->catalogs[$name][$locale])) {
             $this->buildCatalog($name, $locale);
         }
-        //@phpstan-ignore-next-line
-        $this->catalogs[$name][$locale] = Arr::mergeDistinct($this->catalogs[$name][$locale], $strings);
+        // Catalogs are string-keyed at runtime; merge through plain arrays
+        /** @var array<mixed> $catalog */
+        $catalog = $this->catalogs[$name][$locale] ?? [];
+        /** @var array<mixed> $additions */
+        $additions = $strings;
+        /** @var array<string,mixed> $merged */
+        $merged = Arr::mergeDistinct($catalog, $additions);
+        $this->catalogs[$name][$locale] = $merged;
         return $this;
     }
 
@@ -141,7 +147,8 @@ class Translator implements TranslatorInterface
             if (!is_array($result)) {
                 throw new RuntimeException("Translation file '{$file}' must return an array");
             }
-            //@phpstan-ignore-next-line
+            // Translation files map message ids (strings) to translations
+            /** @var array<string,mixed> $result */
             $this->catalogs[$name][$locale] = $result;
         }
         // Update cache file if set
@@ -329,8 +336,14 @@ class Translator implements TranslatorInterface
                 if (!is_array($arr)) {
                     throw new RuntimeException('Cached translation file did not return an array');
                 }
-                // @phpstan-ignore-next-line
-                $this->catalogs = Arr::mergeDistinct($this->catalogs, $arr);
+                // Cache files hold var_exported catalogs, merged back as plain arrays
+                /** @var array<mixed> $cached */
+                $cached = $arr;
+                /** @var array<mixed> $catalogs */
+                $catalogs = $this->catalogs;
+                /** @var array<string,array<string,array<string,mixed>>> $merged */
+                $merged = Arr::mergeDistinct($catalogs, $cached);
+                $this->catalogs = $merged;
             }
         }
 

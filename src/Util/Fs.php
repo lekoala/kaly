@@ -74,7 +74,7 @@ final class Fs
     public static function toDir(...$args): string
     {
         $args = array_filter($args);
-        //@phpstan-ignore-next-line
+        /** @var array<string> $args */
         return implode(DIRECTORY_SEPARATOR, $args);
     }
 
