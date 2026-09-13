@@ -36,6 +36,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Psr\SimpleCache\CacheInterface;
+use Throwable;
 
 /**
  * Application of a kaly app
@@ -65,12 +66,14 @@ class Application
     public const CB_AFTER_DEFINITIONS = 'afterDefinitions';
     public const CB_BEFORE_REQUEST = 'beforeRequest';
     public const CB_AFTER_REQUEST = 'afterRequest';
+    public const CB_FINALIZE_RESPONSE = 'finalizeResponse';
     public const AVAILABLE_CALLBACKS = [
         'booted',
         'beforeDefinitions',
         'afterDefinitions',
         'beforeRequest',
         'afterRequest',
+        'finalizeResponse',
         'error',
     ];
 
@@ -305,6 +308,45 @@ class Application
         return in_array($id, self::AVAILABLE_CALLBACKS, true);
     }
 
+    /**
+     * Run the finalizeResponse callbacks over the response leaving the cycle.
+     *
+     * Every callback receives the current response and returns its replacement,
+     * on the happy path as well as on kernel-built error responses. A failing
+     * finalizer never masks the response: the previous response is kept and
+     * the error is reported.
+     */
+    public function finalizeResponse(ResponseInterface $response, HttpContext $ctx): ResponseInterface
+    {
+        foreach ($this->callbacks[self::CB_FINALIZE_RESPONSE] ?? [] as $finalize) {
+            try {
+                $next = $finalize($response, $ctx);
+            } catch (Throwable $ex) {
+                $this->reportCallbackError($ex, $ctx);
+                continue;
+            }
+            if (!$next instanceof ResponseInterface) {
+                $this->reportCallbackError(new Ex('A finalizeResponse callback must return a ResponseInterface'), $ctx);
+                continue;
+            }
+            $response = $next;
+        }
+        return $response;
+    }
+
+    /**
+     * Report a failing callback without letting it mask the cycle: the error
+     * callback gets its chance, and only its own failure is recorded.
+     */
+    private function reportCallbackError(Throwable $ex, HttpContext $ctx): void
+    {
+        try {
+            $this->runCallbacks(self::CB_ERROR, $ex, $ctx);
+        } catch (Throwable $callbackError) {
+            $ctx->addCallbackError($callbackError);
+        }
+    }
+
     public function shutdown(): void
     {
         ErrorHandler::restoreDefaults();
@@ -351,6 +393,7 @@ class Application
             $this->requestHandler,
             $this->container->get(ExceptionHandlerInterface::class),
             $this->runCallbacks(...),
+            $this->finalizeResponse(...),
         );
 
         $this->setServicesFromContainer();

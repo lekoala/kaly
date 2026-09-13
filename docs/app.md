@@ -317,11 +317,22 @@ predict. Three distinct things are easy to confuse:
 | `finally` | every outcome, including an exception — for cleanup |
 | response finalization | every response that really leaves the application |
 
-The third one does not exist yet. If you need a header on *every* response, including a
-500 built by the kernel — CORS, security headers, a request id — say so: the place for
-it is a narrow transformation step in the kernel, between the `catch` and
-`HttpContext::complete()`, not a new middleware band and not a replay of the `after()`
-phases.
+The third one is the `finalizeResponse` callback: a narrow transformation step
+in the kernel, between the `catch` and `HttpContext::complete()`. Each callback
+receives the current response and returns its replacement — on the happy path
+as well as on kernel-built error responses:
+
+```php
+$app->addCallback(App::CB_FINALIZE_RESPONSE,
+    static fn(ResponseInterface $response, HttpContext $ctx): ResponseInterface
+        => $response->withHeader('X-Request-Id', $ctx->request()->getHeaderLine('X-Request-Id')));
+```
+
+Guards: a throwing finalizer never masks the response (the previous response is
+kept and the error is reported), and a non-response return is treated the same
+way. If you need a header on *every* response, including a 500 built by the
+kernel — CORS, security headers, a request id — this is the place, not a new
+middleware band and not a replay of the `after()` phases.
 
 `CB_AFTER_REQUEST` is not that hook either: it runs once the context is already
 complete, and it is a notification whose errors must not change the response.

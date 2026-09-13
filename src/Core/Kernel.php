@@ -27,11 +27,13 @@ final class Kernel implements RequestHandlerInterface
 {
     /**
      * @param Closure(string, mixed...): void $callbacks The application callback runner
+     * @param Closure(ResponseInterface, HttpContext): ResponseInterface|null $finalize The response finalizer, if any
      */
     public function __construct(
         protected RequestHandlerInterface $handler,
         protected ExceptionHandlerInterface $exceptionHandler,
         protected Closure $callbacks,
+        protected ?Closure $finalize = null,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -45,6 +47,12 @@ final class Kernel implements RequestHandlerInterface
             $response = $this->handler->handle($ctx->request());
         } catch (Throwable $ex) {
             $response = $this->handleException($ex, $ctx);
+        }
+
+        // Narrow transformation step: every response leaving the cycle goes
+        // through here, including kernel-built error responses
+        if ($this->finalize !== null) {
+            $response = ($this->finalize)($response, $ctx);
         }
 
         // The cycle is over: from here on the context exposes its response
