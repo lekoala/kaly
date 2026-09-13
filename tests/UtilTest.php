@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use Kaly\Util\Arr;
-use Kaly\Util\Refl;
 use Kaly\Util\Str;
 use PHPUnit\Framework\TestCase;
-use ReflectionFunction;
 
 class UtilTest extends TestCase
 {
@@ -87,53 +85,5 @@ class UtilTest extends TestCase
 
         $res = Arr::mergeDistinct($arr1, $arr2);
         $this->assertEquals(['key' => ['one', 'two']], $res);
-    }
-
-    public function testReflGetAllTypes(): void
-    {
-        // noType
-        $fn = static fn($noType) => $noType;
-
-        $reflFn = new ReflectionFunction($fn);
-        $param = $reflFn->getParameters()[0];
-
-        $types = Refl::getParameterTypes($param);
-        $this->assertEquals([], $types);
-
-        // builtIn
-        $fn = static fn(string $builtIn) => $builtIn;
-
-        $reflFn = new ReflectionFunction($fn);
-        $param = $reflFn->getParameters()[0];
-
-        $types = Refl::getParameterTypes($param);
-        $this->assertEquals(['string'], $types);
-
-        // builtInUnion
-        $fn = static fn(string|bool $builtInUnion) => $builtInUnion;
-
-        $reflFn = new ReflectionFunction($fn);
-        $param = $reflFn->getParameters()[0];
-
-        $types = Refl::getParameterTypes($param);
-        $this->assertEquals(['string', 'bool'], $types);
-
-        // nullable
-        $fn = static fn(?string $nullable) => $nullable;
-
-        $reflFn = new ReflectionFunction($fn);
-        $param = $reflFn->getParameters()[0];
-
-        $types = Refl::getParameterTypes($param);
-        $this->assertEquals(['?string'], $types);
-
-        // intersection
-        $fn = static fn(\Iterator&\Countable $nullable) => $nullable;
-
-        $reflFn = new ReflectionFunction($fn);
-        $param = $reflFn->getParameters()[0];
-
-        $types = Refl::getParameterTypes($param);
-        $this->assertEquals(['Iterator&Countable'], Arr::stringValues($types));
     }
 }

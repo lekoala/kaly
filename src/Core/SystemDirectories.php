@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Core;
 
+use Kaly\Di\Reflection;
 use Kaly\Util\Fs;
-use Kaly\Util\Refl;
 
 trait SystemDirectories
 {
@@ -36,7 +36,7 @@ trait SystemDirectories
 
     public function getTempDirFor(string|object $name): string
     {
-        $name = strtolower(Refl::getShortClassName($name));
+        $name = strtolower(Reflection::getShortClassName($name));
         $dir = Fs::toDir($this->getTempDir(), $name);
         Fs::ensureDir($dir);
         return $dir;

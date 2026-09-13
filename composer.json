@@ -22,7 +22,7 @@
         "php": "^8.3",
         "ext-fileinfo": "*",
         "ext-mbstring": "*",
-        "lekoala/kaly-di": "^0.1",
+        "lekoala/kaly-di": "^0.2",
         "psr/clock": "^1.0",
         "psr/container": "^1.1.2|^2.0.2",
         "psr/http-factory": "^1.1",
