@@ -17,6 +17,7 @@ use Kaly\Log\FileLogger;
 use Kaly\Middleware\MiddlewareBand;
 use Kaly\Middleware\MiddlewareRegistry;
 use Kaly\Middleware\MiddlewareRunner;
+use Kaly\Middleware\OutgoingRunner;
 use Kaly\Router\ClassRouter;
 use Kaly\Router\RequestDispatcher;
 use Kaly\Router\RouterInterface;
@@ -318,6 +319,10 @@ class Application
      */
     public function finalizeResponse(ResponseInterface $response, HttpContext $ctx): ResponseInterface
     {
+        if ($this->debug) {
+            $this->logPipeline($response, $ctx);
+        }
+
         foreach ($this->callbacks[self::CB_FINALIZE_RESPONSE] ?? [] as $finalize) {
             try {
                 $next = $finalize($response, $ctx);
@@ -332,6 +337,32 @@ class Application
             $response = $next;
         }
         return $response;
+    }
+
+    /**
+     * Log the effective pipeline of the cycle in debug mode.
+     *
+     * The registry is live — middlewares can be registered before or after
+     * boot — so the configured bands are read per request, not at boot time.
+     * Showing the executed trace next to the configuration exposes a middleware
+     * that was registered but never ran (eg: short-circuited upstream).
+     */
+    private function logPipeline(ResponseInterface $response, HttpContext $ctx): void
+    {
+        try {
+            $logger = $this->getDebugLogger();
+            $configured = $this->middleware()->toArray();
+            $logger->debug('pipeline status={status} configured incoming={incoming} routed={routed} outgoing={outgoing} | executed={executed}', [
+                'status' => $response->getStatusCode(),
+                'incoming' => $configured['incoming'] ?? [],
+                'routed' => $configured['routed'] ?? [],
+                'outgoing' => $configured['outgoing'] ?? [],
+                'executed' => $ctx->middlewares(),
+            ]);
+        } catch (Throwable) {
+            // The debug dump must never interfere with the cycle
+            // @mago-expect lint:no-empty-catch-clause
+        }
     }
 
     /**
@@ -394,6 +425,7 @@ class Application
             $this->container->get(ExceptionHandlerInterface::class),
             $this->runCallbacks(...),
             $this->finalizeResponse(...),
+            new OutgoingRunner($this->container, $this->middleware()),
         );
 
         $this->setServicesFromContainer();
@@ -406,7 +438,8 @@ class Application
      * ```php
      * $app->middleware()
      *     ->incoming(TrustedProxy::class)
-     *     ->routed(AuthMiddleware::class, priority: 100);
+     *     ->routed(AuthMiddleware::class, priority: 100)
+     *     ->outgoing(WebpResponse::class);
      * ```
      */
     public function middleware(): MiddlewareRegistry
@@ -419,10 +452,10 @@ class Application
 
     /**
      * Build the request pipeline. The order is fixed by the framework, only
-     * the content of the two middleware bands is configurable:
+     * the content of the middleware phases is configurable:
      *
      * ```text
-     * incoming -> routing -> routed -> dispatcher
+     * incoming -> routing -> routed -> dispatcher -> (kernel) -> outgoing
      * ```
      *
      * A custom RequestHandlerInterface binding takes precedence.

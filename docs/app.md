@@ -158,10 +158,10 @@ $app->addCallback(App::CB_ERROR, function (Throwable $e, HttpContext $ctx): void
 
 Middlewares are resolved from the container and are not a free list: kaly has a fixed
 request flow with a routing step in the middle, and a middleware is registered in one
-of the two bands around it.
+of the phases around it.
 
 ```text
-incoming -> routing -> routed -> dispatcher
+incoming -> routing -> routed -> dispatcher -> (kernel) -> outgoing
 ```
 
 - **incoming** runs before anything is routed: trusted proxies, request id, static
@@ -170,6 +170,9 @@ incoming -> routing -> routed -> dispatcher
   matches the route and resolves the locale.
 - **routed** runs with a route already known: auth, authorization, CSRF, per route
   rate limits...
+- **outgoing** runs *on the response*, once the whole cycle produced one, whatever its
+  origin (happy path, short-circuit, kernel-built error): webp conversion, compression,
+  cache headers...
 
 ```php
 $app = new App(dirname(__DIR__));
@@ -179,12 +182,11 @@ $app->middleware()
     ->incoming(TrustedProxy::class)
     ->incoming(RequestId::class)
     ->routed(AuthMiddleware::class, priority: 100)
-    ->routed(RateLimitMiddleware::class, priority: 200);
-
-$app->run($request);
+    ->routed(RateLimitMiddleware::class, priority: 200)
+    ->outgoing(WebpResponse::class);
 ```
 
-Ordering is deliberately simple: the band order is fixed, and inside a band
+Ordering is deliberately simple: the phase order is fixed, and inside a phase
 middlewares run by ascending priority, then by registration order. There is no
 `before()` / `after()` / `requires()` dependency graph to reason about — if a
 middleware needs the route, it belongs in the routed band.
@@ -199,8 +201,19 @@ $app->middleware()->routed(
 );
 ```
 
-Returning `false` skips the middleware for that request. Conditions are evaluated on
-every request, so they can also depend on external state.
+An outgoing condition receives the **current response** instead of a request, so it
+can decide on the response produced so far — including the one produced by an earlier
+outgoing middleware:
+
+```php
+$app->middleware()->outgoing(
+    WebpResponse::class,
+    when: static fn(ResponseInterface $response): bool => $response->getStatusCode() === 200,
+);
+```
+
+Returning `false` skips the middleware for that request. Request conditions are
+evaluated on every request, so they can also depend on external state.
 
 ### Three ways to write one
 
@@ -309,18 +322,37 @@ generator error:
 An error response built by the kernel has **not** gone back through the `after()`
 phases. This is deliberate: when the stack fails halfway, some middlewares were
 entered and some were not, so replaying their `after()` would give a result nobody can
-predict. Three distinct things are easy to confuse:
+predict. Four distinct things are easy to confuse:
 
 | | Runs on |
 | --- | --- |
 | `after()` | a response the inner layers actually returned |
 | `finally` | every outcome, including an exception — for cleanup |
-| response finalization | every response that really leaves the application |
+| `outgoing` | the response produced by the whole cycle, whatever its origin |
+| response finalization | the response that really leaves the application |
 
-The third one is the `finalizeResponse` callback: a narrow transformation step
-in the kernel, between the `catch` and `HttpContext::complete()`. Each callback
-receives the current response and returns its replacement — on the happy path
-as well as on kernel-built error responses:
+The **outgoing middleware band** is the response phase with a real contract: it runs
+exactly once, after the kernel produced a response — from the happy path, a
+short-circuited request or an exception. It executes a `Response -> Response`
+transformation, and if it throws the kernel turns the exception into a new error
+response:
+
+```php
+$app->middleware()->outgoing(WebpResponse::class);
+
+// WebpResponse implements Kaly\Middleware\OutgoingMiddlewareInterface:
+final class WebpResponse implements OutgoingMiddlewareInterface
+{
+    public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
+    {
+        return $response->withHeader('X-Format', 'webp');
+    }
+}
+```
+
+`finalizeResponse` is still the best-effort finishing step: a narrow transformation
+in the kernel, after the outgoing band, that runs on every response that leaves the
+application — on the happy path as well as on kernel-built error responses:
 
 ```php
 $app->addCallback(App::CB_FINALIZE_RESPONSE,
@@ -328,11 +360,16 @@ $app->addCallback(App::CB_FINALIZE_RESPONSE,
         => $response->withHeader('X-Request-Id', $ctx->request()->getHeaderLine('X-Request-Id')));
 ```
 
+The two do not overlap:
+
+- an **outgoing** middleware is part of producing the correct result. If it fails,
+  the request fails — the exception becomes an error response;
+- a **finalizeResponse** callback is an enhancement. If it fails, the previous
+  response is kept and the error is reported (never-mask).
+
 Guards: a throwing finalizer never masks the response (the previous response is
 kept and the error is reported), and a non-response return is treated the same
-way. If you need a header on *every* response, including a 500 built by the
-kernel — CORS, security headers, a request id — this is the place, not a new
-middleware band and not a replay of the `after()` phases.
+way.
 
 `CB_AFTER_REQUEST` is not that hook either: it runs once the context is already
 complete, and it is a notification whose errors must not change the response.

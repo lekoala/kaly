@@ -206,7 +206,9 @@ App
                     +- RequestDispatcher
                          +- controller -> response
 
-     <- PSR-15 unwind
+     <- exception -> response        <- kernel, whatever the origin
+     +- OUTGOING middleware          <- Response -> Response, exactly once
+     +- finalizeResponse
      +- complete($response)
      +- afterRequest($ctx)
      +- response
@@ -226,4 +228,4 @@ $ctx->useLocale('en');
 $response = $dispatcher->handle($ctx->request());
 ```
 
-See [middlewares](app.md#using-middlewares) for how to register into the two bands.
+See [middlewares](app.md#using-middlewares) for how to register into the three phases.

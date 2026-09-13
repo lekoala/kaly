@@ -7,6 +7,7 @@ namespace Kaly\Core;
 use Closure;
 use Kaly\Http\ExceptionHandlerInterface;
 use Kaly\Http\HttpExceptionInterface;
+use Kaly\Middleware\OutgoingRunner;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -34,6 +35,7 @@ final class Kernel implements RequestHandlerInterface
         protected ExceptionHandlerInterface $exceptionHandler,
         protected Closure $callbacks,
         protected ?Closure $finalize = null,
+        protected ?OutgoingRunner $outgoing = null,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -41,12 +43,25 @@ final class Kernel implements RequestHandlerInterface
         $ctx = new HttpContext($request);
         $ctx->bind($request);
 
+        // First boundary: produce a response, from the happy path or from an
+        // exception escaping the request pipeline.
         try {
             ($this->callbacks)(Application::CB_BEFORE_REQUEST, $ctx);
 
             $response = $this->handler->handle($ctx->request());
         } catch (Throwable $ex) {
             $response = $this->handleException($ex, $ctx);
+        }
+
+        // Second boundary: the outgoing phase sees the response whatever its
+        // origin. It runs exactly once: a failing outgoing middleware produces
+        // a new error response, it is not replayed on its own outcome.
+        if ($this->outgoing !== null) {
+            try {
+                $response = $this->outgoing->process($response, $ctx);
+            } catch (Throwable $ex) {
+                $response = $this->handleException($ex, $ctx);
+            }
         }
 
         // Narrow transformation step: every response leaving the cycle goes

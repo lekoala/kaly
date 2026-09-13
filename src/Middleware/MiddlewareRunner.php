@@ -62,10 +62,13 @@ class MiddlewareRunner implements RequestHandlerInterface
     /**
      * Register a middleware in the band of this runner
      *
-     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware
      */
-    public function add(string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware, int $priority = 0, ?Closure $when = null): self
-    {
+    public function add(
+        string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware,
+        int $priority = 0,
+        ?Closure $when = null,
+    ): self {
         $this->registry->add($this->band, $middleware, $priority, $when);
 
         return $this;
@@ -80,9 +83,9 @@ class MiddlewareRunner implements RequestHandlerInterface
     }
 
     /**
-     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware
      */
-    protected function resolveMiddleware(string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware): MiddlewareInterface|GeneratorMiddlewareInterface
+    protected function resolveMiddleware(string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware): MiddlewareInterface|GeneratorMiddlewareInterface
     {
         if (is_string($middleware)) {
             if ($this->container === null) {
@@ -92,6 +95,13 @@ class MiddlewareRunner implements RequestHandlerInterface
         }
         if ($middleware instanceof MiddlewareInterface || $middleware instanceof GeneratorMiddlewareInterface) {
             return $middleware;
+        }
+        if ($middleware instanceof OutgoingMiddlewareInterface) {
+            throw new LogicException(sprintf(
+                '%s is an outgoing middleware; it cannot run in the %s band.',
+                $middleware::class,
+                $this->band->value,
+            ));
         }
         throw new LogicException('Resolved middleware is of an unknown type.');
     }

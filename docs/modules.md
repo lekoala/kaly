@@ -203,6 +203,16 @@ The condition is evaluated before the middleware is resolved, so a skipped middl
 is never even built. Use this for admin audit and session policy, API CORS and
 authentication, site locale and CSP...
 
+What applies to the *response* — regardless of the module or the origin of the
+response — goes in the outgoing band instead:
+
+```php
+$app->middleware()->outgoing(
+    ApiSerializer::class,
+    when: static fn(ResponseInterface $response): bool => $response->getHeaderLine('Content-Type') === 'application/json',
+);
+```
+
 Do **not** try to mutate the container per module (`$ctx->activateModule('Api')`). The
 container is application scoped while the context is request scoped: in a worker,
 requests hit `Api`, then `Admin`, then `Site` on the same container, and mutating the

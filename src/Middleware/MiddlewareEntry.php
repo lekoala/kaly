@@ -13,12 +13,12 @@ use Psr\Http\Server\MiddlewareInterface;
 final class MiddlewareEntry
 {
     /**
-     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware
      * @param Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $condition
      * @param int $sequence Registration order, used to keep the sort stable
      */
     public function __construct(
-        public readonly string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware,
+        public readonly string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware,
         public readonly int $priority = 0,
         public readonly ?Closure $condition = null,
         public readonly int $sequence = 0,

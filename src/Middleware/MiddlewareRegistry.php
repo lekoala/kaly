@@ -11,7 +11,7 @@ use Psr\Http\Server\MiddlewareInterface;
  * The configuration of the middleware pipeline.
  *
  * Instead of a single flat list whose order is implicit, middlewares are
- * registered in one of the two bands surrounding the routing step:
+ * registered in one of the phases surrounding the routing step:
  *
  * ```php
  * $app->middleware()
@@ -31,9 +31,19 @@ use Psr\Http\Server\MiddlewareInterface;
  * );
  * ```
  *
+ * An outgoing middleware runs on the response, whatever its origin. Its
+ * condition receives the current response instead of a request:
+ *
+ * ```php
+ * $app->middleware()->outgoing(
+ *     WebpResponse::class,
+ *     when: static fn(ResponseInterface $response): bool => $response->getStatusCode() === 200,
+ * );
+ * ```
+ *
  * Ordering rules, and nothing more:
- * - the band order is fixed: incoming, then routing, then routed
- * - inside a band, priority ascending, then registration order
+ * - the phase order is fixed: incoming, then routing, then routed, then outgoing
+ * - inside a phase, priority ascending, then registration order
  */
 final class MiddlewareRegistry
 {
@@ -78,11 +88,23 @@ final class MiddlewareRegistry
     }
 
     /**
-     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
+     * Add a middleware that runs on the response once the whole request cycle
+     * produced one, whatever its origin (happy path, short-circuit, exception).
+     *
+     * @param class-string|OutgoingMiddlewareInterface $middleware
+     * @param Closure|null $when Receives the current response, the context and the container; returning false skips the middleware
+     */
+    public function outgoing(string|OutgoingMiddlewareInterface $middleware, int $priority = 0, ?Closure $when = null): self
+    {
+        return $this->add(MiddlewareBand::Outgoing, $middleware, $priority, $when);
+    }
+
+    /**
+     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware
      */
     public function add(
         MiddlewareBand $band,
-        string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware,
+        string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware,
         int $priority = 0,
         ?Closure $when = null,
     ): self {
@@ -143,7 +165,7 @@ final class MiddlewareRegistry
     }
 
     /**
-     * @return array<string,list<class-string|MiddlewareInterface|GeneratorMiddlewareInterface>>
+     * @return array<string,list<class-string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface>>
      */
     public function toArray(): array
     {
