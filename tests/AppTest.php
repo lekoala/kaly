@@ -548,4 +548,62 @@ class AppTest extends TestCase
         $response = $app->handle($request);
         $this->assertEquals('You are being redirected to /test-module/demo/', (string) $response->getBody());
     }
+
+    public function testBootLeavesGlobalTimezoneAloneWithoutAppTimezone(): void
+    {
+        $previousTz = date_default_timezone_get();
+        $hadEnv = array_key_exists(App::ENV_TIMEZONE, $_ENV);
+        $previousEnv = $_ENV[App::ENV_TIMEZONE] ?? null;
+        unset($_ENV[App::ENV_TIMEZONE]);
+        putenv(App::ENV_TIMEZONE);
+        date_default_timezone_set('Europe/Brussels');
+        try {
+            new App(__DIR__, false);
+            $this->assertSame('Europe/Brussels', date_default_timezone_get());
+        } finally {
+            date_default_timezone_set($previousTz);
+            if ($hadEnv) {
+                $_ENV[App::ENV_TIMEZONE] = $previousEnv;
+            }
+        }
+    }
+
+    public function testBootAppliesAppTimezone(): void
+    {
+        $previousTz = date_default_timezone_get();
+        $hadEnv = array_key_exists(App::ENV_TIMEZONE, $_ENV);
+        $previousEnv = $_ENV[App::ENV_TIMEZONE] ?? null;
+        $_ENV[App::ENV_TIMEZONE] = 'America/New_York';
+        try {
+            new App(__DIR__, false);
+            $this->assertSame('America/New_York', date_default_timezone_get());
+        } finally {
+            date_default_timezone_set($previousTz);
+            if ($hadEnv) {
+                $_ENV[App::ENV_TIMEZONE] = $previousEnv;
+            } else {
+                unset($_ENV[App::ENV_TIMEZONE]);
+            }
+            putenv(App::ENV_TIMEZONE);
+        }
+    }
+
+    public function testBootReadsAppTimezoneFromProcessEnv(): void
+    {
+        $previousTz = date_default_timezone_get();
+        $hadEnv = array_key_exists(App::ENV_TIMEZONE, $_ENV);
+        $previousEnv = $_ENV[App::ENV_TIMEZONE] ?? null;
+        unset($_ENV[App::ENV_TIMEZONE]);
+        putenv(App::ENV_TIMEZONE . '=Asia/Tokyo');
+        try {
+            new App(__DIR__, false);
+            $this->assertSame('Asia/Tokyo', date_default_timezone_get());
+        } finally {
+            date_default_timezone_set($previousTz);
+            putenv(App::ENV_TIMEZONE);
+            if ($hadEnv) {
+                $_ENV[App::ENV_TIMEZONE] = $previousEnv;
+            }
+        }
+    }
 }

@@ -11,9 +11,40 @@ use RuntimeException;
 
 class EnvTest extends TestCase
 {
+    /** @var array<string,mixed> */
+    private array $envBackup = [];
+
+    /** @var array<string> */
+    private array $putenvKeys = [];
+
     protected function setUp(): void
     {
+        $this->envBackup = $_ENV;
+        $this->putenvKeys = [];
         $_ENV[App::ENV_DEBUG] = true;
+    }
+
+    protected function tearDown(): void
+    {
+        $_ENV = $this->envBackup;
+        foreach ($this->putenvKeys as $key) {
+            putenv($key);
+        }
+        $this->putenvKeys = [];
+    }
+
+    private function setProcessEnv(string $key, string $value): void
+    {
+        putenv($key . '=' . $value);
+        unset($_ENV[$key]);
+        $this->putenvKeys[] = $key;
+    }
+
+    private function unsetProcessEnv(string $key): void
+    {
+        putenv($key);
+        unset($_ENV[$key]);
+        $this->putenvKeys[] = $key;
     }
 
     public function testCanSet(): void
@@ -24,7 +55,12 @@ class EnvTest extends TestCase
 
     public function testCanParse(): void
     {
+        foreach (['S3_BUCKET', 'SECRET_KEY', 'SOME_TRUE_BOOL', 'SOME_FALSE_BOOL', 'SOME_NULL_VAL', 'SOME_EMPTY_VAL', 'SOME_QT', 'SOME_FLOAT', 'SOME_ARRAY'] as $key) {
+            $this->unsetProcessEnv($key);
+        }
+
         $result = Env::load(__DIR__ . '/data/env/.env');
+        $this->assertArrayHasKey('SECRET_KEY', $result);
 
         // Let's test some values
         $all = Env::getAll();
@@ -46,12 +82,74 @@ class EnvTest extends TestCase
         $this->assertEquals(1, Env::getInt('SOME_QT'));
         $this->assertEquals(2, Env::getInt('SOME_INVALID_QT', 2));
 
-        // Force redefine
-        Env::load(__DIR__ . '/data/env/.env', true);
+        // Without overwrite, already defined keys are skipped, not overwritten
+        $second = Env::load(__DIR__ . '/data/env/.env');
+        $this->assertSame([], $second);
+        $this->assertEquals('souper_seekret_key', Env::get('SECRET_KEY'));
 
-        // Will throw
-        $this->expectException(RuntimeException::class);
-        Env::load(__DIR__ . '/data/env/.env');
+        // Force redefine
+        $forced = Env::load(__DIR__ . '/data/env/.env', true);
+        $this->assertArrayHasKey('SECRET_KEY', $forced);
+    }
+
+    public function testRealEnvironmentWinsOverDotEnv(): void
+    {
+        $this->setProcessEnv('KALY_TEST_REAL', 'from_process');
+
+        $file = tempnam(sys_get_temp_dir(), 'kaly-env');
+        $this->assertIsString($file);
+        file_put_contents($file, "KALY_TEST_REAL=\"from_dotenv\"\n");
+        try {
+            // Skipped: the process value stays visible through Env
+            $this->assertSame([], Env::load($file));
+            $this->assertSame('from_process', Env::get('KALY_TEST_REAL'));
+
+            // Overwrite only affects the Env view, not the process itself
+            $forced = Env::load($file, true);
+            $this->assertSame(['KALY_TEST_REAL' => 'from_dotenv'], $forced);
+            $this->assertSame('from_dotenv', Env::get('KALY_TEST_REAL'));
+            $this->assertSame('from_process', getenv('KALY_TEST_REAL'));
+        } finally {
+            unlink($file);
+        }
+    }
+
+    public function testReadsProcessEnvWithoutServerEntry(): void
+    {
+        $this->setProcessEnv('KALY_TEST_FALLBACK', 'hello');
+
+        $this->assertTrue(Env::has('KALY_TEST_FALLBACK'));
+        $this->assertSame('hello', Env::get('KALY_TEST_FALLBACK'));
+        $this->assertArrayHasKey('KALY_TEST_FALLBACK', Env::getAll());
+    }
+
+    public function testExplicitNullStaysDefined(): void
+    {
+        $this->unsetProcessEnv('KALY_NULL_KEY');
+        $_ENV['KALY_NULL_KEY'] = null;
+
+        // Explicit null counts as defined: no getenv() fallback, has() is true
+        $this->assertTrue(Env::has('KALY_NULL_KEY'));
+        $this->assertNull(Env::get('KALY_NULL_KEY'));
+
+        $file = tempnam(sys_get_temp_dir(), 'kaly-env');
+        $this->assertIsString($file);
+        file_put_contents($file, "KALY_NULL_KEY=\"from_dotenv\"\n");
+        try {
+            $this->assertSame([], Env::load($file));
+            $this->assertNull(Env::get('KALY_NULL_KEY'));
+        } finally {
+            unlink($file);
+        }
+    }
+
+    public function testGetAllPrefersEnvView(): void
+    {
+        $this->setProcessEnv('KALY_MERGE_KEY', 'process');
+        $_ENV['KALY_MERGE_KEY'] = 'view';
+
+        $all = Env::getAll();
+        $this->assertSame('view', $all['KALY_MERGE_KEY']);
     }
 
     public function testRejectsInvalidKeyName(): void
@@ -76,7 +174,10 @@ class EnvTest extends TestCase
 
     public function testValuesAreRawStrings(): void
     {
-        Env::load(__DIR__ . '/data/env/raw.env');
+        foreach (['RAW_BOOL', 'RAW_NUM', 'RAW_QUOTED'] as $key) {
+            $this->unsetProcessEnv($key);
+        }
+        Env::load(__DIR__ . '/data/env/raw.env', true);
 
         // Unquoted values must stay strings, the caller decides how to type them
         $this->assertSame('true', Env::get('RAW_BOOL'));

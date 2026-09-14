@@ -397,12 +397,27 @@ Any env variable can be defined in the application server, otherwise an `.env` f
 the base directory is loaded (`parse_ini_file` format). Set `IGNORE_DOT_ENV` to skip the
 filesystem lookup.
 
+`Env` reads `$_ENV` with a read-only `getenv()` fallback, so real environment variables
+are visible even when `variables_order` does not contain `E`. `$_SERVER` is deliberately
+not consulted. Kaly never calls `putenv()`: values written by `Env::set()` or `Env::load()`
+live in `$_ENV` (the `Env` view), while `getenv()` called directly still sees the original
+process value.
+
+Precedence is: process environment first, `.env` only fills the gaps. `Env::load()` skips
+keys that are already defined unless `$overwrite` is `true` (which then only replaces what
+Kaly sees via `Env`). An explicit `null` in `$_ENV` counts as defined.
+
 The loader is strict: keys must be valid environment variable names
 (`^[A-Za-z_][A-Za-z0-9_]*$`) and each value must be a string. The file is read in raw
 mode, so INI specific conversions and interpolation do not apply: use the typed
 `Env::getBool()` / `getInt()` / `getFloat()` / `getArray()` accessors to interpret values.
 
 `APP_DEBUG` toggles debug mode (error reporting, debug logger, directory setup).
+
+`APP_TIMEZONE` sets the global PHP timezone at boot. When it is absent, Kaly leaves the
+global timezone alone (`php.ini` or a prior `date_default_timezone_set()` survives) — no
+`UTC` is imposed. It does not reconfigure the injected `SystemClock`, which stays UTC by
+default (see `SystemClock::fromSystemTimezone()` for a system-timezone clock).
 
 ## Modules
 

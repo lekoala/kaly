@@ -142,7 +142,12 @@ class Application
         if (Env::has(self::ENV_DEBUG)) {
             $this->debug = Env::getBool(self::ENV_DEBUG);
         }
-        date_default_timezone_set(Env::getString(self::ENV_TIMEZONE, 'UTC'));
+        // Without APP_TIMEZONE Kaly leaves the global timezone alone:
+        // php.ini or a date_default_timezone_set() done before boot survives.
+        // An empty APP_TIMEZONE value falls back to 'UTC' via getString().
+        if (Env::has(self::ENV_TIMEZONE)) {
+            date_default_timezone_set(Env::getString(self::ENV_TIMEZONE, 'UTC'));
+        }
     }
 
     /**

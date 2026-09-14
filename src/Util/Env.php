@@ -7,7 +7,12 @@ namespace Kaly\Util;
 use RuntimeException;
 
 /**
- * All values are stored as string in $_ENV
+ * Values loaded or written by Kaly live in $_ENV as strings.
+ * Values from the host process are also read via getenv(), so a real
+ * environment variable is visible even when `variables_order` does not
+ * contain `E` (the php.ini-production/development default) and $_ENV
+ * stays empty. Kaly never calls putenv().
+ *
  * Types are converted when getting the values. This is due to the fact
  * that values provided by the environment are provided as string in most cases
  *
@@ -22,7 +27,14 @@ final class Env
      * interpolations do not leak into the environment. Only valid environment
      * variable names with string values are accepted.
      *
-     * @return array<string,string>
+     * Precedence is: process environment first, .env only fills the gaps.
+     * With `$overwrite = false` (default) an already defined key is left
+     * untouched; with `$overwrite = true` the .env value replaces what Kaly
+     * sees via Env. Since Kaly never calls putenv(), overwriting only affects
+     * the Env view (`$_ENV`): a third party calling `getenv()` directly keeps
+     * seeing the original process value.
+     *
+     * @return array<string,string> Only the keys actually loaded
      * @throws RuntimeException
      */
     public static function load(string $envFile, bool $overwrite = false): array
@@ -44,10 +56,11 @@ final class Env
                 throw new RuntimeException("Environment variable `{$key}` must be a string");
             }
 
-            // Make sure that we are not overwriting variables, but keep
-            // variables explicitly set to null as "already defined".
-            if (array_key_exists($key, $_ENV) && !$overwrite) {
-                throw new RuntimeException("Could not overwrite `{$key}` in ENV");
+            // The real environment wins: a key already defined (even
+            // explicitly set to null in $_ENV, or only visible via getenv)
+            // is skipped unless overwrite is requested.
+            if (!$overwrite && static::has($key)) {
+                continue;
             }
 
             // Store in $_ENV as string
@@ -65,7 +78,16 @@ final class Env
      */
     public static function get(string $key, string|bool|int|null $default = null): mixed
     {
-        $v = $_ENV[$key] ?? $default;
+        // array_key_exists (not ?? / isset) so that an explicit null in
+        // $_ENV stays "defined" and does not fall through to getenv().
+        if (array_key_exists($key, $_ENV)) {
+            $v = $_ENV[$key];
+        } else {
+            $v = getenv($key);
+            if ($v === false) {
+                $v = $default;
+            }
+        }
         if (!is_string($v)) {
             // It is already typed (eg: if you set manually $_ENV['some_value'] = true)
             return $v;
@@ -81,21 +103,30 @@ final class Env
     /**
      * Return all environment values.
      *
+     * Process values (via getenv) are merged first so that $_ENV — where
+     * Kaly stores .env entries and Env::set() values — intentionally wins.
+     *
      * @return array<string,mixed>
      */
     public static function getAll(): array
     {
-        /** @var array<string,mixed> $env */
-        $env = $_ENV;
-        return $env;
+        $process = getenv();
+        if (!is_array($process)) {
+            $process = [];
+        }
+        /** @var array<string,mixed> $merged */
+        $merged = array_replace($process, $_ENV);
+        return $merged;
     }
 
     /**
      * Check value of an environment variable exists.
+     *
+     * An explicit null in $_ENV counts as defined, mirroring load().
      */
     public static function has(string $key): bool
     {
-        return isset($_ENV[$key]);
+        return array_key_exists($key, $_ENV) || getenv($key) !== false;
     }
 
     /**
