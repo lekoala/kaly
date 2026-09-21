@@ -17,10 +17,14 @@ class EnvTest extends TestCase
     /** @var array<string> */
     private array $putenvKeys = [];
 
+    /** @var array<string> */
+    private array $tempFiles = [];
+
     protected function setUp(): void
     {
         $this->envBackup = $_ENV;
         $this->putenvKeys = [];
+        $this->tempFiles = [];
         $_ENV[App::ENV_DEBUG] = true;
     }
 
@@ -31,6 +35,21 @@ class EnvTest extends TestCase
             putenv($key);
         }
         $this->putenvKeys = [];
+        foreach ($this->tempFiles as $file) {
+            if (file_exists($file)) {
+                unlink($file);
+            }
+        }
+        $this->tempFiles = [];
+    }
+
+    private function writeTempEnv(string $content): string
+    {
+        $file = tempnam(sys_get_temp_dir(), 'kaly-env');
+        $this->assertIsString($file);
+        file_put_contents($file, $content);
+        $this->tempFiles[] = $file;
+        return $file;
     }
 
     private function setProcessEnv(string $key, string $value): void
@@ -55,7 +74,17 @@ class EnvTest extends TestCase
 
     public function testCanParse(): void
     {
-        foreach (['S3_BUCKET', 'SECRET_KEY', 'SOME_TRUE_BOOL', 'SOME_FALSE_BOOL', 'SOME_NULL_VAL', 'SOME_EMPTY_VAL', 'SOME_QT', 'SOME_FLOAT', 'SOME_ARRAY'] as $key) {
+        foreach ([
+            'S3_BUCKET',
+            'SECRET_KEY',
+            'SOME_TRUE_BOOL',
+            'SOME_FALSE_BOOL',
+            'SOME_NULL_VAL',
+            'SOME_EMPTY_VAL',
+            'SOME_QT',
+            'SOME_FLOAT',
+            'SOME_ARRAY',
+        ] as $key) {
             $this->unsetProcessEnv($key);
         }
 
@@ -183,5 +212,97 @@ class EnvTest extends TestCase
         $this->assertSame('true', Env::get('RAW_BOOL'));
         $this->assertSame('42', Env::get('RAW_NUM'));
         $this->assertSame('yes', Env::get('RAW_QUOTED'));
+    }
+
+    public function testPreservesEqualSignsInValue(): void
+    {
+        $this->unsetProcessEnv('KALY_BASE64_KEY');
+        $file = $this->writeTempEnv("KALY_BASE64_KEY=base64:4v+abcdef123456789==\n");
+
+        Env::load($file);
+
+        $this->assertSame('base64:4v+abcdef123456789==', Env::get('KALY_BASE64_KEY'));
+    }
+
+    public function testHandlesCrlfLineEndings(): void
+    {
+        $this->unsetProcessEnv('KALY_CRLF_VALUE');
+        $file = $this->writeTempEnv("KALY_CRLF_VALUE=localhost\r\n");
+
+        Env::load($file);
+
+        // No trailing \r leaks into the value
+        $this->assertSame('localhost', Env::get('KALY_CRLF_VALUE'));
+    }
+
+    public function testPreservesLeadingZeros(): void
+    {
+        $this->unsetProcessEnv('KALY_POSTAL_CODE');
+        $file = $this->writeTempEnv("KALY_POSTAL_CODE=\"01234\"\n");
+
+        Env::load($file);
+
+        $this->assertSame('01234', Env::get('KALY_POSTAL_CODE'));
+    }
+
+    public function testPreservesSpacesInsideDoubleQuotes(): void
+    {
+        $this->unsetProcessEnv('KALY_PROMPT_PREFIX');
+        $file = $this->writeTempEnv("KALY_PROMPT_PREFIX=\" [DEBUG] \"\n");
+
+        Env::load($file);
+
+        $this->assertSame(' [DEBUG] ', Env::get('KALY_PROMPT_PREFIX'));
+    }
+
+    public function testEmptyValueIsDefinedButNull(): void
+    {
+        $this->unsetProcessEnv('KALY_EMPTY_VALUE');
+        $file = $this->writeTempEnv("KALY_EMPTY_VALUE=\n");
+
+        Env::load($file);
+
+        // The key exists, but get() maps an empty value to its default
+        $this->assertTrue(Env::has('KALY_EMPTY_VALUE'));
+        $this->assertNull(Env::get('KALY_EMPTY_VALUE'));
+        $this->assertSame('', Env::getString('KALY_EMPTY_VALUE'));
+        $this->assertSame('fallback', Env::get('KALY_EMPTY_VALUE', 'fallback'));
+        $this->assertNull(Env::get('KALY_UNSET_VALUE'));
+    }
+
+    public function testInlineSemicolonCommentsAndLiteralHash(): void
+    {
+        $this->unsetProcessEnv('KALY_SEMI_VALUE');
+        $this->unsetProcessEnv('KALY_HASH_VALUE');
+        $this->unsetProcessEnv('KALY_QUOTED_HASH_VALUE');
+        $file = $this->writeTempEnv(
+            "KALY_SEMI_VALUE=bar ; note\n" . "KALY_HASH_VALUE=bar # note\n" . "KALY_QUOTED_HASH_VALUE=\"p@ss#word\"\n",
+        );
+
+        Env::load($file);
+
+        // `;` starts an inline comment, `#` does not
+        $this->assertSame('bar', Env::get('KALY_SEMI_VALUE'));
+        $this->assertSame('bar # note', Env::get('KALY_HASH_VALUE'));
+        $this->assertSame('p@ss#word', Env::get('KALY_QUOTED_HASH_VALUE'));
+    }
+
+    public function testSingleQuotesAreKeptLiterally(): void
+    {
+        $this->unsetProcessEnv('KALY_SINGLE_QUOTED');
+        $file = $this->writeTempEnv("KALY_SINGLE_QUOTED='value'\n");
+
+        Env::load($file);
+
+        // Only double quotes are interpreted by the raw INI parser
+        $this->assertSame("'value'", Env::get('KALY_SINGLE_QUOTED'));
+    }
+
+    public function testRejectsShellExportPrefix(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Invalid environment variable name');
+
+        Env::load($this->writeTempEnv("export KALY_EXPORTED=value\n"));
     }
 }

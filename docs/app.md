@@ -412,6 +412,21 @@ The loader is strict: keys must be valid environment variable names
 mode, so INI specific conversions and interpolation do not apply: use the typed
 `Env::getBool()` / `getInt()` / `getFloat()` / `getArray()` accessors to interpret values.
 
+The `.env` syntax follows `parse_ini_file` in raw mode, with a few consequences worth
+knowing:
+
+- Comments: `;` starts a comment, either on its own line or at the end of a value.
+  `#` only starts a comment at the beginning of a line; an inline `#` is part of the
+  value (secrets containing `#` are therefore kept intact, but `"value" # note` yields
+  the literal `"value" # note`).
+- Quotes: only double quotes are interpreted and stripped. Single quotes are kept
+  literally, and a `;` inside them still starts a comment. Prefer double quotes.
+- Shell syntax is not supported: `export KEY=value` is rejected as an invalid
+  environment variable name.
+- Empty vs absent: `Env::get()` returns its default (`null`) for an empty value, so an
+  empty entry and a missing one are indistinguishable through it. Use
+  `Env::getString()` (returns `''`) or `Env::has()` to tell them apart.
+
 `APP_DEBUG` toggles debug mode (error reporting, debug logger, directory setup).
 
 `APP_TIMEZONE` sets the global PHP timezone at boot. When it is absent, Kaly leaves the
