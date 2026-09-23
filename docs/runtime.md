@@ -19,11 +19,18 @@ Kaly therefore follows these rules:
 
 ## Consequences
 
-Middlewares must be stateless: anything a request establishes goes in the
-context, never in a middleware property. `WorkerTest` locks the sequential
-contract (one cycle finishes, the next starts clean); `ConcurrentRequestTest`
-locks the concurrent one (two interleaved cycles on one booted app, each keeps
-its route, locale, cookies, session, middleware trace and response).
+Middleware objects resolved from the container are application-scoped. They
+may be reused by sequential or concurrent requests and must be safe to
+re-enter: request-specific state belongs in local variables, the PSR-7
+messages or `HttpContext` — never in a middleware property. Shared mutable
+state is application state and is legitimate (a metrics counter, a shared
+rate limiter); per-request state in a property (a current user) is a bug.
+
+`WorkerTest` locks the sequential contract (one cycle finishes, the next
+starts clean); `ConcurrentRequestTest` locks the concurrent one (two
+interleaved cycles on one booted app, each keeps its route, locale, cookies,
+session, middleware trace and response — through the same shared middleware
+instance).
 
 ## Cookies
 

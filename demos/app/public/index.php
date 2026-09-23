@@ -41,7 +41,7 @@ ErrorHandler::handle(function () use ($demoMiddleware, $errorMiddleware) {
     // Uncomment this to test for errors during middleware processing
     // $app->middleware()->incoming($errorMiddleware);
 
-    $app->middleware()->incoming(new FileServer(), priority: 100);
+    $app->middleware()->incoming(FileServer::class, priority: 100);
 
     $app->addCallback(App::CB_AFTER_DEFINITIONS, function (Definitions &$definitions) {
         $definitions->set("test", Definitions::class);

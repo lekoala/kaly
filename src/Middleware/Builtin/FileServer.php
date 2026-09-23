@@ -4,23 +4,34 @@ declare(strict_types=1);
 
 namespace Kaly\Middleware\Builtin;
 
-use Kaly\Core\App;
+use InvalidArgumentException;
+use Kaly\Http\FileResponseFactory;
 use Kaly\Util\Fs;
-use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
+/**
+ * Serves public static files from a directory.
+ *
+ * This is the public-file policy on top of FileResponseFactory: URI to path
+ * resolution, directory jail and forbidden extensions. Private downloads
+ * (invoices, attachments, ...) belong in application code after an access
+ * check, using FileResponseFactory directly.
+ */
 class FileServer implements MiddlewareInterface
 {
     public function __construct(
-        protected App $app,
+        private string $publicDir,
+        private FileResponseFactory $files,
     ) {}
 
     /**
      * Extensions that must never be served as static files.
+     *
+     * This policy belongs to the public directory only: a legitimate private
+     * download may well be a `.zip`, an `archive.xml` or any other extension.
      */
     protected const FORBIDDEN_EXTENSIONS = [
         'php',
@@ -44,13 +55,11 @@ class FileServer implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        $app = $this->app;
-        $publicDir = $app->getPublicDir();
         $path = $request->getUri()->getPath();
-        $filename = Fs::toDir($publicDir, $path);
+        $filename = Fs::toDir($this->publicDir, $path);
 
         // Reject path traversal, symlink escapes and non regular files
-        if (!Fs::isInside($publicDir, $filename) || !is_file($filename)) {
+        if (!Fs::isInside($this->publicDir, $filename) || !is_file($filename)) {
             return $handler->handle($request);
         }
 
@@ -59,26 +68,11 @@ class FileServer implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        // Stream from disk instead of loading the whole file in memory.
-        // HEAD returns headers only, GET streams the file body.
-        $container = $app->getContainer();
-        $size = filesize($filename);
-        if ($size === false) {
+        try {
+            return $this->files->create($filename, method: $request->getMethod());
+        } catch (InvalidArgumentException) {
+            // The file vanished or became unreadable between the checks above
             return $handler->handle($request);
         }
-        $contentType = Fs::contentType($filename);
-
-        $response = $container
-            ->get(ResponseFactoryInterface::class)
-            ->createResponse(200)
-            ->withHeader('Content-Type', $contentType)
-            ->withHeader('Content-Length', (string) $size);
-
-        if ($request->getMethod() === 'HEAD') {
-            return $response;
-        }
-
-        $stream = $container->get(StreamFactoryInterface::class)->createStreamFromFile($filename, 'rb');
-        return $response->withBody($stream);
     }
 }

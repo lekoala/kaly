@@ -14,6 +14,7 @@ use Kaly\Http\ExceptionHandlerInterface;
 use Kaly\Http\InputMapper;
 use Kaly\Http\InputMapperInterface;
 use Kaly\Log\FileLogger;
+use Kaly\Middleware\Builtin\FileServer;
 use Kaly\Middleware\MiddlewareBand;
 use Kaly\Middleware\MiddlewareRegistry;
 use Kaly\Middleware\MiddlewareRunner;
@@ -259,6 +260,11 @@ class Application
 
         // Modules can register middlewares through the container
         $def->set(MiddlewareRegistry::class, $this->middleware());
+
+        // Autowire objects, configure values: the public directory is a
+        // scalar, so FileServer::class resolves out of the box while the PSR
+        // factories it needs (through FileResponseFactory) stay autowired.
+        $def->parameter(FileServer::class, 'publicDir', $this->getPublicDir());
 
         // Register our default implementations if none are provided through modules
         foreach (self::DEFAULT_IMPLEMENTATIONS as $interface => $className) {

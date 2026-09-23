@@ -266,4 +266,57 @@ class ConcurrentRequestTest extends TestCase
         $this->assertStringContainsString('request=B', $cookieB);
         $this->assertStringNotContainsString('request=A', $cookieB);
     }
+
+    public function testClassStringMiddlewareIsASharedInstanceAcrossInterleavedCycles(): void
+    {
+        $this->app->middleware()->routed(SharedLocalStateMiddleware::class);
+
+        $responses = $this->interleave($this->requestA(), $this->requestB());
+
+        $shared = $this->app->getContainer()->get(SharedLocalStateMiddleware::class);
+        assert($shared instanceof SharedLocalStateMiddleware);
+
+        // One application-scoped instance served both cycles
+        $this->assertSame($shared->seenIds['A'], $shared->seenIds['B']);
+        $this->assertSame(spl_object_id($shared), $shared->seenIds['A']);
+
+        // Correctly written code keeps per-request state in locals: each
+        // cycle resumed with its own label despite sharing the instance
+        $this->assertSame('A', $shared->localAfterResume['A']);
+        $this->assertSame('B', $shared->localAfterResume['B']);
+
+        $this->assertSame('fr', (string) $responses['A']->getBody());
+        $this->assertSame('hello', (string) $responses['B']->getBody());
+    }
+}
+
+/**
+ * Named so the test can register it as a class string: it goes through
+ * `$container->get()`, exactly like an application middleware.
+ */
+class SharedLocalStateMiddleware implements MiddlewareInterface
+{
+    /**
+     * @var array<string,int>
+     */
+    public array $seenIds = [];
+
+    /**
+     * @var array<string,string>
+     */
+    public array $localAfterResume = [];
+
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        $label = $request->getHeaderLine('X-Probe');
+        $this->seenIds[$label] = spl_object_id($this);
+
+        $local = $label;
+
+        Fiber::suspend();
+
+        $this->localAfterResume[$label] = $local;
+
+        return $handler->handle($request);
+    }
 }

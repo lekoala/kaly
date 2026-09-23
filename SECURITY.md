@@ -31,6 +31,12 @@ Large files are streamed in chunks with `Content-Length` and `HEAD` support; no
 `Range` / `X-Sendfile` handling is provided — put a CDN or web server in front for
 heavy static traffic.
 
+Private downloads use `src/Http/FileResponseFactory.php` directly, after an
+application access check: it only accepts already-authorized storage paths
+(never raw request input), requires a regular file, and encodes
+`Content-Disposition` with no injectable bytes. The forbidden-extensions
+policy belongs to the public `FileServer`, not to the primitive.
+
 ## Not provided
 
 Kaly ships no auth, CSRF, or rate-limit middleware. Provide your own PSR-15

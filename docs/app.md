@@ -161,7 +161,11 @@ $app->addCallback(App::CB_ERROR, function (Throwable $e, HttpContext $ctx): void
 
 Middlewares are resolved from the container and are not a free list: kaly has a fixed
 request flow with a routing step in the middle, and a middleware is registered in one
-of the phases around it.
+of the phases around it. A middleware resolved from a class string is an
+application-scoped service: the same instance may handle sequential or concurrent
+requests, so it must be safe to re-enter. Keep request-specific state in local
+variables, the PSR-7 messages or the [HttpContext](http-context.md), never in a
+middleware property.
 
 ```text
 incoming -> routing -> routed -> dispatcher -> (kernel) -> outgoing
