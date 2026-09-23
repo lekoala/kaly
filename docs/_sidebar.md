@@ -3,6 +3,7 @@
 * [App](app.md)
 * [Modules](modules.md)
 * [Http context](http-context.md)
+* [Runtime](runtime.md)
 * [ClassRouter](class-router.md)
 * [Request input](input.md)
 * [Views](views.md)

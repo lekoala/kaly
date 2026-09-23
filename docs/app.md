@@ -83,6 +83,9 @@ Everything that belongs to a single cycle lives in its context instead:
 one request -> one context -> the whole cycle -> one response
 ```
 
+See [Runtime](runtime.md) for the rules this relies on: Kaly is an HTTP
+framework, not an execution runtime.
+
 ## Using Road Runner
 
 Since the boot process happens only once, you get a really minimal overhead per request.

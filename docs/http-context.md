@@ -149,6 +149,11 @@ request cannot hold them: every `withHeader()` / `withAttribute()` rebuilds the
 wrapper, so the snapshot would silently reset and the dirty tracking would lie. The
 context is the natural owner because it survives those mutations.
 
+The default session is `NativePhpSession`, which wraps the process-global
+`$_SESSION`: fine for sequential workers, unusable for concurrent ones. Such
+runtimes must inject a request-scoped `SessionInterface` (eg: `ArraySession`)
+with `useSession()`. See [Runtime](runtime.md).
+
 Plain PSR requests keep their helpers as static functions in `Kaly\Http\RequestUtils`:
 
 ```php
