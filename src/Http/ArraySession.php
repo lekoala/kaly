@@ -38,10 +38,13 @@ final class ArraySession implements SessionInterface
 
     /**
      * @param array<string,mixed> $options Supports 'name' plus cookie params
-     *  (lifetime, path, domain, secure, httponly, samesite).
+     *  (lifetime, path, domain, secure, httponly, samesite). Explicit options
+     *  win over the policy baseline.
      */
-    public function __construct(array $options = [], ?ServerRequestInterface $request = null)
+    public function __construct(array $options = [], ?ServerRequestInterface $request = null, ?CookiePolicy $policy = null)
     {
+        $options = array_merge(($policy ?? CookiePolicy::default())->toArray(), $options);
+
         $name = $options['name'] ?? null;
         if ($name !== null && (!is_string($name) || $name === '')) {
             throw new InvalidArgumentException('Session name must be a string');

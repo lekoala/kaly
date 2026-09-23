@@ -223,4 +223,47 @@ class ConcurrentRequestTest extends TestCase
         $this->assertSame('fr', (string) $responses['A']->getBody());
         $this->assertSame('hello', (string) $responses['B']->getBody());
     }
+
+    public function testCookiesStayIsolatedAcrossFibers(): void
+    {
+        $probe = new class implements MiddlewareInterface {
+            /**
+             * @var array<string,HttpContext>
+             */
+            public array $contexts = [];
+
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+            {
+                $ctx = HttpContext::from($request);
+                $label = $request->getHeaderLine('X-Probe');
+
+                // Each cycle stages its own outgoing cookie, then suspends
+                // while the other cycle runs.
+                $ctx->cookies()->set('request', $label);
+                $this->contexts[$label] = $ctx;
+
+                Fiber::suspend();
+
+                return $handler->handle($request);
+            }
+        };
+        $this->app->middleware()->routed($probe);
+
+        $responses = $this->interleave($this->requestA(), $this->requestB());
+
+        // Emission stays explicit and per-cycle: each response carries only
+        // its own Set-Cookie, built from its own request-scoped Cookies.
+        $withCookies = [];
+        foreach (['A' => $responses['A'], 'B' => $responses['B']] as $label => $response) {
+            $withCookies[$label] = $probe->contexts[$label]->cookies()->addToResponse($response);
+        }
+
+        $cookieA = $withCookies['A']->getHeaderLine('Set-Cookie');
+        $cookieB = $withCookies['B']->getHeaderLine('Set-Cookie');
+
+        $this->assertStringContainsString('request=A', $cookieA);
+        $this->assertStringNotContainsString('request=B', $cookieA);
+        $this->assertStringContainsString('request=B', $cookieB);
+        $this->assertStringNotContainsString('request=A', $cookieB);
+    }
 }

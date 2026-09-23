@@ -25,6 +25,20 @@ contract (one cycle finishes, the next starts clean); `ConcurrentRequestTest`
 locks the concurrent one (two interleaved cycles on one booted app, each keeps
 its route, locale, cookies, session, middleware trace and response).
 
+## Cookies
+
+Cookies are the model every request-scoped state should follow:
+
+> Kaly never emits cookies through PHP globals. Cookies are read from the
+> PSR-7 request and emitted as `Set-Cookie` headers on the PSR-7 response.
+
+`Cookies` holds no shared state, so concurrent cycles are isolated by
+construction. The application baseline (path, domain, secure, httponly,
+samesite...) lives in the application-scoped, immutable `CookiePolicy`,
+shared by `Cookies` and the session cookie; cookie *values* stay
+request-scoped. `SetCookieHeader` is the stateless primitive underneath:
+name + value + params in, header string out.
+
 ## Native PHP sessions
 
 `NativePhpSession` wraps the process-global `$_SESSION`. It is safe for

@@ -8,7 +8,9 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**
- * A cookies wrapper that works in psr-7 or using a regular setcookie call
+ * Request-scoped cookies, read from the PSR-7 request and emitted as
+ * Set-Cookie headers on the PSR-7 response. Kaly never emits cookies through
+ * PHP globals (no setcookie() call anywhere on this path).
  *
  * @link https://github.com/dflydev/dflydev-fig-cookies
  * @link https://github.com/yiisoft/cookies
@@ -33,8 +35,10 @@ class Cookies implements ArrayDataInterface
      */
     protected array $params = [];
 
-    public function __construct(ServerRequestInterface $request)
-    {
+    public function __construct(
+        ServerRequestInterface $request,
+        protected ?CookiePolicy $policy = null,
+    ) {
         foreach ($request->getCookieParams() as $k => $v) {
             // PSR-7 allows array values (eg: foo[]=bar); store a string baseline
             if (is_array($v)) {
@@ -195,54 +199,28 @@ class Cookies implements ArrayDataInterface
         $this->params[$k] = $params;
     }
 
-    public function write(): bool
+    /**
+     * The application baseline this instance builds its cookies from:
+     * the injected policy, or the application default.
+     *
+     * @return CookieParams
+     */
+    protected function baselineParams(): array
     {
-        // Application cookies inherit the same baseline as the session cookie
-        // (httponly, samesite...), which is configured through Session
-        $defaultParams = Session::getCookieDefaults();
-        $result = false;
-        foreach ($this->getChanges() as $name => $arr) {
-            $value = $arr[1] ?? null;
-            $params = array_merge($defaultParams, $this->getParams($name) ?? []);
-
-            $options = [
-                'path' => (string) ($params['path'] ?? '/'),
-                'domain' => (string) ($params['domain'] ?? ''),
-                'secure' => (bool) ($params['secure'] ?? false),
-                'httponly' => (bool) ($params['httponly'] ?? true),
-            ];
-            if (!empty($params['samesite'])) {
-                $samesite = SetCookieHeader::normalizeSameSite($params['samesite']);
-                if ($samesite !== null) {
-                    $options['samesite'] = $samesite;
-                }
-            }
-
-            if (self::isRemoval($value)) {
-                // Expire the cookie in the past
-                $options['expires'] = 1;
-            } elseif (!empty($params['lifetime'])) {
-                $options['expires'] = time() + intval($params['lifetime']);
-            } else {
-                // Expire at end of the session (when the browser closes)
-                $options['expires'] = 0;
-            }
-
-            // Assume all will succeed or all will fail
-            /** @var array{expires:int,path:string,domain:string,secure:bool,httponly:bool,samesite?:'Lax'|'lax'|'None'|'none'|'Strict'|'strict'} $options */
-            $result = setcookie($name, is_scalar($value) ? (string) $value : '', $options);
-        }
-
-        return $result;
+        /** @var CookieParams $params */
+        $params = array_merge(session_get_cookie_params(), ($this->policy ?? CookiePolicy::default())->toArray());
+        return $params;
     }
 
     public function addToResponse(ResponseInterface $response): ResponseInterface
     {
-        // Same baseline as the session cookie, see write()
-        $defaultParams = Session::getCookieDefaults();
+        // Application cookies share the CookiePolicy baseline with the
+        // session cookie, rather than whatever php.ini happens to hold.
+        $defaultParams = $this->baselineParams();
 
         foreach ($this->getChanges() as $name => $arr) {
             $value = $arr[1] ?? null;
+            /** @var CookieParams $params */
             $params = array_merge($defaultParams, $this->getParams($name) ?? []);
 
             $isRemoval = self::isRemoval($value);

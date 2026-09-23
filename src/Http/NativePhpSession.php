@@ -65,12 +65,12 @@ class NativePhpSession implements SessionInterface
      * @param array<string,mixed> $options
      * @param ServerRequestInterface|null $request
      */
-    public function __construct(array $options = [], ?ServerRequestInterface $request = null)
+    public function __construct(array $options = [], ?ServerRequestInterface $request = null, ?CookiePolicy $policy = null)
     {
         if ($request) {
-            $cookiesParameters = self::getOptionsForRequest($request);
+            $cookiesParameters = self::getOptionsForRequest($request, $policy);
         } else {
-            $cookiesParameters = self::getCookieDefaults();
+            $cookiesParameters = self::getCookieDefaults($policy);
         }
         $cookiesParameters = array_combine(
             array_map(static fn($v): string => "cookie_{$v}", array_keys($cookiesParameters)),
@@ -367,10 +367,11 @@ class NativePhpSession implements SessionInterface
         }
 
         // Php emits the session cookie itself, so it needs the params
+        $policy = CookiePolicy::default();
         session_set_cookie_params([
-            'lifetime' => self::$config['lifetime'],
-            'httponly' => self::$config['httponly'],
-            'samesite' => self::$config['samesite'],
+            'lifetime' => $policy->lifetime ?? self::$config['lifetime'],
+            'httponly' => $policy->httpOnly ?? self::$config['httponly'],
+            'samesite' => $policy->sameSite ?? self::$config['samesite'],
         ]);
     }
 
@@ -378,29 +379,34 @@ class NativePhpSession implements SessionInterface
      * The cookie params a session cookie is built from.
      *
      * Php stays the source of the settings it alone knows about (path, domain,
-     * secure, partitioned as configured in php.ini), while what kaly exposes
-     * through configureExtra() wins over it. Nothing is ever written back to
-     * php: mutating global ini state to read it again later made the values
-     * order dependent and, since php 8.4, warned when session.use_cookies was
+     * secure, partitioned as configured in php.ini), while the application
+     * CookiePolicy wins over it. Nothing is ever written back to php:
+     * mutating global ini state to read it again later made the values order
+     * dependent and, since php 8.4, warned when session.use_cookies was
      * disabled for psr-7.
      *
      * @return array{lifetime:int,path:string,domain:string,secure:bool,httponly:bool,samesite:string,partitioned?:bool}
      */
-    public static function getCookieDefaults(): array
+    public static function getCookieDefaults(?CookiePolicy $policy = null): array
     {
-        return array_merge(session_get_cookie_params(), [
-            'lifetime' => self::$config['lifetime'],
-            'httponly' => self::$config['httponly'],
-            'samesite' => self::$config['samesite'],
-        ]);
+        return array_merge(session_get_cookie_params(), ($policy ?? CookiePolicy::default())->toArray());
     }
 
     /**
+     * Cookie entries (lifetime, httponly, samesite) feed the application
+     * CookiePolicy shared with Cookies; the rest stays session config.
+     *
      * @param SessionParams $arr
      * @return void
      */
     public static function configureExtra(array $arr = []): void
     {
+        $lifetime = array_key_exists('lifetime', $arr) && is_numeric($arr['lifetime']) ? (int) $arr['lifetime'] : null;
+        $httpOnly = array_key_exists('httponly', $arr) && is_bool($arr['httponly']) ? $arr['httponly'] : null;
+        $sameSite = array_key_exists('samesite', $arr) && is_string($arr['samesite']) ? $arr['samesite'] : null;
+        if ($lifetime !== null || $httpOnly !== null || $sameSite !== null) {
+            CookiePolicy::setDefault(CookiePolicy::default()->with(lifetime: $lifetime, httpOnly: $httpOnly, sameSite: $sameSite));
+        }
         self::$config = array_merge(self::$config, $arr);
     }
 
@@ -435,9 +441,9 @@ class NativePhpSession implements SessionInterface
      * Cookie will be secured on https and scoped to the domain
      * @return array{lifetime:int,path:string,domain:string,secure:bool,httponly:bool,samesite:string,partitioned?:bool}
      */
-    public static function getOptionsForRequest(ServerRequestInterface $request): array
+    public static function getOptionsForRequest(ServerRequestInterface $request, ?CookiePolicy $policy = null): array
     {
-        $options = array_merge(self::getCookieDefaults(), [
+        $options = array_merge(self::getCookieDefaults($policy), [
             'secure' => $request->getUri()->getScheme() === 'https',
             'domain' => $request->getUri()->getHost(),
         ]);
