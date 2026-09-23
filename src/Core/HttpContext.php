@@ -7,6 +7,7 @@ namespace Kaly\Core;
 use Kaly\Http\Cookies;
 use Kaly\Http\RequestUtils;
 use Kaly\Http\Session;
+use Kaly\Http\SessionInterface;
 use Kaly\Router\Route;
 use LogicException;
 use Psr\Http\Message\ResponseInterface;
@@ -39,7 +40,7 @@ final class HttpContext
 
     private ?string $locale = null;
 
-    private ?Session $session = null;
+    private ?SessionInterface $session = null;
 
     private ?Cookies $cookies = null;
 
@@ -213,10 +214,22 @@ final class HttpContext
      * is shared for the whole cycle and its dirty tracking stays meaningful.
      *
      * The session is not actually started unless open() or set() is called.
+     *
+     * Defaults to the native PHP session (sequential execution only).
+     * Concurrent runtimes should inject a request-scoped implementation
+     * with useSession() instead.
      */
-    public function session(): Session
+    public function session(): SessionInterface
     {
         return $this->session ??= new Session([], $this->request);
+    }
+
+    /**
+     * Impose a session storage for this request cycle.
+     */
+    public function useSession(SessionInterface $session): void
+    {
+        $this->session = $session;
     }
 
     /**
