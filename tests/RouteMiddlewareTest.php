@@ -71,7 +71,7 @@ class RouteMiddlewareTest extends TestCase
     public function testRouteMiddlewaresAreTracedOnTheContext(): void
     {
         $ctx = null;
-        $this->app->addCallback(App::CB_AFTER_REQUEST, static function (HttpContext $c) use (&$ctx): void {
+        $this->app->onTerminate(static function (HttpContext $c) use (&$ctx): void {
             $ctx = $c;
         });
 

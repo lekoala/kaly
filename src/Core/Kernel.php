@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Core;
 
-use Closure;
 use Kaly\Http\ExceptionHandlerInterface;
-use Kaly\Http\HttpExceptionInterface;
 use Kaly\Middleware\OutgoingRunner;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -22,20 +20,20 @@ use Throwable;
  *
  * ```text
  * one request -> one context -> the whole cycle -> one response
+ *
+ * pipeline (incoming, routing, routed, route middlewares, dispatcher)
+ *   -> commit (session, cookies)
+ *   -> outgoing
+ *   -> terminate hooks
  * ```
  */
 final class Kernel implements RequestHandlerInterface
 {
-    /**
-     * @param Closure(string, mixed...): void $callbacks The application callback runner
-     * @param Closure(ResponseInterface, HttpContext): ResponseInterface|null $finalize The response finalizer, if any
-     */
     public function __construct(
-        protected RequestHandlerInterface $handler,
-        protected ExceptionHandlerInterface $exceptionHandler,
-        protected Closure $callbacks,
-        protected ?Closure $finalize = null,
-        protected ?OutgoingRunner $outgoing = null,
+        private RequestHandlerInterface $handler,
+        private ExceptionHandlerInterface $exceptionHandler,
+        private Hooks $hooks = new Hooks(),
+        private ?OutgoingRunner $outgoing = null,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -46,8 +44,6 @@ final class Kernel implements RequestHandlerInterface
         // First boundary: produce a response, from the happy path or from an
         // exception escaping the request pipeline.
         try {
-            ($this->callbacks)(Application::CB_BEFORE_REQUEST, $ctx);
-
             $response = $this->handler->handle($ctx->request());
         } catch (Throwable $ex) {
             $response = $this->handleException($ex, $ctx);
@@ -64,62 +60,30 @@ final class Kernel implements RequestHandlerInterface
         // Second boundary: the outgoing phase sees the response whatever its
         // origin. It is attempted once for every response: if an outgoing
         // middleware throws, the phase stops and the exception is converted to
-        // a new error response, without replaying the phase on its own outcome.
+        // a new error response, on which only the `always` middlewares run.
         if ($this->outgoing !== null) {
             try {
                 $response = $this->outgoing->process($response, $ctx);
             } catch (Throwable $ex) {
-                $response = $this->handleException($ex, $ctx);
+                $response = $this->outgoing->process($this->handleException($ex, $ctx), $ctx, recovering: true);
             }
-        }
-
-        // Narrow transformation step: every response leaving the cycle goes
-        // through here, including kernel-built error responses
-        if ($this->finalize !== null) {
-            $response = ($this->finalize)($response, $ctx);
         }
 
         // The cycle is over: from here on the context exposes its response
         $ctx->complete($response);
 
-        $this->runAfterRequest($ctx);
+        $this->hooks->terminate($ctx);
 
-        return $ctx->response();
+        return $response;
     }
 
     /**
-     * Convert an exception into a response, reporting non-HTTP errors.
+     * Convert an exception into a response, reporting generic errors.
      */
     private function handleException(Throwable $ex, HttpContext $ctx): ResponseInterface
     {
-        // Generic errors get a chance to be reported, HTTP exceptions are expected
-        if (!$ex instanceof HttpExceptionInterface) {
-            try {
-                ($this->callbacks)(Application::CB_ERROR, $ex, $ctx);
-            } catch (Throwable $callbackError) {
-                // A broken error callback must not prevent the error response
-                $ctx->addCallbackError($callbackError);
-            }
-        }
+        $this->hooks->error($ex, $ctx);
 
         return $this->exceptionHandler->toResponse($ex);
-    }
-
-    /**
-     * Run the afterRequest callbacks without letting them mask the response.
-     */
-    private function runAfterRequest(HttpContext $ctx): void
-    {
-        try {
-            ($this->callbacks)(Application::CB_AFTER_REQUEST, $ctx);
-        } catch (Throwable $ex) {
-            if (!$ex instanceof HttpExceptionInterface) {
-                try {
-                    ($this->callbacks)(Application::CB_ERROR, $ex, $ctx);
-                } catch (Throwable $callbackError) {
-                    $ctx->addCallbackError($callbackError);
-                }
-            }
-        }
     }
 }

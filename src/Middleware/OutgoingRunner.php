@@ -10,6 +10,7 @@ use LogicException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\MiddlewareInterface;
+use Throwable;
 
 /**
  * The outgoing phase of a request, run once the response exists.
@@ -34,7 +35,11 @@ use Psr\Http\Server\MiddlewareInterface;
  *
  * The phase is attempted at most once per response: if an outgoing middleware
  * throws, the phase stops and the whole previous transformation is replaced by
- * the error response built by the kernel.
+ * the error response built by the kernel. The kernel then recovers: only the
+ * `always` middlewares run on that error response.
+ *
+ * An `always` middleware never breaks a response: if it throws, the failure
+ * is reported and the response it received goes on unchanged.
  */
 final class OutgoingRunner
 {
@@ -43,10 +48,12 @@ final class OutgoingRunner
     /**
      * @param ContainerInterface|null $container Used to resolve outgoing middleware class strings
      * @param MiddlewareRegistry|null $registry The shared configuration, a private one is created if omitted
+     * @param (Closure(\Throwable, HttpContext): void)|null $report Receives the failures of `always` middlewares
      */
     public function __construct(
         protected ?ContainerInterface $container = null,
         ?MiddlewareRegistry $registry = null,
+        protected ?Closure $report = null,
     ) {
         $this->registry = $registry ?? new MiddlewareRegistry();
     }
@@ -62,9 +69,13 @@ final class OutgoingRunner
      * @param class-string|OutgoingMiddlewareInterface $middleware
      * @param Closure|null $when Receives the current response, the context and the container; returning false skips the middleware
      */
-    public function add(string|OutgoingMiddlewareInterface $middleware, int $priority = 0, ?Closure $when = null): self
-    {
-        $this->registry->add(MiddlewareBand::Outgoing, $middleware, $priority, $when);
+    public function add(
+        string|OutgoingMiddlewareInterface|Closure $middleware,
+        int $priority = 0,
+        ?Closure $when = null,
+        bool $always = false,
+    ): self {
+        $this->registry->outgoing($middleware, $priority, $when, $always);
 
         return $this;
     }
@@ -106,21 +117,44 @@ final class OutgoingRunner
      *
      * Each middleware receives the response produced so far, so the band can
      * build on its own previous transformations.
+     *
+     * @param bool $recovering Only run the `always` middlewares (the kernel
+     *   recovers from a failed phase)
      */
-    public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
+    public function process(ResponseInterface $response, HttpContext $ctx, bool $recovering = false): ResponseInterface
     {
         $current = $response;
 
         foreach ($this->registry->band(MiddlewareBand::Outgoing) as $entry) {
-            if (!$this->shouldRun($entry->condition, $current, $ctx)) {
+            if ($recovering && !$entry->always) {
                 continue;
             }
-
-            $middleware = $this->resolveMiddleware($entry->middleware);
-            $ctx->markMiddleware($middleware::class);
-            $current = $middleware->process($current, $ctx);
+            if (!$entry->always) {
+                $current = $this->step($entry, $current, $ctx);
+                continue;
+            }
+            try {
+                $current = $this->step($entry, $current, $ctx);
+            } catch (Throwable $ex) {
+                // A guarantee never breaks the response it was given
+                if ($this->report !== null) {
+                    ($this->report)($ex, $ctx);
+                }
+            }
         }
 
         return $current;
+    }
+
+    private function step(MiddlewareEntry $entry, ResponseInterface $response, HttpContext $ctx): ResponseInterface
+    {
+        if (!$this->shouldRun($entry->condition, $response, $ctx)) {
+            return $response;
+        }
+
+        $middleware = $this->resolveMiddleware($entry->middleware);
+        $ctx->markMiddleware($middleware::class);
+
+        return $middleware->process($response, $ctx);
     }
 }

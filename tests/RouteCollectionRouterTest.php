@@ -111,7 +111,7 @@ class RouteCollectionRouterTest extends TestCase
         $routes->post('/test-module/index/foo', [\TestModule\Controller\IndexController::class, 'foo']);
         $composite = new CompositeRouter(
             new RouteCollectionRouter(new RouteCollection($routes->definitions())),
-            (new ClassRouter())->addAllowedNamespace('TestModule'),
+            (new ClassRouter())->mount('test-module', 'TestModule'),
         );
 
         $request = HttpFactory::createRequestFromGlobals()->withUri(new Uri('/test-module/index/foo/'))->withMethod('GET');

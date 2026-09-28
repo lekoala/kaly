@@ -159,7 +159,7 @@ class OutgoingBandTest extends TestCase
                 throw new \RuntimeException('outgoing failed');
             }
         });
-        $app->addCallback(App::CB_FINALIZE_RESPONSE, static fn(
+        $app->middleware()->outgoing(always: true, middleware: static fn(
             ResponseInterface $response,
             HttpContext $ctx,
         ): ResponseInterface => $response->withHeader('X-Final', 'kept'));
@@ -173,11 +173,11 @@ class OutgoingBandTest extends TestCase
             $response->getHeaderLine('X-Before-Failure'),
             'an earlier transformation of the phase is discarded on failure',
         );
-        $this->assertSame('kept', $response->getHeaderLine('X-Final'), 'finalizeResponse still runs on the error response');
+        $this->assertSame('kept', $response->getHeaderLine('X-Final'), 'an always outgoing middleware still runs on the error response');
         $this->assertSame(1, $runs, 'the outgoing phase is attempted once, not replayed on its own error');
     }
 
-    public function testDebugLogRecordsNormalizedValuesAfterFinalizers(): void
+    public function testDebugLogRecordsTheResponseThatReallyLeaves(): void
     {
         $logger = new class extends AbstractLogger {
             /**
@@ -196,8 +196,8 @@ class OutgoingBandTest extends TestCase
         };
 
         $app = new App(__DIR__);
-        $app->setDebug(true);
-        $app->addCallback(App::CB_AFTER_DEFINITIONS, static function (Definitions $definitions) use ($logger): void {
+        $app->debug(true);
+        $app->configure(static function (Definitions $definitions) use ($logger): void {
             $definitions->set(App::DEBUG_LOGGER, $logger);
         });
         $app->boot();
@@ -205,7 +205,7 @@ class OutgoingBandTest extends TestCase
         $app->middleware()->outgoing(TestOutgoing::class);
         // A finalizer changes the status after the response was produced: the
         // log must record the status that really leaves the application.
-        $app->addCallback(App::CB_FINALIZE_RESPONSE, static fn(
+        $app->middleware()->outgoing(always: true, middleware: static fn(
             ResponseInterface $response,
             HttpContext $ctx,
         ): ResponseInterface => $response->withStatus(418));
@@ -216,7 +216,11 @@ class OutgoingBandTest extends TestCase
         $this->assertCount(1, $logger->records);
         $context = $logger->records[0]['context'];
         $this->assertSame('418', $context['status'], 'the status is a string, not an int');
-        $this->assertSame([TestOutgoing::class], $context['outgoing'], 'configured outgoing middlewares are class names');
+        $this->assertSame(
+            [TestOutgoing::class, \Kaly\Middleware\ClosureOutgoing::class],
+            $context['outgoing'],
+            'configured outgoing middlewares are class names',
+        );
         $this->assertContains(TestOutgoing::class, $context['executed']);
     }
 }

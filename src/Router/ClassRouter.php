@@ -41,10 +41,11 @@ class ClassRouter implements RouterInterface
     protected string $defaultAction = 'index';
 
     /**
-     * A map of module (dir) => mapped module (namespace)
+     * Mounted module namespaces, by url segment: 'test-module' => 'TestModule'.
+     * The default namespace needs no mount, it answers without prefix.
      * @var array<string,string>
      */
-    protected array $allowedNamespaces = [];
+    protected array $mounts = [];
     /**
      * @var string[]
      */
@@ -81,8 +82,7 @@ class ClassRouter implements RouterInterface
         // Do we have a specific module ?
         $module = $this->findModule($m);
         $route->module = $module;
-        // Module can be mapped to a specific namespace
-        $route->namespace = $this->allowedNamespaces[$module] ?? $module;
+        $route->namespace = $module;
 
         $this->enforceLocaleModuleUri($m, $route);
 
@@ -185,21 +185,19 @@ class ClassRouter implements RouterInterface
         $controllerName = (string) preg_replace('/' . $this->controllerSuffix . '$/', '', $baseClass);
         $namespace = implode("\\", $classParts);
 
-        // Get module for class
-        $allowedNamespaces = array_flip($this->allowedNamespaces);
+        // Get the mount point of the module
         $moduleNamespace = str_replace("\\" . $this->controllerNamespace, '', $namespace);
-        $realModuleNamespace = $moduleNamespace;
-        if (isset($allowedNamespaces[$moduleNamespace])) {
-            $realModuleNamespace = $allowedNamespaces[$moduleNamespace];
-        }
 
         $url = '';
         if ($locale && !in_array($locale, $this->allowedLocales, true)) {
             throw new RuntimeException("Invalid locale '{$locale}'");
         }
-        if ($this->defaultNamespace !== $realModuleNamespace) {
-            $strmodule = Str::decamelize($realModuleNamespace);
-            $url .= "/{$strmodule}";
+        if ($this->defaultNamespace !== $moduleNamespace) {
+            $segment = array_search($moduleNamespace, $this->mounts, true);
+            if ($segment === false) {
+                throw new RuntimeException("Namespace '{$moduleNamespace}' is not mounted on the convention router");
+            }
+            $url .= "/{$segment}";
         }
         if ($controllerName !== $this->defaultControllerName || $action !== $this->defaultAction || count($params)) {
             $strcontroller = Str::decamelize($controllerName);
@@ -211,7 +209,7 @@ class ClassRouter implements RouterInterface
             $url .= "/{$action}";
         }
         if ($locale && $url) {
-            if (empty($this->restrictLocaleToNamespaces) || in_array($realModuleNamespace, $this->restrictLocaleToNamespaces, true)) {
+            if (empty($this->restrictLocaleToNamespaces) || in_array($moduleNamespace, $this->restrictLocaleToNamespaces, true)) {
                 $url = "/{$locale}" . $url;
             }
         }
@@ -288,27 +286,29 @@ class ClassRouter implements RouterInterface
 
     protected function findModule(ConventionMatch $m): string
     {
-        $module = $this->defaultNamespace;
-
         // Check the first segment if it exists
         $part = $m->parts[0] ?? '';
-        $camelPart = Str::camelize($part);
-
-        // Does it match a specific namespace? (not the default one)
-        // More specific namespaces always have priority over default
-        // Eg: /admin/something will match Admin module if set instead of AdminController
-        if (in_array($camelPart, array_values($this->allowedNamespaces), true)) {
-            // Don't allow calling camelized parts, we use lowercase
-            if ($part && $part !== strtolower($part)) {
-                throw new RedirectException($this->getRedirectUri($m, $part, Str::decamelize($part)));
-            }
-
-            $module = $camelPart;
-
-            // Remove from parts
-            array_shift($m->parts);
+        if ($part === '') {
+            return $this->defaultNamespace;
         }
-        return $module;
+
+        // Does it match a mounted module? A mount always has priority over the
+        // default namespace: /admin/something reaches the Admin module, not an
+        // AdminController of the default one
+        $segment = Str::decamelize($part);
+        $namespace = $this->mounts[$segment] ?? null;
+        if ($namespace === null) {
+            return $this->defaultNamespace;
+        }
+
+        // A single canonical url: /TestModule/ or /Test-Module/ redirect
+        if ($part !== $segment) {
+            throw new RedirectException($this->getRedirectUri($m, $part, $segment));
+        }
+
+        array_shift($m->parts);
+
+        return $namespace;
     }
 
     /**
@@ -602,51 +602,44 @@ class ClassRouter implements RouterInterface
     }
 
     /**
-     * Get the value of allowedNamespaces
-     * @return string[]
+     * Mounted namespaces, by url segment
+     * @return array<string,string>
      */
-    public function getAllowedNamespaces(): array
+    public function getMounts(): array
     {
-        return $this->allowedNamespaces;
+        return $this->mounts;
     }
 
     /**
-     * Set the value of allowedNamespaces
-     * @param array<string, string> $allowedNamespaces
+     * Expose a module namespace under a url segment: mount('shop', 'Shop')
+     * routes /shop/cart/ to Shop\Controller\CartController.
+     *
+     * The app mounts every module automatically, under its decamelized name.
      */
-    public function setAllowedNamespaces(array $allowedNamespaces): self
+    public function mount(string $segment, string $namespace): self
     {
-        $this->allowedNamespaces = $allowedNamespaces;
-        return $this;
-    }
-
-    public function addAllowedNamespace(string $namespace, ?string $mapping = null): self
-    {
-        if (!$mapping) {
-            $mapping = $namespace;
+        if ($segment === '' || $segment !== Str::decamelize($segment) || str_contains($segment, '/')) {
+            throw new InvalidArgumentException("Mount segment '{$segment}' must be a single lowercase url segment (eg: 'my-module')");
         }
-        if (str_contains($mapping, "\\")) {
-            throw new InvalidArgumentException('Mapping cannot contain namespace separator');
+        $existing = $this->mounts[$segment] ?? null;
+        if ($existing !== null && $existing !== $namespace) {
+            throw new InvalidArgumentException("Segment '{$segment}' is already mounted for '{$existing}'");
         }
-        $this->allowedNamespaces[$mapping] = $namespace;
+        $this->mounts[$segment] = $namespace;
         return $this;
     }
 
     /**
-     * Get the value of defaultNamespace
+     * The namespace answering without prefix
      */
     public function getDefaultNamespace(): string
     {
         return $this->defaultNamespace;
     }
 
-    /**
-     * Set the value of defaultNamespace
-     */
-    public function setDefaultNamespace(string $defaultNamespace, ?string $mapping = null): self
+    public function setDefaultNamespace(string $defaultNamespace): self
     {
         $this->defaultNamespace = $defaultNamespace;
-        $this->addAllowedNamespace($defaultNamespace, $mapping);
         return $this;
     }
 

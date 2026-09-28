@@ -37,7 +37,7 @@ class RequestInputTest extends TestCase
     private function router(): ClassRouter
     {
         $router = new ClassRouter();
-        $router->addAllowedNamespace('TestModule');
+        $router->mount('test-module', 'TestModule');
         return $router;
     }
 

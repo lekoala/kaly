@@ -74,10 +74,12 @@ class CompositeRouter implements RouterInterface
     /**
      * Proxy shared router settings to both inner routers.
      * @param string[] $allowedLocales
+     * @param string[]|null $namespaces Restrict the locale prefix to these module namespaces (convention only)
      */
-    public function setAllowedLocales(array $allowedLocales): self
+    public function setAllowedLocales(array $allowedLocales, ?array $namespaces = null): self
     {
         $this->explicit->setAllowedLocales($allowedLocales);
+        $this->convention->setAllowedLocales($allowedLocales, $namespaces);
         return $this;
     }
 
@@ -88,18 +90,9 @@ class CompositeRouter implements RouterInterface
         return $this;
     }
 
-    public function addAllowedNamespace(string $namespace, ?string $mapping = null): self
+    public function mount(string $segment, string $namespace): self
     {
-        $this->convention->addAllowedNamespace($namespace, $mapping);
-        return $this;
-    }
-
-    /**
-     * @param array<string,string> $allowedNamespaces
-     */
-    public function setAllowedNamespaces(array $allowedNamespaces): self
-    {
-        $this->convention->setAllowedNamespaces($allowedNamespaces);
+        $this->convention->mount($segment, $namespace);
         return $this;
     }
 }

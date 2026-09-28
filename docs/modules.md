@@ -24,7 +24,8 @@ part of the app when a `config.php` binds it.
 ## Layout
 
 Every folder of `modules/` containing a `config.php` is a module. `config.php` is the
-only required file — it may be empty.
+only required file — it may be empty. `routes.php` is optional, see
+[Explicit routes](explicit-routes.md).
 
 ```text
 modules/
@@ -47,12 +48,13 @@ modules/
 | Path         | Role                                                          |
 | ------------ | ------------------------------------------------------------- |
 | `config.php` | local composition root, required                              |
+| `routes.php` | explicit routes of the module, optional                        |
 | `src/`       | the classes, under the module namespace                        |
 | `templates/` | registered under the module name (see [Views](views.md))       |
 | `assets/`    | static files of the module                                     |
 
 The namespace defaults to the camelized folder name (`routable-module` →
-`RoutableModule`). Use `$this->setNamespace('Vendor\Thing')` to override it.
+`RoutableModule`). Use `$module->namespace('Vendor\Thing')` to override it.
 
 ## A typical layering
 
@@ -79,25 +81,35 @@ Nothing enforces this: module dependencies are a convention, not a constraint.
 
 ## config.php
 
-Inside `config.php`, `$this` is the `Kaly\Core\Module`. Add the `@var` docblock below so
-your IDE knows it. Local variables do not leak, and the definitions must be locked at
-the end.
+`config.php` returns a closure, exactly like `routes.php`. It receives the module and its
+definitions; the file runs in an empty scope, so nothing leaks, and the definitions are
+locked by the framework once it returns.
 
 ```php
 <?php
 
-/** @var Kaly\Core\Module $this */
+use Kaly\Core\Module;
+use Kaly\Di\Definitions;
 
-use Kaly\Router\ClassRouter;
-
-$this->definitions()
-    ->bind(PatientRepository::class, SqlPatientRepository::class)
-    ->set(ApiClient::class, fn(ContainerInterface $c) => new ApiClient($c->get('apiUrl')))
-    ->callback(ClassRouter::class, function (ClassRouter $router): void {
-        $router->addAllowedNamespace('Api');
-    })
-    ->lock();
+return static function (Module $module, Definitions $di): void {
+    $di
+        ->bind(PatientRepository::class, SqlPatientRepository::class)
+        ->set(ApiClient::class, fn(ContainerInterface $c) => new ApiClient($c->get('apiUrl')));
+};
 ```
+
+The module side of the configuration is fluent:
+
+| Method | Effect |
+| --- | --- |
+| `priority(50)` | configuration order, see below |
+| `namespace('Vendor\Thing')` | root namespace of the module classes |
+| `mount('boutique')` | url segment of the conventional routes |
+| `withoutConventionRouting()` | only expose `routes.php` and `#[RouteAttribute]` |
+| `whenAllLoaded(fn(Definitions $all) => ...)` | second pass, see below |
+
+The former format, where `config.php` used an implicit `$this`, is refused with an
+explicit message.
 
 A module config should be **fast, declarative and side effect free**: no I/O, no
 database connection, no request dependent work, no expensive instantiation. Prefer a
@@ -105,26 +117,27 @@ factory over an eager instance, so that the cost stays dormant:
 
 ```php
 // avoid: built during boot, on every request of every route
-->set(HugeClient::class, new HugeClient(...))
+$di->set(HugeClient::class, new HugeClient(...));
 
 // prefer: built on first get()
-->set(HugeClient::class, fn() => new HugeClient(...))
+$di->set(HugeClient::class, fn() => new HugeClient(...));
 ```
 
 ## Loading order
 
 Modules are discovered by sorted folder name, so the order is deterministic across
 filesystems. Each one gets a priority of 100, 200, 300... in that order unless it sets
-its own with `$this->setPriority(50)`. Definitions are then merged from the lowest
-priority to the highest, so a later module can override an earlier binding.
+its own with `$module->priority(50)`. Definitions are then merged from the lowest
+priority to the highest, so a later module can override an earlier binding. The
+`App::configure()` hooks run last and win over every module.
 
 A second pass runs after every module has been merged, for features that depend on
 what the other modules declared:
 
 ```php
-$this->setDefinitionsCallback(function (Definitions $def): void {
-    if ($def->has(SearchInterface::class)) {
-        $def->bind(IndexerInterface::class, SearchIndexer::class);
+$module->whenAllLoaded(function (Definitions $all): void {
+    if ($all->has(SearchInterface::class)) {
+        $all->bind(IndexerInterface::class, SearchIndexer::class);
     }
 });
 ```
@@ -150,17 +163,20 @@ fallback autoloader for that module only (`Namespace\Some\Class` →
 
 ## Routing a module
 
-A module does not own a url prefix by default: unmatched requests go to the router
-default namespace (`App`). Opt in from the module config:
+Every module is routable by convention under its decamelized folder name, with no
+configuration: `modules/Admin` answers on `/admin/...`, `modules/routable-module` on
+`/routable-module/...`. The module whose namespace is the router default (`App`)
+answers without prefix.
 
 ```php
-$this->definitions()
-    ->callback(ClassRouter::class, function (ClassRouter $router): void {
-        $router->addAllowedNamespace('Admin'); // /admin/...
-    })
-    ->lock();
+return static function (Module $module): void {
+    $module->mount('back-office');          // /back-office/... instead of /admin/...
+    // or
+    $module->withoutConventionRouting();    // only routes.php and #[RouteAttribute]
+};
 ```
 
+A url segment is mounted once: two modules claiming the same segment fail at boot.
 See [ClassRouter](class-router.md) for the full matching process.
 
 ## Registration is eager, resolution is lazy

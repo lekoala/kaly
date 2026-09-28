@@ -58,7 +58,7 @@ class WorkerTest extends TestCase
     public function testNoContextLeaksBetweenRequests(): void
     {
         $seen = [];
-        $this->app->addCallback(App::CB_AFTER_REQUEST, function (HttpContext $ctx) use (&$seen): void {
+        $this->app->onTerminate(function (HttpContext $ctx) use (&$seen): void {
             $seen[] = [
                 'action' => $ctx->hasRoute() ? $ctx->route()->action : null,
                 'module' => $ctx->hasRoute() ? $ctx->route()->module : null,
@@ -108,7 +108,7 @@ class WorkerTest extends TestCase
         );
 
         $marked = [];
-        $this->app->addCallback(App::CB_AFTER_REQUEST, function (HttpContext $ctx) use (&$marked): void {
+        $this->app->onTerminate(function (HttpContext $ctx) use (&$marked): void {
             $marked[] = $ctx->middlewares();
         });
 

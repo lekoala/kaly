@@ -44,6 +44,21 @@ class Route
     public ?RouteDefinition $definition = null;
 
     /**
+     * The module namespace of a controller: what comes before its
+     * `\Controller\` part (Shop\Controller\CartController gives Shop).
+     */
+    public static function moduleOf(string $controller): ?string
+    {
+        $controller = ltrim($controller, '\\');
+        $pos = strpos($controller, '\\Controller\\');
+        if ($pos !== false) {
+            return substr($controller, 0, $pos);
+        }
+        $first = explode('\\', $controller)[0];
+        return $first !== '' ? $first : null;
+    }
+
+    /**
      * @return array<string,mixed>
      */
     public function toArray(): array

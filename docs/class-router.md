@@ -79,7 +79,10 @@ This is how the process of routing works. Segments of the path are examined one 
 
 -   First, we check for a locale based on allowed locales.
     -   In a multilingual setup, the locale is required, except for the base path / where the default locale is assumed
--   We check for a module. This is optional, default module is assumed if nothing matches.
+-   We check for a module: the first segment is looked up among the mounted modules
+    (every module is mounted under its decamelized name, see [Modules](modules.md)).
+    The default namespace (`App`) is assumed if nothing matches.
+    A non canonical spelling (`/TestModule/`, `/Test-Module/`) redirects to `/test-module/`.
 -   We check for a controller. If no segment (passing / or /module/), index is assumed.
     -   Note: calling other methods on index require using the /index prefix (eg: /index/myaction)
 -   We look for an action. It will look for 'actionMethod' or 'action'. If none, index or \_\_invoke is assumed

@@ -1,12 +1,12 @@
 <?php
 
-/** @var Kaly\Core\Module $this */
-
+use Kaly\Core\Module;
+use Kaly\Di\Definitions;
 use Sub\DemoObj;
 
-// Get's executed before app
-$this->setPriority(50);
+return static function (Module $module, Definitions $di): void {
+    // Configured before app
+    $module->priority(50)->withoutConventionRouting();
 
-$this->definitions()
-    ->set('some_demo_obj', DemoObj::class)
-    ->lock();
+    $di->set('some_demo_obj', DemoObj::class);
+};

@@ -128,7 +128,7 @@ class ConcurrentRequestTest extends TestCase
         $this->app->middleware()->routed($conditional, when: static fn(HttpContext $ctx): bool => $ctx->route()->module === 'LangModule');
 
         $seen = [];
-        $this->app->addCallback(App::CB_AFTER_REQUEST, static function (HttpContext $ctx) use (&$seen): void {
+        $this->app->onTerminate(static function (HttpContext $ctx) use (&$seen): void {
             $label = $ctx->request()->getHeaderLine('X-Probe');
             $seen[$label] = [
                 'ctx' => $ctx,

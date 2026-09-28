@@ -2,13 +2,4 @@
 
 declare(strict_types=1);
 
-/** @var Kaly\Core\Module $this */
-
-use Kaly\Router\ClassRouter;
-
-$this
-    ->definitions()
-    ->callback(ClassRouter::class, function (ClassRouter $router): void {
-        $router->addAllowedNamespace('LangModule');
-    })
-    ->lock();
+// Routable by convention under /lang-module/ without any configuration

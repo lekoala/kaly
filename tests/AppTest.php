@@ -13,7 +13,6 @@ use Kaly\Router\ClassRouter;
 use Kaly\Router\Route;
 use Kaly\Router\RouterInterface;
 use Kaly\Tests\Mocks\ContextProbeMiddleware;
-use Kaly\Tests\Mocks\TestApp;
 use Kaly\Tests\Mocks\TestMiddleware;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
@@ -34,19 +33,35 @@ class AppTest extends TestCase
         ErrorHandler::restoreDefaults();
     }
 
-    public function testAppExtension(): void
+    public function testAppIsRegisteredInTheContainer(): void
     {
-        $app = new TestApp(__DIR__);
-        $app->boot();
-        $di = $app->getContainer();
+        $app = App::create(__DIR__)->boot();
 
-        $this->assertTrue($di->has(App::class));
-        $this->assertTrue($di->has(TestApp::class));
+        $this->assertSame($app, $app->getContainer()->get(App::class));
+    }
+
+    public function testHandleBootsTheAppWhenNeeded(): void
+    {
+        $app = new App(__DIR__);
+        $this->assertFalse($app->isBooted());
+
+        $response = $app->handle(HttpFactory::createRequestFromGlobals()->withUri(new Uri('/test-module/index/foo/')));
+
+        $this->assertTrue($app->isBooted());
+        $this->assertSame('foo', (string) $response->getBody());
+    }
+
+    public function testContainerCannotChangeOnceBooted(): void
+    {
+        $app = App::create(__DIR__)->boot();
+
+        $this->expectException(\LogicException::class);
+        $app->configure(static function (): void {});
     }
 
     public function testLocaleDetection(): void
     {
-        $app = new TestApp(__DIR__);
+        $app = new App(__DIR__);
         $app->boot();
 
         /** @var ClassRouter $router  */
@@ -79,7 +94,7 @@ class AppTest extends TestCase
         $app = new App(__DIR__);
         $this->assertInstanceOf(App::class, $app);
         $app->boot();
-        $this->assertTrue($app->getDebug(), 'debug flag is not set');
+        $this->assertTrue($app->isDebug(), 'debug flag is not set');
 
         $declaredVars = array_keys(get_defined_vars());
         $this->assertNotContains('value_is_not_leaked', $declaredVars);
@@ -228,16 +243,12 @@ class AppTest extends TestCase
         $app = new App(__DIR__);
         $app->boot();
 
-        $before = 0;
         $after = 0;
         $errors = 0;
-        $app->addCallback(App::CB_BEFORE_REQUEST, function () use (&$before): void {
-            $before++;
-        });
-        $app->addCallback(App::CB_AFTER_REQUEST, function () use (&$after): void {
+        $app->onTerminate(function () use (&$after): void {
             $after++;
         });
-        $app->addCallback(App::CB_ERROR, function () use (&$errors): void {
+        $app->onError(function () use (&$errors): void {
             $errors++;
         });
 
@@ -245,7 +256,6 @@ class AppTest extends TestCase
 
         // A normal request
         $app->handle($base->withUri(new Uri('/test-module/index/foo/')));
-        $this->assertSame(1, $before);
         $this->assertSame(1, $after);
         $this->assertSame(0, $errors);
 
@@ -258,19 +268,23 @@ class AppTest extends TestCase
         $response = $app->handle($base->withUri(new Uri('/test-module/index/middlewareexception/')));
         $this->assertSame(500, $response->getStatusCode());
         $this->assertSame(1, $errors);
-        $this->assertSame(3, $before);
         $this->assertSame(3, $after);
     }
 
-    public function testFailingBeforeRequestCallbackReturnsResponse(): void
+    public function testFailingIncomingMiddlewareReturnsResponse(): void
     {
         $app = new App(__DIR__);
         $app->boot();
         $errors = 0;
-        $app->addCallback(App::CB_BEFORE_REQUEST, function (): void {
-            throw new \RuntimeException('before failed');
+        $app->middleware()->incoming(new class implements \Psr\Http\Server\MiddlewareInterface {
+            public function process(
+                \Psr\Http\Message\ServerRequestInterface $request,
+                \Psr\Http\Server\RequestHandlerInterface $handler,
+            ): \Psr\Http\Message\ResponseInterface {
+                throw new \RuntimeException('before failed');
+            }
         });
-        $app->addCallback(App::CB_ERROR, function () use (&$errors): void {
+        $app->onError(function () use (&$errors): void {
             $errors++;
         });
 
@@ -285,7 +299,7 @@ class AppTest extends TestCase
     {
         $app = new App(__DIR__);
         $app->boot();
-        $app->addCallback(App::CB_AFTER_REQUEST, function (): void {
+        $app->onTerminate(function (): void {
             throw new \RuntimeException('after failed');
         });
 
@@ -357,7 +371,7 @@ class AppTest extends TestCase
             // (and as a class string, it must never even be resolved)
             ->incoming(FileServer::class, when: static fn(): bool => false);
 
-        $app->addCallback(App::CB_AFTER_REQUEST, function (HttpContext $ctx) use (&$executed): void {
+        $app->onTerminate(function (HttpContext $ctx) use (&$executed): void {
             $executed = $ctx->middlewares();
         });
 
@@ -376,7 +390,7 @@ class AppTest extends TestCase
         $request = HttpFactory::createRequestFromGlobals();
         $request = $request->withUri(new Uri('/test-module/index/middleware/'));
         $app = new App(__DIR__);
-        $app->setDebug(true);
+        $app->debug(true);
         $app->boot();
 
         // if condition returns true, it means execute
@@ -430,8 +444,8 @@ class AppTest extends TestCase
         // (string) always read from the start of the stream while
         // getBody()->getContents() can return an empty response
         $app = new App(__DIR__);
+        $app->debug(true);
         $app->boot();
-        $app->setDebug(true);
         $request = HttpFactory::createRequestFromGlobals();
         $request = $request->withUri(new Uri('/test-module/demo/'));
         $response = $app->handle($request);
@@ -541,8 +555,8 @@ class AppTest extends TestCase
     public function testTrailingSlash(): void
     {
         $app = new App(__DIR__);
+        $app->debug(true);
         $app->boot();
-        $app->setDebug(true);
         $request = HttpFactory::createRequestFromGlobals();
         $request = $request->withUri(new Uri('/test-module/demo'));
         $response = $app->handle($request);

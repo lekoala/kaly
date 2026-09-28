@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Core;
 
 use Closure;
+use Error;
 use InvalidArgumentException;
 use Kaly\Di\Definitions;
 use Kaly\Router\Routes;
@@ -13,14 +14,43 @@ use Kaly\Util\Str;
 use Kaly\View\RendererInterface;
 use Kaly\View\TemplatePathRegistryInterface;
 
-class Module
+/**
+ * A folder of the modules directory:
+ *
+ * ```text
+ * modules/shop/
+ *   config.php     services and module settings (required, may be empty)
+ *   routes.php     explicit routes (optional)
+ *   src/           Shop\... classes, Shop\Controller\... controllers
+ *   templates/     registered as @shop in the renderer
+ * ```
+ *
+ * config.php returns a closure, like routes.php:
+ *
+ * ```php
+ * return static function (Module $module, Definitions $di): void {
+ *     $module->priority(50)->mount('boutique');
+ *     $di->bind(PaymentGateway::class, StripeGateway::class);
+ * };
+ * ```
+ *
+ * Every module is routable by convention under its decamelized name
+ * (`modules/Shop` answers on `/shop/...`), except the one whose namespace is
+ * the default one (`App`), which answers without prefix.
+ */
+final class Module
 {
-    protected string $dir;
-    protected string $name;
-    protected string $namespace;
-    protected int $priority = 0;
-    protected Definitions $definitions;
-    protected ?Closure $definitionsCallback = null;
+    private string $dir;
+    private string $name;
+    private string $namespace;
+    private ?int $priority = null;
+    private ?string $mount = null;
+    private bool $conventionRouting = true;
+    private Definitions $definitions;
+    /**
+     * @var list<Closure(Definitions): void>
+     */
+    private array $whenAllLoaded = [];
 
     public function __construct(string $dir)
     {
@@ -29,23 +59,75 @@ class Module
         }
         $this->dir = Fs::dir($dir);
         $this->name = basename($this->dir);
-        $this->namespace = $this->buildDefaultNamespace();
+        // It's already uppercased, and we dont want to convert MyModule to Mymodule
+        $this->namespace = strtoupper($this->name[0]) === $this->name[0] ? $this->name : Str::camelize($this->name);
         $this->definitions = new Definitions();
     }
 
     public static function fromConfig(string $file): self
     {
-        return new self(dirname((string) $file));
+        return new self(dirname($file));
+    }
+
+    // region Configuration, from config.php
+
+    /**
+     * Lower priorities are configured first, so a higher priority module can
+     * override their services. Defaults to the discovery order (100, 200...).
+     */
+    public function priority(int $priority): self
+    {
+        $this->priority = $priority;
+        return $this;
     }
 
     /**
-     * Ideal to call in _config.php files for chaining
-     * @return Definitions
+     * The root namespace of the module classes, the camelized folder name by default
      */
+    public function namespace(string $namespace): self
+    {
+        $this->namespace = trim($namespace, '\\');
+        return $this;
+    }
+
+    /**
+     * The url segment under which conventional routes are exposed
+     */
+    public function mount(string $segment): self
+    {
+        $this->mount = trim($segment, '/');
+        return $this;
+    }
+
+    /**
+     * Only expose what routes.php and #[RouteAttribute] declare
+     */
+    public function withoutConventionRouting(): self
+    {
+        $this->conventionRouting = false;
+        return $this;
+    }
+
+    /**
+     * Adapt to the other modules: the callback receives the merged definitions
+     * of every module, once they are all loaded.
+     *
+     * @param Closure(Definitions): void $callback
+     */
+    public function whenAllLoaded(Closure $callback): self
+    {
+        $this->whenAllLoaded[] = $callback;
+        return $this;
+    }
+
     public function definitions(): Definitions
     {
         return $this->definitions;
     }
+
+    // endregion
+
+    // region Read
 
     public function getDir(): string
     {
@@ -57,9 +139,47 @@ class Module
         return $this->name;
     }
 
+    public function getNamespace(): string
+    {
+        return $this->namespace;
+    }
+
+    public function getPriority(): ?int
+    {
+        return $this->priority;
+    }
+
+    public function getMount(): string
+    {
+        return $this->mount ?? Str::decamelize($this->name);
+    }
+
+    public function hasConventionRouting(): bool
+    {
+        return $this->conventionRouting;
+    }
+
+    /**
+     * @return list<Closure(Definitions): void>
+     */
+    public function getWhenAllLoaded(): array
+    {
+        return $this->whenAllLoaded;
+    }
+
     public function getConfigPath(): string
     {
         return $this->dir . '/config.php';
+    }
+
+    public function getRoutesPath(): string
+    {
+        return $this->dir . '/routes.php';
+    }
+
+    public function hasRoutes(): bool
+    {
+        return is_file($this->getRoutesPath());
     }
 
     public function getSrcDir(): string
@@ -87,50 +207,10 @@ class Module
         return is_dir($this->getAssetsDir());
     }
 
-    protected function buildDefaultNamespace(): string
-    {
-        $n = $this->getName();
-
-        // It's already uppercased, and we dont want to convert MyModule to Mymodule
-        if (strtoupper($n[0]) === $n[0]) {
-            return $n;
-        }
-
-        return Str::camelize($n);
-    }
-
-    /**
-     * Autoloading should really be handled by composer but this helps
-     * @return void
-     */
-    public function autoloadFiles(): void
-    {
-        spl_autoload_register(function (string $class): void {
-            $parts = explode('\\', $class);
-            // Namespace are required for modules
-            if (count($parts) <= 1) {
-                return;
-            }
-
-            // Namespace doesn't match (could be A\Multiple\Separator\MyClass)
-            $prefix = $this->getNamespace() . '\\';
-            if (!str_starts_with($class, $prefix)) {
-                return;
-            }
-            $classWithoutPrefix = substr($class, strlen($prefix));
-
-            // Look for a file in src directory
-            $file = $this->getSrcDir() . '/' . str_replace('\\', '/', $classWithoutPrefix) . '.php';
-            if (is_file($file)) {
-                require $file;
-            }
-            return;
-        });
-    }
+    // endregion
 
     /**
      * Modules need a config.php file (even if it's empty). This avoids having is_file checks in the loop
-     * @param string $dir
      * @return array<string>
      */
     public static function findModulesInDir(string $dir): array
@@ -145,38 +225,45 @@ class Module
         return $files;
     }
 
+    /**
+     * Autoloading should really be handled by composer but this helps
+     */
+    public function autoloadFiles(): void
+    {
+        spl_autoload_register(function (string $class): void {
+            // Namespace doesn't match (could be A\Multiple\Separator\MyClass)
+            $prefix = $this->namespace . '\\';
+            if (!str_starts_with($class, $prefix)) {
+                return;
+            }
+
+            // Look for a file in src directory
+            $file = $this->getSrcDir() . '/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+            if (is_file($file)) {
+                require $file;
+            }
+        });
+    }
+
     public function loadConfig(): void
     {
-        $file = $this->getConfigPath();
-        assert(is_file($file));
-
         // Set templates dir automatically for renderers that support paths
         if ($this->hasTemplates()) {
             $this->definitions->callback(RendererInterface::class, function (RendererInterface $renderer): void {
                 if ($renderer instanceof TemplatePathRegistryInterface) {
-                    $renderer->setPath($this->getName(), $this->getTemplatesDir());
+                    $renderer->setPath($this->name, $this->getTemplatesDir());
                 }
             });
         }
 
-        // Avoid leaking local variables from config files
-        $includer = function (string $file): void {
-            require $file;
-        };
-        $includer($file);
+        $config = $this->includeFile($this->getConfigPath());
+        if ($config instanceof Closure) {
+            $config($this, $this->definitions);
+        } elseif ($config !== null) {
+            throw new Ex("Module '{$this->name}' config.php must return a function (Module \$module, Definitions \$di): void");
+        }
 
-        // After including the definitions, it should be locked
-        assert($this->definitions->isLocked());
-    }
-
-    public function getRoutesPath(): string
-    {
-        return $this->dir . '/routes.php';
-    }
-
-    public function hasRoutes(): bool
-    {
-        return is_file($this->getRoutesPath());
+        $this->definitions->lock();
     }
 
     /**
@@ -191,81 +278,37 @@ class Module
         if (!$this->hasRoutes()) {
             return;
         }
-        // Avoid leaking local variables from route files
-        $includer = function (string $file): mixed {
-            return require $file;
-        };
-        $callback = $includer($this->getRoutesPath());
-        if ($callback === null || $callback === 1) {
+        $callback = $this->includeFile($this->getRoutesPath());
+        if ($callback === null) {
             return;
         }
         if (!$callback instanceof Closure) {
-            throw new Ex("Module '{$this->getName()}' routes.php must return a function (Routes \$routes): void");
+            throw new Ex("Module '{$this->name}' routes.php must return a function (Routes \$routes): void");
         }
         $callback($routes);
     }
 
     /**
-     * Get the value of priority
-     *
-     * @return int
+     * Include a module file in an empty scope: no local variable and no $this
+     * leak into it. A file that returns nothing gives null.
      */
-    public function getPriority(): int
+    private function includeFile(string $file): mixed
     {
-        return $this->priority;
-    }
-
-    /**
-     * Set the value of priority
-     *
-     * @param int $priority
-     * @return self
-     */
-    public function setPriority(int $priority): self
-    {
-        $this->priority = $priority;
-        return $this;
-    }
-
-    /**
-     * Get the value of definitionsCallback
-     *
-     * @return ?Closure
-     */
-    public function getDefinitionsCallback(): ?Closure
-    {
-        return $this->definitionsCallback;
-    }
-
-    /**
-     * Set the value of definitionsCallback
-     *
-     * @param Closure $definitionsCallback
-     *
-     * @return self
-     */
-    public function setDefinitionsCallback(Closure $definitionsCallback): self
-    {
-        $this->definitionsCallback = $definitionsCallback;
-        return $this;
-    }
-
-    /**
-     * Get the value of namespace
-     */
-    public function getNamespace(): string
-    {
-        return $this->namespace;
-    }
-
-    /**
-     * Set the value of namespace
-     *
-     * @param string $namespace
-     */
-    public function setNamespace(string $namespace): self
-    {
-        $this->namespace = $namespace;
-        return $this;
+        $includer = static fn(string $file): mixed => require $file;
+        try {
+            $result = $includer($file);
+        } catch (Error $e) {
+            if (str_contains($e->getMessage(), '$this')) {
+                throw new Ex(
+                    "Module '{$this->name}' "
+                    . basename($file)
+                    . ' uses $this: return a function (Module $module, Definitions $di): void instead',
+                    0,
+                    $e,
+                );
+            }
+            throw $e;
+        }
+        return $result === 1 ? null : $result;
     }
 }

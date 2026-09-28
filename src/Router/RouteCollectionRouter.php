@@ -68,8 +68,7 @@ class RouteCollectionRouter implements RouterInterface
             $route->inputClass = $entry['inputClass'];
             $route->middlewares = $entry['middlewares'];
             $route->definition = $definition;
-            $module = explode('\\', ltrim($definition->controller, '\\'))[0];
-            $route->module = $module !== '' ? $module : null;
+            $route->module = Route::moduleOf($definition->controller);
             $route->namespace = $route->module;
             return $route;
         }

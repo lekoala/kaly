@@ -31,8 +31,9 @@ use Psr\Http\Server\MiddlewareInterface;
  * );
  * ```
  *
- * An outgoing middleware runs on the response, whatever its origin. Its
- * condition receives the current response instead of a request:
+ * An outgoing middleware runs on the response, whatever its origin. It can
+ * be a plain closure, and its condition receives the current response
+ * instead of a request:
  *
  * ```php
  * $app->middleware()->outgoing(
@@ -91,12 +92,25 @@ final class MiddlewareRegistry
      * Add a middleware that runs on the response once the whole request cycle
      * produced one, whatever its origin (happy path, short-circuit, exception).
      *
-     * @param class-string|OutgoingMiddlewareInterface $middleware
+     * With `always: true` the middleware is a guarantee rather than a step:
+     * it also runs on the error response that replaces a failed outgoing
+     * phase, and its own failure is reported without ever replacing the
+     * response. Use it for headers that must be on every response (security
+     * headers, request id, audit).
+     *
+     * @param class-string|OutgoingMiddlewareInterface|Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Core\HttpContext): \Psr\Http\Message\ResponseInterface $middleware
      * @param Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the current response, the context and the container; returning false skips the middleware
      */
-    public function outgoing(string|OutgoingMiddlewareInterface $middleware, int $priority = 0, ?Closure $when = null): self
-    {
-        return $this->add(MiddlewareBand::Outgoing, $middleware, $priority, $when);
+    public function outgoing(
+        string|OutgoingMiddlewareInterface|Closure $middleware,
+        int $priority = 0,
+        ?Closure $when = null,
+        bool $always = false,
+    ): self {
+        if ($middleware instanceof Closure) {
+            $middleware = new ClosureOutgoing($middleware);
+        }
+        return $this->add(MiddlewareBand::Outgoing, $middleware, $priority, $when, $always);
     }
 
     /**
@@ -114,8 +128,12 @@ final class MiddlewareRegistry
         string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware,
         int $priority = 0,
         ?Closure $when = null,
+        bool $always = false,
     ): self {
-        $this->entries[$band->value][] = new MiddlewareEntry($middleware, $priority, $when, $this->sequence++);
+        if ($always && $band !== MiddlewareBand::Outgoing) {
+            throw new \InvalidArgumentException('Only an outgoing middleware can be marked always');
+        }
+        $this->entries[$band->value][] = new MiddlewareEntry($middleware, $priority, $when, $this->sequence++, $always);
         unset($this->sorted[$band->value]);
 
         return $this;

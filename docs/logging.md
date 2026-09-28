@@ -23,10 +23,9 @@ publicly: `display_errors` is disabled and each non-HTTP error is logged and
 converted to a `500` response. Only when `APP_DEBUG` is enabled does the error
 response include the message and trace (properly escaped).
 
-`beforeRequest` and `afterRequest` callbacks are isolated by the kernel: an
-exception thrown by one of them is reported and converted to a response instead
-of escaping the kernel, and a failing `afterRequest` never masks a successful
-response.
+Hooks are isolated by the kernel: a failing `onTerminate()` hook is reported as an
+error and never masks a successful response, and a failing `onError()` hook never
+prevents the error response (it is recorded on the context).
 
 ## Production setup
 
@@ -34,11 +33,13 @@ Bind a persistent logger so errors are actually recorded:
 
 ```php
 use Kaly\Core\App;
+use Kaly\Di\Definitions;
 use Kaly\Log\FileLogger;
 use Psr\Log\LoggerInterface;
 
-$app->addCallback(App::CB_AFTER_DEFINITIONS, function ($definitions) use ($app): void {
-    $definitions->set(LoggerInterface::class, new FileLogger($app->getBaseDir() . '/app.log'));
+$app = App::create(dirname(__DIR__));
+$app->configure(function (Definitions $definitions) use ($app): void {
+    $definitions->set(LoggerInterface::class, new FileLogger($app->paths()->base . '/app.log'));
 });
 ```
 
@@ -57,7 +58,7 @@ avoid the `NativePhpSession` storage backend. See [Runtime](runtime.md).
 
 Having a simple integration of Sentry is really easy with Kaly. It basically boils down to this.
 
-We use our callback feature to easily define hook points for sentry.
+The `onError()` hook is the only hook point needed.
 
 ```php
 use Kaly\Core\App;
@@ -67,9 +68,9 @@ use Throwable;
 if (isset($_ENV['SENTRY_DSN'])) {
     \Sentry\init([
         'dsn' => $_ENV['SENTRY_DSN'],
-        'environment' => $app->getDebug() ? 'dev' : 'prod'
+        'environment' => $app->isDebug() ? 'dev' : 'prod'
     ]);
-    $app->addCallback(App::CB_ERROR, function (Throwable $exception, HttpContext $ctx) {
+    $app->onError(function (Throwable $exception, HttpContext $ctx): void {
         \Sentry\captureException($exception);
     });
 }

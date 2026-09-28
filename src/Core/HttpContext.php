@@ -189,7 +189,7 @@ final class HttpContext
 
     /**
      * The final response of the request. It is only available once the cycle
-     * is finalized, typically in an afterRequest callback.
+     * is finalized, typically in an onTerminate() hook.
      */
     public function response(): ResponseInterface
     {

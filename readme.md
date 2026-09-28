@@ -8,7 +8,7 @@ Kaly is an opinionated but lightweight application framework built on PHP standa
 
 - **PSR based:** PSR-7 messages, PSR-11 container, PSR-15 middleware.
 - **Dependency injection:** powered by [kaly-di](https://github.com/lekoala/kaly-di), autowiring and explicit definitions.
-- **Convention-based routing:** no route file to maintain, controllers map to URIs.
+- **Convention-based routing:** no route file to maintain, controllers map to URIs; explicit `routes.php` when you need it.
 - **Modular architecture:** each module has its own config, controllers, templates and assets.
 - **Middleware support:** plain PSR-15 middleware, plus an optional generator style for before/after hooks.
 - **Multilingual support:** built-in locale detection.
@@ -37,8 +37,34 @@ provided for Latte, kaly-tpl and Twig.
 ## Installation
 
 ```bash
-composer require lekoala/kaly
+composer require lekoala/kaly nyholm/psr7
 ```
+
+## Quick start
+
+```php
+// public/index.php
+require __DIR__ . '/../vendor/autoload.php';
+
+Kaly\Core\App::create(dirname(__DIR__))->run();
+```
+
+```php
+// modules/app/src/Controller/IndexController.php  ->  GET /
+namespace App\Controller;
+
+final class IndexController
+{
+    public function index(): string
+    {
+        return 'Hello';
+    }
+}
+```
+
+A module is any folder of `modules/` with a `config.php` (it may be empty). Any other
+module is routable under its name (`modules/Shop` answers on `/shop/...`).
+See [UPGRADE.md](UPGRADE.md) when updating.
 
 ## Documentation
 

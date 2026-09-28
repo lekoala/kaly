@@ -1,11 +1,22 @@
 # App
 
-> Application bootstrap and request kernel
+> Application lifecycle and request kernel
 
 ## Usage
 
 A kaly app is created from the entry file with the base directory that contains the
-system folders (`modules/`, `public/`, `temp/`, `resources/`).
+conventional folders (`modules/`, `public/`, `temp/`, `resources/`, see `Kaly\Core\Paths`):
+
+```php
+<?php
+// public/index.php
+require __DIR__ . '/../vendor/autoload.php';
+
+Kaly\Core\App::create(dirname(__DIR__))->run();
+```
+
+`run()` boots the app, builds the request from the PHP globals, handles it and emits the
+response. A failure during boot still produces a proper 500 (with details in debug mode).
 
 The app looks for a `.env` file in the base directory unless the `IGNORE_DOT_ENV`
 environment variable is set.
@@ -17,66 +28,27 @@ APP_TIMEZONE=UTC
 
 ## PSR-7 implementation
 
-The core only depends on the PSR interfaces. You must provide a PSR-7
-implementation and bind the PSR-17 factories your app needs (Nyholm is recommended):
+The core only depends on the PSR interfaces: `composer require` a PSR-7 implementation
+and Kaly binds its PSR-17 factories. Nyholm is recommended; Guzzle, Laminas Diactoros and
+HttpSoft are discovered as well. An explicit binding always wins over discovery.
 
-```php
-use Nyholm\Psr7\Factory\Psr17Factory;
-use Psr\Http\Message\RequestFactoryInterface;
-use Psr\Http\Message\ResponseFactoryInterface;
-use Psr\Http\Message\ServerRequestFactoryInterface;
-use Psr\Http\Message\StreamFactoryInterface;
-use Psr\Http\Message\UploadedFileFactoryInterface;
-use Psr\Http\Message\UriFactoryInterface;
-
-$definitions
-    ->bind(RequestFactoryInterface::class, Psr17Factory::class)
-    ->bind(ResponseFactoryInterface::class, Psr17Factory::class)
-    ->bind(ServerRequestFactoryInterface::class, Psr17Factory::class)
-    ->bind(StreamFactoryInterface::class, Psr17Factory::class)
-    ->bind(UploadedFileFactoryInterface::class, Psr17Factory::class)
-    ->bind(UriFactoryInterface::class, Psr17Factory::class);
+```bash
+composer require nyholm/psr7
 ```
 
-## Index file
-
-The entry file builds the request (Nyholm is recommended) and passes it to `run()`:
-
-```php
-<?php
-
-use Kaly\Core\App;
-
-require '../vendor/autoload.php';
-
-$psr17Factory = new Nyholm\Psr7\Factory\Psr17Factory();
-$creator = new Nyholm\Psr7Server\ServerRequestCreator(
-    $psr17Factory, // ServerRequestFactory
-    $psr17Factory, // UriFactory
-    $psr17Factory, // UploadedFileFactory
-    $psr17Factory, // StreamFactory
-);
-
-$app = new App(dirname(__DIR__));
-$app->run($creator->fromGlobals());
-```
-
-`run()` boots the app if needed, handles the request and emits the response.
-
-## Application and Kernel
+## App and Kernel
 
 Boot and request handling are split in two objects:
 
-- `Kaly\Core\Application` — env, directories, modules, definitions, container,
-  injector; `boot()` builds everything once.
+- `Kaly\Core\App` — env, paths, modules, definitions, container, injector, hooks and the
+  middleware configuration; `boot()` builds everything once. `handle()` and `run()` boot
+  the app when needed.
 - `Kaly\Core\Kernel` — a stateless PSR-15 `RequestHandlerInterface`. It creates the
-  [HttpContext](http-context.md) of the cycle, runs the request callbacks, delegates
-  to the pipeline and maps exceptions to responses.
+  [HttpContext](http-context.md) of the cycle, delegates to the pipeline, commits the
+  session and cookies, runs the outgoing phase and maps exceptions to responses.
 
-`Kaly\Core\App` is a thin facade (`Application` + `Kernel`) and is what most apps use.
-
-Because the kernel holds no per-request state, the same `Application` can handle many
-requests, which makes worker setups (RoadRunner, Swoole, FrankenPHP...) straightforward.
+Because the kernel holds no per-request state, the same app can handle many requests,
+which makes worker setups (RoadRunner, Swoole, FrankenPHP...) straightforward.
 Everything that belongs to a single cycle lives in its context instead:
 
 ```text
@@ -103,8 +75,7 @@ $psrFactory = new Psr7\Factory\Psr17Factory();
 
 $worker = new RoadRunner\Http\PSR7Worker($worker, $psrFactory, $psrFactory, $psrFactory);
 
-$app = new Kaly\Core\App(dirname(__DIR__));
-$app->boot();
+$app = Kaly\Core\App::create(dirname(__DIR__))->boot();
 
 while ($req = $worker->waitRequest()) {
     try {
@@ -120,42 +91,42 @@ while ($req = $worker->waitRequest()) {
 
 `boot()` will:
 
-- configure error handling and, in debug mode, ensure the system directories exist;
-- discover the modules and load their config files;
-- build the definitions, the DI container and the injector;
+- configure error handling and, in debug mode, ensure the conventional directories exist;
+- discover the modules and run their `config.php` and `routes.php`;
+- build the definitions (modules, then `configure()` hooks, then framework defaults),
+  the DI container and the injector;
+- mount every module on the convention router;
 - build the request kernel.
 
-You can start adding middlewares after `boot()`.
+The container is locked once booted: `configure()`, `onBoot()` and `debug()` must be
+called before. Middlewares and the request hooks can still be added afterwards.
 
-## Callbacks
+## Hooks
 
-Callbacks are a simple alternative to event dispatchers. Valid ids are exposed as
-`App::CB_*` constants:
+Everything that happens around a request is a middleware. Hooks only cover what a
+middleware cannot see, and they are typed methods, not string ids:
 
-- `App::CB_BOOTED`
-- `App::CB_BEFORE_DEFINITIONS`
-- `App::CB_AFTER_DEFINITIONS`
-- `App::CB_BEFORE_REQUEST`
-- `App::CB_AFTER_REQUEST`
-- `App::CB_ERROR` (generic errors only; HTTP exceptions are expected and skipped)
-
-The request callbacks receive the [HttpContext](http-context.md) of the cycle:
-
-```text
-CB_BEFORE_REQUEST(HttpContext $ctx)
-CB_AFTER_REQUEST(HttpContext $ctx)
-CB_ERROR(Throwable $e, HttpContext $ctx)
-```
+| Hook | Receives | Runs |
+| --- | --- | --- |
+| `configure()` | `Definitions` | once, after the modules, before the framework defaults |
+| `onBoot()` | `App` | once, when the app is booted |
+| `onError()` | `Throwable`, `HttpContext` | on generic errors (HTTP exceptions are expected and skipped) |
+| `onTerminate()` | `HttpContext` | at the end of every cycle, `$ctx->response()` is available |
 
 ```php
-$app->addCallback(App::CB_ERROR, function (Throwable $e, HttpContext $ctx): void {
-    // report to your error tracker
-    myTracker()->report($e, [
-        'route' => $ctx->hasRoute() ? $ctx->route()->controller : null,
-        'middlewares' => $ctx->middlewares(),
-    ]);
-});
+$app = App::create(dirname(__DIR__))
+    ->configure(fn(Definitions $di) => $di->set(LoggerInterface::class, new FileLogger('app.log')))
+    ->onError(function (Throwable $e, HttpContext $ctx): void {
+        // report to your error tracker
+        myTracker()->report($e, [
+            'route' => $ctx->hasRoute() ? $ctx->route()->controller : null,
+            'middlewares' => $ctx->middlewares(),
+        ]);
+    });
 ```
+
+A failing hook never masks the cycle: a broken error hook is recorded on the context
+(`$ctx->callbackErrors()`), a broken terminate hook is reported as an error.
 
 ## Using middlewares
 
@@ -168,7 +139,7 @@ variables, the PSR-7 messages or the [HttpContext](http-context.md), never in a
 middleware property.
 
 ```text
-incoming -> routing -> routed -> dispatcher -> (kernel) -> outgoing
+incoming -> routing -> routed -> route middlewares -> dispatcher -> (kernel) -> outgoing
 ```
 
 - **incoming** runs before anything is routed: trusted proxies, request id, static
@@ -177,6 +148,8 @@ incoming -> routing -> routed -> dispatcher -> (kernel) -> outgoing
   matches the route and resolves the locale.
 - **routed** runs with a route already known: auth, authorization, CSRF, per route
   rate limits...
+- **route middlewares** are the ones declared on a route, a group or a controller
+  (`#[Middleware]`), see [Explicit routes](explicit-routes.md).
 - **outgoing** runs *on the response*, once the whole cycle produced one, whatever its
   origin (happy path, short-circuit, kernel-built error): webp conversion, compression,
   cache headers...
@@ -190,7 +163,8 @@ $app->middleware()
     ->incoming(RequestId::class)
     ->routed(AuthMiddleware::class, priority: 100)
     ->routed(RateLimitMiddleware::class, priority: 200)
-    ->outgoing(WebpResponse::class);
+    ->outgoing(WebpResponse::class)
+    ->outgoing(SecurityHeaders::class, always: true);
 ```
 
 Ordering is deliberately simple: the phase order is fixed, and inside a phase
@@ -336,15 +310,15 @@ predict. Four distinct things are easy to confuse:
 | `after()` | a response the inner layers actually returned |
 | `finally` | every outcome, including an exception — for cleanup |
 | `outgoing` | the response produced by the whole cycle, whatever its origin |
-| response finalization | the response that really leaves the application |
+| `outgoing(..., always: true)` | every response that really leaves the application |
 
 The **outgoing middleware band** is the response phase with a real contract: the phase
 is attempted once for each response produced by the request cycle — from the happy
 path, a short-circuited request or an exception. It executes a `Response -> Response`
 transformation. If an outgoing middleware throws, the phase stops: the exception is
 converted to a new error response and the transformations applied earlier in the band
-are discarded. Headers that must survive an outgoing failure belong in
-`finalizeResponse`.
+are discarded. Headers that must survive an outgoing failure belong in an
+`always` outgoing middleware.
 
 ```php
 $app->middleware()->outgoing(WebpResponse::class);
@@ -374,29 +348,28 @@ final class RouteHeader implements OutgoingMiddlewareInterface
 }
 ```
 
-`finalizeResponse` is still the best-effort finishing step: a narrow transformation
-in the kernel, after the outgoing band, that runs on every response that leaves the
-application — on the happy path as well as on kernel-built error responses:
+An outgoing middleware marked `always` is a **guarantee** rather than a step. It runs
+on every response that leaves the application, including the error response that
+replaces a failed outgoing phase, and it can be a plain closure:
 
 ```php
-$app->addCallback(App::CB_FINALIZE_RESPONSE,
+$app->middleware()->outgoing(
     static fn(ResponseInterface $response, HttpContext $ctx): ResponseInterface
-        => $response->withHeader('X-Request-Id', $ctx->request()->getHeaderLine('X-Request-Id')));
+        => $response->withHeader('X-Request-Id', $ctx->request()->getHeaderLine('X-Request-Id')),
+    always: true,
+);
 ```
 
 The two do not overlap:
 
-- an **outgoing** middleware is part of producing the correct result. If it fails,
-  the request fails — the exception becomes an error response;
-- a **finalizeResponse** callback is an enhancement. If it fails, the previous
-  response is kept and the error is reported (never-mask).
+- a regular **outgoing** middleware is part of producing the correct result. If it
+  fails, the request fails — the exception becomes an error response;
+- an **always** outgoing middleware is an enhancement. If it fails, the response it
+  received goes on unchanged and the error is reported (never-mask). A closure that
+  does not return a response is treated the same way.
 
-Guards: a throwing finalizer never masks the response (the previous response is
-kept and the error is reported), and a non-response return is treated the same
-way.
-
-`CB_AFTER_REQUEST` is not that hook either: it runs once the context is already
-complete, and it is a notification whose errors must not change the response.
+`onTerminate()` is not that hook either: it runs once the context is complete, and it
+is a notification whose errors must not change the response.
 
 ## Env variables
 
@@ -443,18 +416,20 @@ default (see `SystemClock::fromSystemTimezone()` for a system-timezone clock).
 
 ## Modules
 
-All folders in the modules dir with a `config.php` are modules. Config files are
-executed during bootstrap and provide definitions for the DI container. They are
-discovered in a deterministic order (sorted by folder name) and executed by priority
-(lower first); an explicit priority set by the module always wins.
+All folders in the modules dir with a `config.php` are modules. Config files return a
+closure run during bootstrap, which configures the module and provides definitions for
+the DI container. They are discovered in a deterministic order (sorted by folder name)
+and configured by priority (lower first); an explicit priority set by the module always
+wins. Every module is routable by convention under its name.
 
 Registration is eager, resolution is lazy, request behaviour is route aware. See
 [Modules](modules.md).
 
 ## The DI container
 
-All definitions provided by the module configs are merged, then the app defaults are
-registered if not already defined, and the definitions are locked.
+All definitions provided by the module configs are merged, then the `configure()` hooks
+run, then the app defaults (PSR-17 factories, router, logger...) are registered if not
+already defined, and the definitions are locked.
 
 The container is instantiated ONCE during boot. Subsequent requests on the same app
 instance reuse it.

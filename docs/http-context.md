@@ -58,7 +58,7 @@ For genuinely optional cases — an error reporter that may run before routing, 
 toolbar — there is a matching `has*()`:
 
 ```php
-$app->addCallback(App::CB_ERROR, function (Throwable $e, HttpContext $ctx): void {
+$app->onError(function (Throwable $e, HttpContext $ctx): void {
     myTracker()->report($e, [
         'route' => $ctx->hasRoute() ? $ctx->route()->controller : null,
     ]);
@@ -131,7 +131,7 @@ return $response->withHeader('X-Foo', 'bar');
 
 `$ctx->response()` has a narrower and sharper meaning: the **final** response of the
 request, available from finalization onwards, which in practice means in an
-`afterRequest` callback. Before that, it throws (`hasResponse()` tells you).
+`onTerminate()` hook. Before that, it throws (`hasResponse()` tells you).
 
 ## Session and cookies
 
@@ -226,14 +226,17 @@ App
                     |
                     +- auth / authorization / CSRF / route rate limit
                     |
+                    +- ROUTE middlewares (routes.php, #[Middleware])
+                    |
                     +- RequestDispatcher
                          +- controller -> response
 
      <- exception -> response        <- kernel, whatever the origin
+     +- commit session + cookies
      +- OUTGOING middleware          <- Response -> Response, exactly once
-     +- finalizeResponse
+     |    (on failure: error response, then `always` middlewares only)
      +- complete($response)
-     +- afterRequest($ctx)
+     +- onTerminate($ctx)
      +- response
 ```
 

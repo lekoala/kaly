@@ -12,7 +12,11 @@ use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 
-class FinalizeResponseTest extends TestCase
+/**
+ * `outgoing(..., always: true)`: a guarantee on every response leaving the
+ * cycle, that never breaks it.
+ */
+class AlwaysOutgoingTest extends TestCase
 {
     protected function tearDown(): void
     {
@@ -26,12 +30,12 @@ class FinalizeResponseTest extends TestCase
         return $app;
     }
 
-    private function finalize(App $app, callable $finalize): void
+    private function finalize(App $app, \Closure $finalize): void
     {
-        $app->addCallback(App::CB_FINALIZE_RESPONSE, $finalize);
+        $app->middleware()->outgoing($finalize, always: true);
     }
 
-    public function testFinalizerRunsOnHappyPath(): void
+    public function testAlwaysRunsOnHappyPath(): void
     {
         $app = $this->app();
         $this->finalize($app, static fn(ResponseInterface $response, HttpContext $ctx): ResponseInterface => $response->withHeader(
@@ -46,7 +50,7 @@ class FinalizeResponseTest extends TestCase
         $this->assertSame('yes', $response->getHeaderLine('X-Audit'));
     }
 
-    public function testFinalizerRunsOnErrorResponses(): void
+    public function testAlwaysRunsOnErrorResponses(): void
     {
         $app = $this->app();
         $this->finalize($app, static fn(ResponseInterface $response, HttpContext $ctx): ResponseInterface => $response->withHeader(
@@ -67,7 +71,7 @@ class FinalizeResponseTest extends TestCase
         $this->assertSame('yes', $error->getHeaderLine('X-Audit'));
     }
 
-    public function testFinalizerSeesTheContext(): void
+    public function testAlwaysSeesTheContext(): void
     {
         $app = $this->app();
         $locales = [];
@@ -82,11 +86,11 @@ class FinalizeResponseTest extends TestCase
         $this->assertNotSame([], $locales);
     }
 
-    public function testThrowingFinalizerKeepsTheResponse(): void
+    public function testThrowingAlwaysKeepsTheResponse(): void
     {
         $app = $this->app();
         $errors = 0;
-        $app->addCallback(App::CB_ERROR, static function () use (&$errors): void {
+        $app->onError(static function () use (&$errors): void {
             $errors++;
         });
         $this->finalize($app, static function (): ResponseInterface {
@@ -105,7 +109,7 @@ class FinalizeResponseTest extends TestCase
     {
         $app = $this->app();
         $errors = 0;
-        $app->addCallback(App::CB_ERROR, static function () use (&$errors): void {
+        $app->onError(static function () use (&$errors): void {
             $errors++;
         });
         $this->finalize($app, static fn(): string => 'not a response');
@@ -117,7 +121,7 @@ class FinalizeResponseTest extends TestCase
         $this->assertSame(1, $errors);
     }
 
-    public function testFinalizersRunInOrder(): void
+    public function testAlwayssRunInOrder(): void
     {
         $app = $this->app();
         $this->finalize($app, static fn(ResponseInterface $response, HttpContext $ctx): ResponseInterface => $response->withHeader(

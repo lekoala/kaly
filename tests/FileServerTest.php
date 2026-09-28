@@ -117,7 +117,7 @@ class FileServerTest extends TestCase
     public function testResolvesFromContainerWithPublicDirDefault(): void
     {
         $app = new App($this->base, false);
-        $app->addCallback(App::CB_AFTER_DEFINITIONS, function (Definitions $defs): void {
+        $app->configure(function (Definitions $defs): void {
             $defs->bind(ResponseFactoryInterface::class, Psr17Factory::class);
             $defs->bind(StreamFactoryInterface::class, Psr17Factory::class);
         });

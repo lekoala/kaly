@@ -2,15 +2,8 @@
 
 declare(strict_types=1);
 
-/** @var Kaly\Core\Module $this */
+use Kaly\Core\Module;
 
-use Kaly\Router\ClassRouter;
-
-$this->setNamespace('TestVendor\\MappedModule');
-
-$this
-    ->definitions()
-    ->callback(ClassRouter::class, function (ClassRouter $router): void {
-        $router->addAllowedNamespace("TestVendor\\MappedModule", 'MappedModule');
-    })
-    ->lock();
+return static function (Module $module): void {
+    $module->namespace('TestVendor\MappedModule');
+};
