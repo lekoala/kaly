@@ -29,11 +29,17 @@ class Route
      */
     public ?string $inputClass = null;
     /**
+     * The middlewares scoped to this route, outermost first: routes.php
+     * groups and route, then `#[Middleware]` on parent classes, the class and
+     * the method. The framework runs them right before the controller.
+     *
+     * @var list<class-string>
+     */
+    public array $middlewares = [];
+    /**
      * The explicit definition this match came from, if any.
      *
-     * Null for conventional ClassRouter matches. A routed middleware reads
-     * declaration metadata (eg: middlewares) from here instead of Route
-     * carrying a copy of every declaration field.
+     * Null for conventional ClassRouter matches.
      */
     public ?RouteDefinition $definition = null;
 
@@ -51,6 +57,7 @@ class Route
             'action' => $this->action,
             'params' => $this->params,
             'inputClass' => $this->inputClass,
+            'middlewares' => $this->middlewares,
             'definition' => $this->definition?->name,
         ];
     }

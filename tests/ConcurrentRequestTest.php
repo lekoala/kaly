@@ -251,15 +251,10 @@ class ConcurrentRequestTest extends TestCase
 
         $responses = $this->interleave($this->requestA(), $this->requestB());
 
-        // Emission stays explicit and per-cycle: each response carries only
-        // its own Set-Cookie, built from its own request-scoped Cookies.
-        $withCookies = [];
-        foreach (['A' => $responses['A'], 'B' => $responses['B']] as $label => $response) {
-            $withCookies[$label] = $probe->contexts[$label]->cookies()->addToResponse($response);
-        }
-
-        $cookieA = $withCookies['A']->getHeaderLine('Set-Cookie');
-        $cookieB = $withCookies['B']->getHeaderLine('Set-Cookie');
+        // The kernel commits each cycle: each response carries only its own
+        // Set-Cookie, built from its own request-scoped Cookies.
+        $cookieA = $responses['A']->getHeaderLine('Set-Cookie');
+        $cookieB = $responses['B']->getHeaderLine('Set-Cookie');
 
         $this->assertStringContainsString('request=A', $cookieA);
         $this->assertStringNotContainsString('request=B', $cookieA);

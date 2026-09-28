@@ -19,6 +19,7 @@ use Kaly\Middleware\MiddlewareBand;
 use Kaly\Middleware\MiddlewareRegistry;
 use Kaly\Middleware\MiddlewareRunner;
 use Kaly\Middleware\OutgoingRunner;
+use Kaly\Middleware\RouteMiddlewareRunner;
 use Kaly\Router\AttributeRouteLoader;
 use Kaly\Router\CompositeRouter;
 use Kaly\Router\RequestDispatcher;
@@ -68,7 +69,7 @@ class Application
     // Callbacks
     public const CB_BOOTED = 'booted';
     public const CB_ERROR = 'error';
-    public const CB_BEFORE_DEFINTITIONS = 'beforeDefinitions';
+    public const CB_BEFORE_DEFINITIONS = 'beforeDefinitions';
     public const CB_AFTER_DEFINITIONS = 'afterDefinitions';
     public const CB_BEFORE_REQUEST = 'beforeRequest';
     public const CB_AFTER_REQUEST = 'afterRequest';
@@ -289,7 +290,7 @@ class Application
      */
     public function updateDefinitions(Definitions $def): Definitions
     {
-        $this->runCallbacks(self::CB_BEFORE_DEFINTITIONS, $def);
+        $this->runCallbacks(self::CB_BEFORE_DEFINITIONS, $def);
 
         // Register the application under its concrete class and its known aliases
         $classes = [static::class, self::class, App::class];
@@ -526,7 +527,7 @@ class Application
      * the content of the middleware phases is configurable:
      *
      * ```text
-     * incoming -> routing -> routed -> dispatcher -> (kernel) -> outgoing
+     * incoming -> routing -> routed -> route middlewares -> dispatcher -> (kernel) -> outgoing
      * ```
      *
      * A custom RequestHandlerInterface binding takes precedence.
@@ -541,13 +542,11 @@ class Application
 
         $registry = $this->middleware();
 
+        // Declared route middlewares always run, right before the controller
+        $dispatcher = new RouteMiddlewareRunner($this->container->get(RequestDispatcher::class), $this->container);
+
         // The route is known from here on
-        $routed = new MiddlewareRunner(
-            $this->container->get(RequestDispatcher::class),
-            $this->container,
-            $registry,
-            MiddlewareBand::Routed,
-        );
+        $routed = new MiddlewareRunner($dispatcher, $this->container, $registry, MiddlewareBand::Routed);
 
         // Fixed structural step of the framework, not a configurable middleware
         $routing = new RoutingHandler($this->container->get(RouterInterface::class), $this->container->get(LocaleResolver::class), $routed);

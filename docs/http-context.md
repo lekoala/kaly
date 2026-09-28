@@ -149,6 +149,17 @@ request cannot hold them: every `withHeader()` / `withAttribute()` rebuilds the
 wrapper, so the snapshot would silently reset and the dirty tracking would lie. The
 context is the natural owner because it survives those mutations.
 
+There is nothing to wire to get them on the response. As soon as the request
+pipeline produced a response, error responses included, the kernel commits the
+context: the session is saved and its cookie added when needed, cookie changes
+become `Set-Cookie` headers. A login that writes the session and then throws a
+`RedirectException` keeps its session. Outgoing middlewares see the committed
+response. A session or cookie jar that was never touched costs nothing.
+
+```text
+... -> dispatcher -> [commit session + cookies] -> outgoing -> finalize
+```
+
 The default session is `NativePhpSession`, which wraps the process-global
 `$_SESSION`: fine for sequential workers, unusable for concurrent ones. Such
 runtimes must inject a request-scoped `SessionInterface` (eg: `ArraySession`)

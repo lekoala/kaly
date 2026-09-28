@@ -76,6 +76,17 @@ class NativePhpSession implements SessionInterface
             array_map(static fn($v): string => "cookie_{$v}", array_keys($cookiesParameters)),
             $cookiesParameters,
         );
+        if ($request) {
+            // Built from a PSR-7 request: the session cookie belongs to the
+            // PSR-7 response (see addToResponse), php must not send headers.
+            // Passed to session_start() only, the ini state stays untouched.
+            $cookiesParameters += [
+                'use_cookies' => '0',
+                'use_only_cookies' => '1',
+                'use_trans_sid' => '0',
+                'cache_limiter' => '',
+            ];
+        }
         $this->options = array_merge($cookiesParameters, $options);
         if ($request) {
             $this->setIdFromRequest($request);

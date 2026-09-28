@@ -21,7 +21,7 @@ use ReflectionNamedType;
 final class RouteCollection
 {
     /**
-     * @var list<array{regex:string,paramNames:list<string>,definition:RouteDefinition,inputClass:class-string<RequestInput>|null,reflection:ReflectionClass<object>}>
+     * @var list<array{regex:string,paramNames:list<string>,definition:RouteDefinition,inputClass:class-string<RequestInput>|null,middlewares:list<class-string>,reflection:ReflectionClass<object>}>
      */
     private array $entries;
 
@@ -46,6 +46,12 @@ final class RouteCollection
                 'paramNames' => self::placeholderNames($definition->path),
                 'definition' => $definition,
                 'inputClass' => self::trailingInputClass($reflection, $definition->action),
+                // Resolved and validated at boot: a declared middleware that
+                // cannot run fails here, never silently at request time
+                'middlewares' => RouteMiddlewares::merge(
+                    RouteMiddlewares::normalize($definition->middlewares, "route '{$definition->path}'"),
+                    RouteMiddlewares::ofAction($definition->controller, $definition->action),
+                ),
                 'reflection' => $reflection,
             ];
         }
@@ -59,7 +65,7 @@ final class RouteCollection
     }
 
     /**
-     * @return list<array{regex:string,paramNames:list<string>,definition:RouteDefinition,inputClass:class-string<RequestInput>|null,reflection:ReflectionClass<object>}>
+     * @return list<array{regex:string,paramNames:list<string>,definition:RouteDefinition,inputClass:class-string<RequestInput>|null,middlewares:list<class-string>,reflection:ReflectionClass<object>}>
      * @internal Consumed by RouteCollectionRouter only.
      */
     public function entries(): array
@@ -95,7 +101,7 @@ final class RouteCollection
             'controller' => $entry['definition']->controller,
             'action' => $entry['definition']->action,
             'priority' => $entry['definition']->priority,
-            'middlewares' => $entry['definition']->middlewares,
+            'middlewares' => $entry['middlewares'],
         ], $this->entries);
     }
 

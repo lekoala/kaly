@@ -66,8 +66,9 @@ class RouteCollectionRouter implements RouterInterface
             $route->action = $definition->action;
             $route->params = $params;
             $route->inputClass = $entry['inputClass'];
+            $route->middlewares = $entry['middlewares'];
             $route->definition = $definition;
-            $module = explode('\\', ltrim($definition->controller, '\\'))[0] ?? null;
+            $module = explode('\\', ltrim($definition->controller, '\\'))[0];
             $route->module = $module !== '' ? $module : null;
             $route->namespace = $route->module;
             return $route;
@@ -166,7 +167,7 @@ class RouteCollectionRouter implements RouterInterface
             throw new AmbiguousRouteException(sprintf(
                 "Ambiguous handler '%s::%s' (%s): generate() by handler requires exactly one explicit route, use a route name instead",
                 $class,
-                (string) $method,
+                is_string($method) ? $method : '*',
                 implode(', ', array_map(static fn(RouteDefinition $d): string => $d->name ?? $d->path, $candidates)),
             ));
         }
@@ -191,8 +192,8 @@ class RouteCollectionRouter implements RouterInterface
     /**
      * Builds positional action arguments in signature order.
      *
-     * @param array{regex:string,paramNames:list<string>,definition:RouteDefinition,inputClass:class-string<\Kaly\Http\RequestInput>|null,reflection:ReflectionClass<object>} $entry
-     * @param array<string,string> $matches
+     * @param array{regex:string,paramNames:list<string>,definition:RouteDefinition,inputClass:class-string<\Kaly\Http\RequestInput>|null,middlewares:list<class-string>,reflection:ReflectionClass<object>} $entry
+     * @param array<array-key,string> $matches
      * @return array<int<0,max>|string,mixed>|null Null when the entry does not match.
      */
     private function coerceParams(array $entry, array $matches): ?array

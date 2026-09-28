@@ -133,7 +133,7 @@ Callbacks are a simple alternative to event dispatchers. Valid ids are exposed a
 `App::CB_*` constants:
 
 - `App::CB_BOOTED`
-- `App::CB_BEFORE_DEFINTITIONS`
+- `App::CB_BEFORE_DEFINITIONS`
 - `App::CB_AFTER_DEFINITIONS`
 - `App::CB_BEFORE_REQUEST`
 - `App::CB_AFTER_REQUEST`

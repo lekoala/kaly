@@ -26,10 +26,10 @@ Three distinct notions:
 
 - `RouteDefinition` — a declaration (path, handler, methods, name,
   requirements, defaults, middlewares, priority).
-- `Route` — the resolved result for one request. A `Route` matched from the
-  explicit table keeps a reference to its definition (`$route->definition`),
-  so a routed middleware can read declaration metadata without `Route`
-  duplicating every declaration field. Conventional matches leave it `null`.
+- `Route` — the resolved result for one request, with its effective
+  middlewares (`$route->middlewares`). A `Route` matched from the explicit
+  table keeps a reference to its definition (`$route->definition`);
+  conventional matches leave it `null`.
 - `ClassRouter` — the purely conventional fallback, with no knowledge of
   declarations or attributes.
 
@@ -136,13 +136,47 @@ for inspection and debugging.
 
 ## Route middlewares and access
 
-A definition may carry middlewares, enforced by a middleware in the routed
-band reading `$ctx->route()->definition`:
+A route, a group or a controller may carry middlewares. The framework runs
+them right before the controller, at the end of the routed band:
+
+```text
+incoming -> routing -> routed -> [route middlewares] -> dispatcher
+```
 
 ```php
 $routes->post('/patients/{id}/edit', [PatientController::class, 'edit'])
     ->middleware(Authenticated::class);
 ```
+
+`#[Middleware]` declares them on the controller itself. It applies however
+the action is reached (convention, `routes.php` or `#[RouteAttribute]`), and a
+class attribute covers every subclass, so a base controller can protect a
+whole area:
+
+```php
+use Kaly\Router\Middleware;
+
+#[Middleware(StaffOnly::class)]
+abstract class AdminController extends AbstractController {}
+
+final class PatientController extends AdminController
+{
+    #[Middleware(AuditTrail::class)]
+    public function delete(int $id): ResponseInterface
+}
+```
+
+Rules:
+
+- **Order is outermost first**: `routes.php` groups and route, then parent
+  classes, the class, then the method. A middleware declared at several
+  levels runs once, at its outermost place.
+- **A declared middleware always runs, or fails loudly.** An unknown class,
+  or a class that is not a PSR-15 / generator middleware, throws at boot for
+  explicit routes (at first match for convention routes). An ignored auth
+  middleware would be an open door.
+- The effective list is `$ctx->route()->middlewares`, and each one that
+  entered is traced on the context like any other middleware.
 
 Kaly core stays generic here (route middlewares yes, permission system no):
 a future auth adapter gives semantics to names like `Requires`. Keep the

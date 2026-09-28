@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
+use InvalidArgumentException;
+
 /**
  * The application-scoped baseline every cookie (application cookies and the
  * session cookie) is built from.
@@ -27,6 +29,11 @@ namespace Kaly\Http;
  */
 final class CookiePolicy
 {
+    public const SAMESITE_MODES = ['None', 'Lax', 'Strict'];
+
+    /**
+     * @param 'None'|'Lax'|'Strict'|'none'|'lax'|'strict'|null $sameSite
+     */
     public function __construct(
         public readonly ?int $lifetime = null,
         public readonly ?string $path = null,
@@ -35,7 +42,11 @@ final class CookiePolicy
         public readonly ?bool $httpOnly = null,
         public readonly ?string $sameSite = null,
         public readonly ?bool $partitioned = null,
-    ) {}
+    ) {
+        if ($sameSite !== null && !in_array(ucfirst(strtolower($sameSite)), self::SAMESITE_MODES, true)) {
+            throw new InvalidArgumentException("Invalid SameSite mode '{$sameSite}', expected None, Lax or Strict");
+        }
+    }
 
     private static ?self $default = null;
 
@@ -60,6 +71,8 @@ final class CookiePolicy
     /**
      * Derive a policy. Null means "keep the current value": to clear an
      * override back to php.ini inheritance, set a fresh default instead.
+     *
+     * @param 'None'|'Lax'|'Strict'|'none'|'lax'|'strict'|null $sameSite
      */
     public function with(
         ?int $lifetime = null,

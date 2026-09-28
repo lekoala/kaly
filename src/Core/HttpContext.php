@@ -242,6 +242,27 @@ final class HttpContext
     }
 
     /**
+     * @internal Called once by the kernel as soon as the request pipeline
+     * produced a response, error responses included (a login that sets the
+     * session then redirects must keep its session).
+     *
+     * Writes what the cycle changed: the session is saved and its cookie
+     * emitted if needed, cookie changes become Set-Cookie headers. A session
+     * or cookie jar never touched costs nothing.
+     */
+    public function commit(ResponseInterface $response): ResponseInterface
+    {
+        if ($this->session !== null) {
+            $response = $this->session->addToResponse($response, $this->request);
+        }
+        if ($this->cookies !== null) {
+            $response = $this->cookies->addToResponse($response);
+        }
+
+        return $response;
+    }
+
+    /**
      * The client ip as reported by the server, without any proxy resolution.
      * A trusted proxy middleware can overwrite REMOTE_ADDR on the request.
      */

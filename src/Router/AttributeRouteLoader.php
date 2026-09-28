@@ -15,8 +15,7 @@ use ReflectionMethod;
  * Kaly already knows that `modules/Foo/src/Controller/PatientController.php`
  * under module namespace `Foo` is `Foo\Controller\PatientController` (the
  * same convention Module autoloading relies on), so no PHP parsing or
- * Composer plugin is needed. Reflection runs once at boot, never per
- * request; production caches the compiled RouteCollection.
+ * Composer plugin is needed. Reflection runs at boot, never per request.
  *
  * The attribute is an explicit alias to an already admissible action:
  * admissibility is enforced here through Routes::normalizeHandler(), so a

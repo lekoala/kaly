@@ -20,22 +20,21 @@ trait HasCache
      * @param null|int|\DateInterval $ttl In seconds. 60 * 60 * 24 = 1 day
      * @return mixed
      */
-    public function cachedData(string $key, $fn = null, $ttl = null)
+    public function cachedData(string $key, ?callable $fn = null, int|\DateInterval|null $ttl = null): mixed
     {
         $cache = $this->cache;
 
         // If we don't have a cache, simply execute function
         if (!$cache) {
-            if ($fn === null) {
-                return $fn;
-            }
-            return $fn();
+            return $fn === null ? null : $fn();
         }
 
-        // Get result from cache or compute it
-        $result = $cache->get($key);
+        // A falsy value (0, [], false...) is a legit cached value: only a
+        // real miss triggers the computation
+        $miss = new \stdClass();
+        $result = $cache->get($key, $miss);
 
-        if (!$result) {
+        if ($result === $miss) {
             if ($fn === null) {
                 return null;
             }

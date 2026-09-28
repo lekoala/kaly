@@ -53,6 +53,14 @@ final class Kernel implements RequestHandlerInterface
             $response = $this->handleException($ex, $ctx);
         }
 
+        // The state owned by the context is written back whatever the origin
+        // of the response: session and cookie changes are never lost
+        try {
+            $response = $ctx->commit($response);
+        } catch (Throwable $ex) {
+            $response = $this->handleException($ex, $ctx);
+        }
+
         // Second boundary: the outgoing phase sees the response whatever its
         // origin. It is attempted once for every response: if an outgoing
         // middleware throws, the phase stops and the exception is converted to
