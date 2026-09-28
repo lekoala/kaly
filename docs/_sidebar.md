@@ -5,6 +5,7 @@
 * [Http context](http-context.md)
 * [Runtime](runtime.md)
 * [ClassRouter](class-router.md)
+* [Explicit routes](explicit-routes.md)
 * [Request input](input.md)
 * [Views](views.md)
 * [i18n](i18n.md)

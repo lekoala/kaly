@@ -19,9 +19,13 @@ use Kaly\Middleware\MiddlewareBand;
 use Kaly\Middleware\MiddlewareRegistry;
 use Kaly\Middleware\MiddlewareRunner;
 use Kaly\Middleware\OutgoingRunner;
-use Kaly\Router\ClassRouter;
+use Kaly\Router\AttributeRouteLoader;
+use Kaly\Router\CompositeRouter;
 use Kaly\Router\RequestDispatcher;
+use Kaly\Router\RouteCollection;
+use Kaly\Router\RouteDefinition;
 use Kaly\Router\RouterInterface;
+use Kaly\Router\Routes;
 use Kaly\Router\RoutingHandler;
 use Kaly\Text\LocaleResolver;
 use Kaly\Text\Translator;
@@ -85,7 +89,7 @@ class Application
         // PSR-3
         LoggerInterface::class => NullLogger::class,
         // Our interfaces
-        RouterInterface::class => ClassRouter::class,
+        RouterInterface::class => CompositeRouter::class,
         ExceptionHandlerInterface::class => ExceptionHandler::class,
         TranslatorInterface::class => Translator::class,
         InputMapperInterface::class => InputMapper::class,
@@ -226,7 +230,42 @@ class Application
 
         $this->modules = $modules;
 
+        // Explicit routes are composition data: every module contributes its
+        // routes.php first, then its #[Route] attributes as local sugar for
+        // the same RouteDefinition model. The compiled collection is bound
+        // once, before the container is built.
+        $definitions->set(RouteCollection::class, new RouteCollection($this->loadModuleRoutes($modules, $priorities)));
+
         return $this->updateDefinitions($definitions);
+    }
+
+    /**
+     * Collects explicit route declarations from every module.
+     *
+     * routes.php runs before attribute loading so composition wins ties at
+     * equal priority (RouteCollection sorting is stable).
+     *
+     * @param Module[] $modules
+     * @param array<string,int> $priorities Module name => priority, ascending.
+     * @return list<RouteDefinition>
+     */
+    protected function loadModuleRoutes(array $modules, array $priorities): array
+    {
+        $byName = [];
+        foreach ($modules as $module) {
+            $byName[$module->getName()] = $module;
+        }
+        $routes = new Routes();
+        foreach ($priorities as $name => $priority) {
+            $byName[$name]->loadRouteDefinitions($routes);
+        }
+        $loader = new AttributeRouteLoader();
+        foreach ($priorities as $name => $priority) {
+            foreach ($loader->load($byName[$name]) as $definition) {
+                $routes->addDefinition($definition);
+            }
+        }
+        return $routes->definitions();
     }
 
     /**

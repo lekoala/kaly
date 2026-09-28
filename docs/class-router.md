@@ -2,6 +2,9 @@
 
 > Automatically maps requests to controllers
 
+The convention is the zero-config default; declared exceptions live in
+[Explicit routes](explicit-routes.md) and win over the convention.
+
 ## Usage
 
 The router tries to find a matching controller based on the request.

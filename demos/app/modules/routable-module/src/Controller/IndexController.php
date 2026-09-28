@@ -3,6 +3,7 @@
 namespace RoutableModule\Controller;
 
 use Kaly\Core\AbstractController;
+use Kaly\Router\RouteAttribute;
 
 class IndexController extends AbstractController
 {
@@ -14,5 +15,11 @@ class IndexController extends AbstractController
     public function demo()
     {
         return 'hello demo';
+    }
+
+    #[RouteAttribute('/hello-explicit', methods: ['GET'], name: 'demo.hello-explicit')]
+    public function explicit(): string
+    {
+        return 'hello explicit';
     }
 }

@@ -7,6 +7,7 @@ namespace Kaly\Core;
 use Closure;
 use InvalidArgumentException;
 use Kaly\Di\Definitions;
+use Kaly\Router\Routes;
 use Kaly\Util\Fs;
 use Kaly\Util\Str;
 use Kaly\View\RendererInterface;
@@ -166,6 +167,42 @@ class Module
 
         // After including the definitions, it should be locked
         assert($this->definitions->isLocked());
+    }
+
+    public function getRoutesPath(): string
+    {
+        return $this->dir . '/routes.php';
+    }
+
+    public function hasRoutes(): bool
+    {
+        return is_file($this->getRoutesPath());
+    }
+
+    /**
+     * Runs the module routes.php against the shared Routes builder.
+     *
+     * The file must return a `static function (Routes $routes): void` closure
+     * (or nothing for an intentionally empty surface). Opening routes.php
+     * shows the whole public HTTP surface of the module.
+     */
+    public function loadRouteDefinitions(Routes $routes): void
+    {
+        if (!$this->hasRoutes()) {
+            return;
+        }
+        // Avoid leaking local variables from route files
+        $includer = function (string $file): mixed {
+            return require $file;
+        };
+        $callback = $includer($this->getRoutesPath());
+        if ($callback === null || $callback === 1) {
+            return;
+        }
+        if (!$callback instanceof Closure) {
+            throw new Ex("Module '{$this->getName()}' routes.php must return a function (Routes \$routes): void");
+        }
+        $callback($routes);
     }
 
     /**

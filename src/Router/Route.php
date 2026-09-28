@@ -28,6 +28,14 @@ class Route
      * @var class-string<\Kaly\Http\RequestInput>|null
      */
     public ?string $inputClass = null;
+    /**
+     * The explicit definition this match came from, if any.
+     *
+     * Null for conventional ClassRouter matches. A routed middleware reads
+     * declaration metadata (eg: middlewares) from here instead of Route
+     * carrying a copy of every declaration field.
+     */
+    public ?RouteDefinition $definition = null;
 
     /**
      * @return array<string,mixed>
@@ -43,6 +51,7 @@ class Route
             'action' => $this->action,
             'params' => $this->params,
             'inputClass' => $this->inputClass,
+            'definition' => $this->definition?->name,
         ];
     }
 }
