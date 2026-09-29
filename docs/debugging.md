@@ -21,6 +21,9 @@ MAILER_DSN=smtp://buggregator:1025
 # Outgoing HTTP (proxy, works with any client honoring it)
 HTTP_PROXY=http://buggregator:8080
 HTTPS_PROXY=http://buggregator:8080
+
+# Profiler (XHProf data, see below)
+PROFILER_ENDPOINT=http://profiler@buggregator:8000
 ```
 
 ## Dumps
@@ -48,6 +51,59 @@ DUMP_IDE_PLACEHOLDER=vscode://file/{file}:{line}:0
 xdebug.file_link_format="vscode://file/%f:%l"
 ; PhpStorm: phpstorm://open?file=%f&line=%l
 ```
+
+## Profiling
+
+Buggregator renders XHProf data as flame graphs and call graphs. Kaly provides no profiler abstraction: wrap a cycle with `start()` / `end()` from any XHProf-based package in a plain PSR-15 middleware. Example with `spiral-packages/profiler` (requires the XHProf extension):
+
+```bash
+composer require --dev spiral-packages/profiler
+```
+
+```php
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+use SpiralPackages\Profiler\Profiler;
+use SpiralPackages\Profiler\DriverFactory;
+use SpiralPackages\Profiler\Storage\WebStorage;
+use Symfony\Component\HttpClient\NativeHttpClient;
+
+final class ProfilerMiddleware implements MiddlewareInterface
+{
+    public function __construct(
+        private readonly Profiler $profiler,
+    ) {}
+
+    public function process(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler,
+    ): ResponseInterface {
+        $this->profiler->start();
+        try {
+            return $handler->handle($request);
+        } finally {
+            $this->profiler->end();
+        }
+    }
+}
+
+$storage = new WebStorage(new NativeHttpClient(), $_ENV['PROFILER_ENDPOINT'] . '/api/profiler/store');
+
+$definitions->set(
+    Profiler::class,
+    new Profiler($storage, DriverFactory::detect(), 'My app'),
+);
+
+$app->middleware()->incoming(ProfilerMiddleware::class);
+```
+
+Profiled requests should not run concurrently on the shared instance (see [Runtime](runtime.md)): sample with a `when:` condition or enable the middleware per environment, not on every production request.
+
+## Boot failures
+
+An exception thrown while booting (a failing `config.php`, an invalid route table) happens before any request cycle exists: there is no `HttpContext`, so `onError()` hooks never run and nothing is reported to Sentry. `App::run()` still turns it into a `500` through the debug page in debug mode, `Server error` otherwise — but nothing is logged either. This is a deliberate boundary, not a gap to fill with framework code: if boot failures need alerting, watch the SAPI / supervisor logs and keep `boot()` trivial.
 
 ## Tests
 
