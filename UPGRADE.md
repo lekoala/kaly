@@ -176,3 +176,20 @@ and `ResolverInterface` for custom resolvers (`$module->resolver(...)`).
 - `Route::$module` is the module namespace (`TestVendor\MappedModule`).
 - `Route::$name` holds the qualified name (`shop:show`), `Route::$bindings` the objects
   a resolver hands to the controller constructor.
+
+## Error responses
+
+- `ExceptionHandlerInterface::toResponse(Throwable $exception, ?ServerRequestInterface $request = null)`
+  receives the request: update custom handlers.
+- `RouteNotFoundException` is now a `NotFoundException` (an HTTP exception): a 404 is
+  no longer logged nor reported to `onError()`, and its body is `Not Found` instead of
+  `Server error`.
+- A resolver may throw `RouteNotFoundException` to say why it does not know an url;
+  `ConventionResolver::resolve()` does so and never returns `null`.
+- JSON clients get `application/problem+json` error responses. Plain responses now
+  carry a `Content-Type` (`text/plain; charset=utf-8`, or HTML for the debug page).
+- `ExceptionHandler` takes a `debug` flag, set from the app debug mode. It no longer
+  uses `ErrorHandler::generateError()`, which only renders errors outside of a request
+  cycle (a failing boot).
+- Failing `config.php` files and invalid route tables are wrapped in an `Ex` naming the
+  module, with the original exception as previous.

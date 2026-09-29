@@ -454,6 +454,11 @@ final class App implements RequestHandlerInterface
             }
         }
 
+        // The default exception handler explains failures in debug mode only
+        if (!array_key_exists('debug', $definitions->parametersFor(ExceptionHandler::class))) {
+            $definitions->parameter(ExceptionHandler::class, 'debug', $this->debug);
+        }
+
         // The public directory is a scalar, so FileServer::class resolves out
         // of the box while the PSR factories it needs stay autowired.
         if (!array_key_exists('publicDir', $definitions->parametersFor(FileServer::class))) {

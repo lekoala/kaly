@@ -18,10 +18,46 @@ Kaly provide a simple file based logger for basic needs. Please use a more suita
 
 If you have a logger implementation, it will log by default application errors.
 
-In production, `ErrorHandler` always collects every error but never displays it
-publicly: `display_errors` is disabled and each non-HTTP error is logged and
-converted to a `500` response. Only when `APP_DEBUG` is enabled does the error
-response include the message and trace (properly escaped).
+Two kinds of exceptions reach the kernel:
+
+- an **HTTP exception** (`HttpExceptionInterface`: not found, redirect, validation,
+  method not allowed...) is an expected outcome. It is never logged nor reported to
+  `onError()`: a 404 must not wake up an error tracker;
+- any **other exception** is an error: it is logged, reported to `onError()`, and
+  becomes a `500` (or its own 4xx/5xx code).
+
+The `ExceptionHandler` then builds the response in the format the client accepts:
+
+| | HTML / text client | JSON client (`Accept: application/json`) |
+| --- | --- | --- |
+| production | the public body of the exception, or the status text (`Not Found`, `Server error`) | `application/problem+json` (RFC 9457): `type`, `title`, `status`, and `detail` when the exception has a public body |
+| debug | the debug page | the same, plus the `detail` and an `exception` member with the chain and traces |
+
+Nothing internal leaks in production: the message of a generic exception, or the
+reason of a 404 (which names classes), is only shown in debug mode.
+
+The **debug page** shows the exception chain, the code around each location with an
+IDE link (`DUMP_IDE_PLACEHOLDER`, `vscode://file/{file}:{line}:0` by default), the
+trace, and what the cycle had established: the route, the module, the locale, the
+middlewares that ran. For a 404 it says why nothing matched, eg:
+
+```text
+Route '/shop/cart/add/' not found in module 'shop':
+Kaly\Router\ConventionResolver: Param 'id' is required for action 'add' on 'Shop\Controller\CartController'
+```
+
+A custom resolver can give its own reason the same way, by throwing a
+`RouteNotFoundException` instead of returning `null`.
+
+Errors raised while configuring a module name it: a failing `config.php`
+(`Module 'Shop' config.php failed: ...`) or an invalid route table
+(`Invalid route table of module 'shop' (config.php): ...`), with the original
+exception as previous.
+
+`ErrorHandler` configures PHP itself: it always collects every error, converts them to
+exceptions and never displays them publicly (`display_errors` is disabled outside of
+debug mode). It also renders the errors that happen before a request cycle exists,
+like a failing boot in `App::run()`.
 
 Hooks are isolated by the kernel: a failing `onTerminate()` hook is reported as an
 error and never masks a successful response, and a failing `onError()` hook never

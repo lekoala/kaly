@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Router;
 
 use Closure;
+use Kaly\Core\Ex;
 use Kaly\Http\MethodNotAllowedException;
 use ReflectionNamedType;
 use RuntimeException;
@@ -25,17 +26,23 @@ final class TableResolver implements ResolverInterface
 
     /**
      * @param Closure(Routes): void $declare
+     * @param string $label Where the table is declared, for error messages
      */
     public function __construct(
         private Closure $declare,
+        private string $label = 'route table',
     ) {}
 
     public function collection(): RouteCollection
     {
         if ($this->collection === null) {
-            $routes = new Routes();
-            ($this->declare)($routes);
-            $this->collection = new RouteCollection($routes->definitions());
+            try {
+                $routes = new Routes();
+                ($this->declare)($routes);
+                $this->collection = new RouteCollection($routes->definitions());
+            } catch (Ex $e) {
+                throw new Ex("Invalid {$this->label}: {$e->getMessage()}", 0, $e);
+            }
         }
         return $this->collection;
     }

@@ -14,6 +14,7 @@ use Kaly\Util\Fs;
 use Kaly\Util\Str;
 use Kaly\View\RendererInterface;
 use Kaly\View\TemplatePathRegistryInterface;
+use Throwable;
 
 /**
  * A folder of the modules directory:
@@ -363,7 +364,11 @@ final class Module
 
         $config = $this->includeFile($this->getConfigPath());
         if ($config instanceof Closure) {
-            $config($this, $this->definitions);
+            try {
+                $config($this, $this->definitions);
+            } catch (Throwable $e) {
+                throw new Ex("Module '{$this->name}' config.php failed: {$e->getMessage()}", 0, $e);
+            }
         } elseif ($config !== null) {
             throw new Ex("Module '{$this->name}' config.php must return a function (Module \$module, Definitions \$di): void");
         }

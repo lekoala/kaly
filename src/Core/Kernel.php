@@ -84,6 +84,6 @@ final class Kernel implements RequestHandlerInterface
     {
         $this->hooks->error($ex, $ctx);
 
-        return $this->exceptionHandler->toResponse($ex);
+        return $this->exceptionHandler->toResponse($ex, $ctx->request());
     }
 }

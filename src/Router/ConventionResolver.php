@@ -57,18 +57,19 @@ final class ConventionResolver implements ResolverInterface
         private bool $forceTrailingSlash = true,
     ) {}
 
-    public function resolve(RouteRequest $request): ?Route
+    /**
+     * @throws RouteNotFoundException When the url does not map to an action, with the reason
+     */
+    public function resolve(RouteRequest $request): Route
     {
+        // A miss throws RouteNotFoundException: the router treats it as "not
+        // mine" and keeps the reason for the 404 debug page
         $m = new ConventionMatch($request->request, $request->segments);
-        try {
-            $controller = $this->findController($m, $request->module);
-            $reflection = $this->reflect($controller);
-            assert($reflection instanceof ReflectionClass);
-            $action = $this->findAction($m, $reflection);
-            $params = $this->collectParameters($m, $reflection, $action);
-        } catch (RouteNotFoundException) {
-            return null;
-        }
+        $controller = $this->findController($m, $request->module);
+        $reflection = $this->reflect($controller);
+        assert($reflection instanceof ReflectionClass);
+        $action = $this->findAction($m, $reflection);
+        $params = $this->collectParameters($m, $reflection, $action);
 
         $route = Route::to($controller, $action, $params);
         $route->inputClass = $m->inputClass;

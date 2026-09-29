@@ -4,19 +4,17 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
-use Kaly\Core\Ex;
-use Throwable;
+use Kaly\Http\NotFoundException;
 
 /**
- * Typically this is for pages not found
+ * No module resolver knows the url: an expected outcome (404), never a
+ * reported error.
+ *
+ * The message explains why, for the debug page only: it names classes and
+ * resolvers, so it is never part of the public response body.
+ *
+ * A resolver may throw it instead of returning null to say "not mine, and
+ * here is why": the router moves on to the next resolver and keeps the
+ * reason for the final 404.
  */
-class RouteNotFoundException extends Ex
-{
-    public function __construct(string $message = '', int $code = 404, ?Throwable $previous = null)
-    {
-        if (!$message) {
-            $message = 'Not Found';
-        }
-        parent::__construct($message, $code, $previous);
-    }
-}
+class RouteNotFoundException extends NotFoundException {}

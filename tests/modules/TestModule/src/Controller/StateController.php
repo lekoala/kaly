@@ -28,6 +28,14 @@ class StateController extends AbstractController
     }
 
     /**
+     * A generic error whose message must be escaped on the debug page
+     */
+    public function crash(): never
+    {
+        throw new \RuntimeException('<b>boom</b>');
+    }
+
+    /**
      * What this request carries, to prove nothing leaks between worker cycles
      */
     public function echo(): string

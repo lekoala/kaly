@@ -99,25 +99,56 @@ final class Router implements RouterInterface
 
         $path = $request->getUri()->getPath();
         $all = array_values(array_filter(explode('/', trim($path, '/')), static fn(string $p): bool => $p !== ''));
-        $segments = $all;
 
-        // Maybe a locale as a prefix
-        $locale = null;
-        if ($this->locales !== [] && isset($segments[0]) && in_array(strtolower($segments[0]), $this->locales, true)) {
-            $given = (string) array_shift($segments);
-            $locale = strtolower($given);
-            // The default locale alone is the home page
-            if ($segments === [] && $locale === $this->locales[0]) {
-                throw $this->redirect($request, $given, '');
-            }
-        }
+        [$locale, $segments] = $this->stripLocale($request, $all);
         $effective = $locale ?? $this->locales[0] ?? null;
 
         [$id, $entry, $remaining, $table] = $this->entry($request, $segments, $effective);
         $module = $this->modules[$id];
+        $this->enforceLocale($request, $module, $locale, $all);
 
-        // One canonical url: the locale prefix is there if and only if the
-        // module is localized
+        $prefix = ($locale !== null ? '/' . $locale : '') . $entry;
+        $routeRequest = new RouteRequest($request, $remaining, $prefix, $module->getNamespace(), $effective);
+
+        $route = $this->resolveIn($id, $table !== null ? [$table] : $this->resolvers[$id], $routeRequest);
+        $route->locale = $effective;
+        $route->segments = $all;
+        $route->module = $module->getNamespace();
+        $route->namespace = $module->getNamespace();
+        if ($route->name === null && $route->definition?->name !== null) {
+            $route->name = $id . ':' . $route->definition->name;
+        }
+        return $route;
+    }
+
+    /**
+     * Consume a leading locale segment, if any
+     *
+     * @param list<string> $segments
+     * @return array{0:?string,1:list<string>}
+     */
+    private function stripLocale(ServerRequestInterface $request, array $segments): array
+    {
+        if ($this->locales === [] || !isset($segments[0]) || !in_array(strtolower($segments[0]), $this->locales, true)) {
+            return [null, $segments];
+        }
+        $given = (string) array_shift($segments);
+        $locale = strtolower($given);
+        // The default locale alone is the home page
+        if ($segments === [] && $locale === $this->locales[0]) {
+            throw $this->redirect($request, $given, '');
+        }
+        return [$locale, $segments];
+    }
+
+    /**
+     * One canonical url: the locale prefix is there if and only if the module
+     * is localized
+     *
+     * @param list<string> $all Every segment of the path
+     */
+    private function enforceLocale(ServerRequestInterface $request, Module $module, ?string $locale, array $all): void
+    {
         $localized = $module->isLocalized() && $this->locales !== [];
         if ($locale !== null && !$localized) {
             throw $this->redirect($request, $all[0], '');
@@ -126,29 +157,34 @@ final class Router implements RouterInterface
             $uri = $request->getUri();
             throw new RedirectException($uri->withPath('/' . $this->locales[0] . '/' . ltrim($uri->getPath(), '/')));
         }
+    }
 
-        $prefix = ($locale !== null ? '/' . $locale : '') . $entry;
-        $routeRequest = new RouteRequest($request, $remaining, $prefix, $module->getNamespace(), $effective);
-
-        foreach ($table !== null ? [$table] : $this->resolvers[$id] as $resolver) {
+    /**
+     * Run the resolvers of one module in order: the first route wins
+     *
+     * @param list<ResolverInterface|class-string<ResolverInterface>> $resolvers
+     */
+    private function resolveIn(string $id, array $resolvers, RouteRequest $request): Route
+    {
+        $reasons = [];
+        foreach ($resolvers as $resolver) {
             if (is_string($resolver)) {
                 $resolver = $this->resolveService($resolver);
             }
-            $route = $resolver->resolve($routeRequest);
-            if ($route === null) {
+            try {
+                $route = $resolver->resolve($request);
+            } catch (RouteNotFoundException $miss) {
+                // "Not mine, and here is why": the next resolver gets its chance
+                $reasons[] = $resolver::class . ': ' . $miss->getMessage();
                 continue;
             }
-            $route->locale = $effective;
-            $route->segments = $all;
-            $route->module = $module->getNamespace();
-            $route->namespace = $module->getNamespace();
-            if ($route->name === null && $route->definition?->name !== null) {
-                $route->name = $id . ':' . $route->definition->name;
+            if ($route !== null) {
+                return $route;
             }
-            return $route;
         }
 
-        throw new RouteNotFoundException("Route '{$path}' not found in module '{$id}'");
+        $why = $reasons === [] ? 'no resolver knows it' : implode('; ', $reasons);
+        throw new RouteNotFoundException("Route '{$request->request->getUri()->getPath()}' not found in module '{$id}': {$why}");
     }
 
     /**
@@ -346,7 +382,7 @@ final class Router implements RouterInterface
         foreach ($module->getResolvers() as $declared) {
             $resolver = $declared['resolver'];
             if ($resolver instanceof Closure) {
-                $resolver = new TableResolver($resolver);
+                $resolver = new TableResolver($resolver, "route table of module '{$id}' (config.php)");
                 $this->tables[$id][] = $resolver;
             }
             $entries[] = [$declared['priority'], $sequence++, $resolver];
@@ -389,7 +425,10 @@ final class Router implements RouterInterface
     {
         $id = $module->getId();
         foreach ($module->getClaims() as $claim) {
-            $table = new TableResolver($claim['routes']);
+            $table = new TableResolver(
+                $claim['routes'],
+                "claim '" . implode("', '", $claim['prefix']) . "' of module '{$id}' (config.php)",
+            );
             foreach ($claim['prefix'] as $locale => $prefix) {
                 $segments = array_values(array_filter(explode('/', trim($prefix, '/')), static fn(string $p): bool => $p !== ''));
                 if ($segments === []) {

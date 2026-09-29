@@ -36,6 +36,11 @@ use Kaly\Http\RedirectException;
 interface ResolverInterface
 {
     /**
+     * Return null for an url the resolver does not know, or throw a
+     * RouteNotFoundException to also say why (shown on the 404 debug page).
+     * Either way, the next resolver of the module gets its chance.
+     *
+     * @throws RouteNotFoundException Not mine, with a reason
      * @throws MethodNotAllowedException When the path is known for other methods only (authoritative)
      * @throws RedirectException To enforce a canonical url
      */

@@ -6,7 +6,6 @@ namespace Kaly\Core;
 
 use Closure;
 use ErrorException;
-use Kaly\Util\Env;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -93,56 +92,23 @@ class ErrorHandler
     }
 
     /**
-     * Generate actual error
-     * Called statically either from self::handle or from App::handle
+     * The body of an error that happens outside of a request cycle (eg: a
+     * failing boot, see App::run() and self::handle()). Inside a cycle the
+     * ExceptionHandler builds the response.
      *
-     * @param Throwable $ex
-     * @param LoggerInterface|null $logger
-     * @return string
+     * Details are only shown in debug mode: HTML for a browser, text in a
+     * terminal.
      */
     public static function generateError(Throwable $ex, ?LoggerInterface $logger = null): string
     {
-        $type = $ex::class;
-        $message = $ex->getMessage();
-        $file = $ex->getFile();
-        $line = $ex->getLine();
+        $logger?->error($ex->getMessage(), ['exception' => $ex]);
 
-        $prev = $ex->getPrevious();
-
-        if ($logger) {
-            $logger->error("[{$type}] {$message} ({$file}:{$line})");
+        if (!self::isDebug()) {
+            return 'Server error';
         }
 
-        $body = 'Server error';
-
-        // If we want error reporting, make it nice for DX
-        if (self::isDebug()) {
-            $body = '';
-            if (self::isCli()) {
-                $body .= "[{$type}] {$message} ({$file}:{$line})";
-                if ($prev) {
-                    $body .= "\n" . $prev->getMessage();
-                }
-            } else {
-                // Escape everything that comes from the exception before it is
-                // rendered as HTML.
-                $escape = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-                $pre = "<pre style='white-space: normal;max-width:120ch'>";
-                $idePlaceholder = Env::getString(App::ENV_IDE_PLACEHOLDER, 'vscode://file/{file}:{line}:0');
-                $ideLink = str_replace(['{file}', '{line}'], [$file, (string) $line], $idePlaceholder);
-                $body .= $pre . '<code>' . $escape($type) . '</code> | <a href="' . $escape($ideLink) . '">';
-                $body .= $escape($file) . ':' . $escape((string) $line) . '</a> ';
-                $body .= '<h1>' . $escape($message) . '</h1>';
-                if ($prev) {
-                    $body .= '<br>Previous: ' . $escape($prev->getMessage());
-                }
-                $body .= '<br/>Trace:<br/></pre><pre>';
-                $body .= $escape($ex->getTraceAsString());
-                $body .= '</pre>';
-            }
-        }
-
-        return $body;
+        $page = new DebugPage();
+        return self::isCli() ? $page->text($ex) : $page->html($ex);
     }
 
     /**
