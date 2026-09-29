@@ -309,6 +309,14 @@ final class Module
         return is_dir($this->getTemplatesDir());
     }
 
+    /**
+     * Browser-ready static files of the module (`modules/Foo/assets/`).
+     *
+     * Kaly preserves their relative paths and contents: it serves them in
+     * development and publishes them in production, but never parses,
+     * compiles, bundles, minifies, rewrites, or resolves frontend
+     * dependencies.
+     */
     public function getAssetsDir(): string
     {
         return $this->dir . '/assets';

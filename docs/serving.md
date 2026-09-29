@@ -38,3 +38,18 @@ When PHP's built-in server receives a PHP file, it uses it as the router:
 returning `false` serves a static file directly, anything else runs the
 application. Production works the same way with any server that forwards
 unknown paths to `index.php` (nginx `try_files`, Apache `FallbackResource`).
+
+## Assets in development
+
+Published assets live under `public/assets/` and are served as plain static
+files. Unpublished sources (`assets/`, `modules/*/assets/`) can be served
+directly in debug mode through `Kaly\Middleware\Builtin\AssetServer` on
+`/_assets/*`:
+
+```php
+if ($app->debug()) {
+    $app->middleware()->incoming(AssetServer::class);
+}
+```
+
+See [Assets](assets.md).

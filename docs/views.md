@@ -18,6 +18,10 @@ current request. It is reserved, so view data never overrides it. See [i18n](i18
 Every render also receives an `url` variable: `$url('shop:product', $params)`
 generates an url for the locale of the current request. It is reserved too.
 
+Every render also receives an `asset` variable: `$asset('app.css')` or
+`$asset('@admin/admin.js')` generates an asset url. It is reserved too.
+See [Assets](assets.md).
+
 ## Choosing a renderer
 
 | Engine   | When                             | Adapter                             |

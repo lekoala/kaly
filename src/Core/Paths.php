@@ -47,6 +47,11 @@ final readonly class Paths
         return Fs::toDir($this->base, self::RESOURCES);
     }
 
+    public function assets(): string
+    {
+        return Fs::toDir($this->base, 'assets');
+    }
+
     public function temp(): string
     {
         return Fs::toDir($this->base, self::TEMP);

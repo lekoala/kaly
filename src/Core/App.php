@@ -6,6 +6,10 @@ namespace Kaly\Core;
 
 use Closure;
 use InvalidArgumentException;
+use Kaly\Asset\AssetPublisher;
+use Kaly\Asset\Assets;
+use Kaly\Asset\AssetsInterface;
+use Kaly\Asset\AssetSources;
 use Kaly\Clock\SystemClock;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
@@ -94,6 +98,7 @@ final class App implements RequestHandlerInterface
         SessionFactoryInterface::class => NativePhpSessionFactory::class,
         TranslatorInterface::class => Translator::class,
         InputMapperInterface::class => InputMapper::class,
+        AssetsInterface::class => Assets::class,
     ];
 
     private Paths $paths;
@@ -472,6 +477,33 @@ final class App implements RequestHandlerInterface
         // of the box while the PSR factories it needs stay autowired.
         if (!array_key_exists('publicDir', $definitions->parametersFor(FileServer::class))) {
             $definitions->parameter(FileServer::class, 'publicDir', $this->paths->publicDir());
+        }
+
+        // Asset sources: the application `assets/` dir under `app`, plus
+        // every module that has one. `app` always exists conceptually, even
+        // when the directory is missing (sources are only read by the
+        // publisher and the dev server, never by url()).
+        if (!$definitions->has(AssetSources::class)) {
+            $sources = ['app' => $this->paths->assets()];
+            foreach ($this->modules as $module) {
+                if ($module->hasAssets()) {
+                    $sources[$module->getId()] = $module->getAssetsDir();
+                }
+            }
+            $definitions->set(AssetSources::class, new AssetSources($sources));
+        }
+
+        // Assets resolves out of the box: dev mode follows debug (dev urls
+        // on /_assets), the production version falls back to
+        // APP_ASSETS_VERSION then public/assets/.version, lazily.
+        if (!array_key_exists('publicDir', $definitions->parametersFor(Assets::class))) {
+            $definitions->parameter(Assets::class, 'publicDir', $this->paths->publicDir());
+        }
+        if (!array_key_exists('dev', $definitions->parametersFor(Assets::class))) {
+            $definitions->parameter(Assets::class, 'dev', $this->debug);
+        }
+        if (!array_key_exists('publicDir', $definitions->parametersFor(AssetPublisher::class))) {
+            $definitions->parameter(AssetPublisher::class, 'publicDir', $this->paths->publicDir());
         }
 
         // A debug logger (null logger if debug is disabled) if none is provided.

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
+use Kaly\Asset\Assets;
+use Kaly\Asset\AssetsInterface;
+use Kaly\Asset\AssetSources;
 use Kaly\Core\Ex;
 use Kaly\Core\HttpContext;
 use Kaly\Di\Injector;
@@ -35,6 +38,8 @@ class RequestDispatcher implements RequestHandlerInterface
     public const VAR_I18N = 'i18n';
     // Reserved render variable generating urls for the request locale
     public const VAR_URL = 'url';
+    // Reserved render variable generating asset urls
+    public const VAR_ASSET = 'asset';
 
     public function __construct(
         protected Injector $injector,
@@ -43,7 +48,13 @@ class RequestDispatcher implements RequestHandlerInterface
         protected StreamFactoryInterface $streamFactory,
         protected ?RendererInterface $renderer = null,
         protected ?InputMapperInterface $inputMapper = null,
-    ) {}
+        protected ?AssetsInterface $assets = null,
+    ) {
+        // `asset` always exists, like `url` and `i18n`: without an explicit
+        // binding the fallback only fails when actually called in prod
+        // without a published version.
+        $this->assets ??= new Assets(new AssetSources([]), sys_get_temp_dir());
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
@@ -136,11 +147,15 @@ class RequestDispatcher implements RequestHandlerInterface
             }
             // Each render gets its own localized translator under a reserved
             // variable, so templates never depend on shared translator state,
-            // and a url generator bound to the request locale.
+            // and url + asset generators bound to the request locale.
+            // The constructor guarantees $this->assets is set.
+            $assets = $this->assets;
+            assert($assets !== null);
             $data = [
                 ...$result->data,
                 self::VAR_I18N => new LocalizedTranslator($this->translator, $ctx->locale()),
                 self::VAR_URL => $ctx->url(...),
+                self::VAR_ASSET => $assets->url(...),
             ];
             return $this->createResponse($this->renderer->render($result->template, $data), ContentType::HTML, $result->status);
         }

@@ -50,7 +50,7 @@ modules/
 | `config.php` | local composition root, required                              |
 | `src/`       | the classes, under the module namespace                        |
 | `templates/` | registered under the module name (see [Views](views.md))       |
-| `assets/`    | static files of the module                                     |
+| `assets/`    | browser-ready static files of the module (see [Assets](assets.md)) |
 
 The namespace defaults to the camelized folder name (`routable-module` →
 `RoutableModule`). Use `$module->namespace('Vendor\Thing')` to override it.

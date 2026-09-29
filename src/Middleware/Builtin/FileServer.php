@@ -33,7 +33,7 @@ class FileServer implements MiddlewareInterface
      * This policy belongs to the public directory only: a legitimate private
      * download may well be a `.zip`, an `archive.xml` or any other extension.
      */
-    protected const FORBIDDEN_EXTENSIONS = [
+    public const FORBIDDEN_EXTENSIONS = [
         'php',
         'phtml',
         'phar',

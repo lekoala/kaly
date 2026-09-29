@@ -15,6 +15,7 @@
 * [Architecture](architecture.md)
 * [Persistence](database.md)
 * [Serving](serving.md)
+* [Assets](assets.md)
 * [Logging](logging.md)
 * [Mailer](mailer.md)
 * [Debugging](debugging.md)
