@@ -7,6 +7,7 @@ namespace Kaly\Router;
 use Closure;
 use Kaly\Core\Ex;
 use Kaly\Core\Module;
+use Kaly\Http\MethodNotAllowedException;
 use Kaly\Http\RedirectException;
 use Kaly\Util\Str;
 use Psr\Container\ContainerInterface;
@@ -138,6 +139,10 @@ final class Router implements RouterInterface
         if ($segments === [] && $locale === $this->locales[0]) {
             throw $this->redirect($request, $given, '');
         }
+        // A single canonical spelling: the locale prefix is lowercase
+        if ($given !== $locale) {
+            throw $this->redirect($request, $given, $locale);
+        }
         return [$locale, $segments];
     }
 
@@ -153,20 +158,24 @@ final class Router implements RouterInterface
         if ($locale !== null && !$localized) {
             throw $this->redirect($request, $all[0], '');
         }
-        if ($locale === null && $localized && count($this->locales) > 1 && $all !== []) {
+        if ($locale === null && $localized && $all !== []) {
             $uri = $request->getUri();
             throw new RedirectException($uri->withPath('/' . $this->locales[0] . '/' . ltrim($uri->getPath(), '/')));
         }
     }
 
     /**
-     * Run the resolvers of one module in order: the first route wins
+     * Run the resolvers of one module in order: the first route wins. A 405
+     * from one resolver does not stop the others: the router aggregates the
+     * allowed methods and only answers 405 when no resolver matches.
      *
      * @param list<ResolverInterface|class-string<ResolverInterface>> $resolvers
      */
     private function resolveIn(string $id, array $resolvers, RouteRequest $request): Route
     {
         $reasons = [];
+        $allowed = [];
+        $deniedReasons = [];
         foreach ($resolvers as $resolver) {
             if (is_string($resolver)) {
                 $resolver = $this->resolveService($resolver);
@@ -177,12 +186,28 @@ final class Router implements RouterInterface
                 // "Not mine, and here is why": the next resolver gets its chance
                 $reasons[] = $resolver::class . ': ' . $miss->getMessage();
                 continue;
+            } catch (MethodNotAllowedException $denied) {
+                // "Mine, but not for this method": another resolver may still
+                // know the path for this method (eg: GET and POST declared in
+                // two tables of the same module).
+                foreach ($denied->getAllowedMethods() as $method) {
+                    $allowed[$method] = true;
+                }
+                $deniedReasons[] = $resolver::class . ': ' . $denied->getMessage();
+                continue;
             }
             if ($route !== null) {
                 return $route;
             }
         }
 
+        if ($allowed !== []) {
+            $why = implode('; ', $deniedReasons);
+            throw new MethodNotAllowedException(
+                array_keys($allowed),
+                "Method {$request->method()} is not allowed for '{$request->path()}' in module '{$id}': {$why}",
+            );
+        }
         $why = $reasons === [] ? 'no resolver knows it' : implode('; ', $reasons);
         throw new RouteNotFoundException("Route '{$request->request->getUri()->getPath()}' not found in module '{$id}': {$why}");
     }
@@ -234,11 +259,14 @@ final class Router implements RouterInterface
         [$id, $local] = $this->splitName($name);
         $locale = $this->localeFor($locale);
 
+        // A name identifies exactly one route of the module, across all its
+        // tables and claims: collecting every candidate keeps generation
+        // independent of table order while preserving lazy compilation.
+        $candidates = [];
         foreach ($this->tables[$id] ?? [] as $table) {
             $definition = $table->collection()->byName($local);
             if ($definition !== null) {
-                $path = $table->path($definition, $params, $locale);
-                return $this->build($id, $this->mountFor($id, $locale) . $path, $params, $locale);
+                $candidates[] = [$table, $definition, null];
             }
         }
         foreach ($this->claims as $claim) {
@@ -247,12 +275,28 @@ final class Router implements RouterInterface
             }
             $definition = $claim['table']->collection()->byName($local);
             if ($definition !== null) {
-                $path = $claim['table']->path($definition, $params, $locale);
-                return $this->build($id, '/' . implode('/', $claim['segments']) . $path, $params, $locale);
+                $candidates[] = [$claim['table'], $definition, $claim];
             }
         }
 
-        throw new RuntimeException("Unknown route '{$name}'");
+        if (count($candidates) > 1) {
+            $where = array_map(
+                static fn(array $candidate): string => $candidate[1]->controller . '::' . $candidate[1]->action,
+                $candidates,
+            );
+            throw new RuntimeException(
+                "Duplicate route name '{$name}' (" . implode(' and ', $where) . '): a name must identify exactly one route of the module',
+            );
+        }
+        if ($candidates === []) {
+            throw new RuntimeException("Unknown route '{$name}'");
+        }
+        [$table, $definition, $claim] = $candidates[0];
+        $path = $table->path($definition, $params, $locale);
+        if ($claim === null) {
+            return $this->build($id, $this->mountFor($id, $locale) . $path, $params, $locale);
+        }
+        return $this->build($id, '/' . implode('/', $claim['segments']) . $path, $params, $locale);
     }
 
     public function urlFor(string|array $handler, array $params = [], ?string $locale = null): string
@@ -307,6 +351,11 @@ final class Router implements RouterInterface
             return '';
         }
         $mount = $this->modules[$id]->getMount();
+        if ($locale !== null && !isset($mount[$locale]) && !isset($mount['*'])) {
+            throw new RuntimeException(
+                "Module '{$id}' has no mount for locale '{$locale}': generating it would produce an url no route matches",
+            );
+        }
         return '/' . ($mount[$locale ?? '*'] ?? $mount['*'] ?? (string) reset($mount));
     }
 

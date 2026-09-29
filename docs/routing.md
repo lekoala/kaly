@@ -84,14 +84,19 @@ Handlers are `[Controller::class, 'action']`, `Controller::class` (for `__invoke
 `'Controller::action'`. A declaration never makes a method executable: it must be an
 admissible action (public, non-static, non-magic except `__invoke`).
 
-Rules, checked when the table is compiled:
+Rules, checked when the table is compiled (on its first use, at match or
+generation time — only mount and claim conflicts fail at boot):
 
 - **Collisions fail.** Two routes with an equivalent path (placeholder names erased),
   overlapping methods and the same priority throw. Different priorities are an
   explicit choice.
-- **Names are unique** within the module.
-- **A 405 is authoritative.** A path the table knows for other methods only is a
-  `405`: the convention never gets a chance to reinterpret it.
+- **Names are unique** across all the tables and claims of the module: a
+  duplicate fails when the table is compiled (same table) or when the url is
+  generated (two tables or a table and a claim sharing a name).
+- **A 405 is aggregated.** A table reporting a path it knows for other methods
+  only does not stop the module: the router lets the remaining resolvers try
+  and answers `405` (with the union of the allowed methods) only when none of
+  them matches.
 - **Defaults are generate-only.** Every placeholder matches literally; a default only
   fills a missing parameter when generating an url.
 
@@ -175,9 +180,11 @@ $module->localized();   // its urls carry the locale: /fr/boutique/, /en/shop/
 ```
 
 - A localized module requires its locale: `/boutique/` redirects to `/fr/boutique/`
-  (the home page `/` is the exception).
+  (the home page `/` is the exception). This holds with a single application
+  locale too.
 - A module that is not localized refuses it: `/fr/api/` redirects to `/api/`.
 - `/fr/` alone, with `fr` the default locale, redirects to `/`.
+- The locale prefix is lowercase: `/FR/boutique/` redirects to `/fr/boutique/`.
 - The locale of the route wins over the one of a middleware and over the
   `Accept-Language` negotiation (see [i18n](i18n.md)).
 
@@ -194,7 +201,9 @@ $router->url('shop:product', ['slug' => 'velo', 'ref' => 'home']); // extra para
 $router->urlFor([CartController::class, 'add'], [42]);    // conventional url: /fr/boutique/cart/add/42/
 ```
 
-Without a locale, urls are generated for the default locale.
+Without a locale, urls are generated for the default locale. Generating an url
+for a locale the route (or the module mount) has no variant for fails instead
+of producing an url no route would match.
 
 ## Route middlewares
 
@@ -227,7 +236,8 @@ final class PatientController extends AdminController
   outermost place.
 - **A declared middleware always runs, or fails loudly.** An unknown class, or a
   class that is not a PSR-15 / generator middleware, throws when the table is
-  compiled (at first match for the convention). An ignored auth middleware would be
+  compiled (on its first use, at match or generation time; at first match for
+  the convention). An ignored auth middleware would be
   an open door.
 - The effective list is `$ctx->route()->middlewares`, and each one that entered is
   traced on the context like any other middleware.

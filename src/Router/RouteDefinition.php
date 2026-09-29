@@ -45,7 +45,9 @@ final readonly class RouteDefinition
     }
 
     /**
-     * The path for a locale, or the first one when the route has no variant for it
+     * The path for a locale, or the first one when the route has no variant for it.
+     * Introspection fallback only: url generation (TableResolver::path) refuses
+     * to guess and fails when the route has no variant for the locale.
      */
     public function pathFor(?string $locale): string
     {

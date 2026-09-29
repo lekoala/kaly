@@ -36,6 +36,10 @@ final class RedirectUris
 
     /**
      * Replace a path segment, reapplying the trailing slash policy.
+     *
+     * Only the first whole-segment occurrence is replaced: removing the
+     * leading locale of `/fr/shop/fr/` gives `/shop/fr/`, and canonicalizing
+     * `/Shop/product/Shop/` gives `/shop/product/Shop/`.
      */
     public static function replaceSegment(
         ServerRequestInterface $request,
@@ -45,10 +49,19 @@ final class RedirectUris
     ): UriInterface {
         $uri = $request->getUri();
         $path = $uri->getPath();
-        if ($replace) {
-            $replace = '/' . $replace;
+        $replacement = $replace !== '' ? '/' . $replace : '';
+        if ($remove !== '') {
+            $search = '/' . $remove;
+            $offset = 0;
+            while (($pos = strpos($path, $search, $offset)) !== false) {
+                $end = $pos + strlen($search);
+                if ($end === strlen($path) || $path[$end] === '/') {
+                    $path = substr($path, 0, $pos) . $replacement . substr($path, $end);
+                    break;
+                }
+                $offset = $pos + 1;
+            }
         }
-        $path = str_replace('/' . $remove, $replace, $path);
         $path = rtrim($path, '/');
         if ($forceTrailingSlash) {
             $path .= '/';

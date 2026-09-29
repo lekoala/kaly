@@ -141,7 +141,8 @@ final class Module
      * in a module mounted on 'shop', '/cart' answers on /shop/cart/.
      *
      * Route names are local to the module, and qualified from the outside:
-     * `shop:cart` (the default module may omit its prefix).
+     * `shop:cart` (the default module may omit its prefix). A name identifies
+     * exactly one route of the module, across all its route tables and claims.
      *
      * @param Closure(Routes): void $routes
      */

@@ -15,8 +15,9 @@ use RuntimeException;
  *
  * The table is declared in the module config.php and compiled on its first
  * use, then kept in memory: a request only pays for the module it reaches.
- * A path known for other methods only is an authoritative 405, the next
- * resolvers of the module never get a chance to reinterpret it.
+ * A path known for other methods only is reported as 405 to the router,
+ * which lets the remaining resolvers of the module try first and only
+ * answers 405 when none of them matches.
  *
  * @phpstan-import-type RouteEntry from RouteCollection
  */
@@ -96,6 +97,14 @@ final class TableResolver implements ResolverInterface
      */
     public function path(RouteDefinition $definition, array &$params, ?string $locale): string
     {
+        if ($locale !== null) {
+            $paths = $definition->paths();
+            if (!isset($paths[$locale]) && !isset($paths['*'])) {
+                throw new RuntimeException(
+                    "Route '{$definition->name}' has no path for locale '{$locale}': generating it would produce an url no route matches",
+                );
+            }
+        }
         $path = $definition->pathFor($locale);
         foreach (RouteCollection::placeholderNames($path) as $name) {
             if (array_key_exists($name, $params)) {
