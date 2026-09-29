@@ -41,6 +41,7 @@ final class RoutingHandler implements RequestHandlerInterface
     {
         $ctx = HttpContext::ensure($request);
 
+        $ctx->useRouter($this->router);
         $route = $this->router->match($ctx->request());
         $ctx->useRoute($route);
 

@@ -125,8 +125,7 @@ class HttpContextTest extends TestCase
     {
         $ctx = new HttpContext(new ServerRequest('GET', '/'));
 
-        $route = new Route();
-        $route->module = 'Admin';
+        $route = new Route(controller: 'Admin\Controller\IndexController', module: 'Admin');
         $ctx->useRoute($route);
         $ctx->useLocale('fr');
         $ctx->complete(new Response(204));

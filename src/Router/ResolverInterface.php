@@ -26,7 +26,7 @@ use Kaly\Http\RedirectException;
  *             return null;
  *         }
  *         // The page reaches the controller constructor: PageController(Page $page)
- *         return Route::to($page->controllerClass(), 'index', bindings: ['page' => $page]);
+ *         return $request->route($page->controllerClass(), 'index', bindings: ['page' => $page]);
  *     }
  * }
  * ```

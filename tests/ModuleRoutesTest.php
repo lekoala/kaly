@@ -99,10 +99,9 @@ class ModuleRoutesTest extends TestCase
         $this->assertSame('test-module:shop.show', $route->name);
     }
 
-    public function testAConventionMatchHasNoDefinition(): void
+    public function testAConventionMatchHasNoName(): void
     {
         $route = $this->match('/test-module/index/foo/');
-        $this->assertNull($route->definition);
         $this->assertNull($route->name);
     }
 

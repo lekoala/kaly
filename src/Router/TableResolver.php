@@ -28,11 +28,13 @@ final class TableResolver implements ResolverInterface
      * @param Closure(Routes): void $declare
      * @param string $label Where the table is declared, for error messages
      * @param bool $localized Whether the owning module carries the locale prefix
+     * @param string $moduleId The identity of the owning module in qualified route names
      */
     public function __construct(
         private Closure $declare,
         private string $label = 'route table',
         private bool $localized = false,
+        private string $moduleId = '',
     ) {}
 
     public function collection(): RouteCollection
@@ -80,11 +82,14 @@ final class TableResolver implements ResolverInterface
             }
 
             $definition = $entry['definition'];
-            $route = Route::to($definition->controller, $definition->action, $params);
-            $route->inputClass = $entry['inputClass'];
-            $route->middlewares = $entry['middlewares'];
-            $route->definition = $definition;
-            return $route;
+            return $request->route(
+                $definition->controller,
+                $definition->action,
+                $params,
+                name: $definition->name !== null ? $this->moduleId . ':' . $definition->name : null,
+                middlewares: $entry['middlewares'],
+                inputClass: $entry['inputClass'],
+            );
         }
 
         if ($allowed !== []) {

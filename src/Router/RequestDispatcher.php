@@ -32,6 +32,8 @@ class RequestDispatcher implements RequestHandlerInterface
 {
     // Reserved render variable holding the translator bound to the request locale
     public const VAR_I18N = 'i18n';
+    // Reserved render variable generating urls for the request locale
+    public const VAR_URL = 'url';
 
     public function __construct(
         protected Injector $injector,
@@ -50,7 +52,7 @@ class RequestDispatcher implements RequestHandlerInterface
         // something to paper over with a default: the routing step is fixed.
         $result = $this->dispatch($ctx, $ctx->route());
 
-        return $this->prepareResponse($result, $ctx->locale());
+        return $this->prepareResponse($result, $ctx);
     }
 
     /**
@@ -70,7 +72,7 @@ class RequestDispatcher implements RequestHandlerInterface
         // constructor by name.
         $instance = $this->injector->make($class, ...[...$route->bindings, 'request' => $request, 'ctx' => $ctx]);
 
-        $action = $route->action ?? RouterInterface::FALLBACK_ACTION;
+        $action = $route->action;
 
         if (!is_callable([$instance, $action])) {
             throw new Ex("Action '{$action}' is not callable");
@@ -115,7 +117,7 @@ class RequestDispatcher implements RequestHandlerInterface
     /**
      * @param ResponseInterface|View|array<mixed>|string|null $result
      */
-    protected function prepareResponse(ResponseInterface|View|array|string|null $result, string $locale): ResponseInterface
+    protected function prepareResponse(ResponseInterface|View|array|string|null $result, HttpContext $ctx): ResponseInterface
     {
         if ($result instanceof ResponseInterface) {
             return $result;
@@ -125,10 +127,12 @@ class RequestDispatcher implements RequestHandlerInterface
                 throw new Ex('A View was returned but no renderer is configured. Bind a Kaly\View\RendererInterface implementation.');
             }
             // Each render gets its own localized translator under a reserved
-            // variable, so templates never depend on shared translator state.
+            // variable, so templates never depend on shared translator state,
+            // and a url generator bound to the request locale.
             $data = [
                 ...$result->data,
-                self::VAR_I18N => new LocalizedTranslator($this->translator, $locale),
+                self::VAR_I18N => new LocalizedTranslator($this->translator, $ctx->locale()),
+                self::VAR_URL => $ctx->url(...),
             ];
             return $this->createResponse($this->renderer->render($result->template, $data), ContentType::HTML);
         }

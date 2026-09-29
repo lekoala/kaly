@@ -32,7 +32,7 @@ final class PageResolver implements ResolverInterface
             if (!method_exists(PageController::class, $action)) {
                 return null;
             }
-            return Route::to(PageController::class, $action, bindings: ['page' => new Page(self::PAGES[$path])]);
+            return $request->route(PageController::class, $action, bindings: ['page' => new Page(self::PAGES[$path])]);
         }
         return null;
     }

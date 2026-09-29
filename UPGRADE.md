@@ -4,6 +4,19 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Immutable routes and contextual urls
+
+- `Route` is now immutable and final: resolvers build it in one step with
+  `$request->route($controller, $action, ...)` instead of `Route::to(...)` followed
+  by property assignments. `Route::to()` is removed.
+- `Route::$namespace`, `Route::$segments`, `Route::$definition` and `Route::toArray()`
+  are removed. The qualified name is on `Route::$name`, the module namespace on
+  `Route::$module`.
+- `HttpContext::url()` and `HttpContext::urlFor()` generate for the request locale;
+  `Router::url()` / `Router::urlFor()` keep their explicit locale for uses outside
+  a request. Templates receive a `$url` generator (like `$i18n`): both names are
+  reserved in view data.
+
 ## Route middlewares and request state
 
 - Middlewares declared on routes and groups (`->middleware()` in a route table) are now

@@ -125,11 +125,11 @@ class RequestInputTest extends TestCase
         $router = new class implements RouterInterface {
             public function match(ServerRequestInterface $request): Route
             {
-                $route = new Route();
-                $route->controller = \TestModule\Controller\InputController::class;
-                $route->action = 'search';
-                $route->inputClass = SearchInput::class;
-                return $route;
+                return new Route(
+                    controller: \TestModule\Controller\InputController::class,
+                    action: 'search',
+                    inputClass: SearchInput::class,
+                );
             }
 
             public function url(string $name, array $params = [], ?string $locale = null): string

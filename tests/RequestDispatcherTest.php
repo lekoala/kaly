@@ -40,16 +40,12 @@ class RequestDispatcherTest extends TestCase
 
             public function match(ServerRequestInterface $request): Route
             {
-                $route = new Route();
-                $route->controller = DispatcherController::class;
-                $route->action = $this->action;
-                $route->locale = $this->routeLocale;
-                return $route;
+                return new Route(controller: DispatcherController::class, action: $this->action, locale: $this->routeLocale);
             }
 
             public function url(string $name, array $params = [], ?string $locale = null): string
             {
-                return '';
+                return ($locale ?? '-') . ':' . $name;
             }
 
             public function urlFor(string|array $handler, array $params = [], ?string $locale = null): string
@@ -195,5 +191,37 @@ class RequestDispatcherTest extends TestCase
 
         $response = $this->dispatch($this->dispatcher('viewResultWithI18n', $renderer));
         $this->assertSame(LocalizedTranslator::class, (string) $response->getBody());
+    }
+
+    public function testRenderReceivesAUrlGeneratorBoundToTheRequestLocale(): void
+    {
+        $renderer = new class implements RendererInterface {
+            public function render(string $template, array $data = []): string
+            {
+                $url = $data[RequestDispatcher::VAR_URL];
+                assert($url instanceof \Closure);
+                return $url('shop:product', ['slug' => 'velo']);
+            }
+        };
+
+        // The stub router echoes the locale it receives
+        $dispatcher = $this->dispatcher('viewResult', $renderer, 'fr');
+        $this->assertSame('fr:shop:product', (string) $this->dispatch($dispatcher)->getBody());
+
+        $dispatcher = $this->dispatcher('viewResult', $renderer);
+        $this->assertSame('en:shop:product', (string) $this->dispatch($dispatcher)->getBody());
+    }
+
+    public function testUrlIsReservedAndOverridesViewData(): void
+    {
+        $renderer = new class implements RendererInterface {
+            public function render(string $template, array $data = []): string
+            {
+                return get_debug_type($data[RequestDispatcher::VAR_URL]);
+            }
+        };
+
+        $response = $this->dispatch($this->dispatcher('viewResultWithUrl', $renderer));
+        $this->assertSame('Closure', (string) $response->getBody());
     }
 }

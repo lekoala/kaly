@@ -9,6 +9,7 @@ use Kaly\Http\RequestUtils;
 use Kaly\Http\Session;
 use Kaly\Http\SessionInterface;
 use Kaly\Router\Route;
+use Kaly\Router\RouterInterface;
 use LogicException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -37,6 +38,8 @@ final class HttpContext
     private ?ResponseInterface $response = null;
 
     private ?Route $route = null;
+
+    private ?RouterInterface $router = null;
 
     private ?string $locale = null;
 
@@ -158,6 +161,40 @@ final class HttpContext
     public function useRoute(Route $route): void
     {
         $this->route = $route;
+    }
+
+    /**
+     * @internal Set by the routing handler
+     */
+    public function useRouter(RouterInterface $router): void
+    {
+        $this->router = $router;
+    }
+
+    /**
+     * The url of a named route, generated for the locale of this request.
+     *
+     * @param array<string,mixed> $params Placeholders; the others become the query string
+     */
+    public function url(string $name, array $params = []): string
+    {
+        return $this->router()->url($name, $params, $this->locale());
+    }
+
+    /**
+     * The conventional url of an action, generated for the locale of this request.
+     *
+     * @param string|array<mixed> $handler [Controller::class, 'action'], Controller::class or 'Controller::action'
+     * @param array<array-key,mixed> $params Action arguments, in order
+     */
+    public function urlFor(string|array $handler, array $params = []): string
+    {
+        return $this->router()->urlFor($handler, $params, $this->locale());
+    }
+
+    private function router(): RouterInterface
+    {
+        return $this->router ?? throw new LogicException('Router has not been set on the context yet.');
     }
 
     /**

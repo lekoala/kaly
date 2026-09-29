@@ -41,7 +41,16 @@ class DispatcherController extends AbstractController
      */
     public function routeResult(): array
     {
-        return ['route' => $this->ctx()->route()->toArray()];
+        $route = $this->ctx()->route();
+        return ['route' => [
+            'controller' => $route->controller,
+            'action' => $route->action,
+            'name' => $route->name,
+            'module' => $route->module,
+            'locale' => $route->locale,
+            'params' => $route->params,
+            'middlewares' => $route->middlewares,
+        ]];
     }
 
     /**
@@ -56,5 +65,11 @@ class DispatcherController extends AbstractController
     {
         // i18n is reserved: the dispatcher always overrides it
         return new View('template', ['i18n' => 'should be overridden']);
+    }
+
+    public function viewResultWithUrl(): View
+    {
+        // url is reserved: the dispatcher always overrides it
+        return new View('template', ['url' => 'should be overridden']);
     }
 }

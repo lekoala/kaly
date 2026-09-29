@@ -119,7 +119,7 @@ final class DebugPage
         if ($ctx !== null) {
             if ($ctx->hasRoute()) {
                 $route = $ctx->route();
-                $rows['Route'] = ($route->controller ?? '?') . '::' . ($route->action ?? '?');
+                $rows['Route'] = $route->controller . '::' . $route->action;
                 $rows['Module'] = $route->module ?? '';
                 if ($route->name !== null) {
                     $rows['Name'] = $route->name;

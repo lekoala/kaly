@@ -43,4 +43,27 @@ final readonly class RouteRequest
     {
         return strtoupper($this->request->getMethod());
     }
+
+    /**
+     * Build the final route of this request: the module and the locale are
+     * already known, so resolvers never complete a mutable draft afterwards.
+     *
+     * @param class-string $controller
+     * @param array<int<0,max>|string,mixed> $params Action arguments
+     * @param array<string,mixed> $bindings Controller constructor arguments, by name
+     * @param string|null $name The qualified name of the route (`module:name`), if it has one
+     * @param list<class-string> $middlewares The middlewares scoped to this route, outermost first
+     * @param class-string<\Kaly\Http\RequestInput>|null $inputClass The trailing input of the action
+     */
+    public function route(
+        string $controller,
+        string $action = RouterInterface::FALLBACK_ACTION,
+        array $params = [],
+        array $bindings = [],
+        ?string $name = null,
+        array $middlewares = [],
+        ?string $inputClass = null,
+    ): Route {
+        return new Route($controller, $action, $params, $bindings, $name, $middlewares, $inputClass, $this->locale, $this->module);
+    }
 }

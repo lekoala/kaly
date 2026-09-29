@@ -143,7 +143,7 @@ final class PageResolver implements ResolverInterface
             return null;    // not mine: the next resolver tries
         }
         // The page reaches the controller constructor: PageController(Page $page)
-        return Route::to($page->controllerClass(), 'index', bindings: ['page' => $page]);
+        return $request->route($page->controllerClass(), 'index', bindings: ['page' => $page]);
     }
 }
 
@@ -206,6 +206,21 @@ $router->urlFor([CartController::class, 'add'], [42]);    // conventional url: /
 Without a locale, urls are generated for the default locale. Generating an url
 for a locale the route (or the module mount) has no variant for fails instead
 of producing an url no route would match.
+
+Within a request, the context generates for the request locale — no need to
+pass it around:
+
+```php
+$ctx->url('shop:product', ['slug' => 'velo']);   // /en/... when the request runs in English
+$ctx->urlFor([CartController::class, 'add'], [42]);
+```
+
+Templates get the same generator as `$url`, alongside the `$i18n` translator
+(both are reserved: a view datum under either name is overridden):
+
+```html
+<a href="<?= $url('shop:product', ['slug' => $slug]) ?>">...</a>
+```
 
 ## Route middlewares
 

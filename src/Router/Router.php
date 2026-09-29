@@ -110,15 +110,9 @@ final class Router implements RouterInterface
         $prefix = ($locale !== null ? '/' . $locale : '') . $entry;
         $routeRequest = new RouteRequest($request, $remaining, $prefix, $module->getNamespace(), $effective);
 
-        $route = $this->resolveIn($id, $table !== null ? [$table] : $this->resolvers[$id], $routeRequest);
-        $route->locale = $effective;
-        $route->segments = $all;
-        $route->module = $module->getNamespace();
-        $route->namespace = $module->getNamespace();
-        if ($route->name === null && $route->definition?->name !== null) {
-            $route->name = $id . ':' . $route->definition->name;
-        }
-        return $route;
+        // The route comes back final: module and locale already inside,
+        // the name already qualified by the table that matched.
+        return $this->resolveIn($id, $table !== null ? [$table] : $this->resolvers[$id], $routeRequest);
     }
 
     /**
@@ -443,6 +437,7 @@ final class Router implements RouterInterface
                 },
                 "route table of module '{$id}' (config.php)",
                 $module->isLocalized(),
+                $id,
             );
             $this->tables[$id] = $table;
             $entries[] = [0, $sequence++, $table];
@@ -497,6 +492,7 @@ final class Router implements RouterInterface
                 $claim['routes'],
                 "claim '" . implode("', '", $claim['prefix']) . "' of module '{$id}' (config.php)",
                 $module->isLocalized(),
+                $id,
             );
             foreach ($claim['prefix'] as $locale => $prefix) {
                 $segments = array_values(array_filter(explode('/', trim($prefix, '/')), static fn(string $p): bool => $p !== ''));
