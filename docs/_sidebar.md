@@ -13,6 +13,7 @@
 * [Auth](auth.md)
 * [Testing](testing.md)
 * [Architecture](architecture.md)
+* [Persistence](database.md)
 * [Serving](serving.md)
 * [Logging](logging.md)
 * [Mailer](mailer.md)

@@ -25,11 +25,11 @@ actions each, to check how the boot scales with the size of the application.
 
 Windows 11, PHP 8.3, 2026-09-29.
 
-| App | fpm autoload | fpm boot | fpm request | worker request |
-| --- | --- | --- | --- | --- |
-| demo (5 modules) | 2.7 ms | 7.0 ms | 2.9 ms | 0.074 ms |
-| synthetic, 100 controllers | 2.8 ms | 6.8 ms | 2.6 ms | 0.022 ms |
-| synthetic, 100 controllers, before hierarchical routing | 2.6 ms | 21.5 ms | 2.1 ms | 0.07 ms |
+| App                                                     | fpm autoload | fpm boot | fpm request | worker request |
+|---------------------------------------------------------|--------------|----------|-------------|----------------|
+| demo (5 modules)                                        | 2.7 ms       | 7.0 ms   | 2.9 ms      | 0.074 ms       |
+| synthetic, 100 controllers                              | 2.8 ms       | 6.8 ms   | 2.6 ms      | 0.022 ms       |
+| synthetic, 100 controllers, before hierarchical routing | 2.6 ms       | 21.5 ms  | 2.1 ms      | 0.07 ms        |
 
 Before hierarchical routing, the boot scanned every controller of every module for
 route attributes. It now only depends on the modules and their `config.php`, never on

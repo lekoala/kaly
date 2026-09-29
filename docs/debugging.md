@@ -1,6 +1,10 @@
 # Debugging
 
-Kaly has no Buggregator integration code, and needs none: everything an application produces in development (dumps, logs, emails, errors, outgoing HTTP) goes through standard protocols that Buggregator aggregates. Point the DSNs below at it and it becomes the local viewer for all of them.
+Buggregator is a good companion for local development: it aggregates dumps,
+logs, errors, emails, outgoing HTTP and profiler data in one viewer.
+No dedicated adapter is needed — everything goes through standard protocols,
+so point the DSNs below at it and it just works. This recipe is a suggestion,
+not a prescription: any tool speaking the same protocols fits the same way.
 
 ## Recipe
 
@@ -103,7 +107,7 @@ Profiled requests should not run concurrently on the shared instance (see [Runti
 
 ## Boot failures
 
-An exception thrown while booting (a failing `config.php`, an invalid route table) happens before any request cycle exists: there is no `HttpContext`, so `onError()` hooks never run and nothing is reported to Sentry. `App::run()` still turns it into a `500` through the debug page in debug mode, `Server error` otherwise — but nothing is logged either. This is a deliberate boundary, not a gap to fill with framework code: if boot failures need alerting, watch the SAPI / supervisor logs and keep `boot()` trivial.
+An exception thrown while booting (a failing `config.php`, an invalid route table) happens before any request cycle exists: there is no `HttpContext`, so `onError()` hooks never run and nothing is reported to Sentry. `App::run()` still turns it into a `500` through the debug page in debug mode, `Server error` otherwise — but nothing is logged either. This is a deliberate boundary: if boot failures need alerting, watch the SAPI / supervisor logs and keep `boot()` trivial.
 
 ## Tests
 
