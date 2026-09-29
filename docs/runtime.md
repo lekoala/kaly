@@ -121,16 +121,18 @@ sequential execution — Kaly resets the native session id on `start()` and
 concurrently in the same process must not share it.
 
 ```text
-NativePhpSession
+NativePhpSessionFactory (the default)
     sequential worker    ✓
     concurrent Fibers    ✗
 
-request-scoped storage (eg: ArraySession)
+a factory returning request-scoped storage
     sequential worker    ✓
     concurrent Fibers    ✓
 ```
 
-Concurrent runtimes must inject a request-scoped `SessionInterface`
-implementation (for example with `HttpContext::useSession()`). Cookie- or
-server-backed session policies are a decision of the application or of a
-dedicated package, not of the Kaly core.
+Concurrent runtimes bind a `SessionFactoryInterface` returning request-scoped
+storage. Cookie- or server-backed session policies are a decision of the
+application or of a dedicated package, not of the Kaly core.
+
+`ArraySession` is concurrency-safe but persists nothing between requests: tests
+and isolated cycles only, never a production backend.

@@ -7,12 +7,13 @@ namespace Kaly\Tests;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Core\HttpContext;
-use Kaly\Middleware\GeneratorMiddleware;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
 /**
  * One walk through everything a real application relies on:
@@ -36,21 +37,19 @@ class HappyPathTest extends TestCase
 
         $this->app
             ->middleware()
-            ->incoming(new class extends GeneratorMiddleware {
-                public function before(ServerRequestInterface $request): ServerRequestInterface|ResponseInterface
+            ->incoming(new class implements MiddlewareInterface {
+                public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
                 {
-                    return $request->withAttribute('request-id', 'rid-1');
-                }
-
-                public function after(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
-                {
-                    return $response->withHeader('X-Request-Id', (string) $request->getAttribute('request-id'));
+                    $forwarded = $request->withAttribute('request-id', 'rid-1');
+                    $response = $handler->handle($forwarded);
+                    return $response->withHeader('X-Request-Id', (string) $forwarded->getAttribute('request-id'));
                 }
             })
             ->routed(
-                new class extends GeneratorMiddleware {
-                    public function after(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+                new class implements MiddlewareInterface {
+                    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
                     {
+                        $response = $handler->handle($request);
                         return $response->withHeader('X-Module', 'yes');
                     }
                 },

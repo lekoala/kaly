@@ -172,63 +172,21 @@ $app->middleware()->outgoing(
 Returning `false` skips the middleware for that request. Request conditions are
 evaluated on every request, so they can also depend on external state.
 
-### Three ways to write one
+### One way to write one
 
-These are not three competing APIs, they are one progression. Start at the top and go
-down only when the problem asks for it.
-
-| | Use it for |
-| --- | --- |
-| PSR-15 `MiddlewareInterface` | third party middlewares, interop, the classic nested model |
-| `GeneratorMiddleware` | the native default: simple `before()` / `after()` hooks |
-| `GeneratorMiddlewareInterface` | the native advanced form: local state across both phases, `catch` / `finally` |
-
-All three are registered the same way and run in the same bands.
-
-### Before and after hooks
-
-For middlewares that need both a "before" and an "after" phase, extend
-`Kaly\Middleware\GeneratorMiddleware` and implement the hooks. This covers most needs:
+Middlewares are plain PSR-15: `process($request, $handler)`. Before / delegation /
+after composes naturally around `$handler->handle()` — no parallel protocol.
 
 ```php
-final class Timing extends GeneratorMiddleware
+final class Timing implements MiddlewareInterface
 {
-    public function before(ServerRequestInterface $request): ServerRequestInterface|ResponseInterface
-    {
-        return $request->withAttribute('start', hrtime(true));
-    }
-
-    public function after(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
-    {
-        $ms = (hrtime(true) - $request->getAttribute('start')) / 1e6;
-        return $response->withHeader('X-Duration', (string) round($ms, 2));
-    }
-}
-```
-
-- `after()` receives the request **its own `before()` returned**, so anything set in
-  `before()` is there — as in the example above.
-- `before()` may return a **response** instead of a request. The inner layers never
-  run and this middleware's own `after()` is skipped, since it already owns the
-  response. Outer middlewares still wrap it. This is what an auth or a cache
-  middleware needs.
-
-### Keeping state across both phases
-
-When a middleware needs to hold something between its two phases — a timer, a
-transaction, an open resource — implement `GeneratorMiddlewareInterface` directly. The
-local variables of the method survive the suspension, so there is no per-request state
-to store anywhere else:
-
-```php
-final class Timing implements GeneratorMiddlewareInterface
-{
-    public function process(ServerRequestInterface $request): Generator
-    {
+    public function process(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler,
+    ): ResponseInterface {
         $start = hrtime(true);
         try {
-            $response = yield $request;
-            return $response->withHeader('Server-Timing', $this->format($start));
+            return $handler->handle($request);
         } finally {
             $this->record(hrtime(true) - $start);
         }
@@ -236,23 +194,25 @@ final class Timing implements GeneratorMiddlewareInterface
 }
 ```
 
-This is the one thing separate `before()` / `after()` hooks cannot express without
-inventing a parallel request-scoped store — which is exactly why the generator form is
-kept.
+- Returning a **response** without calling `$handler->handle()` short-circuits: the
+  inner layers never run. Outer middlewares still wrap it. This is what an auth or a
+  cache middleware needs.
+- Local variables survive across both phases, so there is no per-request state to
+  store anywhere else.
 
-### Handling downstream errors
-
-An exception thrown further down the stack is rethrown **at the yield point**, so a
-middleware can catch it, or clean up in a `finally`:
+`finally` is for metrics and cleanup, which run on every outcome. A transaction has a
+different semantic — commit on success, rollback on failure:
 
 ```php
-final class Transaction implements GeneratorMiddlewareInterface
+final class Transaction implements MiddlewareInterface
 {
-    public function process(ServerRequestInterface $request): Generator
-    {
+    public function process(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler,
+    ): ResponseInterface {
         $this->db->begin();
         try {
-            $response = yield $request;
+            $response = $handler->handle($request);
             $this->db->commit();
             return $response;
         } catch (Throwable $e) {
@@ -266,24 +226,16 @@ final class Transaction implements GeneratorMiddlewareInterface
 An exception nobody catches simply keeps going up, and the kernel turns it into a
 response.
 
-The generator protocol is deliberately narrow — it is a middleware mechanism, not a
-general coroutine — and a violation is reported as such rather than as a cryptic
-generator error:
-
-- yield the request **at most once** — zero to short-circuit;
-- yield a `ServerRequestInterface`, never anything else;
-- **return** a `ResponseInterface`.
-
 ### What an after phase is not
 
-An error response built by the kernel has **not** gone back through the `after()`
-phases. This is deliberate: when the stack fails halfway, some middlewares were
-entered and some were not, so replaying their `after()` would give a result nobody can
-predict. Four distinct things are easy to confuse:
+An error response built by the kernel has **not** gone back through the code after
+`$handler->handle()`. This is deliberate: when the stack fails halfway, some
+middlewares were entered and some were not, so replaying their after-phase would give
+a result nobody can predict. Four distinct things are easy to confuse:
 
 | | Runs on |
 | --- | --- |
-| `after()` | a response the inner layers actually returned |
+| code after `$handler->handle()` | a response the inner layers actually returned |
 | `finally` | every outcome, including an exception — for cleanup |
 | `outgoing` | the response produced by the whole cycle, whatever its origin |
 | `outgoing(..., always: true)` | every response that really leaves the application |

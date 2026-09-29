@@ -161,12 +161,12 @@ response. A session or cookie jar that was never touched costs nothing.
 ... -> dispatcher -> [commit session + cookies] -> outgoing -> finalize
 ```
 
-The default session is `NativePhpSession`, which wraps the process-global
-`$_SESSION`: fine for sequential workers, unusable for concurrent ones. Such
-runtimes must inject a request-scoped `SessionInterface` (eg: `ArraySession`)
-with `useSession()`. Cookies need no such backend choice: they are emitted as
-`Set-Cookie` headers on the PSR-7 response, never through PHP globals. Both
-share the application-scoped `CookiePolicy` baseline. See [Runtime](runtime.md).
+The default session comes from `NativePhpSessionFactory`, which wraps the
+process-global `$_SESSION`: fine for sequential workers, unusable for concurrent
+ones. Such runtimes bind a `SessionFactoryInterface` returning request-scoped
+storage (or impose one per cycle with `useSession()`). Cookies need no such backend
+choice: they are emitted as `Set-Cookie` headers on the PSR-7 response, never through
+PHP globals. Both share the application-scoped `CookiePolicy` baseline. See [Runtime](runtime.md).
 
 Plain PSR requests keep their helpers as static functions in `Kaly\Http\RequestUtils`:
 

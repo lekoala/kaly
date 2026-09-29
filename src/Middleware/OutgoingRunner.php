@@ -81,9 +81,9 @@ final class OutgoingRunner
     }
 
     /**
-     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware
      */
-    protected function resolveMiddleware(string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware): OutgoingMiddlewareInterface
+    protected function resolveMiddleware(string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware): OutgoingMiddlewareInterface
     {
         if (is_string($middleware)) {
             if ($this->container === null) {
@@ -94,7 +94,7 @@ final class OutgoingRunner
         if ($middleware instanceof OutgoingMiddlewareInterface) {
             return $middleware;
         }
-        if ($middleware instanceof MiddlewareInterface || $middleware instanceof GeneratorMiddlewareInterface) {
+        if ($middleware instanceof MiddlewareInterface) {
             throw new LogicException(sprintf('%s is a request middleware; it cannot run in the outgoing band.', $middleware::class));
         }
         throw new LogicException('Resolved outgoing middleware is of an unknown type.');

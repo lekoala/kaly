@@ -255,7 +255,7 @@ final class PatientController extends AdminController
   class, then the method. A middleware declared at several levels runs once, at its
   outermost place.
 - **A declared middleware always runs, or fails loudly.** An unknown class, or a
-  class that is not a PSR-15 / generator middleware, throws when the table is
+  class that is not a PSR-15 middleware, throws when the table is
   compiled (on its first use, at match or generation time; at first match for
   the convention). An ignored auth middleware would be
   an open door.

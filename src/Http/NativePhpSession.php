@@ -22,8 +22,8 @@ use Throwable;
  * `start()` always resets the native session id so a previous request cannot
  * leak into the next one.
  *
- * Concurrent runtimes must provide a request-scoped SessionInterface
- * implementation instead (eg: ArraySession).
+ * Concurrent runtimes must bind a SessionFactoryInterface returning a
+ * request-scoped SessionInterface implementation instead.
  *
  * @phpstan-type SessionParams array{'regen_interval'?:int,'expiry_key'?:string,'remember_lifetime'?:int,'remember_key'?:string,'lifetime'?:int,'httponly'?:bool,'samesite'?:('Lax'|'lax'|'None'|'none'|'Strict'|'strict'),'csrf_key'?:string}
  * @phpstan-type AllSessionParams array{'regen_interval':int,'expiry_key':string,'remember_lifetime':int,'remember_key':string,'lifetime':int,'httponly':bool,'samesite':('Lax'|'lax'|'None'|'none'|'Strict'|'strict'),'csrf_key':string}

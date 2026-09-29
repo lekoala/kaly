@@ -14,6 +14,9 @@ use Psr\Http\Message\ServerRequestInterface;
  * Concurrency-safe by construction: no `$_SESSION`, no `session_*()` calls,
  * no shared static state. Each instance owns its data, so overlapping Fibers
  * or workers cannot leak into each other.
+ *
+ * For tests and isolated cycles only: nothing persists between two requests.
+ * This is not a production backend.
  */
 final class ArraySession implements SessionInterface
 {

@@ -6,26 +6,24 @@ use Psr\Http\Server\MiddlewareInterface;
 use Nyholm\Psr7\Response;
 use Kaly\Middleware\PredefinedResponseHandler;
 use Psr\Http\Message\ResponseInterface;
-use Kaly\Middleware\GeneratorMiddleware;
-use Kaly\Middleware\GeneratorMiddlewareInterface;
 use Kaly\Middleware\MiddlewareRunner;
 use Nyholm\Psr7\ServerRequest;
 
 require "../vendor/autoload.php";
 
-// 1. A native GeneratorMiddleware
-class AddTimestampMiddleware implements GeneratorMiddlewareInterface
+// 1. A timing middleware: before/after composes naturally around handle()
+class AddTimestampMiddleware implements MiddlewareInterface
 {
-    public function process(ServerRequestInterface $request): \Generator
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         echo "[AddTimestampMiddleware] Processing request.<br/>";
-        $request = $request->withAddedHeader('X-Received-At', (string)time());
+        $request = $request->withAddedHeader('X-Received-At', (string) time());
 
-        $response = yield $request; // Pass through on request
+        $response = $handler->handle($request); // Pass through on request
         echo "[AddTimestampMiddleware] Adding timestamp header.<br>";
 
         $response = $response->withHeader('X-Received-At', $request->getHeaderLine('X-Received-At'));
-        $response = $response->withHeader('X-Processed-At', (string)time()); // Should be exactly +1 since we sleep for 1 second
+        $response = $response->withHeader('X-Processed-At', (string) time()); // Should be exactly +1 since we sleep for 1 second
 
         return $response;
     }
@@ -103,10 +101,10 @@ echo "Headers: " . print_r($response->getHeaders(), true) . "<br>";
 echo "Body: " . $response->getBody();
 
 
-// Check the stack when using our GeneratorMiddlewares
+// Check the stack with plain PSR-15 middlewares
 
-$middleware1 = new class implements GeneratorMiddlewareInterface {
-    public function process(ServerRequestInterface $request): Generator
+$middleware1 = new class implements MiddlewareInterface {
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         echo "processing middleware1<br/>";
         // Handle the incoming request
@@ -118,7 +116,7 @@ $middleware1 = new class implements GeneratorMiddlewareInterface {
         $request = $request->withAddedHeader('x-from1', 'true');
 
         // Invoke the next middleware and get response
-        $response =  yield $request;
+        $response = $handler->handle($request);
 
         // Handle the outgoing response
 
@@ -130,8 +128,8 @@ $middleware1 = new class implements GeneratorMiddlewareInterface {
     }
 };
 
-$middleware2 = new class implements GeneratorMiddlewareInterface {
-    public function process(ServerRequestInterface $request): Generator
+$middleware2 = new class implements MiddlewareInterface {
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         echo "processing middleware2<br/>";
 
@@ -141,7 +139,7 @@ $middleware2 = new class implements GeneratorMiddlewareInterface {
         // return new Response('200', [], 'test short-circuit, will still run middleware1 fully');
 
         // Invoke the next middleware and get response
-        $response =  yield $request;
+        $response = $handler->handle($request);
 
         // Handle the outgoing response
 
@@ -179,7 +177,7 @@ class RegularHandler implements RequestHandlerInterface
     }
 }
 
-echo '<h2>Testing generator middlewares</h2>';
+echo '<h2>Testing PSR-15 middlewares</h2>';
 
 $psr17Factory = new \Nyholm\Psr7\Factory\Psr17Factory();
 

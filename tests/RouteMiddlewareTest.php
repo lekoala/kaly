@@ -96,7 +96,7 @@ class RouteMiddlewareTest extends TestCase
     public function testANonMiddlewareClassFailsAtBoot(): void
     {
         $this->expectException(Ex::class);
-        $this->expectExceptionMessage('is not a request middleware');
+        $this->expectExceptionMessage('is not a PSR-15 request middleware');
 
         new RouteCollection([new RouteDefinition('/x', ShopController::class, 'health', middlewares: [TestObject::class])]);
     }

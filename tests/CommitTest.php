@@ -8,12 +8,13 @@ use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Core\HttpContext;
 use Kaly\Http\ArraySession;
-use Kaly\Middleware\GeneratorMiddleware;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
 /**
  * What a cycle writes to its context reaches the response without any
@@ -30,11 +31,11 @@ class CommitTest extends TestCase
         // A request-scoped session keeps this test away from $_SESSION
         $this->app
             ->middleware()
-            ->incoming(new class extends GeneratorMiddleware {
-                public function before(ServerRequestInterface $request): ServerRequestInterface|ResponseInterface
+            ->incoming(new class implements MiddlewareInterface {
+                public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
                 {
                     HttpContext::from($request)->useSession(new ArraySession([], $request));
-                    return $request;
+                    return $handler->handle($request);
                 }
             });
     }

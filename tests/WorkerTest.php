@@ -7,12 +7,13 @@ namespace Kaly\Tests;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Core\HttpContext;
-use Kaly\Middleware\GeneratorMiddleware;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
 /**
  * The kernel claims to be stateless and worker safe. This makes that promise
@@ -97,9 +98,10 @@ class WorkerTest extends TestCase
     public function testMiddlewaresAreTrackedPerRequest(): void
     {
         $this->app->middleware()->routed(
-            new class extends GeneratorMiddleware {
-                public function after(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+            new class implements MiddlewareInterface {
+                public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
                 {
+                    $response = $handler->handle($request);
                     return $response->withHeader('X-Admin', 'yes');
                 }
             },

@@ -81,14 +81,13 @@ $app->configure(function (Definitions $definitions) use ($app): void {
 
 ### Sessions in a worker
 
-Create one session per request, either directly (`new Session()`) or through
-the request context (`$ctx->session()`). Native PHP session state is global to
-the process: Kaly resets the native session id on `start()` and `close()` so
-it cannot leak between sequential requests, but two requests running
-concurrently in the same process (eg: coroutines) must not share the native
-`$_SESSION`. For such runtimes, inject a request-scoped `SessionInterface`
-implementation such as `ArraySession` (see `HttpContext::useSession()`), and
-avoid the `NativePhpSession` storage backend. See [Runtime](runtime.md).
+Create one session per request through the request context (`$ctx->session()`).
+Native PHP session state is global to the process: Kaly resets the native session
+id on `start()` and `close()` so it cannot leak between sequential requests, but
+two requests running concurrently in the same process (eg: coroutines) must not
+share the native `$_SESSION`. For such runtimes, bind a `SessionFactoryInterface`
+returning request-scoped storage, and avoid the `NativePhpSession` storage backend.
+See [Runtime](runtime.md).
 
 ## Example: configuring sentry
 

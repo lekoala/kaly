@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kaly\Middleware;
 
 use Closure;
-use Generator;
 use InvalidArgumentException;
 use Kaly\Core\HttpContext;
 use LogicException;
@@ -14,7 +13,6 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use Throwable;
 
 /**
  * A stateless PSR-15 middleware stack.
@@ -65,9 +63,9 @@ class MiddlewareRunner implements RequestHandlerInterface
      * An outgoing middleware cannot run in a request band: use the shared
      * MiddlewareRegistry::add() if you really need to mix families.
      *
-     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface $middleware
      */
-    public function add(string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware, int $priority = 0, ?Closure $when = null): self
+    public function add(string|MiddlewareInterface $middleware, int $priority = 0, ?Closure $when = null): self
     {
         $this->registry->add($this->band, $middleware, $priority, $when);
 
@@ -83,9 +81,9 @@ class MiddlewareRunner implements RequestHandlerInterface
     }
 
     /**
-     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware
      */
-    protected function resolveMiddleware(string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware): MiddlewareInterface|GeneratorMiddlewareInterface
+    protected function resolveMiddleware(string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware): MiddlewareInterface
     {
         if (is_string($middleware)) {
             if ($this->container === null) {
@@ -93,7 +91,7 @@ class MiddlewareRunner implements RequestHandlerInterface
             }
             $middleware = $this->container->get($middleware);
         }
-        if ($middleware instanceof MiddlewareInterface || $middleware instanceof GeneratorMiddlewareInterface) {
+        if ($middleware instanceof MiddlewareInterface) {
             return $middleware;
         }
         if ($middleware instanceof OutgoingMiddlewareInterface) {
@@ -146,32 +144,6 @@ class MiddlewareRunner implements RequestHandlerInterface
     }
 
     /**
-     * The protocol of a generator middleware is deliberately narrow: it yields
-     * the request at most once and returns a response. Anything else is a
-     * programming error and must not surface as a cryptic generator error.
-     *
-     * @param Generator<int,mixed,ResponseInterface,mixed> $generator
-     */
-    protected function generatorResponse(Generator $generator, GeneratorMiddlewareInterface $middleware): ResponseInterface
-    {
-        if ($generator->valid()) {
-            throw new LogicException(sprintf('A generator middleware must yield at most once, %s yielded again.', $middleware::class));
-        }
-
-        $response = $generator->getReturn();
-        if (!$response instanceof ResponseInterface) {
-            throw new LogicException(sprintf(
-                'A generator middleware must return a %s, %s returned %s.',
-                ResponseInterface::class,
-                $middleware::class,
-                get_debug_type($response),
-            ));
-        }
-
-        return $response;
-    }
-
-    /**
      * This is the entry point and represents the entire band as a single handler.
      */
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -214,43 +186,9 @@ class MiddlewareRunner implements RequestHandlerInterface
         // The context tracks what really entered, not what was configured
         $ctx->markMiddleware($middleware::class);
 
-        if ($middleware instanceof GeneratorMiddlewareInterface) {
-            // Native middleware using the generator model.
-            $generator = $middleware->process($request);
-
-            if (!$generator->valid()) {
-                // Short-circuiting generator: it never yielded
-                return $this->generatorResponse($generator, $middleware);
-            }
-
-            // Get the modified request from the before phase of the generator.
-            $requestAfterBefore = $generator->current();
-            if (!$requestAfterBefore instanceof ServerRequestInterface) {
-                throw new LogicException(sprintf(
-                    'A generator middleware must yield a %s, %s yielded %s.',
-                    ServerRequestInterface::class,
-                    $middleware::class,
-                    get_debug_type($requestAfterBefore),
-                ));
-            }
-
-            try {
-                // Execute the rest of the stack to get the inner response.
-                $responseFromInside = $this->processNext($requestAfterBefore, $index + 1, $ctx);
-            } catch (Throwable $e) {
-                // Resume at the yield with the failure so that a middleware can
-                // catch it. If it does not, the exception simply keeps going up.
-                $generator->throw($e);
-                return $this->generatorResponse($generator, $middleware);
-            }
-
-            // Now, perform the after phase by resuming the generator.
-            $generator->send($responseFromInside);
-            return $this->generatorResponse($generator, $middleware);
-        }
-
-        // Standard PSR-15 middleware: the nested model.
-        // The next handler represents the rest of the band.
+        // PSR-15 middleware: the nested model. The next handler represents
+        // the rest of the band: before/after, local state, catch and finally
+        // all compose naturally around $handler->handle().
         $nextHandler = new RunNextHandler($this, $index + 1, $ctx);
         return $middleware->process($request, $nextHandler);
     }

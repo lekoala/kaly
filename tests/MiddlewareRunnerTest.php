@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Generator;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
-use Kaly\Middleware\GeneratorMiddleware;
-use Kaly\Middleware\GeneratorMiddlewareInterface;
 use Kaly\Middleware\MiddlewareRunner;
 use Kaly\Middleware\PredefinedResponseHandler;
 use LogicException;
@@ -91,85 +88,87 @@ class MiddlewareRunnerTest extends TestCase
         $this->assertSame(200, $response->getStatusCode());
     }
 
-    public function testGeneratorMiddlewareBeforeAfter(): void
+    public function testMiddlewareRunsBeforeAndAfter(): void
     {
-        $runner = new MiddlewareRunner(function (ServerRequestInterface $request): ResponseInterface {
-            return new Response(200, [], (string) $request->getAttribute('before'));
+        $events = [];
+        $runner = new MiddlewareRunner(function () use (&$events): ResponseInterface {
+            $events[] = 'inner';
+            return new Response(200);
         });
-        $runner->add(new class extends GeneratorMiddleware {
-            public function before(ServerRequestInterface $request): ServerRequestInterface
+        $runner->add(new class($events) implements MiddlewareInterface {
+            /** @var list<string> */
+            public array $events;
+
+            /** @param list<string> $events */
+            public function __construct(array &$events)
             {
-                return $request->withAttribute('before', 'yes');
+                $this->events = &$events;
             }
 
-            public function after(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
-                return $response->withHeader('X-After', 'ran');
+                $this->events[] = 'before';
+                try {
+                    return $handler->handle($request);
+                } finally {
+                    $this->events[] = 'after';
+                }
             }
         });
 
-        $response = $runner->handle(new ServerRequest('GET', '/'));
-        $this->assertSame('yes', (string) $response->getBody());
-        $this->assertSame('ran', $response->getHeaderLine('X-After'));
+        $runner->handle(new ServerRequest('GET', '/'));
+        $this->assertSame(['before', 'inner', 'after'], $events);
     }
 
-    public function testAfterReceivesTheRequestReturnedByItsOwnBefore(): void
+    public function testAfterSeesTheRequestTheMiddlewareItselfForwarded(): void
     {
         $runner = new MiddlewareRunner(fn(): ResponseInterface => new Response(200));
-        $runner->add(new class extends GeneratorMiddleware {
-            public function before(ServerRequestInterface $request): ServerRequestInterface|ResponseInterface
+        $runner->add(new class implements MiddlewareInterface {
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
-                return $request->withAttribute('tag', 'set-in-before');
-            }
-
-            public function after(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
-            {
-                return $response->withHeader('X-Tag', (string) $request->getAttribute('tag'));
+                $forwarded = $request->withAttribute('tag', 'set-before');
+                $response = $handler->handle($forwarded);
+                return $response->withHeader('X-Tag', (string) $forwarded->getAttribute('tag'));
             }
         });
 
         $response = $runner->handle(new ServerRequest('GET', '/'));
-        $this->assertSame('set-in-before', $response->getHeaderLine('X-Tag'));
+        $this->assertSame('set-before', $response->getHeaderLine('X-Tag'));
     }
 
-    public function testBeforeCanReturnAResponseAndSkipsItsOwnAfter(): void
+    public function testShortCircuitSkipsBothInnerLayersAndAfterCode(): void
     {
         $ran = false;
         $runner = new MiddlewareRunner(function () use (&$ran): ResponseInterface {
             $ran = true;
             return new Response(200);
         });
-        $runner->add(new class extends GeneratorMiddleware {
-            public function before(ServerRequestInterface $request): ServerRequestInterface|ResponseInterface
+        $runner->add(new class implements MiddlewareInterface {
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
+                // Never calls $handler: nothing below runs, no after code either
                 return new Response(401, [], 'denied');
-            }
-
-            public function after(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
-            {
-                return $response->withHeader('X-After', 'ran');
             }
         });
 
         $response = $runner->handle(new ServerRequest('GET', '/'));
         $this->assertSame(401, $response->getStatusCode());
         $this->assertSame('denied', (string) $response->getBody());
-        // The middleware owns the response, its own after must not wrap it
-        $this->assertFalse($response->hasHeader('X-After'));
         $this->assertFalse($ran, 'the inner layers must not run');
     }
 
     public function testAnOuterAfterStillWrapsAShortCircuit(): void
     {
         $runner = new MiddlewareRunner(fn(): ResponseInterface => new Response(200));
-        $runner->add(new class extends GeneratorMiddleware {
-            public function after(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+        $runner->add(new class implements MiddlewareInterface {
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
+                $response = $handler->handle($request);
                 return $response->withHeader('X-Outer', 'ran');
             }
         });
-        $runner->add(new class extends GeneratorMiddleware {
-            public function before(ServerRequestInterface $request): ServerRequestInterface|ResponseInterface
+        $runner->add(new class implements MiddlewareInterface {
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
                 return new Response(401);
             }
@@ -180,16 +179,16 @@ class MiddlewareRunnerTest extends TestCase
         $this->assertSame('ran', $response->getHeaderLine('X-Outer'));
     }
 
-    public function testADownstreamExceptionIsThrownAtTheYieldPoint(): void
+    public function testMiddlewareCanCatchADownstreamException(): void
     {
         $runner = new MiddlewareRunner(function (): ResponseInterface {
             throw new RuntimeException('boom');
         });
-        $runner->add(new class implements GeneratorMiddlewareInterface {
-            public function process(ServerRequestInterface $request): Generator
+        $runner->add(new class implements MiddlewareInterface {
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
                 try {
-                    return yield $request;
+                    return $handler->handle($request);
                 } catch (Throwable $e) {
                     return new Response(503, [], 'caught: ' . $e->getMessage());
                 }
@@ -206,7 +205,12 @@ class MiddlewareRunnerTest extends TestCase
         $runner = new MiddlewareRunner(function (): ResponseInterface {
             throw new RuntimeException('boom');
         });
-        $runner->add(new class extends GeneratorMiddleware {});
+        $runner->add(new class implements MiddlewareInterface {
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+            {
+                return $handler->handle($request);
+            }
+        });
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('boom');
@@ -218,17 +222,18 @@ class MiddlewareRunnerTest extends TestCase
         $runner = new MiddlewareRunner(function (): ResponseInterface {
             throw new RuntimeException('deep');
         });
-        $runner->add(new class extends GeneratorMiddleware {
-            public function after(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+        $runner->add(new class implements MiddlewareInterface {
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
+                $response = $handler->handle($request);
                 return $response->withHeader('X-Outer', 'ran');
             }
         });
-        $runner->add(new class implements GeneratorMiddlewareInterface {
-            public function process(ServerRequestInterface $request): Generator
+        $runner->add(new class implements MiddlewareInterface {
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
                 try {
-                    return yield $request;
+                    return $handler->handle($request);
                 } catch (Throwable $e) {
                     return new Response(503);
                 }
@@ -240,36 +245,48 @@ class MiddlewareRunnerTest extends TestCase
         $this->assertSame('ran', $response->getHeaderLine('X-Outer'));
     }
 
-    public function testYieldingTwiceIsAProtocolError(): void
+    public function testTransactionCommitsOrRollsBack(): void
     {
-        $runner = new MiddlewareRunner(fn(): ResponseInterface => new Response(200));
-        $runner->add(new class implements GeneratorMiddlewareInterface {
-            public function process(ServerRequestInterface $request): Generator
+        $events = [];
+        $transaction = new class($events) {
+            public array $events;
+
+            public function __construct(array &$events)
             {
-                yield $request;
-                return yield $request;
+                $this->events = &$events;
+            }
+
+            public function commit(): void
+            {
+                $this->events[] = 'commit';
+            }
+
+            public function rollback(): void
+            {
+                $this->events[] = 'rollback';
+            }
+        };
+        $runner = new MiddlewareRunner(fn(): ResponseInterface => new Response(200));
+        $runner->add(new class($transaction) implements MiddlewareInterface {
+            public function __construct(
+                private object $transaction,
+            ) {}
+
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+            {
+                try {
+                    $response = $handler->handle($request);
+                    $this->transaction->commit();
+                    return $response;
+                } catch (Throwable $e) {
+                    $this->transaction->rollback();
+                    throw $e;
+                }
             }
         });
 
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('must yield at most once');
         $runner->handle(new ServerRequest('GET', '/'));
-    }
-
-    public function testNotReturningAResponseIsAProtocolError(): void
-    {
-        $runner = new MiddlewareRunner(fn(): ResponseInterface => new Response(200));
-        $runner->add(new class implements GeneratorMiddlewareInterface {
-            public function process(ServerRequestInterface $request): Generator
-            {
-                yield $request;
-                return;
-            }
-        });
-
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('must return a Psr\Http\Message\ResponseInterface');
-        $runner->handle(new ServerRequest('GET', '/'));
+        $this->assertSame(['commit'], $events);
     }
 
     public function testAClassStringFinalHandlerIsResolvedFromTheContainer(): void

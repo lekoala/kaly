@@ -7,6 +7,7 @@ namespace Kaly\Core;
 use Kaly\Http\Cookies;
 use Kaly\Http\RequestUtils;
 use Kaly\Http\Session;
+use Kaly\Http\SessionFactoryInterface;
 use Kaly\Http\SessionInterface;
 use Kaly\Router\Route;
 use Kaly\Router\RouterInterface;
@@ -65,6 +66,7 @@ final class HttpContext
 
     public function __construct(
         private ServerRequestInterface $request,
+        private ?SessionFactoryInterface $sessionFactory = null,
     ) {}
 
     /**
@@ -252,13 +254,14 @@ final class HttpContext
      *
      * The session is not actually started unless open() or set() is called.
      *
-     * Defaults to the native PHP session (sequential execution only).
-     * Concurrent runtimes should inject a request-scoped implementation
-     * with useSession() instead.
+     * The storage comes from the session factory given at construction (native
+     * PHP sessions by default). Concurrent runtimes bind a factory returning a
+     * request-scoped implementation instead, or impose one per cycle with
+     * useSession().
      */
     public function session(): SessionInterface
     {
-        return $this->session ??= new Session([], $this->request);
+        return $this->session ??= $this->sessionFactory?->create($this->request) ?? new Session([], $this->request);
     }
 
     /**

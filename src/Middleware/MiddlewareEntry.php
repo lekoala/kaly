@@ -13,7 +13,7 @@ use Psr\Http\Server\MiddlewareInterface;
 final class MiddlewareEntry
 {
     /**
-     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware
      * @param (
      *     Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool
      *     |Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool
@@ -24,7 +24,7 @@ final class MiddlewareEntry
      * @param bool $always Outgoing only: runs on every response, never breaks it
      */
     public function __construct(
-        public readonly string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware,
+        public readonly string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware,
         public readonly int $priority = 0,
         public readonly ?Closure $condition = null,
         public readonly int $sequence = 0,

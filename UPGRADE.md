@@ -4,6 +4,21 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## PSR-15 only middlewares
+
+- `GeneratorMiddleware` and `GeneratorMiddlewareInterface` are removed. Write plain
+  PSR-15 middlewares: `try/finally` around `$handler->handle()` for metrics and cleanup,
+  `try/commit/catch/rollback` for transactions.
+
+## Request-scoped sessions
+
+- `SessionFactoryInterface::create($request)` says where the session of a request comes
+  from. `NativePhpSessionFactory` is the default; bind your own factory for concurrent
+  runtimes. `HttpContext` takes it as a constructor dependency, the kernel passes it
+  every cycle.
+- `ArraySession` is concurrency-safe but persists nothing between requests: tests and
+  isolated cycles only, never a production backend.
+
 ## Explicit controller results
 
 - Controllers may return `Kaly\Http\JsonResponse::of($data, 201)` for JSON with a

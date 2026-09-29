@@ -14,9 +14,11 @@ use Kaly\Http\ExceptionHandler;
 use Kaly\Http\ExceptionHandlerInterface;
 use Kaly\Http\InputMapper;
 use Kaly\Http\InputMapperInterface;
+use Kaly\Http\NativePhpSessionFactory;
 use Kaly\Http\Psr17Discovery;
 use Kaly\Http\ResponseEmitter;
 use Kaly\Http\ServerRequestFromGlobals;
+use Kaly\Http\SessionFactoryInterface;
 use Kaly\Log\FileLogger;
 use Kaly\Middleware\Builtin\FileServer;
 use Kaly\Middleware\MiddlewareBand;
@@ -89,6 +91,7 @@ final class App implements RequestHandlerInterface
         LoggerInterface::class => NullLogger::class,
         // Our interfaces
         ExceptionHandlerInterface::class => ExceptionHandler::class,
+        SessionFactoryInterface::class => NativePhpSessionFactory::class,
         TranslatorInterface::class => Translator::class,
         InputMapperInterface::class => InputMapper::class,
     ];
@@ -280,6 +283,7 @@ final class App implements RequestHandlerInterface
             $this->container->get(ExceptionHandlerInterface::class),
             $this->hooks,
             new OutgoingRunner($this->container, $this->middleware, $this->hooks->error(...)),
+            $this->container->get(SessionFactoryInterface::class),
         );
 
         if ($this->debug) {

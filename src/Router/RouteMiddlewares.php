@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kaly\Router;
 
 use Kaly\Core\Ex;
-use Kaly\Middleware\GeneratorMiddlewareInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use ReflectionClass;
 
@@ -84,8 +83,8 @@ final class RouteMiddlewares
             if (!class_exists($middleware)) {
                 throw new Ex("Middleware '{$middleware}' declared on '{$declaredOn}' does not exist");
             }
-            if (!is_a($middleware, MiddlewareInterface::class, true) && !is_a($middleware, GeneratorMiddlewareInterface::class, true)) {
-                throw new Ex("Middleware '{$middleware}' declared on '{$declaredOn}' is not a request middleware");
+            if (!is_a($middleware, MiddlewareInterface::class, true)) {
+                throw new Ex("Middleware '{$middleware}' declared on '{$declaredOn}' is not a PSR-15 request middleware");
             }
             $valid[] = $middleware;
         }

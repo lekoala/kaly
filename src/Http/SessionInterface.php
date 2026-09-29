@@ -12,8 +12,8 @@ use Psr\Http\Message\ServerRequestInterface;
  *
  * Native PHP sessions are supported for sequential request execution only:
  * `$_SESSION` and the session id are global to the process, so concurrent
- * runtimes (Fibers, workers handling overlapping requests) must provide
- * another implementation (eg: ArraySession).
+ * runtimes (Fibers, workers handling overlapping requests) must bind a
+ * SessionFactoryInterface returning a request-scoped implementation instead.
  */
 interface SessionInterface extends ArrayDataInterface
 {

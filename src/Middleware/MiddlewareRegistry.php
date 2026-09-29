@@ -63,28 +63,22 @@ final class MiddlewareRegistry
     /**
      * Add a middleware that runs before routing
      *
-     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface $middleware
      * @param Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the context and the container, returning false skips the middleware
      */
-    public function incoming(
-        string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware,
-        int $priority = 0,
-        ?Closure $when = null,
-    ): self {
+    public function incoming(string|MiddlewareInterface $middleware, int $priority = 0, ?Closure $when = null): self
+    {
         return $this->add(MiddlewareBand::Incoming, $middleware, $priority, $when);
     }
 
     /**
      * Add a middleware that runs once the route is known
      *
-     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface $middleware
      * @param Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the context and the container, returning false skips the middleware
      */
-    public function routed(
-        string|MiddlewareInterface|GeneratorMiddlewareInterface $middleware,
-        int $priority = 0,
-        ?Closure $when = null,
-    ): self {
+    public function routed(string|MiddlewareInterface $middleware, int $priority = 0, ?Closure $when = null): self
+    {
         return $this->add(MiddlewareBand::Routed, $middleware, $priority, $when);
     }
 
@@ -117,7 +111,7 @@ final class MiddlewareRegistry
      * Generic entry point. The typed facades (incoming, routed, outgoing) are
      * the intended API; this stays wide so both runners can share one registry.
      *
-     * @param class-string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware
      * @param (
      *     Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool
      *     |Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool
@@ -125,7 +119,7 @@ final class MiddlewareRegistry
      */
     public function add(
         MiddlewareBand $band,
-        string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface $middleware,
+        string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware,
         int $priority = 0,
         ?Closure $when = null,
         bool $always = false,
@@ -190,7 +184,7 @@ final class MiddlewareRegistry
     }
 
     /**
-     * @return array<string,list<class-string|MiddlewareInterface|GeneratorMiddlewareInterface|OutgoingMiddlewareInterface>>
+     * @return array<string,list<class-string|MiddlewareInterface|OutgoingMiddlewareInterface>>
      */
     public function toArray(): array
     {

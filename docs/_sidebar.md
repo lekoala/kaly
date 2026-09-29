@@ -8,5 +8,6 @@
 * [Request input](input.md)
 * [Views](views.md)
 * [i18n](i18n.md)
+* [Testing](testing.md)
 * [Logging](logging.md)
 * [Benchmarks](benchmarks.md)
