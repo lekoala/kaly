@@ -86,9 +86,28 @@ class ErrorHandler
             $closure();
         } catch (Throwable $ex) {
             $body = self::generateError($ex);
-            http_response_code(500);
+            self::setServerErrorCode(500);
             echo $body;
         }
+    }
+
+    /**
+     * Set an error status code without ever throwing.
+     *
+     * Since PHP 8.5, calling http_response_code() after a
+     * header('HTTP/...') status line emits a warning ("has no effect").
+     * As our error handler converts warnings to ErrorException, a bare
+     * call here would turn the 500 path itself into an exception - notably
+     * in long-lived processes or test suites where a previous response
+     * already set a status line. Guarding with headers_sent() and
+     * suppressing the residual warning keeps the 500 path total.
+     */
+    public static function setServerErrorCode(int $code = 500): void
+    {
+        if (headers_sent()) {
+            return;
+        }
+        @http_response_code($code);
     }
 
     /**

@@ -330,7 +330,7 @@ final class App implements RequestHandlerInterface
             }
             $response = $this->handle($request ?? $this->requestFromGlobals());
         } catch (Throwable $ex) {
-            http_response_code(500);
+            ErrorHandler::setServerErrorCode(500);
             echo ErrorHandler::generateError($ex);
             return;
         }
