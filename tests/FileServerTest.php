@@ -43,8 +43,28 @@ class FileServerTest extends TestCase
 
     /**
      * Delete a temp directory recursively (test-only helper).
+     *
+     * Retried: on Windows an unlink can briefly fail while a handle (a file
+     * stream the test forgot to close, the indexer, the antivirus) is still
+     * open.
      */
-    private static function removeDir(string $dir): void
+    private static function removeDir(string $dir, int $attempts = 5): void
+    {
+        for ($try = 1;; $try++) {
+            try {
+                self::removeDirOnce($dir);
+                return;
+            } catch (\Throwable $e) {
+                if ($try >= $attempts) {
+                    throw $e;
+                }
+                clearstatcache();
+                usleep(10_000 * $try);
+            }
+        }
+    }
+
+    private static function removeDirOnce(string $dir): void
     {
         if (!is_dir($dir)) {
             return;
@@ -68,17 +88,27 @@ class FileServerTest extends TestCase
     public function testServesStaticFile(): void
     {
         $response = $this->serve('GET', '/asset.txt');
-        $this->assertSame(200, $response->getStatusCode());
-        $this->assertSame('hello static', (string) $response->getBody());
-        $this->assertSame('text/plain', $response->getHeaderLine('Content-Type'));
+        try {
+            $this->assertSame(200, $response->getStatusCode());
+            $this->assertSame('hello static', (string) $response->getBody());
+            $this->assertSame('text/plain', $response->getHeaderLine('Content-Type'));
+        } finally {
+            // The body holds an open file handle: release it before tearDown
+            // removes the directory (Windows refuses unlink on open files)
+            $response->getBody()->close();
+        }
     }
 
     public function testHeadHasNoBodyButContentLength(): void
     {
         $response = $this->serve('HEAD', '/asset.txt');
-        $this->assertSame(200, $response->getStatusCode());
-        $this->assertSame('', (string) $response->getBody());
-        $this->assertSame('12', $response->getHeaderLine('Content-Length'));
+        try {
+            $this->assertSame(200, $response->getStatusCode());
+            $this->assertSame('', (string) $response->getBody());
+            $this->assertSame('12', $response->getHeaderLine('Content-Length'));
+        } finally {
+            $response->getBody()->close();
+        }
     }
 
     public function testPathTraversalIsBlocked(): void
@@ -127,8 +157,12 @@ class FileServerTest extends TestCase
             $this->assertInstanceOf(FileServer::class, $server);
 
             $response = $server->process(new ServerRequest('GET', '/asset.txt'), new PredefinedResponseHandler(new Response(404)));
-            $this->assertSame(200, $response->getStatusCode());
-            $this->assertSame('hello static', (string) $response->getBody());
+            try {
+                $this->assertSame(200, $response->getStatusCode());
+                $this->assertSame('hello static', (string) $response->getBody());
+            } finally {
+                $response->getBody()->close();
+            }
         } finally {
             $app->shutdown();
         }
