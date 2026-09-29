@@ -15,4 +15,5 @@
 * [Architecture](architecture.md)
 * [Serving](serving.md)
 * [Logging](logging.md)
+* [Mailer](mailer.md)
 * [Benchmarks](benchmarks.md)
