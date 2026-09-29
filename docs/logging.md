@@ -8,6 +8,8 @@ In debug mode, there is a file based logger that will output in your base dir un
 It is accessible under the `App::DEBUG_LOGGER` definition in the Di container. It is safe to keep code calling the Debug logger in prod
 because it will be converted to a simple `NullLogger`. No worries!
 
+Once you bind your own `LoggerInterface`, the debug logger follows it (same instance) instead of the file: Kaly diagnostics such as the pipeline trace go wherever your logs go. An explicit `App::DEBUG_LOGGER` binding still wins if you want them separated.
+
 Also, please note that you need to choose to output to the dev logger if you want to use it.
 
 ## The logger class

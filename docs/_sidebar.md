@@ -16,4 +16,5 @@
 * [Serving](serving.md)
 * [Logging](logging.md)
 * [Mailer](mailer.md)
+* [Debugging](debugging.md)
 * [Benchmarks](benchmarks.md)

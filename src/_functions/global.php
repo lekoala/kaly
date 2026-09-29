@@ -21,8 +21,16 @@ if (!function_exists('is_cli')) {
 
 if (!function_exists('d')) {
     /**
-     * Dump in a worker context means throwing an exception
-     * @link https://github.com/avto-dev/stacked-dumper-laravel/blob/master/functions/dump.php
+     * Dump variables without stopping the execution, so it stays safe inside
+     * a worker or a Fiber. It delegates to Symfony VarDumper's `dump()` when
+     * available (require-dev), `var_dump()` otherwise: source location,
+     * HTML/CLI rendering and server mode (Buggregator) are VarDumper's job.
+     *
+     * Route dumps to Buggregator with:
+     * VAR_DUMPER_FORMAT=server
+     * VAR_DUMPER_SERVER=buggregator:9912
+     *
+     * In production (APP_DEBUG disabled) it does nothing, use `dd()` to stop.
      * @param array<mixed> ...$vars
      */
     function d(...$vars): void
@@ -33,72 +41,22 @@ if (!function_exists('d')) {
             return;
         }
 
-        // You can override with your own settings
-        $ph = $_ENV['DUMP_IDE_PLACEHOLDER'] ?? 'vscode://file/{file}:{line}:0';
-        $ex = $_ENV['DUMP_EXCEPTION'] ?? false;
-
-        // Get caller info
-        $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 1);
-        $file = $backtrace[0]['file'] ?? '(undefined file)';
-        $line = $backtrace[0]['line'] ?? 0;
-
-        // Extract arguments
-        $arguments = [];
-        if ($line > 0) {
-            $src = @file($file);
-            if ($src) {
-                // Find all arguments, ignore variables within parenthesis if it's on one line
-                preg_match('/' . __FUNCTION__ . "\((.+)\)/", $src[$line - 1], $matches);
-                if (!empty($matches[1])) {
-                    $split = preg_split("/(?![^(]*\)),/", $matches[1]);
-                    if ($split) {
-                        $arguments = array_map('trim', $split);
-                    }
-                }
-            }
-        }
-
-        // Output content, store in a variable in case we need to send a response instead
-        ob_start();
-        $is_cli = is_cli();
-
-        // show location
-        if ($is_cli || !is_string($ph)) {
-            echo "\n" . str_repeat('=', 42) . "\n";
-            echo "{$file}:{$line}\n";
-        } else {
-            $link = str_replace(['{file}', '{line}'], [$file, (string) $line], $ph);
-            echo "<pre><a href=\"{$link}\">{$file}:{$line}</a></pre>";
-        }
-
-        // show values with their argument name
         $fn = function_exists('dump') ? 'dump' : 'var_dump';
-        foreach ($vars as $i => $v) {
-            $name = $arguments[$i] ?? null;
-
-            if ($is_cli) {
-                echo str_repeat('-', 42) . "\n";
-                echo "{$name}\n";
-                var_dump($v); // don't use dump in cli
-            } else {
-                echo "<pre>{$name}</pre>";
-                $fn($v);
-            }
+        foreach ($vars as $v) {
+            $fn($v);
         }
+    }
+}
 
-        if ($is_cli) {
-            echo str_repeat('=', 42) . "\n";
-        }
-
-        $content = ob_get_contents();
-        ob_end_clean();
-
-        if ($ex) {
-            throw new \Kaly\Http\ResponseException($content ?: '(no content)');
-        } else {
-            echo $content;
-            exit(1);
-        }
+if (!function_exists('dd')) {
+    /**
+     * Dump variables and stop the execution with a non-zero status.
+     * @param array<mixed> ...$vars
+     */
+    function dd(...$vars): never
+    {
+        d(...$vars);
+        exit(1);
     }
 }
 

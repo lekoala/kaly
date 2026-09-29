@@ -451,6 +451,11 @@ final class App implements RequestHandlerInterface
             }
         }
 
+        // Whatever the app (modules, configure hooks) bound explicitly wins over
+        // the framework defaults below. Capture this before they are applied:
+        // an explicit PSR-3 logger also receives the Kaly diagnostics.
+        $explicitLogger = $definitions->has(LoggerInterface::class);
+
         // Our default implementations if none are provided
         foreach (self::DEFAULT_IMPLEMENTATIONS as $interface => $className) {
             if (!$definitions->has($interface)) {
@@ -469,9 +474,16 @@ final class App implements RequestHandlerInterface
             $definitions->parameter(FileServer::class, 'publicDir', $this->paths->publicDir());
         }
 
-        // A debug logger (null logger if debug is disabled) if none is provided
+        // A debug logger (null logger if debug is disabled) if none is provided.
+        // When the application configured its own PSR-3 logger, the Kaly
+        // diagnostics (pipeline trace, ...) follow it instead of staying in
+        // the debug.log fallback.
         if (!$definitions->has(self::DEBUG_LOGGER)) {
-            $definitions->set(self::DEBUG_LOGGER, $this->debug ? new FileLogger($this->paths->base . '/debug.log') : NullLogger::class);
+            if ($explicitLogger) {
+                $definitions->set(self::DEBUG_LOGGER, static fn(ContainerInterface $container) => $container->get(LoggerInterface::class));
+            } else {
+                $definitions->set(self::DEBUG_LOGGER, $this->debug ? new FileLogger($this->paths->base . '/debug.log') : NullLogger::class);
+            }
         }
 
         // Enable translation cache for prod

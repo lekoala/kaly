@@ -4,6 +4,18 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Dump helpers
+
+- `d()` dumps through Symfony VarDumper's `dump()` (`var_dump()` fallback) and
+  never stops the execution: use the new `dd()` to dump and exit. The homemade
+  rendering is gone (argument names from source parsing, HTML/CLI branches,
+  output buffering), VarDumper owns that job, including server mode.
+- `DUMP_EXCEPTION` is removed: `d()` no longer throws a `ResponseException`.
+- The `APP_DEBUG` guard stays: `d()` does nothing in production.
+- VarDumper file links use `xdebug.file_link_format`
+  (eg: `vscode://file/%f:%l`), the Kaly debug page keeps using
+  `DUMP_IDE_PLACEHOLDER` (eg: `vscode://file/{file}:{line}:0`).
+
 ## PSR-15 only middlewares
 
 - `GeneratorMiddleware` and `GeneratorMiddlewareInterface` are removed. Write plain
