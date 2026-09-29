@@ -24,9 +24,9 @@ use Throwable;
  * inside it.
  *
  * State is established once and read through strict accessors: behind the
- * routing step `route()` and `locale()` are guaranteed, and calling them too
- * early is a programming error rather than a null that contaminates every
- * caller downstream.
+ * routing step `route()`, `locale()` and the contextual `url()`/`urlFor()`
+ * are guaranteed, and calling them too early is a programming error rather
+ * than a null that contaminates every caller downstream.
  */
 final class HttpContext
 {

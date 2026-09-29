@@ -215,6 +215,9 @@ $ctx->url('shop:product', ['slug' => 'velo']);   // /en/... when the request run
 $ctx->urlFor([CartController::class, 'add'], [42]);
 ```
 
+A controller redirects with `$this->redirectToRoute('shop:product', ['slug' => $slug])`
+(303 by default), generated for the request locale just like `$ctx->url()`.
+
 Templates get the same generator as `$url`, alongside the `$i18n` translator
 (both are reserved: a view datum under either name is overridden):
 

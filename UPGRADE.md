@@ -4,6 +4,23 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Explicit controller results
+
+- Controllers may return `Kaly\Http\JsonResponse::of($data, 201)` for JSON with a
+  status code and headers (a plain array stays the shorthand for a 200 JSON response).
+- `Kaly\View\View::of($template, $data)` builds a view; `withStatus(404)` answers with
+  another status code. The dispatcher honors it when rendering.
+- `AbstractController::redirectToRoute('shop:product', $params)` redirects to a named route
+  (303 by default), generated for the request locale.
+- `RequestDispatcher::prepareResponse()` now receives the `HttpContext` instead of the
+  locale string.
+
+## Slimmer response exceptions
+
+- `ResponseException::svg()`, `::html()` and `::json()` are removed: shaped responses
+  are controller results (`View`, `JsonResponse`), not exceptions. The class only
+  carries a raw body (used by the debug dump).
+
 ## Immutable routes and contextual urls
 
 - `Route` is now immutable and final: resolvers build it in one step with

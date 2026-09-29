@@ -9,6 +9,7 @@ use Kaly\Core\HttpContext;
 use Kaly\Di\Injector;
 use Kaly\Http\ContentType;
 use Kaly\Http\InputMapperInterface;
+use Kaly\Http\JsonResponse;
 use Kaly\Http\RequestInput;
 use Kaly\Text\LocalizedTranslator;
 use Kaly\Text\TranslatorInterface;
@@ -56,12 +57,12 @@ class RequestDispatcher implements RequestHandlerInterface
     }
 
     /**
-     * @return ResponseInterface|View|array<mixed>|string|null
+     * @return ResponseInterface|View|JsonResponse|array<mixed>|string|null
      */
-    protected function dispatch(HttpContext $ctx, Route $route): ResponseInterface|View|array|string|null
+    protected function dispatch(HttpContext $ctx, Route $route): ResponseInterface|View|JsonResponse|array|string|null
     {
         $class = $route->controller;
-        if (!$class) {
+        if ($class === '') {
             throw new Ex('Controller not found');
         }
 
@@ -95,11 +96,15 @@ class RequestDispatcher implements RequestHandlerInterface
             || is_array($result)
             || $result instanceof ResponseInterface
             || $result instanceof View
+            || $result instanceof JsonResponse
         ) {
             return $result;
         }
 
-        throw new Ex('Controllers must return a ResponseInterface, a View, an array, a string or null. Got: ' . get_debug_type($result));
+        throw new Ex(
+            'Controllers must return a ResponseInterface, a View, a JsonResponse, an array, a string or null. Got: '
+                . get_debug_type($result),
+        );
     }
 
     /**
@@ -115,12 +120,15 @@ class RequestDispatcher implements RequestHandlerInterface
     }
 
     /**
-     * @param ResponseInterface|View|array<mixed>|string|null $result
+     * @param ResponseInterface|View|JsonResponse|array<mixed>|string|null $result
      */
-    protected function prepareResponse(ResponseInterface|View|array|string|null $result, HttpContext $ctx): ResponseInterface
+    protected function prepareResponse(ResponseInterface|View|JsonResponse|array|string|null $result, HttpContext $ctx): ResponseInterface
     {
         if ($result instanceof ResponseInterface) {
             return $result;
+        }
+        if ($result instanceof JsonResponse) {
+            return $this->createResponse(Json::encode($result->data), ContentType::JSON, $result->status, $result->headers);
         }
         if ($result instanceof View) {
             if ($this->renderer === null) {
@@ -134,7 +142,7 @@ class RequestDispatcher implements RequestHandlerInterface
                 self::VAR_I18N => new LocalizedTranslator($this->translator, $ctx->locale()),
                 self::VAR_URL => $ctx->url(...),
             ];
-            return $this->createResponse($this->renderer->render($result->template, $data), ContentType::HTML);
+            return $this->createResponse($this->renderer->render($result->template, $data), ContentType::HTML, $result->status);
         }
         if (is_array($result)) {
             return $this->createResponse(Json::encode($result), ContentType::JSON);
@@ -142,11 +150,18 @@ class RequestDispatcher implements RequestHandlerInterface
         return $this->createResponse((string) $result, ContentType::HTML);
     }
 
-    protected function createResponse(string $body, string $contentType): ResponseInterface
+    /**
+     * @param array<string,string> $headers
+     */
+    protected function createResponse(string $body, string $contentType, int $status = 200, array $headers = []): ResponseInterface
     {
-        return $this->responseFactory
-            ->createResponse(200)
+        $response = $this->responseFactory
+            ->createResponse($status)
             ->withHeader('Content-Type', $contentType)
             ->withBody($this->streamFactory->createStream($body));
+        foreach ($headers as $name => $value) {
+            $response = $response->withHeader($name, $value);
+        }
+        return $response;
     }
 }

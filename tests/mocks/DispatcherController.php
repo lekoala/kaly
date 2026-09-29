@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Tests\Mocks;
 
 use Kaly\Core\AbstractController;
+use Kaly\Http\JsonResponse;
 use Kaly\View\View;
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
@@ -71,5 +72,23 @@ class DispatcherController extends AbstractController
     {
         // url is reserved: the dispatcher always overrides it
         return new View('template', ['url' => 'should be overridden']);
+    }
+
+    /**
+     * @return array<string,int>
+     */
+    public function jsonResponseResult(): JsonResponse
+    {
+        return JsonResponse::of(['a' => 1], 201, ['X-Test' => 'yes']);
+    }
+
+    public function viewResultWithStatus(): View
+    {
+        return View::of('template', ['title' => 'Test'])->withStatus(404);
+    }
+
+    public function redirectResult(): never
+    {
+        $this->redirectToRoute('shop:product', ['slug' => 'velo']);
     }
 }

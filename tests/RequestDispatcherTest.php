@@ -9,6 +9,7 @@ use Kaly\Core\HttpContext;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Di\Injector;
+use Kaly\Http\RedirectException;
 use Kaly\Router\RequestDispatcher;
 use Kaly\Router\Route;
 use Kaly\Router\RouterInterface;
@@ -223,5 +224,40 @@ class RequestDispatcherTest extends TestCase
 
         $response = $this->dispatch($this->dispatcher('viewResultWithUrl', $renderer));
         $this->assertSame('Closure', (string) $response->getBody());
+    }
+
+    public function testJsonResponseResultCarriesStatusAndHeaders(): void
+    {
+        $response = $this->dispatch($this->dispatcher('jsonResponseResult'));
+        $this->assertSame(201, $response->getStatusCode());
+        $this->assertSame('application/json', $response->getHeaderLine('Content-Type'));
+        $this->assertSame('yes', $response->getHeaderLine('X-Test'));
+        $this->assertSame('{"a":1}', (string) $response->getBody());
+    }
+
+    public function testViewResultWithStatusAnswersWithThatStatus(): void
+    {
+        $renderer = new class implements RendererInterface {
+            public function render(string $template, array $data = []): string
+            {
+                return $template . ':' . ($data['title'] ?? '');
+            }
+        };
+
+        $response = $this->dispatch($this->dispatcher('viewResultWithStatus', $renderer));
+        $this->assertSame(404, $response->getStatusCode());
+        $this->assertSame('template:Test', (string) $response->getBody());
+    }
+
+    public function testRedirectHelperRedirectsToTheNamedRoute(): void
+    {
+        try {
+            $this->dispatch($this->dispatcher('redirectResult'));
+            $this->fail('A redirect was expected');
+        } catch (RedirectException $e) {
+            // The stub router echoes the locale it receives
+            $this->assertSame(303, $e->getCode());
+            $this->assertSame('en:shop:product', $e->getUrl());
+        }
     }
 }

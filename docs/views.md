@@ -2,16 +2,21 @@
 
 Kaly is renderer agnostic. The core only exposes:
 
-- `Kaly\View\View` — a controller result: `new View('@module/template', $data)`;
+- `Kaly\View\View` — a controller result: `View::of('@module/template', $data)`;
+  `withStatus(404)` answers with another status code;
 - `Kaly\View\RendererInterface` — `render(string $template, array $data = []): string`;
 - optional capabilities `TemplateLocatorInterface` (`has()`) and `TemplatePathRegistryInterface` (`setPath()`).
 
 Controllers return a `View`; the dispatcher renders it through the configured
-`RendererInterface`. An `array` is returned as JSON, a `string` as HTML. If no renderer is
-configured, returning a `View` throws.
+`RendererInterface`. An `array` is returned as JSON (200), a
+`Kaly\Http\JsonResponse::of($data, 201)` as JSON with its status code and headers,
+a `string` as HTML. If no renderer is configured, returning a `View` throws.
 
 Every render also receives an `i18n` variable: a translator bound to the locale of the
 current request. It is reserved, so view data never overrides it. See [i18n](i18n.md).
+
+Every render also receives an `url` variable: `$url('shop:product', $params)`
+generates an url for the locale of the current request. It is reserved too.
 
 ## Choosing a renderer
 

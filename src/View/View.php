@@ -19,5 +19,19 @@ final class View
     public function __construct(
         public readonly string $template,
         public readonly array $data = [],
+        public readonly int $status = 200,
     ) {}
+
+    /**
+     * @param array<string,mixed> $data
+     */
+    public static function of(string $template, array $data = [], int $status = 200): self
+    {
+        return new self($template, $data, $status);
+    }
+
+    public function withStatus(int $status): self
+    {
+        return new self($this->template, $this->data, $status);
+    }
 }

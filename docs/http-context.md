@@ -18,6 +18,7 @@ one request -> one context -> the whole cycle -> one response
 $ctx->request();    // the current PSR-7 request
 $ctx->route();      // the matched route
 $ctx->locale();     // the locale of the request
+$ctx->url('shop:product', ['slug' => 'velo']); // an url for the request locale
 $ctx->session();    // the session of this request
 $ctx->cookies();    // the cookies of this request
 $ctx->response();   // the final response, once the cycle is over
