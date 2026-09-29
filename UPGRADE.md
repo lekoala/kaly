@@ -157,6 +157,17 @@ $module->localized();                 // in the config.php of LangModule itself
   without it. Call `localized()` on every module whose urls carry the locale.
 - A module can have one segment per locale: `$module->mount(['fr' => 'boutique', 'en' => 'shop'])`,
   and a route one path per locale: `$routes->get(['fr' => '/a-propos', 'en' => '/about'], ...)`.
+  Both require `localized()` on the module, and `localized()` requires the application
+  to declare locales: anything else fails at boot (mounts, claim prefixes) or when the
+  table compiles (paths).
+- Generating an url for a locale the route or the mount has no variant for fails instead
+  of producing an url no route would match.
+- Every `$module->routes()` call feeds the same table: use the priority of each route
+  (`->priority(10)`) instead of the removed second argument of `routes()`. A name shared
+  by two declarations of the table fails when it compiles; a name shared with a claim
+  fails when the url is generated.
+- A 405 from the route table is authoritative: custom resolvers and the convention never
+  reinterpret a path the table knows for other methods only.
 - The redirect adding the default locale now builds an absolute path (`/en/...`).
 
 ### Removed classes

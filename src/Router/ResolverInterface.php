@@ -41,8 +41,8 @@ interface ResolverInterface
      * Either way, the next resolver of the module gets its chance.
      *
      * @throws RouteNotFoundException Not mine, with a reason
-     * @throws MethodNotAllowedException When the path is known for other methods only (reported per
-     * resolver: the router lets the remaining resolvers try and answers 405 only when none matches)
+     * @throws MethodNotAllowedException When the path is known for other methods only (authoritative:
+     * the resolvers that follow never get a chance to reinterpret it)
      * @throws RedirectException To enforce a canonical url
      */
     public function resolve(RouteRequest $request): ?Route;

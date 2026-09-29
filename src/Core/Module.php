@@ -140,21 +140,26 @@ final class Module
      * Declare routes below the module entry point. Paths are relative to it:
      * in a module mounted on 'shop', '/cart' answers on /shop/cart/.
      *
+     * Every call feeds the same logical table: GET and POST declared in two
+     * calls share one match space, and collisions or duplicate names fail
+     * together when the table compiles. Route precedence uses the priority
+     * of each route, not the declaration.
+     *
      * Route names are local to the module, and qualified from the outside:
      * `shop:cart` (the default module may omit its prefix). A name identifies
-     * exactly one route of the module, across all its route tables and claims.
+     * exactly one route of the module, across its table and its claims.
      *
      * @param Closure(Routes): void $routes
      */
-    public function routes(Closure $routes, int $priority = 0): self
+    public function routes(Closure $routes): self
     {
-        $this->resolvers[] = ['priority' => $priority, 'resolver' => $routes];
+        $this->resolvers[] = ['priority' => 0, 'resolver' => $routes];
         return $this;
     }
 
     /**
      * Resolve urls of the module with a custom resolver, eg: pages stored in
-     * a database. It runs by priority among the route tables (0) and the
+     * a database. It runs by priority around the route table (0) and the
      * convention (1000), and returns null for urls it does not know.
      *
      * @param ResolverInterface|class-string<ResolverInterface> $resolver A class is resolved from the container

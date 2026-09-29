@@ -49,7 +49,7 @@ spelling (`/Shop/`, `/SHOP/`) redirects to `/shop/`.
 
 | Resolver | Priority | Declared with |
 | --- | --- | --- |
-| route table | 0 | `$module->routes(fn(Routes $routes) => ...)` |
+| route table | 0 | `$module->routes(fn(Routes $routes) => ...)`, once or several times: every call feeds the same table |
 | custom resolver | 0 | `$module->resolver(PageResolver::class, priority: 500)` |
 | convention | 1000 | implicit, removed with `$module->withoutConventionRouting()` |
 
@@ -90,13 +90,11 @@ generation time — only mount and claim conflicts fail at boot):
 - **Collisions fail.** Two routes with an equivalent path (placeholder names erased),
   overlapping methods and the same priority throw. Different priorities are an
   explicit choice.
-- **Names are unique** across all the tables and claims of the module: a
-  duplicate fails when the table is compiled (same table) or when the url is
-  generated (two tables or a table and a claim sharing a name).
-- **A 405 is aggregated.** A table reporting a path it knows for other methods
-  only does not stop the module: the router lets the remaining resolvers try
-  and answers `405` (with the union of the allowed methods) only when none of
-  them matches.
+- **Names are unique** across the table and the claims of the module: a
+  duplicate within the table fails at compile time, a name shared with a claim
+  fails when the url is generated.
+- **A 405 is authoritative.** A path the table knows for other methods only is a
+  `405`: custom resolvers and the convention never get a chance to reinterpret it.
 - **Defaults are generate-only.** Every placeholder matches literally; a default only
   fills a missing parameter when generating an url.
 
@@ -183,6 +181,10 @@ $module->localized();   // its urls carry the locale: /fr/boutique/, /en/shop/
   (the home page `/` is the exception). This holds with a single application
   locale too.
 - A module that is not localized refuses it: `/fr/api/` redirects to `/api/`.
+- Locales stay coherent: a mount, a claim prefix or route paths per locale
+  require `localized()`, and `localized()` requires the application to declare
+  locales. Anything else fails at boot (mounts, prefixes) or when the table
+  compiles (paths).
 - `/fr/` alone, with `fr` the default locale, redirects to `/`.
 - The locale prefix is lowercase: `/FR/boutique/` redirects to `/fr/boutique/`.
 - The locale of the route wins over the one of a middleware and over the

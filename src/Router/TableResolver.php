@@ -15,9 +15,8 @@ use RuntimeException;
  *
  * The table is declared in the module config.php and compiled on its first
  * use, then kept in memory: a request only pays for the module it reaches.
- * A path known for other methods only is reported as 405 to the router,
- * which lets the remaining resolvers of the module try first and only
- * answers 405 when none of them matches.
+ * A path known for other methods only is an authoritative 405: the resolvers
+ * that follow never get a chance to reinterpret it.
  *
  * @phpstan-import-type RouteEntry from RouteCollection
  */
@@ -28,10 +27,12 @@ final class TableResolver implements ResolverInterface
     /**
      * @param Closure(Routes): void $declare
      * @param string $label Where the table is declared, for error messages
+     * @param bool $localized Whether the owning module carries the locale prefix
      */
     public function __construct(
         private Closure $declare,
         private string $label = 'route table',
+        private bool $localized = false,
     ) {}
 
     public function collection(): RouteCollection
@@ -40,7 +41,9 @@ final class TableResolver implements ResolverInterface
             try {
                 $routes = new Routes();
                 ($this->declare)($routes);
-                $this->collection = new RouteCollection($routes->definitions());
+                $definitions = $routes->definitions();
+                $this->failOnLocalesWithoutPrefix($definitions);
+                $this->collection = new RouteCollection($definitions);
             } catch (Ex $e) {
                 throw new Ex("Invalid {$this->label}: {$e->getMessage()}", 0, $e);
             }
@@ -121,6 +124,30 @@ final class TableResolver implements ResolverInterface
             $path = str_replace('{' . $name . '}', rawurlencode((string) $value), $path);
         }
         return rtrim($path, '/');
+    }
+
+    /**
+     * Locale-keyed paths only make sense with the locale prefix: without
+     * localized(), generation would produce urls the matcher resolves with
+     * the default locale and answers 404.
+     *
+     * @param list<RouteDefinition> $definitions
+     */
+    private function failOnLocalesWithoutPrefix(array $definitions): void
+    {
+        if ($this->localized) {
+            return;
+        }
+        foreach ($definitions as $definition) {
+            $locales = array_keys($definition->paths());
+            if ($locales !== ['*']) {
+                throw new Ex(sprintf(
+                    "Route '%s' has paths per locale (%s) but its module is not localized: call localized() or declare a single path",
+                    $definition->pathFor(null),
+                    implode(', ', $locales),
+                ));
+            }
+        }
     }
 
     /**

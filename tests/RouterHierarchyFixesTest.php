@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use Kaly\Core\Ex;
 use Kaly\Core\Module;
 use Kaly\Http\MethodNotAllowedException;
 use Kaly\Http\RedirectException;
@@ -16,6 +17,7 @@ use Nyholm\Psr7\ServerRequest as BaseServerRequest;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use TestModule\Controller\AliasController;
 
 /**
  * Regression tests for the hierarchical routing fixes: 405 aggregation across
@@ -106,7 +108,7 @@ class RouterHierarchyFixesTest extends TestCase
         $router->url('mapped-module:item', locale: 'en');
     }
 
-    public function testDuplicateRouteNameAcrossTablesFailsAtGeneration(): void
+    public function testDuplicateRouteNameAcrossCallsFailsAtCompileTime(): void
     {
         $module = $this
             ->module()
@@ -118,8 +120,9 @@ class RouterHierarchyFixesTest extends TestCase
             });
         $router = new Router([$module]);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage("Duplicate route name 'mapped-module:same'");
+        // Both calls feed one table: the duplicate fails when it compiles
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage("Duplicate route name 'same'");
         $router->url('mapped-module:same');
     }
 
@@ -179,6 +182,87 @@ class RouterHierarchyFixesTest extends TestCase
             $this->fail('A redirect was expected');
         } catch (RedirectException $e) {
             $this->assertSame('/fr/shop/item/', $e->getUrl());
+        }
+    }
+
+    public function testTable405IsAuthoritativeOverTheConvention(): void
+    {
+        $module = new Module(__DIR__ . '/modules/TestModule');
+        $module->autoloadFiles();
+        $module->routes(function (Routes $routes): void {
+            $routes->get('/alias/hello', [AliasController::class, 'hello']);
+        })->routes(function (Routes $routes): void {
+            $routes->get('/alias/priority', [AliasController::class, 'priority']);
+        });
+        // The convention stays enabled: it would run hello() for any method
+        $router = new Router([$module]);
+
+        // Both calls feed one table
+        $this->assertNotNull($this->match($router, '/test-module/alias/hello/'));
+        $this->assertNotNull($this->match($router, '/test-module/alias/priority/'));
+
+        // ... but POST never falls through to the convention
+        try {
+            $this->match($router, '/test-module/alias/hello/', 'POST');
+            $this->fail('A 405 was expected');
+        } catch (MethodNotAllowedException $e) {
+            $this->assertSame(['GET'], $e->getAllowedMethods());
+        }
+    }
+
+    public function testMountPerLocaleWithoutLocalizedFailsAtBoot(): void
+    {
+        $module = (new Module(__DIR__ . '/modules/MappedModule'))->mount(['fr' => 'boutique']);
+
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage('is not localized');
+        new Router([$module], null, ['fr', 'en']);
+    }
+
+    public function testClaimPerLocaleWithoutLocalizedFailsAtBoot(): void
+    {
+        $module = (new Module(__DIR__ . '/modules/MappedModule'))->claim([
+            'fr' => '/a-propos',
+            'en' => '/about',
+        ], function (Routes $routes): void {
+            $routes->get('/', RouteHandlerFixture::class);
+        });
+
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage('is not localized');
+        new Router([$module], null, ['fr', 'en']);
+    }
+
+    public function testLocalizedWithoutAppLocalesFailsAtBoot(): void
+    {
+        $module = (new Module(__DIR__ . '/modules/MappedModule'))
+            ->mount('shop')
+            ->localized();
+
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage('declares no locales');
+        new Router([$module], null, []);
+    }
+
+    public function testPathsPerLocaleWithoutLocalizedFailAtCompileTime(): void
+    {
+        $module = (new Module(__DIR__ . '/modules/MappedModule'))
+            ->mount('shop')
+            ->withoutConventionRouting()
+            ->routes(function (Routes $routes): void {
+                $routes
+                    ->get(['fr' => '/article/{id}', 'en' => '/post/{id}'], [RouteHandlerFixture::class, 'show'])
+                    ->where('id', '\d+')
+                    ->name('item');
+            });
+        // Building the router is fine: the table compiles on first use
+        $router = new Router([$module], null, ['fr', 'en']);
+
+        try {
+            $router->url('mapped-module:item', ['id' => 7], 'en');
+            $this->fail('An incoherent locale declaration was expected to fail');
+        } catch (Ex $e) {
+            $this->assertStringContainsString('is not localized', $e->getMessage());
         }
     }
 }

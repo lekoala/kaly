@@ -7,7 +7,6 @@ namespace Kaly\Router;
 use Closure;
 use Kaly\Core\Ex;
 use Kaly\Core\Module;
-use Kaly\Http\MethodNotAllowedException;
 use Kaly\Http\RedirectException;
 use Kaly\Util\Str;
 use Psr\Container\ContainerInterface;
@@ -53,7 +52,7 @@ final class Router implements RouterInterface
     private array $resolvers = [];
 
     /**
-     * @var array<string,list<TableResolver>> The route tables of each module entry point, by module id
+     * @var array<string,TableResolver> The route table of each module entry point, by module id
      */
     private array $tables = [];
 
@@ -165,17 +164,15 @@ final class Router implements RouterInterface
     }
 
     /**
-     * Run the resolvers of one module in order: the first route wins. A 405
-     * from one resolver does not stop the others: the router aggregates the
-     * allowed methods and only answers 405 when no resolver matches.
+     * Run the resolvers of one module in order: the first route wins, and a
+     * 405 is authoritative — a path a resolver knows for other methods only
+     * never falls through to the resolvers that follow.
      *
      * @param list<ResolverInterface|class-string<ResolverInterface>> $resolvers
      */
     private function resolveIn(string $id, array $resolvers, RouteRequest $request): Route
     {
         $reasons = [];
-        $allowed = [];
-        $deniedReasons = [];
         foreach ($resolvers as $resolver) {
             if (is_string($resolver)) {
                 $resolver = $this->resolveService($resolver);
@@ -186,28 +183,12 @@ final class Router implements RouterInterface
                 // "Not mine, and here is why": the next resolver gets its chance
                 $reasons[] = $resolver::class . ': ' . $miss->getMessage();
                 continue;
-            } catch (MethodNotAllowedException $denied) {
-                // "Mine, but not for this method": another resolver may still
-                // know the path for this method (eg: GET and POST declared in
-                // two tables of the same module).
-                foreach ($denied->getAllowedMethods() as $method) {
-                    $allowed[$method] = true;
-                }
-                $deniedReasons[] = $resolver::class . ': ' . $denied->getMessage();
-                continue;
             }
             if ($route !== null) {
                 return $route;
             }
         }
 
-        if ($allowed !== []) {
-            $why = implode('; ', $deniedReasons);
-            throw new MethodNotAllowedException(
-                array_keys($allowed),
-                "Method {$request->method()} is not allowed for '{$request->path()}' in module '{$id}': {$why}",
-            );
-        }
         $why = $reasons === [] ? 'no resolver knows it' : implode('; ', $reasons);
         throw new RouteNotFoundException("Route '{$request->request->getUri()->getPath()}' not found in module '{$id}': {$why}");
     }
@@ -259,11 +240,13 @@ final class Router implements RouterInterface
         [$id, $local] = $this->splitName($name);
         $locale = $this->localeFor($locale);
 
-        // A name identifies exactly one route of the module, across all its
-        // tables and claims: collecting every candidate keeps generation
-        // independent of table order while preserving lazy compilation.
+        // A name identifies exactly one route of the module: its table or one
+        // of its claims. Duplicates within the table already failed at compile
+        // time; a name shared with a claim fails here instead of silently
+        // returning the first match.
         $candidates = [];
-        foreach ($this->tables[$id] ?? [] as $table) {
+        if (isset($this->tables[$id])) {
+            $table = $this->tables[$id];
             $definition = $table->collection()->byName($local);
             if ($definition !== null) {
                 $candidates[] = [$table, $definition, null];
@@ -416,6 +399,18 @@ final class Router implements RouterInterface
         $this->modules[$id] = $module;
         $this->namespaces[$module->getNamespace()] = $id;
 
+        if ($module->isLocalized() && $this->locales === []) {
+            throw new Ex("Module '{$id}' is localized but the application declares no locales");
+        }
+        if (!$module->isLocalized() && array_keys($module->getMount()) !== ['*']) {
+            throw new Ex(
+                "Module '{$id}' has mounts per locale ('"
+                . implode("', '", array_keys($module->getMount()))
+                . "')"
+                . ' but is not localized: call localized() or mount a single segment',
+            );
+        }
+
         if ($module->getNamespace() === self::DEFAULT_NAMESPACE) {
             $this->default = $id;
         } else {
@@ -424,17 +419,33 @@ final class Router implements RouterInterface
             }
         }
 
-        // Resolvers by priority, then declaration order; the convention last
+        // Every routes() call feeds the same logical table: declarations share
+        // one match space whatever the call they live in, and a 405 from the
+        // table stays authoritative over the resolvers that follow. Custom
+        // resolvers keep their priority around it; the convention last.
         $entries = [];
         $sequence = 0;
-        $this->tables[$id] = [];
+        $declaredTables = [];
         foreach ($module->getResolvers() as $declared) {
             $resolver = $declared['resolver'];
             if ($resolver instanceof Closure) {
-                $resolver = new TableResolver($resolver, "route table of module '{$id}' (config.php)");
-                $this->tables[$id][] = $resolver;
+                $declaredTables[] = $resolver;
+                continue;
             }
             $entries[] = [$declared['priority'], $sequence++, $resolver];
+        }
+        if ($declaredTables !== []) {
+            $table = new TableResolver(
+                static function (Routes $routes) use ($declaredTables): void {
+                    foreach ($declaredTables as $declare) {
+                        $declare($routes);
+                    }
+                },
+                "route table of module '{$id}' (config.php)",
+                $module->isLocalized(),
+            );
+            $this->tables[$id] = $table;
+            $entries[] = [0, $sequence++, $table];
         }
         if ($module->hasConventionRouting()) {
             $entries[] = [ConventionResolver::PRIORITY, $sequence, $this->convention];
@@ -474,9 +485,18 @@ final class Router implements RouterInterface
     {
         $id = $module->getId();
         foreach ($module->getClaims() as $claim) {
+            if (!$module->isLocalized() && array_keys($claim['prefix']) !== ['*']) {
+                throw new Ex(
+                    "Module '{$id}' claims '"
+                    . implode("', '", $claim['prefix'])
+                    . "' per locale"
+                    . ' but is not localized: call localized() or claim a single prefix',
+                );
+            }
             $table = new TableResolver(
                 $claim['routes'],
                 "claim '" . implode("', '", $claim['prefix']) . "' of module '{$id}' (config.php)",
+                $module->isLocalized(),
             );
             foreach ($claim['prefix'] as $locale => $prefix) {
                 $segments = array_values(array_filter(explode('/', trim($prefix, '/')), static fn(string $p): bool => $p !== ''));
