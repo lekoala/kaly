@@ -132,8 +132,11 @@ $di->set(HugeClient::class, fn() => new HugeClient(...));
 Modules are discovered by sorted folder name, so the order is deterministic across
 filesystems. Each one gets a priority of 100, 200, 300... in that order unless it sets
 its own with `$module->priority(50)`. Definitions are then merged from the lowest
-priority to the highest, so a later module can override an earlier binding. The
-`App::configure()` hooks run last and win over every module.
+priority to the highest. Merging is additive: two modules owning the same service
+id is a conflict that fails at boot — a later module cannot silently override an
+earlier binding. To replace a service intentionally, use `rebind()` in
+`whenAllLoaded()` (second pass below) or in an `App::configure()` hook, which run
+after every module has been merged.
 
 A second pass runs after every module has been merged, for features that depend on
 what the other modules declared:

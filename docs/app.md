@@ -360,6 +360,15 @@ All definitions provided by the module configs are merged, then the `configure()
 run, then the app defaults (PSR-17 factories, router, logger...) are registered if not
 already defined, and the definitions are locked.
 
+A `configure()` hook that replaces a service a module already defined must use
+`rebind()` — `set()` on an existing id throws a `DefinitionException`:
+
+```php
+$app->configure(static function (Definitions $di) use ($logger): void {
+    $di->rebind(App::DEBUG_LOGGER, $logger);
+});
+```
+
 The container is instantiated ONCE during boot. Subsequent requests on the same app
 instance reuse it.
 

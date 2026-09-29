@@ -198,7 +198,7 @@ class OutgoingBandTest extends TestCase
         $app = new App(__DIR__);
         $app->debug(true);
         $app->configure(static function (Definitions $definitions) use ($logger): void {
-            $definitions->set(App::DEBUG_LOGGER, $logger);
+            $definitions->rebind(App::DEBUG_LOGGER, $logger);
         });
         $app->boot();
 

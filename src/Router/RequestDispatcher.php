@@ -24,6 +24,9 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use ReflectionClass;
+use ReflectionException;
+use ReflectionParameter;
 
 /**
  * The terminal handler of the pipeline.
@@ -82,7 +85,7 @@ class RequestDispatcher implements RequestHandlerInterface
         // Each request gets a fresh instance of the controller. What the
         // resolver found along with the route (eg: a page) reaches its
         // constructor by name.
-        $instance = $this->injector->make($class, ...[...$route->bindings, 'request' => $request, 'ctx' => $ctx]);
+        $instance = $this->injector->make($class, ...$this->controllerArguments($class, $route->bindings, $request, $ctx));
 
         $action = $route->action;
 
@@ -116,6 +119,56 @@ class RequestDispatcher implements RequestHandlerInterface
             'Controllers must return a ResponseInterface, a View, a JsonResponse, an array, a string or null. Got: '
                 . get_debug_type($result),
         );
+    }
+
+    /**
+     * Constructor argument names by class, to avoid reflecting on every request.
+     *
+     * @var array<class-string,list<string>>
+     */
+    private static array $constructorParams = [];
+
+    /**
+     * Build the named arguments for the controller constructor.
+     *
+     * The framework conveniences (`request`, `ctx`) are only passed when the
+     * constructor declares them: since kaly-di 0.3 the injector rejects
+     * unknown named arguments instead of ignoring them. Resolver bindings
+     * pass through untouched, so a typo there still fails fast.
+     *
+     * @param class-string $class
+     * @param array<string,mixed> $bindings Controller constructor arguments, by name
+     * @return array<string,mixed>
+     */
+    private function controllerArguments(string $class, array $bindings, ServerRequestInterface $request, HttpContext $ctx): array
+    {
+        $arguments = $bindings;
+        foreach (['request' => $request, 'ctx' => $ctx] as $name => $value) {
+            if (!array_key_exists($name, $arguments) && in_array($name, self::constructorParamNames($class), true)) {
+                $arguments[$name] = $value;
+            }
+        }
+        return $arguments;
+    }
+
+    /**
+     * @param class-string $class
+     * @return list<string>
+     */
+    private static function constructorParamNames(string $class): array
+    {
+        if (!array_key_exists($class, self::$constructorParams)) {
+            try {
+                $constructor = (new ReflectionClass($class))->getConstructor();
+                self::$constructorParams[$class] = $constructor === null
+                    ? []
+                    : array_map(static fn(ReflectionParameter $p): string => $p->getName(), $constructor->getParameters());
+            } catch (ReflectionException) {
+                // Let Injector::make() report the real problem (unknown class)
+                return [];
+            }
+        }
+        return self::$constructorParams[$class];
     }
 
     /**

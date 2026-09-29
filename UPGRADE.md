@@ -4,6 +4,26 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## kaly-di 0.3
+
+- `composer.json` now requires `lekoala/kaly-di: ^0.3`.
+- Replacing a service is explicit: `set()` on an already defined id, or merging
+  two definitions that own the same id, throws a `DefinitionException`. Use
+  `rebind()` for intentional replacements (a `configure()` hook overriding a
+  module service, a test swapping an implementation), with the optional
+  `expected` guard as a compare-and-swap. A later module can no longer silently
+  override an earlier binding: rebind from `whenAllLoaded()` or a hook instead.
+- New `alias()` makes an id resolve to another entry (same shared instance).
+- `Container::get()` rejects parameters configured for a constructor that does
+  not declare them (`DefinitionException`): a typo'd parameter name now fails
+  fast instead of being ignored.
+- `Injector::make()` / `invoke()` validate the argument list (unknown named
+  arguments, duplicates, surplus positionals): only pass what the callable
+  declares. The dispatcher only forwards `request`/`ctx` to controllers whose
+  constructor declares them.
+- A union parameter with several available candidates is ambiguous and throws
+  `UnresolvableParameterException`: pass the dependency explicitly.
+
 ## Dump helpers
 
 - `d()` dumps through Symfony VarDumper's `dump()` (`var_dump()` fallback) and

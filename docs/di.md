@@ -40,9 +40,17 @@ Any dependency of a resolved class is injected automatically from the container.
   (note the **abstract → concrete** order);
 - `set(string $id, string|object $value)` — register a value, a class name, or a
   factory callable;
+- `rebind(string $id, string|object $value)` — intentionally replace an existing
+  definition (`set()` on an already defined id throws a `DefinitionException`);
+- `alias(string $alias, string $target)` — make an id resolve to another entry
+  (same shared instance, no second callback run);
 - `callback(string $id, callable $callback)` — run a callback once the service is
   instantiated;
 - `merge(Definitions $other)`, `has(string $id)`, `lock()`.
+
+Merging is additive: an id defined on both sides is a conflict, even with the
+same value. A failed merge leaves the object unchanged and reports every
+collision with its provenance.
 
 ```php
 $definitions
@@ -81,6 +89,22 @@ $result = $injector->invoke([$controller, 'myAction'], ...$params);
 The container is permissive by default: it can instantiate any existing class. Bind an
 interface to be able to resolve it — `has()` only returns `true` for an interface once
 it has been defined.
+
+Strictness applies to configuration mistakes, not to autowiring:
+
+- defining the same id twice, merging two definitions that own the same id, or
+  rebinding an unknown id throws a `DefinitionException` (unconditional, it also
+  implements PSR-11 `ContainerExceptionInterface`);
+- parameters configured for a constructor that does not declare them are rejected
+  when the service is resolved — a typo'd parameter name fails fast instead of
+  being ignored;
+- `Injector::make()` / `Injector::invoke()` validate the argument list first:
+  unknown named arguments, the same parameter given twice, surplus positionals
+  and positional-after-named throw an `InvalidArgumentException`. Only pass what
+  the constructor declares;
+- a union parameter with several available candidates (`Foo|Bar`) is ambiguous
+  and fails with an `UnresolvableParameterException`: pass the dependency
+  explicitly.
 
 ## Exceptions
 
