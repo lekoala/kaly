@@ -58,34 +58,10 @@ one request -> one context -> the whole cycle -> one response
 See [Runtime](runtime.md) for the rules this relies on: Kaly is an HTTP
 framework, not an execution runtime.
 
-## Using Road Runner
+## Workers
 
-Since the boot process happens only once, you get a really minimal overhead per request.
-
-```php
-<?php
-
-use Spiral\RoadRunner;
-use Nyholm\Psr7;
-
-require "vendor/autoload.php";
-
-$worker = RoadRunner\Worker::create();
-$psrFactory = new Psr7\Factory\Psr17Factory();
-
-$worker = new RoadRunner\Http\PSR7Worker($worker, $psrFactory, $psrFactory, $psrFactory);
-
-$app = Kaly\Core\App::create(dirname(__DIR__))->boot();
-
-while ($req = $worker->waitRequest()) {
-    try {
-        $response = $app->handle($req);
-        $worker->respond($response);
-    } catch (\Throwable $e) {
-        $worker->getWorker()->error((string) $e);
-    }
-}
-```
+Since the boot happens only once, a worker (FrankenPHP, RoadRunner) has a minimal
+overhead per request. See [Runtime](runtime.md#worker-mode) for the entry points.
 
 ## Bootstrap
 

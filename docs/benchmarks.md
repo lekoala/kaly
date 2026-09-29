@@ -1,78 +1,37 @@
 # Benchmarks
 
-> Archived: historical results below are obsolete (Lumen, West Wind Web Surge, `ab -n 1000 -c 100`).
-> Do not use them for decisions. Reproducible protocol TBD (FrankenPHP/RoadRunner, `APP_DEBUG=false`, `wrk` script).
+> Relative numbers only: compare two commits on the same machine
 
-## Versus Lumen
+## Protocol
 
-You can expect similar performances that if you were using Lumen.
+```bash
+composer bench                                          # the demo app, path /
+php benchmarks/boot.php demos/app /simple-module/       # an app and a path
+php benchmarks/boot.php --synthetic=100 /site/thing3/action2/
+php benchmarks/boot.php --runs=50 --requests=5000       # more samples
+```
 
-In order to make fair comparisons, we decided to make our tests against a more representative app than a plain "hello world".
+Two execution models are measured, as medians:
 
-We used a sample app as describe in [this article](https://loige.co/developing-a-web-application-with-lumen-and-mysql/) that
-show a quote pulled from the database :
-- the request is routed
-- a database call is made (no cache) using Eloquent
-- a template is rendered (and cached) using Latte, Twig or kaly-tpl (Kaly) or Blade (Lumen)
-- the response is served
+- **fpm**: one process per request (autoload, boot, handle), like PHP-FPM. Opcache is
+  warm through its file cache, timestamps validated.
+- **worker**: boot once, then many requests in the same process, like FrankenPHP or
+  RoadRunner. This process runs without opcache, so its boot includes compilation.
 
-Actual req/s are not representative, only relatives values make sense.
+`--synthetic=N` generates an application of 5 modules sharing N controllers of 6
+actions each, to check how the boot scales with the size of the application.
 
-We've included:
-- the baseline (a plain hello world script)
-- a basic hello world returned from a route handler
-- the full template rendering
+## Results
 
-### Tests with West Wind Web Surge
+Windows 11, PHP 8.3, 2026-09-29.
 
-Tests are made using West Wind Web Surge on our local server. 
+| App | fpm autoload | fpm boot | fpm request | worker request |
+| --- | --- | --- | --- | --- |
+| demo (5 modules) | 2.7 ms | 7.0 ms | 2.9 ms | 0.074 ms |
+| synthetic, 100 controllers | 2.8 ms | 6.8 ms | 2.6 ms | 0.022 ms |
+| synthetic, 100 controllers, before hierarchical routing | 2.6 ms | 21.5 ms | 2.1 ms | 0.07 ms |
 
-Let's see how we perform
-
-| Item     | Req/s | Notes             |
-|----------|-------|-------------------|
-| Baseline | 2332  | Plain hello world |
-| Lumen    | 462   | Plain hello world |
-| Kaly     | 458   | Plain hello world |
-| Lumen    | 124   | 2 failed requests |
-| Kaly     | 117   |                   |
-| Kaly     | 124   | Using Latte       |
-
-Both apps have `APP_DEBUG=false`. Surprisingly, some requests are failing for Lumen for some unknown reasons.
-
-Note: when using a less optimized stack (no opcache, xdebug on, Lumen is about 1.2 slower).
-
-### Tests with Apache Bench
-
-Using ab -n 1000 -c 100 as parameters
-
-| Item     | Req/s | Notes              |
-|----------|-------|--------------------|
-| Baseline | 2680  | Plain hello world  |
-| Lumen    | 1015  | Plain hello world  |
-| Kaly     | 1028  | Plain hello world  |
-| Lumen    | 572   | 64 failed requests |
-| Kaly     | 434   |                    |
-| Kaly     | 495   | Using Latte        |
-
-These results are consistent with what we can see with West Wind Web Surge.
-
-Still not sure where these failed request come from, probably some stateful process that gets in the way :-)
-
-## Using RoadRunner
-
-You might be wondering what is the impact of using RoadRunner vs a regular setup.
-
-Using a similar setup as the one described above, here is what we get.
-
-| Item            | Req/s |
-|-----------------|-------|
-| Baseline        | 2332  |
-| Kaly            | 124   |
-| Kaly Hello      | 458   |
-| Kaly + RR       | 947   |
-| Kaly Hello + RR | 1897  |
-
-Using RoadRunner gives 5 to 10 times more req/s on average, which is impressive.
-
-When serving simple responses, there is almost no overhead compared to a plain php script.
+Before hierarchical routing, the boot scanned every controller of every module for
+route attributes. It now only depends on the modules and their `config.php`, never on
+the number of controllers. See [Runtime](runtime.md#no-cache-a-worker-instead) for why
+Kaly optimizes with workers rather than with a cache.

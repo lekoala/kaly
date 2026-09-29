@@ -10,22 +10,16 @@ use Psr\Http\Message\StreamInterface;
 use RuntimeException;
 
 /**
+ * Stateless: the status is only set by the status line, emitted after the
+ * headers so that PHP cannot change it (a Location header implies a 302).
+ * The same instance can emit every response of a worker.
+ *
  * @link https://github.com/laminas/laminas-httphandlerrunner/blob/2.11.x/src/Emitter/SapiEmitter.php
  * @link https://github.com/httpsoft/http-emitter/blob/master/src/SapiEmitter.php
  */
 class ResponseEmitter implements ResponseEmitterInterface
 {
     public const EMPTY_RESPONSES = [100, 101, 102, 204, 205, 304];
-
-    /**
-     * Whether an HTTP status line has been emitted already.
-     *
-     * PHP keeps the status line for the lifetime of the process (CLI SAPI),
-     * so http_response_code() has no effect once one has been sent.
-     *
-     * @var bool
-     */
-    protected static bool $statusLineSent = false;
 
     /**
      * @var int|null
@@ -93,11 +87,6 @@ class ResponseEmitter implements ResponseEmitterInterface
      */
     private function emitHeaders(ResponseInterface $response): void
     {
-        // http_response_code() has no effect (and raises a warning on PHP 8.5+)
-        // once an HTTP status line has been sent in this process
-        if (!self::$statusLineSent) {
-            http_response_code($response->getStatusCode());
-        }
         foreach ($response->getHeaders() as $name => $values) {
             $name = str_replace(' ', '-', ucwords(strtolower(str_replace('-', ' ', (string) $name))));
             $firstReplace = $name === 'Set-Cookie' ? false : true;
@@ -126,8 +115,6 @@ class ResponseEmitter implements ResponseEmitterInterface
         $protocol = $response->getProtocolVersion();
 
         header(sprintf('HTTP/%s %s %s', $protocol, $statusCode, $reasonPhrase), true, $statusCode);
-
-        self::$statusLineSent = true;
     }
 
     /**

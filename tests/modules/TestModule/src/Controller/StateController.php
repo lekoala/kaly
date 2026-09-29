@@ -26,4 +26,14 @@ class StateController extends AbstractController
     {
         return 'ok';
     }
+
+    /**
+     * What this request carries, to prove nothing leaks between worker cycles
+     */
+    public function echo(): string
+    {
+        $query = $this->request->getQueryParams()['q'] ?? '-';
+        $cookie = $this->request->getCookieParams()['theme'] ?? '-';
+        return "q={$query};theme={$cookie};";
+    }
 }

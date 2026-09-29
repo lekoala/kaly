@@ -16,6 +16,8 @@ Kaly therefore follows these rules:
 4. Kaly does not own an event loop, Fiber scheduler or async API.
 5. Blocking vs suspendable I/O is a property of application/runtime adapters, not of the Kaly kernel.
 6. Native PHP process-global facilities may have stricter runtime limitations — see below.
+7. Kaly never requires a cache, and never writes one that changes the behavior of the
+   application — see below.
 
 ## Consequences
 
@@ -31,6 +33,71 @@ starts clean); `ConcurrentRequestTest` locks the concurrent one (two
 interleaved cycles on one booted app, each keeps its route, locale, cookies,
 session, middleware trace and response — through the same shared middleware
 instance).
+
+## No cache, a worker instead
+
+A persistent cache of routes, modules or definitions is a second source of truth:
+it must be invalidated, and a stale one means a route that silently stops working.
+Kaly does not have one. What it keeps is **memoization in memory**: route tables are
+compiled on their first use, controller reflection is kept per class. It dies with the
+process, and the code cannot change under a running process, so there is nothing to
+invalidate.
+
+The real optimization is to boot once. Measured with `composer bench` (see
+[Benchmarks](benchmarks.md)):
+
+| | per request |
+| --- | --- |
+| PHP-FPM, one process per request | autoload ~3 ms + boot ~7 ms + request ~3 ms |
+| worker, after the first request | ~0.02 to 0.1 ms |
+
+Boot does not grow with the size of the application: a url only compiles the
+routes of the module it reaches.
+
+## Worker mode
+
+A booted app handles any number of requests. Nothing but the request changes between
+two cycles, and a failing cycle does not affect the next one.
+
+**FrankenPHP** refreshes the superglobals for each request, so `run()` works as is:
+
+```php
+<?php
+// public/index.php
+require __DIR__ . '/../vendor/autoload.php';
+
+$app = Kaly\Core\App::create(dirname(__DIR__))->boot();
+
+$handler = static fn() => $app->run();
+while (frankenphp_handle_request($handler)) {
+    gc_collect_cycles();
+}
+```
+
+**RoadRunner** hands PSR-7 requests: use `handle()` and give the response back.
+
+```php
+<?php
+use Spiral\RoadRunner;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+$factory = new Nyholm\Psr7\Factory\Psr17Factory();
+$worker = new RoadRunner\Http\PSR7Worker(RoadRunner\Worker::create(), $factory, $factory, $factory);
+
+$app = Kaly\Core\App::create(dirname(__DIR__))->boot();
+
+while ($request = $worker->waitRequest()) {
+    try {
+        $worker->respond($app->handle($request));
+    } catch (Throwable $e) {
+        $worker->getWorker()->error((string) $e);
+    }
+}
+```
+
+`SapiWorkerTest` simulates the FrankenPHP loop (superglobals refreshed, `run()` called
+again and again) and `WorkerTest` the PSR-7 one.
 
 ## Cookies
 
