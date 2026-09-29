@@ -30,7 +30,8 @@ APP_TIMEZONE=UTC
 
 The core only depends on the PSR interfaces: `composer require` a PSR-7 implementation
 and Kaly binds its PSR-17 factories. Nyholm is recommended; Guzzle, Laminas Diactoros and
-HttpSoft are discovered as well. An explicit binding always wins over discovery.
+HttpSoft are discovered as well. If your project already ships one of these, use that
+instead of adding Nyholm. An explicit binding always wins over discovery.
 
 ```bash
 composer require nyholm/psr7
