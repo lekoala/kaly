@@ -92,10 +92,10 @@ while ($req = $worker->waitRequest()) {
 `boot()` will:
 
 - configure error handling and, in debug mode, ensure the conventional directories exist;
-- discover the modules and run their `config.php` and `routes.php`;
+- discover the modules and run their `config.php`;
 - build the definitions (modules, then `configure()` hooks, then framework defaults),
   the DI container and the injector;
-- mount every module on the convention router;
+- build the router from the modules;
 - build the request kernel.
 
 The container is locked once booted: `configure()`, `onBoot()` and `debug()` must be
@@ -149,7 +149,7 @@ incoming -> routing -> routed -> route middlewares -> dispatcher -> (kernel) -> 
 - **routed** runs with a route already known: auth, authorization, CSRF, per route
   rate limits...
 - **route middlewares** are the ones declared on a route, a group or a controller
-  (`#[Middleware]`), see [Explicit routes](explicit-routes.md).
+  (`#[Middleware]`), see [Routing](routing.md).
 - **outgoing** runs *on the response*, once the whole cycle produced one, whatever its
   origin (happy path, short-circuit, kernel-built error): webp conversion, compression,
   cache headers...
@@ -436,8 +436,8 @@ instance reuse it.
 
 ## Routing
 
-The routing is done by a class implementing the `RouterInterface`. See the
-`ClassRouter` docs for more information.
+Every url belongs to one module, which resolves it with its route table, its
+custom resolvers and the convention. See [Routing](routing.md).
 
 A controller must return one of:
 

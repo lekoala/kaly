@@ -226,7 +226,7 @@ App
                     |
                     +- auth / authorization / CSRF / route rate limit
                     |
-                    +- ROUTE middlewares (routes.php, #[Middleware])
+                    +- ROUTE middlewares (route table, #[Middleware])
                     |
                     +- RequestDispatcher
                          +- controller -> response

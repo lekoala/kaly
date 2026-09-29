@@ -18,7 +18,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * incoming -> routing -> routed -> [route middlewares] -> dispatcher
  * ```
  *
- * They come from routes.php (`->middleware()` on a route or a group) and
+ * They come from the route tables (`->middleware()` on a route or a group) and
  * from `#[Middleware]` on the controller. They behave exactly like a routed
  * middleware: resolved from the container, marked on the context, PSR-15 or
  * generator style.

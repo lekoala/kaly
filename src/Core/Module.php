@@ -8,6 +8,7 @@ use Closure;
 use Error;
 use InvalidArgumentException;
 use Kaly\Di\Definitions;
+use Kaly\Router\ResolverInterface;
 use Kaly\Router\Routes;
 use Kaly\Util\Fs;
 use Kaly\Util\Str;
@@ -19,24 +20,33 @@ use Kaly\View\TemplatePathRegistryInterface;
  *
  * ```text
  * modules/shop/
- *   config.php     services and module settings (required, may be empty)
- *   routes.php     explicit routes (optional)
+ *   config.php     everything the module declares: services and routing
+ *                  (required, may be empty)
  *   src/           Shop\... classes, Shop\Controller\... controllers
  *   templates/     registered as @shop in the renderer
  * ```
  *
- * config.php returns a closure, like routes.php:
+ * config.php is the only file booted per module, and the one place to look
+ * at to know how the module behaves:
  *
  * ```php
  * return static function (Module $module, Definitions $di): void {
- *     $module->priority(50)->mount('boutique');
  *     $di->bind(PaymentGateway::class, StripeGateway::class);
+ *
+ *     $module
+ *         ->mount(['fr' => 'boutique', 'en' => 'shop'])
+ *         ->localized()
+ *         ->routes(function (Routes $routes): void {
+ *             $routes->get('/produit/{slug}', [ProductController::class, 'show'])->name('product');
+ *         });
  * };
  * ```
  *
- * Every module is routable by convention under its decamelized name
- * (`modules/Shop` answers on `/shop/...`), except the one whose namespace is
- * the default one (`App`), which answers without prefix.
+ * The module resolves every url below its entry point with its resolvers, by
+ * priority: its route tables, custom resolvers, and the convention last
+ * (`controller/action/params`). Every module is mounted under its
+ * decamelized name (`modules/Shop` answers on `/shop/...`), except the one
+ * whose namespace is the default one (`App`), which answers without prefix.
  */
 final class Module
 {
@@ -44,8 +54,20 @@ final class Module
     private string $name;
     private string $namespace;
     private ?int $priority = null;
-    private ?string $mount = null;
+    /**
+     * @var array<string,string>|null Segment by locale, '*' for every locale
+     */
+    private ?array $mount = null;
+    private bool $localized = false;
     private bool $conventionRouting = true;
+    /**
+     * @var list<array{priority:int,resolver:ResolverInterface|class-string<ResolverInterface>|Closure(Routes): void}>
+     */
+    private array $resolvers = [];
+    /**
+     * @var list<array{prefix:array<string,string>,routes:Closure(Routes): void}>
+     */
+    private array $claims = [];
     private Definitions $definitions;
     /**
      * @var list<Closure(Definitions): void>
@@ -91,16 +113,77 @@ final class Module
     }
 
     /**
-     * The url segment under which conventional routes are exposed
+     * The url segment the module answers under, its decamelized name by
+     * default. A localized module can have one segment per locale.
+     *
+     * @param string|array<string,string> $segment 'shop', or ['fr' => 'boutique', 'en' => 'shop']
      */
-    public function mount(string $segment): self
+    public function mount(string|array $segment): self
     {
-        $this->mount = trim($segment, '/');
+        $segments = is_array($segment) ? $segment : ['*' => $segment];
+        $this->mount = array_map(static fn(string $s): string => trim($s, '/'), $segments);
         return $this;
     }
 
     /**
-     * Only expose what routes.php and #[RouteAttribute] declare
+     * Its urls carry the locale prefix (/fr/boutique/...). The locales are the
+     * ones of the application (APP_LOCALES).
+     */
+    public function localized(bool $localized = true): self
+    {
+        $this->localized = $localized;
+        return $this;
+    }
+
+    /**
+     * Declare routes below the module entry point. Paths are relative to it:
+     * in a module mounted on 'shop', '/cart' answers on /shop/cart/.
+     *
+     * Route names are local to the module, and qualified from the outside:
+     * `shop:cart` (the default module may omit its prefix).
+     *
+     * @param Closure(Routes): void $routes
+     */
+    public function routes(Closure $routes, int $priority = 0): self
+    {
+        $this->resolvers[] = ['priority' => $priority, 'resolver' => $routes];
+        return $this;
+    }
+
+    /**
+     * Resolve urls of the module with a custom resolver, eg: pages stored in
+     * a database. It runs by priority among the route tables (0) and the
+     * convention (1000), and returns null for urls it does not know.
+     *
+     * @param ResolverInterface|class-string<ResolverInterface> $resolver A class is resolved from the container
+     */
+    public function resolver(ResolverInterface|string $resolver, int $priority = 0): self
+    {
+        $this->resolvers[] = ['priority' => $priority, 'resolver' => $resolver];
+        return $this;
+    }
+
+    /**
+     * Own a path outside of the module segment, with its own route table.
+     * Paths of the table are relative to the claimed prefix. Claims are
+     * explicit on purpose: two claims on the same prefix, or a claim inside
+     * another module segment, fail at boot.
+     *
+     * @param string|array<string,string> $prefix '/about', or ['fr' => '/a-propos', 'en' => '/about']
+     * @param Closure(Routes): void $routes
+     */
+    public function claim(string|array $prefix, Closure $routes): self
+    {
+        $prefixes = is_array($prefix) ? $prefix : ['*' => $prefix];
+        $this->claims[] = [
+            'prefix' => array_map(static fn(string $p): string => '/' . trim($p, '/'), $prefixes),
+            'routes' => $routes,
+        ];
+        return $this;
+    }
+
+    /**
+     * Only expose what the route tables and custom resolvers declare
      */
     public function withoutConventionRouting(): self
     {
@@ -149,14 +232,46 @@ final class Module
         return $this->priority;
     }
 
-    public function getMount(): string
+    /**
+     * The identity of the module in route names (`shop:cart`)
+     */
+    public function getId(): string
     {
-        return $this->mount ?? Str::decamelize($this->name);
+        return Str::decamelize($this->name);
+    }
+
+    /**
+     * @return array<string,string> Segment by locale, '*' for every locale
+     */
+    public function getMount(): array
+    {
+        return $this->mount ?? ['*' => $this->getId()];
+    }
+
+    public function isLocalized(): bool
+    {
+        return $this->localized;
     }
 
     public function hasConventionRouting(): bool
     {
         return $this->conventionRouting;
+    }
+
+    /**
+     * @return list<array{priority:int,resolver:ResolverInterface|class-string<ResolverInterface>|Closure(Routes): void}>
+     */
+    public function getResolvers(): array
+    {
+        return $this->resolvers;
+    }
+
+    /**
+     * @return list<array{prefix:array<string,string>,routes:Closure(Routes): void}>
+     */
+    public function getClaims(): array
+    {
+        return $this->claims;
     }
 
     /**
@@ -170,16 +285,6 @@ final class Module
     public function getConfigPath(): string
     {
         return $this->dir . '/config.php';
-    }
-
-    public function getRoutesPath(): string
-    {
-        return $this->dir . '/routes.php';
-    }
-
-    public function hasRoutes(): bool
-    {
-        return is_file($this->getRoutesPath());
     }
 
     public function getSrcDir(): string
@@ -264,28 +369,6 @@ final class Module
         }
 
         $this->definitions->lock();
-    }
-
-    /**
-     * Runs the module routes.php against the shared Routes builder.
-     *
-     * The file must return a `static function (Routes $routes): void` closure
-     * (or nothing for an intentionally empty surface). Opening routes.php
-     * shows the whole public HTTP surface of the module.
-     */
-    public function loadRouteDefinitions(Routes $routes): void
-    {
-        if (!$this->hasRoutes()) {
-            return;
-        }
-        $callback = $this->includeFile($this->getRoutesPath());
-        if ($callback === null) {
-            return;
-        }
-        if (!$callback instanceof Closure) {
-            throw new Ex("Module '{$this->name}' routes.php must return a function (Routes \$routes): void");
-        }
-        $callback($routes);
     }
 
     /**

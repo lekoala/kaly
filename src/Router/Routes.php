@@ -7,25 +7,23 @@ namespace Kaly\Router;
 use Kaly\Core\Ex;
 
 /**
- * Collects explicit route declarations for one composition scope.
- *
- * Used by per-module routes.php files:
+ * Collects the route declarations of a module entry point, in config.php:
  *
  * ```php
- * return static function (Routes $routes): void {
+ * $module->routes(function (Routes $routes): void {
  *     $routes->get('/patients/{id}', [PatientController::class, 'show'])
  *         ->name('patient.show')
  *         ->where('id', '\d+');
- * };
+ *     $routes->get(['fr' => '/a-propos', 'en' => '/about'], AboutController::class)->name('about');
+ * });
  * ```
  *
- * Attributes describe one route; this DSL composes routes. Anything an
- * attribute expresses is expressible here (and not the reverse): groups,
- * prefixes and shared middlewares only exist at this level.
+ * Paths are relative to the module entry point. Groups, prefixes and shared
+ * middlewares compose routes.
  *
  * @see RouteDefinition
  *
- * @phpstan-type RouteDraft array{path:string,controller:class-string,action:string,methods:list<string>,name:?string,requirements:array<string,string>,defaults:array<string,mixed>,middlewares:list<class-string>,priority:int}
+ * @phpstan-type RouteDraft array{path:string|array<string,string>,controller:class-string,action:string,methods:list<string>,name:?string,requirements:array<string,string>,defaults:array<string,mixed>,middlewares:list<class-string>,priority:int}
  */
 final class Routes
 {
@@ -43,54 +41,62 @@ final class Routes
     ) {}
 
     /**
+     * @param string|array<string,string> $path A path, or one path per locale: ['fr' => '/a-propos', 'en' => '/about']
      * @param string|array<mixed> $handler
      */
-    public function get(string $path, string|array $handler): PendingRoute
+    public function get(string|array $path, string|array $handler): PendingRoute
     {
         return $this->map(['GET'], $path, $handler);
     }
 
     /**
+     * @param string|array<string,string> $path
      * @param string|array<mixed> $handler
      */
-    public function post(string $path, string|array $handler): PendingRoute
+    public function post(string|array $path, string|array $handler): PendingRoute
     {
         return $this->map(['POST'], $path, $handler);
     }
 
     /**
+     * @param string|array<string,string> $path
      * @param string|array<mixed> $handler
      */
-    public function put(string $path, string|array $handler): PendingRoute
+    public function put(string|array $path, string|array $handler): PendingRoute
     {
         return $this->map(['PUT'], $path, $handler);
     }
 
     /**
+     * @param string|array<string,string> $path
      * @param string|array<mixed> $handler
      */
-    public function patch(string $path, string|array $handler): PendingRoute
+    public function patch(string|array $path, string|array $handler): PendingRoute
     {
         return $this->map(['PATCH'], $path, $handler);
     }
 
     /**
+     * @param string|array<string,string> $path
      * @param string|array<mixed> $handler
      */
-    public function delete(string $path, string|array $handler): PendingRoute
+    public function delete(string|array $path, string|array $handler): PendingRoute
     {
         return $this->map(['DELETE'], $path, $handler);
     }
 
     /**
      * @param string[] $methods Uppercase HTTP methods. Empty = any method.
+     * @param string|array<string,string> $path A path, or one path per locale
      * @param string|array<mixed> $handler [Controller::class, 'action'], Controller::class (__invoke) or 'Controller::action'.
      */
-    public function map(array $methods, string $path, string|array $handler): PendingRoute
+    public function map(array $methods, string|array $path, string|array $handler): PendingRoute
     {
         [$controller, $action] = self::normalizeHandler($handler);
         $this->drafts[] = [
-            'path' => self::joinPath($this->prefix, $path),
+            'path' => is_array($path)
+                ? array_map(fn(string $p): string => self::joinPath($this->prefix, $p), $path)
+                : self::joinPath($this->prefix, $path),
             'controller' => $controller,
             'action' => $action,
             'methods' => array_values(array_unique(array_map(strtoupper(...), $methods))),
@@ -174,7 +180,7 @@ final class Routes
     }
 
     /**
-     * Appends an already built definition (eg: AttributeRouteLoader output).
+     * Appends an already built definition.
      *
      * @internal Route sources other than this DSL.
      */

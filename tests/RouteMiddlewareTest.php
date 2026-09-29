@@ -46,7 +46,7 @@ class RouteMiddlewareTest extends TestCase
 
     public function testAGroupMiddlewareGuardsItsRoutes(): void
     {
-        $response = $this->get('/locked/health/');
+        $response = $this->get('/test-module/locked/health/');
 
         $this->assertSame(403, $response->getStatusCode());
         $this->assertSame('denied', (string) $response->getBody());
@@ -54,7 +54,7 @@ class RouteMiddlewareTest extends TestCase
 
     public function testRouteMiddlewaresRunOutermostFirstAndOnce(): void
     {
-        $response = $this->get('/guarded/trace/');
+        $response = $this->get('/test-module/guarded/trace/');
 
         $this->assertSame(200, $response->getStatusCode());
         // group, then parent class, then class, then method; the parent

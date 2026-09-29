@@ -117,7 +117,7 @@ class RouteCollectionTest extends TestCase
         $rows = $collection->toArray();
         $this->assertSame('high', $rows[0]['name']);
         $this->assertSame('low', $rows[1]['name']);
-        $this->assertSame(['path', 'methods', 'name', 'controller', 'action', 'priority', 'middlewares'], array_keys($rows[0]));
+        $this->assertSame(['path', 'locale', 'methods', 'name', 'controller', 'action', 'priority', 'middlewares'], array_keys($rows[0]));
     }
 
     public function testSnapshotsDoNotMutateTheCollection(): void

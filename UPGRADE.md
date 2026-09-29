@@ -6,7 +6,7 @@ how to migrate.
 
 ## Route middlewares and request state
 
-- Middlewares declared on routes and groups (`->middleware()` in `routes.php`) are now
+- Middlewares declared on routes and groups (`->middleware()` in a route table) are now
   **executed** by the framework, right before the controller. They were previously only
   stored. Check that every declared middleware is a real PSR-15 or generator middleware:
   an unknown class now fails at boot.
@@ -75,7 +75,6 @@ App::create(dirname(__DIR__))->run();
 $this->setPriority(50);
 $this->definitions()
     ->bind(Foo::class, Bar::class)
-    ->callback(ClassRouter::class, fn(ClassRouter $r) => $r->addAllowedNamespace('Shop'))
     ->lock();
 
 // after
@@ -89,13 +88,91 @@ return static function (Module $module, Definitions $di): void {
 - `setPriority()` → `priority()`, `setNamespace()` → `namespace()`,
   `setDefinitionsCallback()` → `whenAllLoaded()`.
 
+## Hierarchical routing
+
+Every url now belongs to exactly one module, which resolves it alone, and everything a
+module answers is declared in its `config.php`. There is no global route table anymore.
+
+```text
+/fr/boutique/panier/   locale -> entry point (claim > mount > default module) -> module resolvers
+```
+
+### routes.php and #[RouteAttribute] are gone
+
+Declare the routes in `config.php`. **Paths are now relative to the module mount**:
+
+```php
+// before: modules/Shop/routes.php
+return static function (Routes $routes): void {
+    $routes->get('/shop/{slug}', [ShopController::class, 'show'])->name('shop.show');
+    $routes->get('/about', [AboutController::class, 'index']);
+};
+
+// after: modules/Shop/config.php
+return static function (Module $module, Definitions $di): void {
+    $module->routes(function (Routes $routes): void {
+        $routes->get('/{slug}', [ShopController::class, 'show'])->name('show');   // /shop/{slug}
+    });
+    // a path outside of the module segment is claimed explicitly
+    $module->claim('/about', function (Routes $routes): void {
+        $routes->get('/', [AboutController::class, 'index'])->name('about');
+    });
+};
+```
+
+- A `routes.php` file is ignored: move it into `config.php`.
+- `#[RouteAttribute]` is removed: declare the route in the module table. Scanning every
+  controller of every module at boot was the only boot cost growing with the size of
+  the application.
+- Paths that belong to the site root go in the default module (namespace `App`).
+
+### Route names are qualified by module
+
+```php
+// before
+$router->generate('shop.show', ['slug' => 'books']);
+$router->generate([CartController::class, 'add']);
+
+// after
+$router->url('shop:show', ['slug' => 'books']);   // the default module may omit its prefix
+$router->urlFor([CartController::class, 'add']);
+```
+
+- `RouterInterface::generate()` is replaced by `url()` (named routes) and `urlFor()`
+  (conventional urls). The locale is an explicit argument, not a `locale` param.
+- The `RouterInterface::MODULE`, `CONTROLLER`, `ACTION`... constants are removed.
+
+### Locales belong to the app, the prefix to the module
+
+```php
+// before, in any module config
+->callback(ClassRouter::class, fn(ClassRouter $r) => $r->setAllowedLocales(['en', 'fr'], ['LangModule']))
+
+// after
+APP_LOCALES=en,fr                     // or $app->locales(['en', 'fr'])
+$module->localized();                 // in the config.php of LangModule itself
+```
+
+- Modules are **not localized by default**: a locale prefix on them redirects to the url
+  without it. Call `localized()` on every module whose urls carry the locale.
+- A module can have one segment per locale: `$module->mount(['fr' => 'boutique', 'en' => 'shop'])`,
+  and a route one path per locale: `$routes->get(['fr' => '/a-propos', 'en' => '/about'], ...)`.
+- The redirect adding the default locale now builds an absolute path (`/en/...`).
+
+### Removed classes
+
+`ClassRouter`, `CompositeRouter`, `RouteCollectionRouter`, `AttributeRouteLoader`,
+`RouteAttribute` and `AmbiguousRouteException` are removed. Their roles are held by
+`Router` (entry points, locales, generation), `ConventionResolver`, `TableResolver`
+and `ResolverInterface` for custom resolvers (`$module->resolver(...)`).
+
 ### Convention routing
 
-- Every module is now routable by convention under its decamelized name, without any
+- Every module is routable by convention under its decamelized name, without any
   configuration. **Review modules that were not exposed before**: opt out with
   `$module->withoutConventionRouting()`, or choose the segment with `$module->mount()`.
-- `ClassRouter::addAllowedNamespace()` / `setAllowedNamespaces()` / `getAllowedNamespaces()`
-  are replaced by `mount(string $segment, string $namespace)` / `getMounts()`.
-- `Route::$module` is the module namespace for both routers (`TestVendor\MappedModule`,
-  not only its first segment).
-- `CompositeRouter::setAllowedLocales()` now also configures the convention router.
+- A url that the module of its segment cannot resolve is a 404: it never falls back to
+  another module.
+- `Route::$module` is the module namespace (`TestVendor\MappedModule`).
+- `Route::$name` holds the qualified name (`shop:show`), `Route::$bindings` the objects
+  a resolver hands to the controller constructor.

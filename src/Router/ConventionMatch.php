@@ -8,9 +8,9 @@ use Kaly\Http\RequestInput;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**
- * @internal The state of one ClassRouter::match() call.
+ * @internal The state of one ConventionResolver::resolve() call.
  *
- * The router itself is shared by every request, so what a match consumes
+ * The resolver itself is shared by every request, so what a match consumes
  * (remaining path segments, discovered input) lives here and dies with it.
  */
 final class ConventionMatch

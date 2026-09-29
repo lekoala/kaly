@@ -8,7 +8,7 @@ Kaly is an opinionated but lightweight application framework built on PHP standa
 
 - **PSR based:** PSR-7 messages, PSR-11 container, PSR-15 middleware.
 - **Dependency injection:** powered by [kaly-di](https://github.com/lekoala/kaly-di), autowiring and explicit definitions.
-- **Convention-based routing:** no route file to maintain, controllers map to URIs; explicit `routes.php` when you need it.
+- **Hierarchical routing:** every url belongs to one module, which resolves it with conventions (controllers map to URIs), its own route table or a custom resolver — all declared in its `config.php`.
 - **Modular architecture:** each module has its own config, controllers, templates and assets.
 - **Middleware support:** plain PSR-15 middleware, plus an optional generator style for before/after hooks.
 - **Multilingual support:** built-in locale detection.

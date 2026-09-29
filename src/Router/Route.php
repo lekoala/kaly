@@ -29,7 +29,7 @@ class Route
      */
     public ?string $inputClass = null;
     /**
-     * The middlewares scoped to this route, outermost first: routes.php
+     * The middlewares scoped to this route, outermost first: route table
      * groups and route, then `#[Middleware]` on parent classes, the class and
      * the method. The framework runs them right before the controller.
      *
@@ -39,9 +39,41 @@ class Route
     /**
      * The explicit definition this match came from, if any.
      *
-     * Null for conventional ClassRouter matches.
+     * Null for conventional and custom resolver matches.
      */
     public ?RouteDefinition $definition = null;
+    /**
+     * The qualified name of the route (`module:name`), if it has one
+     */
+    public ?string $name = null;
+    /**
+     * Objects resolved along with the route, handed to the controller
+     * constructor by name: `['page' => $page]` fills `PageController(Page $page)`.
+     *
+     * @var array<string,mixed>
+     */
+    public array $bindings = [];
+
+    /**
+     * Build a route from a custom resolver
+     *
+     * @param class-string $controller
+     * @param array<int<0,max>|string,mixed> $params Action arguments
+     * @param array<string,mixed> $bindings Controller constructor arguments, by name
+     */
+    public static function to(
+        string $controller,
+        string $action = RouterInterface::FALLBACK_ACTION,
+        array $params = [],
+        array $bindings = [],
+    ): self {
+        $route = new self();
+        $route->controller = $controller;
+        $route->action = $action;
+        $route->params = $params;
+        $route->bindings = $bindings;
+        return $route;
+    }
 
     /**
      * The module namespace of a controller: what comes before its
@@ -73,7 +105,8 @@ class Route
             'params' => $this->params,
             'inputClass' => $this->inputClass,
             'middlewares' => $this->middlewares,
-            'definition' => $this->definition?->name,
+            'name' => $this->name,
+            'bindings' => array_keys($this->bindings),
         ];
     }
 }

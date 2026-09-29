@@ -9,9 +9,9 @@ use Attribute;
 /**
  * Scopes PSR-15 middlewares to a controller or to one of its actions.
  *
- * It applies whatever the way the action was reached: by convention, through
- * routes.php or through `#[RouteAttribute]`. On a class it also covers every
- * subclass, so a base controller can protect a whole area:
+ * It applies whatever the way the action was reached: by convention or
+ * through a route table. On a class it also covers every subclass, so a base
+ * controller can protect a whole area:
  *
  * ```php
  * #[Middleware(StaffOnly::class)]
@@ -25,7 +25,7 @@ use Attribute;
  * ```
  *
  * Route middlewares run at the end of the routed band, right before the
- * controller, outermost first: routes.php groups, then parent classes, then
+ * controller, outermost first: route table groups, then parent classes, then
  * the class, then the method.
  */
 #[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE)]

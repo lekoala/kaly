@@ -24,14 +24,9 @@ use Kaly\Middleware\MiddlewareRegistry;
 use Kaly\Middleware\MiddlewareRunner;
 use Kaly\Middleware\OutgoingRunner;
 use Kaly\Middleware\RouteMiddlewareRunner;
-use Kaly\Router\AttributeRouteLoader;
-use Kaly\Router\ClassRouter;
-use Kaly\Router\CompositeRouter;
 use Kaly\Router\RequestDispatcher;
-use Kaly\Router\RouteCollection;
-use Kaly\Router\RouteDefinition;
+use Kaly\Router\Router;
 use Kaly\Router\RouterInterface;
-use Kaly\Router\Routes;
 use Kaly\Router\RoutingHandler;
 use Kaly\Text\LocaleResolver;
 use Kaly\Text\Translator;
@@ -41,6 +36,7 @@ use Kaly\Util\Fs;
 use Kaly\Util\Json;
 use LogicException;
 use Psr\Clock\ClockInterface;
+use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestFactoryInterface;
@@ -83,6 +79,7 @@ final class App implements RequestHandlerInterface
     public const IGNORE_DOT_ENV = 'IGNORE_DOT_ENV';
     public const ENV_DEBUG = 'APP_DEBUG';
     public const ENV_TIMEZONE = 'APP_TIMEZONE';
+    public const ENV_LOCALES = 'APP_LOCALES';
     public const ENV_IDE_PLACEHOLDER = 'DUMP_IDE_PLACEHOLDER';
 
     private const DEFAULT_IMPLEMENTATIONS = [
@@ -91,7 +88,6 @@ final class App implements RequestHandlerInterface
         // PSR-3
         LoggerInterface::class => NullLogger::class,
         // Our interfaces
-        RouterInterface::class => CompositeRouter::class,
         ExceptionHandlerInterface::class => ExceptionHandler::class,
         TranslatorInterface::class => Translator::class,
         InputMapperInterface::class => InputMapper::class,
@@ -101,6 +97,10 @@ final class App implements RequestHandlerInterface
     private Hooks $hooks;
     private MiddlewareRegistry $middleware;
     private bool $debug = false;
+    /**
+     * @var list<string>
+     */
+    private array $locales = [];
     private bool $booted = false;
     /**
      * @var list<Module>
@@ -135,6 +135,9 @@ final class App implements RequestHandlerInterface
         if (Env::has(self::ENV_DEBUG)) {
             $this->debug = Env::getBool(self::ENV_DEBUG);
         }
+        if (Env::has(self::ENV_LOCALES)) {
+            $this->locales = array_values(array_filter(array_map(trim(...), explode(',', Env::getString(self::ENV_LOCALES)))));
+        }
         // Without APP_TIMEZONE Kaly leaves the global timezone alone:
         // php.ini or a date_default_timezone_set() done before boot survives.
         // An empty APP_TIMEZONE value falls back to 'UTC' via getString().
@@ -163,6 +166,28 @@ final class App implements RequestHandlerInterface
     public function isDebug(): bool
     {
         return $this->debug;
+    }
+
+    /**
+     * The locales of the application, the first one is the default. Driven by
+     * APP_LOCALES (eg: `fr,en`) by default. A module opts in with
+     * `$module->localized()` to get the locale prefix in its urls.
+     *
+     * @param list<string> $locales
+     */
+    public function locales(array $locales): self
+    {
+        $this->assertNotBooted('locales');
+        $this->locales = array_values($locales);
+        return $this;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getLocales(): array
+    {
+        return $this->locales;
     }
 
     /**
@@ -447,15 +472,18 @@ final class App implements RequestHandlerInterface
             });
         }
 
-        // Every module is routable by convention unless it opted out
-        $modules = $this->modules;
-        $definitions->callback(ClassRouter::class, static function (ClassRouter $router) use ($modules): void {
-            foreach ($modules as $module) {
-                if ($module->hasConventionRouting() && $module->getNamespace() !== $router->getDefaultNamespace()) {
-                    $router->mount($module->getMount(), $module->getNamespace());
-                }
-            }
-        });
+        // The router is made of the modules: each one resolves its own urls
+        if (!$definitions->has(RouterInterface::class)) {
+            $modules = $this->modules;
+            $locales = $this->locales;
+            $definitions->set(
+                RouterInterface::class,
+                static fn(ContainerInterface $container): Router => new Router($modules, $container, $locales),
+            );
+        }
+        if (!$definitions->has(LocaleResolver::class) && $this->locales !== []) {
+            $definitions->set(LocaleResolver::class, new LocaleResolver($this->locales[0], $this->locales));
+        }
 
         return $definitions->lock();
     }
@@ -508,35 +536,7 @@ final class App implements RequestHandlerInterface
             }
         }
 
-        // Explicit routes are composition data: every module contributes its
-        // routes.php first, then its #[Route] attributes as local sugar for
-        // the same RouteDefinition model. The compiled collection is bound
-        // once, before the container is built.
-        $definitions->set(RouteCollection::class, new RouteCollection($this->loadModuleRoutes($modules)));
-
         return $definitions;
-    }
-
-    /**
-     * routes.php runs before attribute loading so composition wins ties at
-     * equal priority (RouteCollection sorting is stable).
-     *
-     * @param list<Module> $modules
-     * @return list<RouteDefinition>
-     */
-    private function loadModuleRoutes(array $modules): array
-    {
-        $routes = new Routes();
-        foreach ($modules as $module) {
-            $module->loadRouteDefinitions($routes);
-        }
-        $loader = new AttributeRouteLoader();
-        foreach ($modules as $module) {
-            foreach ($loader->load($module) as $definition) {
-                $routes->addDefinition($definition);
-            }
-        }
-        return $routes->definitions();
     }
 
     /**

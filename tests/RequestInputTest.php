@@ -11,7 +11,6 @@ use Kaly\Core\HttpContext;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Di\Injector;
-use Kaly\Router\ClassRouter;
 use Kaly\Router\RequestDispatcher;
 use Kaly\Router\Route;
 use Kaly\Router\RouteNotFoundException;
@@ -34,11 +33,9 @@ class RequestInputTest extends TestCase
         ErrorHandler::restoreDefaults();
     }
 
-    private function router(): ClassRouter
+    private function router(): RouterInterface
     {
-        $router = new ClassRouter();
-        $router->mount('test-module', 'TestModule');
-        return $router;
+        return App::create(__DIR__)->boot()->get(RouterInterface::class);
     }
 
     private function match(string $path): Route
@@ -87,7 +84,6 @@ class RequestInputTest extends TestCase
     public function testAnExtraSegmentIsRefusedEvenWithAnInput(): void
     {
         $this->expectException(RouteNotFoundException::class);
-        $this->expectExceptionMessage("Too many parameters for action 'search'");
         $this->match('/test-module/input/search/extra/');
     }
 
@@ -136,7 +132,12 @@ class RequestInputTest extends TestCase
                 return $route;
             }
 
-            public function generate($handler, array $params = []): string
+            public function url(string $name, array $params = [], ?string $locale = null): string
+            {
+                return '';
+            }
+
+            public function urlFor(string|array $handler, array $params = [], ?string $locale = null): string
             {
                 return '';
             }

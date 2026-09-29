@@ -9,8 +9,8 @@ use Kaly\Core\ErrorHandler;
 use Kaly\Core\HttpContext;
 use Kaly\Http\ContentType;
 use Kaly\Middleware\Builtin\FileServer;
-use Kaly\Router\ClassRouter;
 use Kaly\Router\Route;
+use Kaly\Router\Router;
 use Kaly\Router\RouterInterface;
 use Kaly\Tests\Mocks\ContextProbeMiddleware;
 use Kaly\Tests\Mocks\TestMiddleware;
@@ -64,11 +64,11 @@ class AppTest extends TestCase
         $app = new App(__DIR__);
         $app->boot();
 
-        /** @var ClassRouter $router  */
-        $router = $app->getContainer()->get(ClassRouter::class);
+        $router = $app->get(RouterInterface::class);
+        $this->assertInstanceOf(Router::class, $router);
 
         // first one is the fallback locale
-        $this->assertEquals(['en', 'fr'], $router->getAllowedLocales());
+        $this->assertEquals(['en', 'fr'], $router->getLocales());
 
         // The controller runs with the locale applied before dispatch
         $request = HttpFactory::createRequestFromGlobals();
@@ -500,56 +500,28 @@ class AppTest extends TestCase
         $app->boot();
         $router = $app->getContainer()->get(RouterInterface::class);
 
-        // Route without method
-        $str = $router->generate(DemoController::class . '::methodGet');
-        // $this->assertEquals("/test-module/demo/method/", $str);
-
-        // Include index + param
         // When including parameters, index calls are allowed
-        $str = $router->generate(IndexController::class . '::index', ['hello']);
-        $this->assertEquals('/test-module/index/index/hello/', $str);
+        $this->assertSame('/test-module/index/index/hello/', $router->urlFor(IndexController::class . '::index', ['hello']));
 
-        // Should not included index
-        $str = $router->generate(IndexController::class . '::index');
-        $this->assertEquals('/test-module/', $str);
-        $str = $router->generate([
-            IndexController::class,
-            'index',
-        ]);
-        $this->assertEquals('/test-module/', $str);
-        $str = $router->generate([
-            RouterInterface::CONTROLLER => IndexController::class,
-        ]);
-        $this->assertEquals('/test-module/', $str);
+        // The module index has no controller nor action
+        $this->assertSame('/test-module/', $router->urlFor(IndexController::class . '::index'));
+        $this->assertSame('/test-module/', $router->urlFor([IndexController::class, 'index']));
 
-        // Locale
-        $str = $router->generate([
-            RouterInterface::CONTROLLER => \TestModule\Controller\IndexController::class,
-            RouterInterface::LOCALE => 'fr',
-        ]);
-        $this->assertEquals('/test-module/', $str);
-        $str = $router->generate([
-            RouterInterface::CONTROLLER => \LangModule\Controller\IndexController::class,
-            RouterInterface::ACTION => 'getlang',
-            RouterInterface::LOCALE => 'fr',
-        ]);
-        $this->assertEquals('/fr/lang-module/index/getlang/', $str);
+        // Rest style actions are reached without their verb suffix
+        $this->assertSame('/test-module/demo/method/', $router->urlFor([DemoController::class, 'methodGet']));
 
-        // Module mapping + no locale
-        $str = $router->generate([
-            RouterInterface::CONTROLLER => \TestVendor\MappedModule\Controller\IndexController::class,
-            RouterInterface::LOCALE => 'fr',
-        ]);
-        $this->assertEquals('/mapped-module/', $str);
+        // A module without the locale prefix ignores the locale
+        $this->assertSame('/test-module/', $router->urlFor([IndexController::class, 'index'], locale: 'fr'));
 
-        // Trailing slash
-        /*
-         * $router->setForceTrailingSlash(false);
-         * $str = $router->generate([
-         * RouterInterface::CONTROLLER => IndexController::class,
-         * ]);
-         * $this->assertEquals("/test-module", $str);
-         * $router->setForceTrailingSlash(true);*/
+        // A localized module carries it
+        $this->assertSame('/fr/lang-module/index/getlang/', $router->urlFor(
+            [\LangModule\Controller\IndexController::class, 'getlang'],
+            locale: 'fr',
+        ));
+        $this->assertSame('/en/lang-module/index/getlang/', $router->urlFor([\LangModule\Controller\IndexController::class, 'getlang']));
+
+        // A module with its own namespace keeps its mount
+        $this->assertSame('/mapped-module/', $router->urlFor([\TestVendor\MappedModule\Controller\IndexController::class, 'index']));
     }
 
     public function testTrailingSlash(): void

@@ -24,8 +24,8 @@ part of the app when a `config.php` binds it.
 ## Layout
 
 Every folder of `modules/` containing a `config.php` is a module. `config.php` is the
-only required file — it may be empty. `routes.php` is optional, see
-[Explicit routes](explicit-routes.md).
+only required file — it may be empty — and the only file booted per module: services
+and routing are both declared there.
 
 ```text
 modules/
@@ -48,7 +48,6 @@ modules/
 | Path         | Role                                                          |
 | ------------ | ------------------------------------------------------------- |
 | `config.php` | local composition root, required                              |
-| `routes.php` | explicit routes of the module, optional                        |
 | `src/`       | the classes, under the module namespace                        |
 | `templates/` | registered under the module name (see [Views](views.md))       |
 | `assets/`    | static files of the module                                     |
@@ -81,7 +80,7 @@ Nothing enforces this: module dependencies are a convention, not a constraint.
 
 ## config.php
 
-`config.php` returns a closure, exactly like `routes.php`. It receives the module and its
+`config.php` returns a closure. It receives the module and its
 definitions; the file runs in an empty scope, so nothing leaks, and the definitions are
 locked by the framework once it returns.
 
@@ -105,7 +104,12 @@ The module side of the configuration is fluent:
 | `priority(50)` | configuration order, see below |
 | `namespace('Vendor\Thing')` | root namespace of the module classes |
 | `mount('boutique')` | url segment of the conventional routes |
-| `withoutConventionRouting()` | only expose `routes.php` and `#[RouteAttribute]` |
+| `mount(['fr' => 'boutique', 'en' => 'shop'])` | one url segment per locale |
+| `localized()` | its urls carry the locale prefix |
+| `routes(fn(Routes $routes) => ...)` | local route table, see [Routing](routing.md) |
+| `resolver(PageResolver::class, priority: 500)` | custom resolver (pages in a database...) |
+| `claim('/about', fn(Routes $routes) => ...)` | own a path outside of the module segment |
+| `withoutConventionRouting()` | only expose the route tables and custom resolvers |
 | `whenAllLoaded(fn(Definitions $all) => ...)` | second pass, see below |
 
 The former format, where `config.php` used an implicit `$this`, is refused with an
@@ -163,21 +167,23 @@ fallback autoloader for that module only (`Namespace\Some\Class` →
 
 ## Routing a module
 
-Every module is routable by convention under its decamelized folder name, with no
-configuration: `modules/Admin` answers on `/admin/...`, `modules/routable-module` on
-`/routable-module/...`. The module whose namespace is the router default (`App`)
-answers without prefix.
+Every url belongs to exactly one module, which resolves it alone. Every module is
+mounted under its decamelized folder name, with no configuration: `modules/Admin`
+answers on `/admin/...`, `modules/routable-module` on `/routable-module/...`. The module
+whose namespace is `App` is the default one and answers without prefix.
 
 ```php
 return static function (Module $module): void {
-    $module->mount('back-office');          // /back-office/... instead of /admin/...
-    // or
-    $module->withoutConventionRouting();    // only routes.php and #[RouteAttribute]
+    $module
+        ->mount('back-office')              // /back-office/... instead of /admin/...
+        ->routes(function (Routes $routes): void {
+            $routes->get('/orders/{id}', [OrderController::class, 'show'])->name('order');
+        });
 };
 ```
 
-A url segment is mounted once: two modules claiming the same segment fail at boot.
-See [ClassRouter](class-router.md) for the full matching process.
+A url segment is mounted once: two modules mounting the same segment fail at boot.
+See [Routing](routing.md) for resolvers, claims, locales and url generation.
 
 ## Registration is eager, resolution is lazy
 

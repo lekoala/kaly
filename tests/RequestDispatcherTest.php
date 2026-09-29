@@ -47,7 +47,12 @@ class RequestDispatcherTest extends TestCase
                 return $route;
             }
 
-            public function generate($handler, array $params = []): string
+            public function url(string $name, array $params = [], ?string $locale = null): string
+            {
+                return '';
+            }
+
+            public function urlFor(string|array $handler, array $params = [], ?string $locale = null): string
             {
                 return '';
             }

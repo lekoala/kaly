@@ -82,7 +82,7 @@ The simple rule is worth more than the flexibility.
 ## Route segments are not input
 
 `/patient/edit/12/` mapping to `int $id` is the main affordance of the
-[ClassRouter](class-router.md) and it stays. A route segment is part of the route, so a
+[convention](routing.md#the-convention) and it stays. A route segment is part of the route, so a
 value that does not fit its type does not match the route:
 
 ```text

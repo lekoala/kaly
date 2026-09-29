@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use InvalidArgumentException;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Core\Ex;
 use Kaly\Core\Module;
-use Kaly\Router\ClassRouter;
+use Kaly\Router\Router;
+use Kaly\Router\RouterInterface;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
@@ -36,9 +36,11 @@ class ModuleConventionTest extends TestCase
         $app = App::create(__DIR__);
 
         $this->assertSame('mapped', (string) $this->get($app, '/mapped-module/')->getBody());
+        $router = $app->get(RouterInterface::class);
+        $this->assertInstanceOf(Router::class, $router);
         $this->assertSame(
-            ['lang-module' => 'LangModule', 'mapped-module' => 'TestVendor\\MappedModule', 'test-module' => 'TestModule'],
-            $app->get(ClassRouter::class)->getMounts(),
+            ['*' => ['lang-module' => 'lang-module', 'mapped-module' => 'mapped-module', 'test-module' => 'test-module']],
+            $router->getMounts(),
         );
     }
 
@@ -77,18 +79,22 @@ class ModuleConventionTest extends TestCase
 
     public function testAMountIsASingleCanonicalSegment(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage('must be a single lowercase url segment');
 
-        (new ClassRouter())->mount('Shop', 'Shop');
+        $module = new Module(__DIR__ . '/modules/MappedModule');
+        $module->mount('Mapped');
+        new Router([$module]);
     }
 
     public function testASegmentCannotBeMountedTwice(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage("Segment 'shared' is mounted by both");
 
-        (new ClassRouter())
-            ->mount('shop', 'Shop')
-            ->mount('shop', 'Other');
+        $a = (new Module(__DIR__ . '/modules/MappedModule'))->mount('shared');
+        $b = (new Module(__DIR__ . '/modules/LangModule'))->mount('shared');
+        new Router([$a, $b]);
     }
 
     public function testABootFailureStillProducesAServerError(): void

@@ -65,8 +65,10 @@ class RequestDispatcher implements RequestHandlerInterface
 
         $request = $ctx->request();
 
-        // Each request gets a fresh instance of the controller
-        $instance = $this->injector->make($class, request: $request, ctx: $ctx);
+        // Each request gets a fresh instance of the controller. What the
+        // resolver found along with the route (eg: a page) reaches its
+        // constructor by name.
+        $instance = $this->injector->make($class, ...[...$route->bindings, 'request' => $request, 'ctx' => $ctx]);
 
         $action = $route->action ?? RouterInterface::FALLBACK_ACTION;
 

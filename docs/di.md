@@ -46,7 +46,7 @@ Any dependency of a resolved class is injected automatically from the container.
 
 ```php
 $definitions
-    ->bind(RouterInterface::class, ClassRouter::class)
+    ->bind(MailerInterface::class, SmtpMailer::class)
     ->set('appName', 'my-app')
     ->callback(Translator::class, function (Translator $translator): void {
         $translator->setCacheDir($cacheDir);

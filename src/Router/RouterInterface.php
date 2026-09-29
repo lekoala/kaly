@@ -11,18 +11,10 @@ use Kaly\Http\RedirectException;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**
- * Routers should implement a simple "match" function
- * that should return a route that will be processed by the app
+ * Turns a request into a route, and a route back into an url
  */
 interface RouterInterface
 {
-    public const MODULE = 'module';
-    public const NAMESPACE = 'namespace';
-    public const CONTROLLER = 'controller';
-    public const ACTION = 'action';
-    public const PARAMS = 'params';
-    public const LOCALE = 'locale';
-    public const SEGMENTS = 'segments';
     public const FALLBACK_ACTION = '__invoke';
 
     /**
@@ -35,9 +27,17 @@ interface RouterInterface
     public function match(ServerRequestInterface $request): Route;
 
     /**
-     * @param string|array<mixed> $handler
-     * @param array<string,mixed> $params
-     * @return string
+     * The url of a named route: 'shop:cart', or 'cart' for the default module
+     *
+     * @param array<string,mixed> $params Placeholders; the others become the query string
      */
-    public function generate($handler, array $params = []): string;
+    public function url(string $name, array $params = [], ?string $locale = null): string;
+
+    /**
+     * The conventional url of an action
+     *
+     * @param string|array<mixed> $handler [Controller::class, 'action'], Controller::class or 'Controller::action'
+     * @param array<array-key,mixed> $params Action arguments, in order
+     */
+    public function urlFor(string|array $handler, array $params = [], ?string $locale = null): string;
 }

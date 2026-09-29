@@ -2,4 +2,9 @@
 
 declare(strict_types=1);
 
-// Routable by convention under /lang-module/ without any configuration
+use Kaly\Core\Module;
+
+// Mounted on /lang-module/, with the locale prefix of the app locales
+return static function (Module $module): void {
+    $module->localized();
+};
