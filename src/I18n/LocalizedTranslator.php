@@ -19,7 +19,7 @@ final class LocalizedTranslator implements TranslatorInterface
         private readonly string $locale,
     ) {}
 
-    public function getLocale(): string
+    public function locale(): string
     {
         return $this->locale;
     }

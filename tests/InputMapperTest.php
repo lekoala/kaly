@@ -163,8 +163,8 @@ class InputMapperTest extends TestCase
 
     public function testValidationExceptionIsUnprocessable(): void
     {
-        $this->assertSame(422, (new ValidationException('nope'))->getIntCode());
-        $this->assertSame(400, (new InputException('nope'))->getIntCode());
+        $this->assertSame(422, (new ValidationException('nope'))->status());
+        $this->assertSame(400, (new InputException('nope'))->status());
     }
 
     public function testAnUnsupportedPropertyTypeIsAProgrammingError(): void

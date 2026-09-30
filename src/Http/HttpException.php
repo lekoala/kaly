@@ -22,14 +22,14 @@ abstract class HttpException extends Ex implements HttpExceptionInterface
      */
     public function __construct(
         string $message,
-        protected int $status,
-        protected array $headers = [],
+        private readonly int $status,
+        private readonly array $headers = [],
         ?Throwable $previous = null,
     ) {
         parent::__construct($message, $status, $previous);
     }
 
-    public function getIntCode(): int
+    public function status(): int
     {
         return $this->status;
     }

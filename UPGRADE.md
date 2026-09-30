@@ -117,6 +117,42 @@ No BC aliases are kept: update every usage in one pass.
   (eg: `vscode://file/%f:%l`), the Kaly debug page keeps using
   `DUMP_IDE_PLACEHOLDER` (eg: `vscode://file/{file}:{line}:0`).
 
+## Pre-1.0 API cleanup: one routing exception, bare accessors, no RouteGroup
+
+- **`Kaly\Router\RouteGroup` is removed.** `Routes::prefix()` and
+  `Routes::middleware()` now return a `Routes` scoped view instead, and
+  `Routes::group()` is the single way to declare inside it — the group writes
+  into the routes you started with, however many scopes you derived.
+  `Routes::merge()` is private. Nothing referenced `RouteGroup` by type.
+- **Url generation failures throw `Kaly\Router\RouteGenerationException`**
+  instead of a bare `RuntimeException` (9 call sites in `Router` and
+  `TableResolver`, plus one in `ConventionResolver`). It extends `Ex`, so one
+  `catch (Ex)` now covers a broken config *and* a url that cannot be built,
+  which is the split the old `RuntimeException` hid.
+- **Accessors lose the `get` prefix where a fluent setter does not claim the
+  name.** Rename:
+  - `App::getModules()` → `modules()`, `getContainer()` → `container()`,
+    `getKernel()` → `kernel()`, `getComposerInfo()` → `composerInfo()`
+  - `Module::getDir()` → `dir()`, `getName()` → `name()`, `getId()` → `id()`,
+    `getResolvers()` → `resolvers()`, `getClaims()` → `claims()`,
+    `getConfigPath()` → `configPath()`, `getSrcDir()` → `srcDir()`,
+    `getTemplatesDir()` → `templatesDir()`, `getAssetsDir()` → `assetsDir()`
+  - `LocalizedTranslator::getLocale()` → `locale()`
+
+  The `get` prefix stays where a setter owns the bare name — `App::locales()`
+  sets and `getLocales()` reads, `Module::mount()`/`namespace()`/`priority()`/
+  `whenAllLoaded()` set and their `get*` reads. A setter and its accessor
+  cannot share a name, and the setters are what you write in `config.php`.
+  `Translator` and `LocaleResolver` keep their `get*`/`set*` pairs throughout.
+- `Arr::mergeDistinct()` takes its arguments by value. It mutated `$arr1` in
+  place *and* returned the result; callers relied on the return value, and the
+  in-place write no longer happens.
+- `Str::slug()` trims leading and trailing separators on the ext-intl branch.
+  The fallback already did, so the same call used to return `-mypage-` or
+  `mypage` depending on whether ext-intl was installed.
+- `Arr::mapAssoc()` preserves the keys. Its own docblock example
+  (`fn($key, $value) => [$key => $value]`) could not work without that.
+
 ## Pre-1.0 consistency: one exception family, one emitter, one declaration order
 
 - **Every client-facing failure is now a `Kaly\Http\HttpException`.** It extends
@@ -126,11 +162,13 @@ No BC aliases are kept: update every usage in one pass.
   `RedirectException` and `ResponseException` all extend it, so one `catch`
   covers the whole family. `InputException` (400) and `ValidationException` (422)
   remain distinct failures, they are now siblings rather than unrelated classes.
-- **`Kaly\Core\Ex::getIntCode()` is removed.** It only existed to satisfy
-  `HttpExceptionInterface`, and every plain `Ex` inherited an HTTP accessor it
-  had no business exposing. A non-HTTP failure carries no status at all now,
-  which is what makes the `ExceptionHandler` guard meaningful. Use
-  `HttpException::getIntCode()`, or `(int) $e->getCode()`.
+- **`Kaly\Core\Ex::getIntCode()` is removed, and `HttpExceptionInterface::getIntCode()`
+  becomes `status()`.** The integer conversion belonged to HTTP, which is the
+  only layer with a status: `Exception::getCode()` is typed `int|string`, and
+  wrapping it in `intval()` gave every Kaly exception an artificial numeric
+  contract. `Kaly\Core\Ex` is now a bare marker, and `HttpException::status()`
+  is the semantic accessor. A non-HTTP failure carries no status at all, which
+  is what makes the `ExceptionHandler` guard meaningful.
 - `ResponseEmitterInterface` is declared in `App::DEFAULT_IMPLEMENTATIONS` and
   resolved from the container in `App::run()`, so replacing the emitter is a
   `set()` and not a fork. Declaring the interface alone was a false

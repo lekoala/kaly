@@ -11,6 +11,7 @@ use Kaly\Http\RedirectException;
 use Kaly\Router\RedirectUris;
 use Kaly\Router\ResolverInterface;
 use Kaly\Router\Route;
+use Kaly\Router\RouteGenerationException;
 use Kaly\Router\Router;
 use Kaly\Router\RouteRequest;
 use Kaly\Router\Routes;
@@ -19,7 +20,6 @@ use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 use TestModule\Controller\AliasController;
 
 /**
@@ -143,7 +143,7 @@ class RouterHierarchyFixesTest extends TestCase
 
         $this->assertSame('/fr/boutique/a-propos/', $router->url('mapped-module:about'));
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(RouteGenerationException::class);
         $this->expectExceptionMessage("has no path for locale 'en'");
         $router->url('mapped-module:about', locale: 'en');
     }
@@ -161,7 +161,7 @@ class RouterHierarchyFixesTest extends TestCase
 
         $this->assertSame('/fr/boutique/item/', $router->url('mapped-module:item'));
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(RouteGenerationException::class);
         $this->expectExceptionMessage("has no mount for locale 'en'");
         $router->url('mapped-module:item', locale: 'en');
     }
@@ -196,7 +196,7 @@ class RouterHierarchyFixesTest extends TestCase
             });
         $router = new Router([$module]);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(RouteGenerationException::class);
         $this->expectExceptionMessage("Duplicate route name 'mapped-module:same'");
         $router->url('mapped-module:same');
     }

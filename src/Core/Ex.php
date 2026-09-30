@@ -7,12 +7,10 @@ namespace Kaly\Core;
 use Exception;
 
 /**
- * Helper base exception class
+ * Base exception for Kaly errors.
  *
- * For failures that are the application's or the developer's, not the client's:
- * a bad config, a missing module, a broken wiring. It carries no HTTP status,
- * the client-facing failures extend `Kaly\Http\HttpException` instead.
- *
- * Exception messages should be one sentence, not ending with a .
+ * A bare marker: it says the failure is the framework's, the configuration's
+ * or an invariant's, without claiming anything more. A non-HTTP failure
+ * carries no status; the client-facing ones extend Kaly\Http\HttpException.
  */
 class Ex extends Exception {}

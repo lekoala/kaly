@@ -85,13 +85,9 @@ class Translator implements TranslatorInterface
         if (!isset($this->catalogs[$name][$locale])) {
             $this->buildCatalog($name, $locale);
         }
-        // Catalogs are string-keyed at runtime; merge through plain arrays
-        /** @var array<mixed> $catalog */
-        $catalog = $this->catalogs[$name][$locale] ?? [];
-        /** @var array<mixed> $additions */
-        $additions = $strings;
+        // Catalogs are string-keyed at runtime, integer keys would be appended
         /** @var array<string,mixed> $merged */
-        $merged = Arr::mergeDistinct($catalog, $additions);
+        $merged = Arr::mergeDistinct($this->catalogs[$name][$locale] ?? [], $strings);
         $this->catalogs[$name][$locale] = $merged;
         return $this;
     }
@@ -303,12 +299,8 @@ class Translator implements TranslatorInterface
                     throw new RuntimeException('Cached translation file did not return an array');
                 }
                 // Cache files hold var_exported catalogs, merged back as plain arrays
-                /** @var array<mixed> $cached */
-                $cached = $arr;
-                /** @var array<mixed> $catalogs */
-                $catalogs = $this->catalogs;
                 /** @var array<string,array<string,array<string,mixed>>> $merged */
-                $merged = Arr::mergeDistinct($catalogs, $cached);
+                $merged = Arr::mergeDistinct($this->catalogs, $arr);
                 $this->catalogs = $merged;
             }
         }

@@ -13,7 +13,6 @@ use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionParameter;
 use ReflectionUnionType;
-use RuntimeException;
 
 /**
  * Resolves the conventional urls of a module: `controller/action/params`.
@@ -91,7 +90,7 @@ final class ConventionResolver implements ResolverInterface
     public function path(string $controller, string $action, array $params = []): string
     {
         if (!method_exists($controller, $action)) {
-            throw new RuntimeException("Invalid handler '{$controller}::{$action}'");
+            throw new RouteGenerationException("Invalid handler '{$controller}::{$action}'");
         }
         $baseClass = substr($controller, (int) strrpos($controller, '\\') + 1);
         $controllerName = (string) preg_replace('/' . self::CONTROLLER_SUFFIX . '$/', '', $baseClass);

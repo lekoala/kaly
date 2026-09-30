@@ -37,24 +37,24 @@ class HttpExceptionTest extends TestCase
             $this->assertInstanceOf(HttpException::class, $exception, $exception::class);
             $this->assertInstanceOf(HttpExceptionInterface::class, $exception, $exception::class);
             // The status travels with the exception, not through Exception::$code
-            $this->assertSame($exception->getIntCode(), (int) $exception->getCode(), $exception::class);
+            $this->assertSame($exception->status(), (int) $exception->getCode(), $exception::class);
         }
     }
 
     public function testStatusesAreTheDocumentedOnes(): void
     {
-        $this->assertSame(404, (new NotFoundException())->getIntCode());
-        $this->assertSame(403, (new ForbiddenException())->getIntCode());
-        $this->assertSame(405, (new MethodNotAllowedException())->getIntCode());
-        $this->assertSame(400, (new InputException('x'))->getIntCode());
-        $this->assertSame(422, (new ValidationException('x'))->getIntCode());
-        $this->assertSame(307, (new RedirectException('/x'))->getIntCode());
+        $this->assertSame(404, (new NotFoundException())->status());
+        $this->assertSame(403, (new ForbiddenException())->status());
+        $this->assertSame(405, (new MethodNotAllowedException())->status());
+        $this->assertSame(400, (new InputException('x'))->status());
+        $this->assertSame(422, (new ValidationException('x'))->status());
+        $this->assertSame(307, (new RedirectException('/x'))->status());
     }
 
     public function testTheStatusIsOverridable(): void
     {
-        $this->assertSame(418, (new NotFoundException('teapot', 418))->getIntCode());
-        $this->assertSame(401, (new ForbiddenException('token', 401))->getIntCode());
+        $this->assertSame(418, (new NotFoundException('teapot', 418))->status());
+        $this->assertSame(401, (new ForbiddenException('token', 401))->status());
     }
 
     /**
@@ -87,7 +87,7 @@ class HttpExceptionTest extends TestCase
         $ex = new Ex('Module not found');
 
         $this->assertNotInstanceOf(HttpExceptionInterface::class, $ex);
-        $this->assertFalse(method_exists($ex, 'getIntCode'));
+        $this->assertFalse(method_exists($ex, 'status'));
         $this->assertSame(0, (int) $ex->getCode());
     }
 

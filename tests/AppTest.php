@@ -40,7 +40,7 @@ class AppTest extends TestCase
     {
         $app = App::create(__DIR__)->boot();
 
-        $this->assertSame($app, $app->getContainer()->get(App::class));
+        $this->assertSame($app, $app->container()->get(App::class));
     }
 
     public function testTheResponseEmitterIsSwappable(): void
@@ -90,7 +90,7 @@ class AppTest extends TestCase
         $app = new App(__DIR__);
         $app->boot();
 
-        $router = $app->getContainer()->get(RouterInterface::class);
+        $router = $app->container()->get(RouterInterface::class);
         $this->assertInstanceOf(Router::class, $router);
 
         // first one is the fallback locale
@@ -125,7 +125,7 @@ class AppTest extends TestCase
         $declaredVars = array_keys(get_defined_vars());
         $this->assertNotContains('value_is_not_leaked', $declaredVars);
 
-        $this->assertCount(3, $app->getModules());
+        $this->assertCount(3, $app->modules());
         $this->expectOutputString('hello');
         $response = $app->handle($request);
 
@@ -261,7 +261,7 @@ class AppTest extends TestCase
         $this->assertSame('foo', (string) $response->getBody());
 
         // The kernel is built once and reused
-        $this->assertSame($app->getKernel(), $app->getKernel());
+        $this->assertSame($app->kernel(), $app->kernel());
     }
 
     public function testRequestCallbacks(): void
@@ -524,7 +524,7 @@ class AppTest extends TestCase
     {
         $app = new App(__DIR__);
         $app->boot();
-        $router = $app->getContainer()->get(RouterInterface::class);
+        $router = $app->container()->get(RouterInterface::class);
 
         // When including parameters, index calls are allowed
         $this->assertSame('/test-module/index/index/hello/', $router->urlFor(IndexController::class . '::index', ['hello']));

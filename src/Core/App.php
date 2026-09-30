@@ -317,7 +317,7 @@ final class App implements RequestHandlerInterface
             $this->boot();
         }
 
-        return $this->getKernel()->handle($request);
+        return $this->kernel()->handle($request);
     }
 
     /**
@@ -338,7 +338,7 @@ final class App implements RequestHandlerInterface
             return;
         }
 
-        $this->getContainer()->get(ResponseEmitterInterface::class)->emit($response);
+        $this->container()->get(ResponseEmitterInterface::class)->emit($response);
     }
 
     public function shutdown(): void
@@ -358,7 +358,7 @@ final class App implements RequestHandlerInterface
     /**
      * @return list<Module>
      */
-    public function getModules(): array
+    public function modules(): array
     {
         $this->assertBooted();
         return $this->modules;
@@ -368,14 +368,14 @@ final class App implements RequestHandlerInterface
      * Explicit escape hatch for tests and integration: reach into the
      * container directly instead of growing App shortcuts per service.
      */
-    public function getContainer(): Container
+    public function container(): Container
     {
         $this->assertBooted();
         assert($this->container !== null);
         return $this->container;
     }
 
-    public function getKernel(): Kernel
+    public function kernel(): Kernel
     {
         $this->assertBooted();
         assert($this->kernel !== null);
@@ -385,7 +385,7 @@ final class App implements RequestHandlerInterface
     /**
      * @return array{name?:string,autoload?:array{psr-4?:array<string,string>}}
      */
-    public function getComposerInfo(): array
+    public function composerInfo(): array
     {
         $filename = $this->paths->base . '/composer.json';
         if (!is_file($filename)) {
@@ -461,7 +461,7 @@ final class App implements RequestHandlerInterface
             $sources = ['app' => $this->paths->assets()];
             foreach ($this->modules as $module) {
                 if ($module->hasAssets()) {
-                    $sources[$module->getId()] = $module->getAssetsDir();
+                    $sources[$module->id()] = $module->assetsDir();
                 }
             }
             $definitions->set(AssetSources::class, new AssetSources($sources));
@@ -520,7 +520,7 @@ final class App implements RequestHandlerInterface
      */
     private function loadModules(): Definitions
     {
-        $psr4 = $this->getComposerInfo()['autoload']['psr-4'] ?? [];
+        $psr4 = $this->composerInfo()['autoload']['psr-4'] ?? [];
         $psr4Paths = array_flip($psr4);
 
         $modules = [];
@@ -529,7 +529,7 @@ final class App implements RequestHandlerInterface
             $module = Module::fromConfig($file);
 
             // If not configured in composer, autoload files in module
-            $srcDir = $module->getSrcDir();
+            $srcDir = $module->srcDir();
             $relativeDir = Fs::dir(Fs::relativePath($this->paths->base, $srcDir));
             if (!isset($psr4Paths[$relativeDir]) && is_dir($srcDir)) {
                 $module->autoloadFiles();
@@ -584,7 +584,7 @@ final class App implements RequestHandlerInterface
      */
     private function createRequestHandler(): RequestHandlerInterface
     {
-        $container = $this->getContainer();
+        $container = $this->container();
 
         if ($container->has(RequestHandlerInterface::class)) {
             return $container->get(RequestHandlerInterface::class);
@@ -604,7 +604,7 @@ final class App implements RequestHandlerInterface
 
     private function requestFromGlobals(): ServerRequestInterface
     {
-        $container = $this->getContainer();
+        $container = $this->container();
         if (!$container->has(ServerRequestFactoryInterface::class) && Psr17Discovery::find() === []) {
             throw new LogicException('No PSR-7 implementation found: run `composer require nyholm/psr7` (or bind the PSR-17 factories)');
         }
@@ -630,7 +630,7 @@ final class App implements RequestHandlerInterface
         try {
             $configured = $this->middleware->toArray();
             /** @var LoggerInterface $logger */
-            $logger = $this->getContainer()->get(self::DEBUG_LOGGER);
+            $logger = $this->container()->get(self::DEBUG_LOGGER);
             $logger->debug('pipeline status={status} configured incoming={incoming} routed={routed} outgoing={outgoing} | executed={executed}', [
                 'status' => (string) $ctx->response()->getStatusCode(),
                 'incoming' => self::middlewareNames($configured['incoming'] ?? []),

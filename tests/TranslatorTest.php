@@ -76,7 +76,7 @@ class TranslatorTest extends TestCase
         $fr = new LocalizedTranslator($translator, 'fr');
         $en = new LocalizedTranslator($translator, 'en');
 
-        $this->assertSame('fr', $fr->getLocale());
+        $this->assertSame('fr', $fr->locale());
         $this->assertEquals('Message de test', $fr->translate('global.test'));
         $this->assertEquals('Test message', $en->translate('global.test'));
         // The shared engine still answers with its own default locale

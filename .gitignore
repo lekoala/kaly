@@ -3,14 +3,11 @@ vendor
 .phpunit.cache
 .trash
 .tmp
+*.log
 
 # demo
-demos/*.log
 demos/temp
 demos/app/temp
 
 # tests
 tests/temp
-
-# temporary
-.tmp

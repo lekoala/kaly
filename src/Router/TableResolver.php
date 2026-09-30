@@ -8,7 +8,6 @@ use Closure;
 use Kaly\Core\Ex;
 use Kaly\Http\MethodNotAllowedException;
 use ReflectionNamedType;
-use RuntimeException;
 
 /**
  * Resolves the local route table of a module entry point.
@@ -116,7 +115,7 @@ final class TableResolver implements ResolverInterface
         if ($locale !== null) {
             $paths = $definition->paths();
             if (!isset($paths[$locale]) && !isset($paths['*'])) {
-                throw new RuntimeException(
+                throw new RouteGenerationException(
                     "Route '{$definition->name}' has no path for locale '{$locale}': generating it would produce an url no route matches",
                 );
             }
@@ -129,10 +128,10 @@ final class TableResolver implements ResolverInterface
             } elseif (array_key_exists($name, $definition->defaults)) {
                 $value = $definition->defaults[$name];
             } else {
-                throw new RuntimeException("Missing parameter '{$name}' for route '{$definition->name}'");
+                throw new RouteGenerationException("Missing parameter '{$name}' for route '{$definition->name}'");
             }
             if (!is_scalar($value)) {
-                throw new RuntimeException("Parameter '{$name}' of route '{$definition->name}' is not scalar");
+                throw new RouteGenerationException("Parameter '{$name}' of route '{$definition->name}' is not scalar");
             }
             $path = str_replace('{' . $name . '}', rawurlencode((string) $value), $path);
         }

@@ -230,12 +230,12 @@ final class Module
 
     // #region Read
 
-    public function getDir(): string
+    public function dir(): string
     {
         return $this->dir;
     }
 
-    public function getName(): string
+    public function name(): string
     {
         return $this->name;
     }
@@ -253,7 +253,7 @@ final class Module
     /**
      * The identity of the module in route names (`shop:cart`)
      */
-    public function getId(): string
+    public function id(): string
     {
         return Str::decamelize($this->name);
     }
@@ -263,7 +263,7 @@ final class Module
      */
     public function getMount(): array
     {
-        return $this->mount ?? ['*' => $this->getId()];
+        return $this->mount ?? ['*' => $this->id()];
     }
 
     public function isLocalized(): bool
@@ -279,7 +279,7 @@ final class Module
     /**
      * @return list<array{priority:int,resolver:ResolverInterface|class-string<ResolverInterface>|Closure(Routes): void}>
      */
-    public function getResolvers(): array
+    public function resolvers(): array
     {
         return $this->resolvers;
     }
@@ -287,7 +287,7 @@ final class Module
     /**
      * @return list<array{prefix:array<string,string>,routes:Closure(Routes): void}>
      */
-    public function getClaims(): array
+    public function claims(): array
     {
         return $this->claims;
     }
@@ -300,24 +300,24 @@ final class Module
         return $this->whenAllLoaded;
     }
 
-    public function getConfigPath(): string
+    public function configPath(): string
     {
         return $this->dir . '/config.php';
     }
 
-    public function getSrcDir(): string
+    public function srcDir(): string
     {
         return $this->dir . '/src';
     }
 
-    public function getTemplatesDir(): string
+    public function templatesDir(): string
     {
         return $this->dir . '/templates';
     }
 
     public function hasTemplates(): bool
     {
-        return is_dir($this->getTemplatesDir());
+        return is_dir($this->templatesDir());
     }
 
     /**
@@ -328,14 +328,14 @@ final class Module
      * compiles, bundles, minifies, rewrites, or resolves frontend
      * dependencies.
      */
-    public function getAssetsDir(): string
+    public function assetsDir(): string
     {
         return $this->dir . '/assets';
     }
 
     public function hasAssets(): bool
     {
-        return is_dir($this->getAssetsDir());
+        return is_dir($this->assetsDir());
     }
 
     // #endregion
@@ -369,7 +369,7 @@ final class Module
             }
 
             // Look for a file in src directory
-            $file = $this->getSrcDir() . '/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+            $file = $this->srcDir() . '/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
             if (is_file($file)) {
                 require $file;
             }
@@ -382,12 +382,12 @@ final class Module
         if ($this->hasTemplates()) {
             $this->definitions->callback(RendererInterface::class, function (RendererInterface $renderer): void {
                 if ($renderer instanceof TemplatePathRegistryInterface) {
-                    $renderer->setPath($this->name, $this->getTemplatesDir());
+                    $renderer->setPath($this->name, $this->templatesDir());
                 }
             });
         }
 
-        $config = $this->includeFile($this->getConfigPath());
+        $config = $this->includeFile($this->configPath());
         if ($config instanceof Closure) {
             try {
                 $config($this, $this->definitions);

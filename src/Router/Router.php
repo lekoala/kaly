@@ -11,7 +11,6 @@ use Kaly\Http\RedirectException;
 use Kaly\Util\Str;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use RuntimeException;
 
 /**
  * Hierarchical router: every url belongs to exactly one module, which
@@ -261,12 +260,12 @@ final class Router implements RouterInterface
                 static fn(array $candidate): string => $candidate[1]->controller . '::' . $candidate[1]->action,
                 $candidates,
             );
-            throw new RuntimeException(
+            throw new RouteGenerationException(
                 "Duplicate route name '{$name}' (" . implode(' and ', $where) . '): a name must identify exactly one route of the module',
             );
         }
         if ($candidates === []) {
-            throw new RuntimeException("Unknown route '{$name}'");
+            throw new RouteGenerationException("Unknown route '{$name}'");
         }
         [$table, $definition, $claim] = $candidates[0];
         $path = $table->path($definition, $params, $locale);
@@ -282,10 +281,12 @@ final class Router implements RouterInterface
         $namespace = (string) Route::moduleOf($controller);
         $id = $this->namespaces[$namespace] ?? null;
         if ($id === null) {
-            throw new RuntimeException("No module is registered for '{$controller}'");
+            throw new RouteGenerationException("No module is registered for '{$controller}'");
         }
         if (!$this->modules[$id]->hasConventionRouting()) {
-            throw new RuntimeException("Module '{$id}' has no conventional urls: generate '{$controller}::{$action}' by its route name");
+            throw new RouteGenerationException(
+                "Module '{$id}' has no conventional urls: generate '{$controller}::{$action}' by its route name",
+            );
         }
         $locale = $this->localeFor($locale);
         $path = $this->convention->path($controller, $action, array_values($params));
@@ -301,11 +302,11 @@ final class Router implements RouterInterface
         if (str_contains($name, ':')) {
             [$id, $local] = explode(':', $name, 2);
         } else {
-            $id = $this->default ?? throw new RuntimeException("Route name '{$name}' must be qualified: 'module:name'");
+            $id = $this->default ?? throw new RouteGenerationException("Route name '{$name}' must be qualified: 'module:name'");
             $local = $name;
         }
         if (!isset($this->modules[$id])) {
-            throw new RuntimeException("Unknown module '{$id}' in route name '{$name}'");
+            throw new RouteGenerationException("Unknown module '{$id}' in route name '{$name}'");
         }
         return [$id, $local];
     }
@@ -317,7 +318,7 @@ final class Router implements RouterInterface
         }
         $locale = strtolower($locale);
         if ($this->locales !== [] && !in_array($locale, $this->locales, true)) {
-            throw new RuntimeException("Invalid locale '{$locale}'");
+            throw new RouteGenerationException("Invalid locale '{$locale}'");
         }
         return $locale;
     }
@@ -329,7 +330,7 @@ final class Router implements RouterInterface
         }
         $mount = $this->modules[$id]->getMount();
         if ($locale !== null && !isset($mount[$locale]) && !isset($mount['*'])) {
-            throw new RuntimeException(
+            throw new RouteGenerationException(
                 "Module '{$id}' has no mount for locale '{$locale}': generating it would produce an url no route matches",
             );
         }
@@ -375,6 +376,10 @@ final class Router implements RouterInterface
         return $this->mounts;
     }
 
+    /**
+     * The module that answers urls carrying no prefix, if the application
+     * declares one (the module namespaced as App).
+     */
     public function getDefaultModule(): ?string
     {
         return $this->default;
@@ -386,7 +391,7 @@ final class Router implements RouterInterface
 
     private function register(Module $module): void
     {
-        $id = $module->getId();
+        $id = $module->id();
         if (isset($this->modules[$id])) {
             throw new Ex("Two modules share the id '{$id}'");
         }
@@ -426,7 +431,7 @@ final class Router implements RouterInterface
         $sequence = 0;
         $tableSequence = null;
         $declaredTables = [];
-        foreach ($module->getResolvers() as $declared) {
+        foreach ($module->resolvers() as $declared) {
             $resolver = $declared['resolver'];
             if ($resolver instanceof Closure) {
                 $declaredTables[] = $resolver;
@@ -485,8 +490,8 @@ final class Router implements RouterInterface
 
     private function registerClaims(Module $module): void
     {
-        $id = $module->getId();
-        foreach ($module->getClaims() as $claim) {
+        $id = $module->id();
+        foreach ($module->claims() as $claim) {
             if (!$module->isLocalized() && array_keys($claim['prefix']) !== ['*']) {
                 throw new Ex(
                     "Module '{$id}' claims '"

@@ -22,3 +22,12 @@ When making a breaking change:
 - mention the breaking change clearly in the release notes.
 
 The goal before 1.0 is to converge toward the smallest, clearest, most durable public surface possible.
+
+## Style
+
+- Exception messages are a single sentence, with no trailing punctuation. This
+  applies to native exceptions too (`InvalidArgumentException`, `LogicException`,
+  `RuntimeException`), not only to `Kaly\Core\Ex`.
+- Client-facing failures extend `Kaly\Http\HttpException` and carry their own
+  status, headers and body. A non-HTTP failure is a plain `Kaly\Core\Ex` and
+  carries no status.

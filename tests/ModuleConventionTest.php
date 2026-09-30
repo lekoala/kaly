@@ -36,7 +36,7 @@ class ModuleConventionTest extends TestCase
         $app = App::create(__DIR__);
 
         $this->assertSame('mapped', (string) $this->get($app, '/mapped-module/')->getBody());
-        $router = $app->getContainer()->get(RouterInterface::class);
+        $router = $app->container()->get(RouterInterface::class);
         $this->assertInstanceOf(Router::class, $router);
         $this->assertSame(
             ['*' => ['lang-module' => 'lang-module', 'mapped-module' => 'mapped-module', 'test-module' => 'test-module']],

@@ -43,7 +43,7 @@ class ExceptionHandler implements ExceptionHandlerInterface
             $this->logger?->error($exception->getMessage(), ['exception' => $exception]);
         }
 
-        $status = $isHttp ? $exception->getIntCode() : (int) $exception->getCode();
+        $status = $isHttp ? $exception->status() : (int) $exception->getCode();
         if ($status < 100 || $status > 599 || !$isHttp && $status < 400) {
             $status = 500;
         }

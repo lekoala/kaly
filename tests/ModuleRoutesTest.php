@@ -7,12 +7,12 @@ namespace Kaly\Tests;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Router\Route;
+use Kaly\Router\RouteGenerationException;
 use Kaly\Router\RouterInterface;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
-use RuntimeException;
 use TestModule\Controller\AliasController;
 
 /**
@@ -45,7 +45,7 @@ class ModuleRoutesTest extends TestCase
 
     private function router(): RouterInterface
     {
-        return $this->app->getContainer()->get(RouterInterface::class);
+        return $this->app->container()->get(RouterInterface::class);
     }
 
     public function testALocalRouteIsRelativeToTheModuleMount(): void
@@ -122,14 +122,14 @@ class ModuleRoutesTest extends TestCase
 
     public function testGenerationWithoutARequiredParamFails(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(RouteGenerationException::class);
         $this->router()->url('test-module:shop.show');
     }
 
     public function testAnUnqualifiedNameNeedsADefaultModule(): void
     {
         // The test application has no default (App) module
-        $this->expectException(RuntimeException::class);
+        $this->expectException(RouteGenerationException::class);
         $this->expectExceptionMessage("must be qualified: 'module:name'");
         $this->router()->url('alias.hello');
     }

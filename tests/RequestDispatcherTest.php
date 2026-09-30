@@ -146,7 +146,7 @@ class RequestDispatcherTest extends TestCase
             {
                 $i18n = $data[RequestDispatcher::VAR_I18N];
                 assert($i18n instanceof LocalizedTranslator);
-                return $i18n->getLocale() . ':' . $i18n->translate('global.test');
+                return $i18n->locale() . ':' . $i18n->translate('global.test');
             }
         };
 
@@ -165,7 +165,7 @@ class RequestDispatcherTest extends TestCase
             {
                 $i18n = $data[RequestDispatcher::VAR_I18N];
                 assert($i18n instanceof LocalizedTranslator);
-                return $i18n->getLocale();
+                return $i18n->locale();
             }
         };
 

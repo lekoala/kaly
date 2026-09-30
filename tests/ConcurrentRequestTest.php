@@ -270,7 +270,7 @@ class ConcurrentRequestTest extends TestCase
 
         $responses = $this->interleave($this->requestA(), $this->requestB());
 
-        $shared = $this->app->getContainer()->get(SharedLocalStateMiddleware::class);
+        $shared = $this->app->container()->get(SharedLocalStateMiddleware::class);
         assert($shared instanceof SharedLocalStateMiddleware);
 
         // One application-scoped instance served both cycles

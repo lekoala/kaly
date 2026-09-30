@@ -83,7 +83,11 @@ final class Str
             [-] } [:^L:] > ;
             [-[:Separator:]]+ > '-';
             RULES;
-        return Transliterator::createFromRules($rules)?->transliterate($str) ?: '';
+        $slug = Transliterator::createFromRules($rules)?->transliterate($str) ?: '';
+
+        // The rules keep the leading and trailing separators; a slug does not
+        // carry them, and the fallback above already trimmed
+        return trim($slug, '-');
     }
 
     /**

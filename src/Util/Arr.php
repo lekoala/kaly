@@ -20,14 +20,16 @@ final class Arr
      * Merge two arrays, overwriting string keys instead of casting them to arrays.
      *
      * Unlike array_merge_recursive, scalar values are overwritten. Integer keys
-     * are appended. Arguments are passed by reference for performance.
+     * are appended.
      *
-     * @param array<mixed> $arr1 Base array, modified in place and returned
-     * @param array<mixed> $arr2 Values to merge into $arr1
+     * @param array<array-key,mixed> $arr1 Base array
+     * @param array<array-key,mixed> $arr2 Values to merge into $arr1
      * @param bool $deep Merge nested arrays recursively
-     * @return array<mixed> The merged array
+     * @return array<array-key,mixed> The merged array. A deep merge of nested
+     *         arrays widens the values, so callers that need a narrower shape
+     *         narrow the result themselves.
      */
-    public static function mergeDistinct(array &$arr1, array &$arr2, bool $deep = true): array
+    public static function mergeDistinct(array $arr1, array $arr2, bool $deep = true): array
     {
         foreach ($arr2 as $k => $v) {
             // regular array values are appended
@@ -82,7 +84,7 @@ final class Arr
     }
 
     /**
-     * Map with access to both key and value.
+     * Map with access to both key and value, preserving the keys.
      *
      * Unlike array_map, the callback receives ($key, $value).
      *
@@ -94,7 +96,11 @@ final class Arr
      */
     public static function mapAssoc(callable $callback, array $array): array
     {
-        return array_map(static fn($key) => $callback($key, $array[$key]), array_keys($array));
+        $result = [];
+        foreach ($array as $key => $value) {
+            $result[$key] = $callback($key, $value);
+        }
+        return $result;
     }
 
     /**

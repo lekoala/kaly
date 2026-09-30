@@ -35,7 +35,7 @@ class RequestInputTest extends TestCase
 
     private function router(): RouterInterface
     {
-        return App::create(__DIR__)->boot()->getContainer()->get(RouterInterface::class);
+        return App::create(__DIR__)->boot()->container()->get(RouterInterface::class);
     }
 
     private function match(string $path): Route

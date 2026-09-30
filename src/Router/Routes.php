@@ -32,6 +32,12 @@ final class Routes
     private array $drafts = [];
 
     /**
+     * The scope this one was derived from by prefix() or middleware(), so a
+     * group declared on it still lands in the routes the caller started with.
+     */
+    private ?self $parent = null;
+
+    /**
      * @param list<class-string> $middlewares Middlewares inherited by every route of this scope.
      */
     public function __construct(
@@ -118,30 +124,44 @@ final class Routes
             if (!is_callable($prefixOrCallback)) {
                 throw new Ex('Routes::group() expects a callable or a path prefix with a callable');
             }
-            $child = new self($this->prefix, $this->middlewares);
-            $prefixOrCallback($child);
-            $this->merge($child);
-            return;
+            $declare = $prefixOrCallback;
+            $prefix = $this->prefix;
+        } else {
+            if (!is_string($prefixOrCallback)) {
+                throw new Ex('Routes::group() expects a path prefix as first argument');
+            }
+            $declare = $callback;
+            $prefix = self::joinPath($this->prefix, $prefixOrCallback);
         }
-        if (!is_string($prefixOrCallback)) {
-            throw new Ex('Routes::group() expects a path prefix as first argument');
-        }
-        $child = new self(self::joinPath($this->prefix, $prefixOrCallback), $this->middlewares);
-        $callback($child);
-        $this->merge($child);
-    }
 
-    public function prefix(string $prefix): RouteGroup
-    {
-        return new RouteGroup($this, self::joinPath($this->prefix, $prefix), $this->middlewares);
+        $child = new self($prefix, $this->middlewares);
+        $declare($child);
+        $this->root()->merge($child);
     }
 
     /**
+     * A scoped view sharing the middlewares, with a longer path prefix.
+     *
+     * Declare the routes with group(), as `$routes->prefix('/api')->group(…)`:
+     * the scope writes into the routes it was derived from.
+     */
+    public function prefix(string $prefix): self
+    {
+        $child = new self(self::joinPath($this->prefix, $prefix), $this->middlewares);
+        $child->parent = $this;
+        return $child;
+    }
+
+    /**
+     * A scoped view sharing the path prefix, with extra shared middlewares.
+     *
      * @param class-string ...$middlewares
      */
-    public function middleware(string ...$middlewares): RouteGroup
+    public function middleware(string ...$middlewares): self
     {
-        return new RouteGroup($this, $this->prefix, array_values([...$this->middlewares, ...$middlewares]));
+        $child = new self($this->prefix, array_values([...$this->middlewares, ...$middlewares]));
+        $child->parent = $this;
+        return $child;
     }
 
     /**
@@ -153,9 +173,17 @@ final class Routes
     }
 
     /**
-     * @internal Merges a group scope back into its parent.
+     * The routes the caller started with, however many scopes were derived.
      */
-    public function merge(self $child): void
+    private function root(): self
+    {
+        return $this->parent?->root() ?? $this;
+    }
+
+    /**
+     * Absorbs a group scope. Always called on the root, never on a derived view.
+     */
+    private function merge(self $child): void
     {
         foreach ($child->drafts as $draft) {
             $this->drafts[] = $draft;
@@ -165,7 +193,8 @@ final class Routes
     /**
      * Appends an already built definition.
      *
-     * @internal Route sources other than this DSL.
+     * For a route source that is not this DSL: a database, a generated
+     * config file, an external schema.
      */
     public function addDefinition(RouteDefinition $definition): void
     {

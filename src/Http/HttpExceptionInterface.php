@@ -15,7 +15,7 @@ interface HttpExceptionInterface
     /**
      * The HTTP status code of the response
      */
-    public function getIntCode(): int;
+    public function status(): int;
 
     /**
      * Headers to add to the response
