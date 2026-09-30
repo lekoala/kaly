@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Text;
+namespace Kaly\I18n;
 
 /**
  * An immutable translator bound to one locale.

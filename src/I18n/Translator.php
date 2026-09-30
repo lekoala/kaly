@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Text;
+namespace Kaly\I18n;
 
 use Kaly\Util\Arr;
 use Kaly\Util\Fs;
@@ -19,13 +19,6 @@ use RuntimeException;
 class Translator implements TranslatorInterface
 {
     public const DEFAULT_DOMAIN = 'messages';
-    // ISO 639 2 or 3, or 4 for future use, alpha
-    public const LOCALE_LANGUAGE = 'language';
-    // ISO 15924 4 alpha
-    public const LOCALE_SCRIPT = 'script';
-    // ISO 3166-1 2 alpha or 3 digit
-    public const LOCALE_COUNTRY = 'country';
-    public const LOCALE_PRIVATE = 'private';
 
     /**
      * @var array<string,array<string,array<string,mixed>>>
@@ -44,33 +37,6 @@ class Translator implements TranslatorInterface
         if ($defaultLocale) {
             $this->setDefaultLocale($defaultLocale);
         }
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    public static function parseLocale(string $locale): array
-    {
-        $languagePart = '(?<language>[A-Za-z]{2,4})';
-        $scriptPart = '([_-](?<script>[A-Za-z]{4}|[0-9]{3}))?';
-        $countryPart = '([_-](?<country>[A-Za-z]{2}|[0-9]{3}))?';
-        $privatePart = '([_-]x[_-](?<private>[A-Za-z0-9-_]+))';
-        $pattern = "/^{$languagePart}{$scriptPart}{$countryPart}{$privatePart}?$/";
-        $matches = [];
-        $results = preg_match($pattern, $locale, $matches);
-        if (!$results) {
-            throw new RuntimeException("Failed to parse locale string '{$locale}'");
-        }
-        $matches = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
-        $matches['script'] ??= '';
-        $matches['country'] ??= '';
-        $matches['private'] ??= '';
-        return $matches;
-    }
-
-    public static function getLangFromLocale(string $locale): string
-    {
-        return strtolower(explode('-', str_replace('_', '-', $locale), 3)[0]);
     }
 
     /**
@@ -196,7 +162,7 @@ class Translator implements TranslatorInterface
         }
 
         // Attempt fallback to lang
-        $lang = self::getLangFromLocale($locale);
+        $lang = Locale::language($locale);
         if (!$translation && $locale !== $lang) {
             return $this->translate($message, $parameters, $domain, $lang);
         }

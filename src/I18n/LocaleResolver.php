@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Text;
+namespace Kaly\I18n;
 
 use Kaly\Http\RequestUtils;
 use Psr\Http\Message\ServerRequestInterface;
-use RuntimeException;
 
 /**
  * Decides which locale a request runs with.
@@ -75,9 +74,7 @@ class LocaleResolver
      */
     protected function normalize(string $locale): string
     {
-        try {
-            Translator::parseLocale($locale);
-        } catch (RuntimeException) {
+        if (!Locale::isValid($locale)) {
             return $this->defaultLocale;
         }
         if ($this->allowedLocales !== [] && !in_array($locale, $this->allowedLocales, true)) {

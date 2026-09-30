@@ -52,7 +52,7 @@
         "lekoala/kaly-tpl": "Lightweight native PHP templates, through Kaly\\View\\Adapter\\KalyTplRenderer",
         "nyholm/psr7": "Recommended PSR-7 implementation for your application",
         "symfony/mailer": "Email delivery through SMTP, sendmail or supported providers",
-        "symfony/translation": "Full featured translations (ICU, loaders), through Kaly\\Text\\Adapter\\SymfonyTranslator",
+        "symfony/translation": "Full featured translations (ICU, loaders), through Kaly\\I18n\\Adapter\\SymfonyTranslator",
         "twig/twig": "Supported template engine, through Kaly\\View\\Adapter\\TwigRenderer"
     },
     "autoload": {

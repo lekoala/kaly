@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Text\Adapter;
+namespace Kaly\I18n\Adapter;
 
-use Kaly\Text\TranslatorInterface;
+use Kaly\I18n\TranslatorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface as SymfonyTranslatorContract;
 
 /**

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Text;
+namespace Kaly\I18n;
 
 /**
  * The minimal contract Kaly needs from a translator.

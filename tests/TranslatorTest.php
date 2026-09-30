@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Text\LocalizedTranslator;
-use Kaly\Text\Translator;
+use Kaly\I18n\LocalizedTranslator;
+use Kaly\I18n\Translator;
 use PHPUnit\Framework\TestCase;
 
 class TranslatorTest extends TestCase
@@ -66,66 +66,6 @@ class TranslatorTest extends TestCase
         $this->assertEquals('öëBC', $result);
         $result = $translator->translate('utf8plural', ['%count%' => 2]);
         $this->assertEquals('öëBC', $result);
-    }
-
-    public function testParse(): void
-    {
-        $arr = [
-            'en' => [
-                'language' => 'en',
-                'script' => '',
-                'country' => '',
-                'private' => '',
-            ],
-            'en-US' => [
-                'language' => 'en',
-                'script' => '',
-                'country' => 'US',
-                'private' => '',
-            ],
-            'en_US' => [
-                'language' => 'en',
-                'script' => '',
-                'country' => 'US',
-                'private' => '',
-            ],
-            'zh-Hant-TW' => [
-                'language' => 'zh',
-                'script' => 'Hant',
-                'country' => 'TW',
-                'private' => '',
-            ],
-            'de-DE-x-goethe' => [
-                'language' => 'de',
-                'script' => '',
-                'country' => 'DE',
-                'private' => 'goethe',
-            ],
-            'agq_CM' => [
-                'language' => 'agq',
-                'script' => '',
-                'country' => 'CM',
-                'private' => '',
-            ],
-        ];
-        foreach ($arr as $input => $output) {
-            $this->assertEquals($output, Translator::parseLocale($input), "Failed for {$input}");
-        }
-    }
-
-    public function testLangFromLocale(): void
-    {
-        $arr = [
-            'en' => 'en',
-            'en-US' => 'en',
-            'en_US' => 'en',
-            'zh-Hant-TW' => 'zh',
-            'de-DE-x-goethe' => 'de',
-            'DE' => 'de',
-        ];
-        foreach ($arr as $input => $output) {
-            $this->assertEquals($output, Translator::getLangFromLocale($input), "Failed for {$input}");
-        }
     }
 
     public function testLocalizedTranslatorDoesNotLeakBetweenRenders(): void

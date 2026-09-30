@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Router;
 
 use Kaly\Core\HttpContext;
-use Kaly\Text\LocaleResolver;
+use Kaly\I18n\LocaleResolver;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;

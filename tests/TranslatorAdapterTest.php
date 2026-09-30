@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Text\Adapter\SymfonyTranslator;
-use Kaly\Text\LocalizedTranslator;
-use Kaly\Text\Translator;
-use Kaly\Text\TranslatorInterface;
+use Kaly\I18n\Adapter\SymfonyTranslator;
+use Kaly\I18n\LocalizedTranslator;
+use Kaly\I18n\Translator;
+use Kaly\I18n\TranslatorInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Translation\Loader\PhpFileLoader;

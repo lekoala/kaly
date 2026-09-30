@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Text\LocaleResolver;
+use Kaly\I18n\LocaleResolver;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
