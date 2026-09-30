@@ -2,21 +2,19 @@
 
 ## Built in loggers
 
-You can always get a `Psr\Log\LoggerInterface` from the Di container. It defaults to a `NullLogger` by default if none is defined.
+You can always get a `Psr\Log\LoggerInterface` from the Di container. It defaults to a `NullLogger` if none is defined.
 
-In debug mode, there is a file based logger that will output in your base dir under the "debug.log" file. 
+In debug mode, there is a file based logger that will output in your base dir under the "debug.log" file.
 It is accessible under the `App::DEBUG_LOGGER` definition in the Di container. It is safe to keep code calling the Debug logger in prod
 because it will be converted to a simple `NullLogger`. No worries!
 
-Once you bind your own `LoggerInterface`, the debug logger follows it (same instance) instead of the file: Kaly diagnostics such as the pipeline trace go wherever your logs go. An explicit `App::DEBUG_LOGGER` replacement still wins if you want them separated, but it must use `rebind()` since the id is already defined:
+Once you bind your own `LoggerInterface`, the debug logger follows it (same instance) instead of the file: Kaly diagnostics such as the pipeline trace go wherever your logs go. An explicit `App::DEBUG_LOGGER` replacement still wins if you want them separated. Declare it with `set()`: at `configure()` time the framework default does not exist yet, so `rebind()` would fail:
 
 ```php
 $app->configure(static function (Definitions $di) use ($logger): void {
-    $di->rebind(App::DEBUG_LOGGER, $logger);
+    $di->set(App::DEBUG_LOGGER, $logger);
 });
 ```
-
-Also, please note that you need to choose to output to the dev logger if you want to use it.
 
 ## The logger class
 

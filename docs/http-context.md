@@ -95,10 +95,10 @@ public function process(
 
 - `HttpContext::from($request)` throws when no context is attached.
 - `HttpContext::tryFrom($request)` returns `null` instead.
--
-- The Kernel creates the context for every cycle and binds it to the request;
-- middlewares and controllers only ever retrieve it. There is no "create if
-- absent" helper: a missing context is a broken pipeline, not a default.
+
+The Kernel creates the context for every cycle and binds it to the request;
+middlewares and controllers only ever retrieve it. There is no "create if
+absent" helper: a missing context is a broken pipeline, not a default.
 
 In a controller extending `Kaly\Core\AbstractController`, use the `ctx()` helper:
 
@@ -219,10 +219,9 @@ The context is created by the `Kernel` and travels through the whole cycle:
 ```text
 App
  +- Kernel
-     +- creates HttpContext
-     +- beforeRequest($ctx)
-     |
-     +- INCOMING middleware
+      +- creates and binds HttpContext
+      |
+      +- INCOMING middleware
           |
           +- trusted proxy / request id / static files / global limits...
           |

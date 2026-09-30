@@ -1,15 +1,17 @@
 <?php
 
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
-use Psr\Http\Server\MiddlewareInterface;
-use Nyholm\Psr7\Response;
-use Kaly\Middleware\PredefinedResponseHandler;
-use Psr\Http\Message\ResponseInterface;
 use Kaly\Middleware\MiddlewareRunner;
+use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
-require "../vendor/autoload.php";
+require __DIR__ . "/../vendor/autoload.php";
+
+// dd() is optional and not autoloaded, see src/_functions/global.php
+require __DIR__ . "/../src/_functions/global.php";
 
 // 1. A timing middleware: before/after composes naturally around handle()
 class AddTimestampMiddleware implements MiddlewareInterface
@@ -143,7 +145,7 @@ $middleware2 = new class implements MiddlewareInterface {
 
         // Handle the outgoing response
 
-        // This is never triggered if an exception is throw in ExceptionHandler
+        // This is never triggered if an exception is thrown in the final handler
         // It can read updated request and response after middleware1
         echo "reading request in middleware2<br/>";
         if ($request->hasHeader('x-from1')) {
@@ -159,13 +161,12 @@ $middleware2 = new class implements MiddlewareInterface {
     }
 };
 
-class ExceptionHandler implements RequestHandlerInterface
+class ThrowingHandler implements RequestHandlerInterface
 {
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        echo '[ExceptionHandler] executing<br/>';
+        echo '[ThrowingHandler] executing<br/>';
         throw new Exception("No middlewares in the stack trace");
-        return new Response(200, [], "<h1>Will never show</h1>");
     }
 }
 class RegularHandler implements RequestHandlerInterface
@@ -208,12 +209,17 @@ echo "Body: " . $stackResponse->getBody();
 
 echo '<hr/>';
 
-$handler = new ExceptionHandler();
+$handler = new ThrowingHandler();
 $stack = new MiddlewareRunner($handler);
 $stack->add($middleware1);
 $stack->add($middleware2);
 
 echo '<pre>';
-$stackResponse = $stack->handle($serverRequest);
-
-dd($stackResponse, $stackResponse->getBody()->getContents());
+try {
+    $stack->handle($serverRequest);
+} catch (Throwable $e) {
+    // MiddlewareRunner does not catch for you: the exception bubbles out of
+    // the stack, and the kernel turns it into an error response in an app
+    echo '<b>Exception escaped the stack:</b> ' . get_class($e) . '<br>';
+    echo $e->getMessage() . '<br>';
+}

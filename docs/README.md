@@ -8,14 +8,28 @@ preconfigured dependency injection container, without becoming a full-stack fram
 
 ## Documentation
 
-Use the sidebar to browse the guides:
+Use the sidebar to browse the guides. Start with
+[Architecture](architecture.md) for the cycle and the bands, then
+[App](app.md) and [Modules](modules.md) to compose an application.
 
-- [DI](di.md)
+- [Architecture](architecture.md)
 - [App](app.md)
 - [Modules](modules.md)
+- [Http context](http-context.md)
+- [Runtime](runtime.md)
 - [Routing](routing.md)
 - [Request input](input.md)
+- [Forms](forms.md)
+- [JSON APIs](json-apis.md)
+- [Auth](auth.md)
 - [Views](views.md)
 - [i18n](i18n.md)
+- [Testing](testing.md)
+- [DI](di.md)
+- [Persistence](database.md)
+- [Serving](serving.md)
+- [Assets](assets.md)
 - [Logging](logging.md)
+- [Mailer](mailer.md)
+- [Debugging](debugging.md)
 - [Benchmarks](benchmarks.md)

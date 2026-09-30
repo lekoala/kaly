@@ -10,7 +10,7 @@ Kaly is an opinionated but lightweight application framework built on PHP standa
 - **Dependency injection:** powered by [kaly-di](https://github.com/lekoala/kaly-di), autowiring and explicit definitions.
 - **Hierarchical routing:** every url belongs to one module, which resolves it with conventions (controllers map to URIs), its own route table or a custom resolver — all declared in its `config.php`.
 - **Modular architecture:** each module has its own config, controllers, templates and assets.
-- **Middleware support:** plain PSR-15 middleware, plus an optional generator style for before/after hooks.
+- **Middleware support:** plain PSR-15 middleware, applied in bands (incoming, routed, outgoing).
 - **Multilingual support:** built-in locale detection.
 - **Renderer agnostic:** Latte (recommended), [kaly-tpl](https://github.com/lekoala/kaly-tpl) (lightweight native PHP) or Twig, through tiny adapters.
 - **No database, no ORM, no forms:** Kaly stays a small HTTP framework.
@@ -18,9 +18,16 @@ Kaly is an opinionated but lightweight application framework built on PHP standa
 
 ## Stability
 
-Internal `lekoala/kaly-di` and `lekoala/kaly-tpl` are `0.x` and may evolve.
-Public contracts (`RouterInterface`, `RendererInterface`, `ExceptionHandlerInterface`,
-PSR-15 pipeline) are stable within `0.x` — no intentional breaking change.
+Kaly is `0.x`: **breaking changes are made deliberately**, in favor of a smaller
+and sharper public API rather than piled up behind aliases and deprecation
+layers. Read [UPGRADE.md](UPGRADE.md) before upgrading: it lists every removal
+and rename, with the migration.
+
+Internal `lekoala/kaly-di` and `lekoala/kaly-tpl` are `0.x` too and may evolve
+independently.
+
+`UPGRADE.md` is the record of what changed and why. There is no promise of
+backward compatibility within `0.x`.
 
 ## Views
 

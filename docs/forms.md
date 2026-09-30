@@ -4,7 +4,7 @@ A form is a `RequestInput`: a typed object mapped from the query string and the
 body, validated on construction. See [Request input](input.md).
 
 ```php
-final class CheckoutInput extends RequestInput
+final class CheckoutInput implements RequestInput
 {
     public function __construct(
         public readonly string $email,

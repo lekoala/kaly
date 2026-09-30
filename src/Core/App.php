@@ -72,7 +72,7 @@ use Throwable;
  *
  * ```php
  * $app = App::create(__DIR__)
- *     ->configure(fn(Definitions $di) => $di->bind(Mailer::class, SmtpMailer::class))
+ *     ->configure(fn(Definitions $di) => $di->bind(ClockInterface::class, FrozenClock::class))
  *     ->onError(fn(Throwable $e, HttpContext $ctx) => $sentry->capture($e));
  * $app->middleware()->routed(Authenticate::class);
  * ```

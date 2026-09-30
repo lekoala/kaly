@@ -169,6 +169,13 @@ Claims are explicit on purpose, and checked at boot: two claims on the same pref
 or a claim inside the segment of another module, fail. The root belongs to the
 default module: declare its routes there.
 
+A claim is an **island with its own table**, not a second mount: below the claimed
+prefix the module resolves with that table only. Its custom resolvers and its
+convention do not run there. Declaring the same routes again through
+`$module->routes()` covers both the mounted and the claimed urls in one place, so
+this only matters when a module wants a genuinely different table for a path it
+does not own.
+
 ## Locales
 
 The locales belong to the application, the locale prefix to the module:

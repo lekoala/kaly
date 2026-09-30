@@ -117,6 +117,40 @@ No BC aliases are kept: update every usage in one pass.
   (eg: `vscode://file/%f:%l`), the Kaly debug page keeps using
   `DUMP_IDE_PLACEHOLDER` (eg: `vscode://file/{file}:{line}:0`).
 
+## Pre-1.0 correctness and API cleanup
+
+Behaviour fixes and the small public API changes that go with them.
+
+- **A camelized convention segment no longer redirects to itself.** `/shop/Cart/`
+  resolved `CartController` but redirected to the identical url, in a loop. It
+  now redirects to the canonical `/shop/cart/`, as `Str::decamelize()` spells it.
+- `App::debug()` is the setter, `App::isDebug()` reads the state. A lot of code
+  (and documentation) was calling `debug()` as a getter, which silently *enabled*
+  debug mode.
+- **Content negotiation is one implementation.** `Kaly\Http\Accept` parses the
+  header once and `Kaly\Http\MediaType` owns the media type parsing, shared with
+  `RequestUtils::getMediaType()`. The `q` weights are now honoured by
+  `RequestUtils::getPreferredContentType()`, which previously returned the first
+  `Accept` entry regardless of weight, and `ExceptionHandler::wantsJson()` no
+  longer parses the header a second time. Wildcards are handled: an explicit
+  `text/html;q=0.5` is not overridden by a later bare wildcard, and
+  `application/problem+json` counts as JSON. The client leads, the server
+  priority list breaks ties.
+- `RequestUtils::getMediaTypeParams()` no longer reads past the end of a
+  parameter that has no value (`Content-Type: text/html;charset` raised a warning
+  and became a 500), and quoted values keep the separators they contain
+  (`boundary="a;b"`).
+- `CookiePolicy` canonicalises `sameSite` on the way in: `sameSite: 'STRICT'`
+  validated but was dropped when the header was built. It now stores and emits
+  `Strict`. Read it back from `$policy->sameSite` and compare against the
+  canonical spelling.
+- `RedirectException` only accepts a real redirect status (301, 302, 303, 307,
+  308). `304` is not a redirect and no longer carries a `Location` header; the
+  constant is `RedirectException::NOT_MODIFIED` if you need to name it.
+- `Kaly\Http\ForbiddenException` is added (403, empty body). Access control stays
+  the application's, but the framework now has the class its own documentation
+  used to reference.
+
 ## PSR-15 only middlewares
 
 - `GeneratorMiddleware` and `GeneratorMiddlewareInterface` are removed. Write plain

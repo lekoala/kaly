@@ -6,6 +6,7 @@ PSR-7 response out. No socket, no server, no browser state.
 ```php
 use Kaly\Test\TestClient;
 
+$app = App::create(__DIR__)->boot();
 $client = TestClient::for($app);
 
 $client->get('/hello')
@@ -13,6 +14,8 @@ $client->get('/hello')
     ->assertHeader('Content-Type', 'application/json')
     ->assertJson(['hello' => 'world']);
 ```
+
+`TestClient::for()` needs the container, so the app must be booted.
 
 `request()` is the primitive, the verbs are sugar over it:
 

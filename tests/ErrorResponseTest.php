@@ -48,6 +48,20 @@ class ErrorResponseTest extends TestCase
         $this->assertSame(0, $errors, 'a 404 must never reach the error trackers');
     }
 
+    public function testAForbiddenIsA403ThatLeaksNothing(): void
+    {
+        $app = App::create(__DIR__)->debug(false);
+
+        $response = $this->get($app, '/test-module/state/forbidden/');
+        $this->assertSame(403, $response->getStatusCode());
+        // What the user may do is the application's decision, not the
+        // framework's: the reason never reaches the client
+        $this->assertSame('Forbidden', (string) $response->getBody());
+
+        $problem = json_decode((string) $this->get($app, '/test-module/state/forbidden/', 'application/json')->getBody(), true);
+        $this->assertSame(['type' => 'about:blank', 'title' => 'Forbidden', 'status' => 403], $problem);
+    }
+
     public function testProductionLeaksNothing(): void
     {
         $app = App::create(__DIR__)->debug(false);

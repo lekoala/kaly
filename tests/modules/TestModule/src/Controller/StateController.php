@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace TestModule\Controller;
 
 use Kaly\Core\AbstractController;
+use Kaly\Http\ForbiddenException;
 use Kaly\Http\RedirectException;
 
 class StateController extends AbstractController
@@ -33,6 +34,15 @@ class StateController extends AbstractController
     public function crash(): never
     {
         throw new \RuntimeException('<b>boom</b>');
+    }
+
+    /**
+     * An application refusal: the framework has no opinion on access rights,
+     * it only turns this into a 403 that leaks nothing
+     */
+    public function forbidden(): never
+    {
+        throw new ForbiddenException();
     }
 
     /**

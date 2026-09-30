@@ -132,7 +132,7 @@ incoming -> routing -> routed -> route middlewares -> dispatcher -> (kernel) -> 
   cache headers...
 
 ```php
-$app = new App(dirname(__DIR__));
+$app = App::create(dirname(__DIR__));
 // Example middleware names — ship your own PSR-15 implementations,
 // Kaly only bundles FileServer and PreventFileAccess.
 $app->middleware()
@@ -365,8 +365,19 @@ A `configure()` hook that replaces a service a module already defined must use
 `rebind()` — `set()` on an existing id throws a `DefinitionException`:
 
 ```php
+// a module config.php already set this id
 $app->configure(static function (Definitions $di) use ($logger): void {
     $di->rebind(App::DEBUG_LOGGER, $logger);
+});
+```
+
+For an id no module declared, use `set()`: the framework defaults are registered
+*after* the `configure()` hooks, so `rebind()` would find nothing to replace:
+
+```php
+// nothing declared it yet
+$app->configure(static function (Definitions $di) use ($logger): void {
+    $di->set(App::DEBUG_LOGGER, $logger);
 });
 ```
 

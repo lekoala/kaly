@@ -20,8 +20,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  *
  * They come from the route tables (`->middleware()` on a route or a group) and
  * from `#[Middleware]` on the controller. They behave exactly like a routed
- * middleware: resolved from the container, marked on the context, PSR-15 or
- * generator style.
+ * middleware: resolved from the container and marked on the context.
  */
 final class RouteMiddlewareRunner implements RequestHandlerInterface
 {
