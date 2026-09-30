@@ -91,7 +91,7 @@ final class Router implements RouterInterface
         usort($this->claims, static fn(array $a, array $b): int => count($b['segments']) <=> count($a['segments']));
     }
 
-    // region Matching
+    // #region Matching
 
     public function match(ServerRequestInterface $request): Route
     {
@@ -225,9 +225,9 @@ final class Router implements RouterInterface
         return [$this->default, '', $segments, null];
     }
 
-    // endregion
+    // #endregion
 
-    // region Generation
+    // #region Generation
 
     public function url(string $name, array $params = [], ?string $locale = null): string
     {
@@ -355,9 +355,9 @@ final class Router implements RouterInterface
         return $url;
     }
 
-    // endregion
+    // #endregion
 
-    // region Introspection
+    // #region Introspection
 
     /**
      * @return list<string>
@@ -380,9 +380,9 @@ final class Router implements RouterInterface
         return $this->default;
     }
 
-    // endregion
+    // #endregion
 
-    // region Registration
+    // #region Registration
 
     private function register(Module $module): void
     {
@@ -532,5 +532,5 @@ final class Router implements RouterInterface
         return new RedirectException(RedirectUris::replaceSegment($request, $remove, $replace, $this->forceTrailingSlash));
     }
 
-    // endregion
+    // #endregion
 }

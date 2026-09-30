@@ -133,7 +133,7 @@ class NativePhpSession implements SessionInterface
         );
     }
 
-    // region SessionInterface (portable applicative contract)
+    // #region SessionInterface (portable applicative contract)
 
     public function get(string $key, mixed $default = null): mixed
     {
@@ -201,9 +201,9 @@ class NativePhpSession implements SessionInterface
         }
     }
 
-    // endregion
+    // #endregion
 
-    // region Native-only concrete details (not part of the portable contract)
+    // #region Native-only concrete details (not part of the portable contract)
 
     public function getId(): ?string
     {
@@ -301,7 +301,7 @@ class NativePhpSession implements SessionInterface
         return $response->withAddedHeader('Set-Cookie', SetCookieHeader::build($this->getName(), $id, $this->getCookieParams()));
     }
 
-    // endregion
+    // #endregion
 
     /**
      * Read the native session storage as a string-keyed array.

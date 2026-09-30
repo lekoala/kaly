@@ -127,7 +127,7 @@ final class ArraySession implements SessionInterface
         $this->started = false;
     }
 
-    // region In-memory-only concrete details (not part of the portable contract)
+    // #region In-memory-only concrete details (not part of the portable contract)
 
     public function getId(): ?string
     {
@@ -189,7 +189,7 @@ final class ArraySession implements SessionInterface
         return $response->withAddedHeader('Set-Cookie', SetCookieHeader::build($this->getName(), $id, $this->getCookieParams()));
     }
 
-    // endregion
+    // #endregion
 
     private function open(): void
     {

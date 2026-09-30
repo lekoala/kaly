@@ -94,7 +94,7 @@ final class Module
         return new self(dirname($file));
     }
 
-    // region Configuration, from config.php
+    // #region Configuration, from config.php
 
     /**
      * Lower priorities are configured first, so a higher priority module can
@@ -226,9 +226,9 @@ final class Module
         return $this->definitions;
     }
 
-    // endregion
+    // #endregion
 
-    // region Read
+    // #region Read
 
     public function getDir(): string
     {
@@ -338,7 +338,7 @@ final class Module
         return is_dir($this->getAssetsDir());
     }
 
-    // endregion
+    // #endregion
 
     /**
      * Modules need a config.php file (even if it's empty). This avoids having is_file checks in the loop

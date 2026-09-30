@@ -158,7 +158,7 @@ final class App implements RequestHandlerInterface
         return new self($dir, $loadEnv);
     }
 
-    // region Configuration
+    // #region Configuration
 
     /**
      * Force the debug mode, driven by APP_DEBUG by default
@@ -259,9 +259,9 @@ final class App implements RequestHandlerInterface
         return $this->middleware;
     }
 
-    // endregion
+    // #endregion
 
-    // region Lifecycle
+    // #region Lifecycle
 
     /**
      * Load the modules, build the container and the request kernel.
@@ -342,9 +342,9 @@ final class App implements RequestHandlerInterface
         ErrorHandler::restoreDefaults();
     }
 
-    // endregion
+    // #endregion
 
-    // region Services
+    // #region Services
 
     public function paths(): Paths
     {
@@ -393,9 +393,9 @@ final class App implements RequestHandlerInterface
         return $data;
     }
 
-    // endregion
+    // #endregion
 
-    // region Internals
+    // #region Internals
 
     /**
      * Modules first (by priority), then the configure hooks, then the
@@ -667,5 +667,5 @@ final class App implements RequestHandlerInterface
         }
     }
 
-    // endregion
+    // #endregion
 }
