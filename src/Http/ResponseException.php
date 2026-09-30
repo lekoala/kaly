@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
-use Kaly\Core\Ex;
+use Throwable;
 
 /**
  * An exception that already is the response body (eg: the debug dump of dd()).
@@ -12,15 +12,10 @@ use Kaly\Core\Ex;
  * Shaped responses belong to controller results (View, JsonResponse), not to
  * exceptions: this class carries no content type nor status mapping.
  */
-class ResponseException extends Ex implements HttpExceptionInterface
+class ResponseException extends HttpException
 {
-    public function getResponseHeaders(): array
+    public function __construct(string $message = '', int $code = 200, ?Throwable $previous = null)
     {
-        return [];
-    }
-
-    public function getResponseBody(): string
-    {
-        return $this->getMessage();
+        parent::__construct($message, $code, [], $previous);
     }
 }

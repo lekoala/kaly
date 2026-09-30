@@ -22,8 +22,7 @@ use Kaly\Core\Ex;
  * middlewares compose routes.
  *
  * @see RouteDefinition
- *
- * @phpstan-type RouteDraft array{path:string|array<string,string>,controller:class-string,action:string,methods:list<string>,name:?string,requirements:array<string,string>,defaults:array<string,mixed>,middlewares:list<class-string>,priority:int}
+ * @see RouteDraft
  */
 final class Routes
 {
@@ -93,20 +92,17 @@ final class Routes
     public function map(array $methods, string|array $path, string|array $handler): PendingRoute
     {
         [$controller, $action] = self::normalizeHandler($handler);
-        $this->drafts[] = [
-            'path' => is_array($path)
+        $draft = new RouteDraft(
+            is_array($path)
                 ? array_map(fn(string $p): string => self::joinPath($this->prefix, $p), $path)
                 : self::joinPath($this->prefix, $path),
-            'controller' => $controller,
-            'action' => $action,
-            'methods' => array_values(array_unique(array_map(strtoupper(...), $methods))),
-            'name' => null,
-            'requirements' => [],
-            'defaults' => [],
-            'middlewares' => $this->middlewares,
-            'priority' => 0,
-        ];
-        return new PendingRoute($this, count($this->drafts) - 1);
+            $controller,
+            $action,
+            array_values(array_unique(array_map(strtoupper(...), $methods))),
+            middlewares: $this->middlewares,
+        );
+        $this->drafts[] = $draft;
+        return new PendingRoute($draft);
     }
 
     /**
@@ -153,20 +149,7 @@ final class Routes
      */
     public function definitions(): array
     {
-        return array_map(
-            static fn(array $d): RouteDefinition => new RouteDefinition(
-                $d['path'],
-                $d['controller'],
-                $d['action'],
-                $d['methods'],
-                $d['name'],
-                $d['requirements'],
-                $d['defaults'],
-                $d['middlewares'],
-                $d['priority'],
-            ),
-            $this->drafts,
-        );
+        return array_map(static fn(RouteDraft $d): RouteDefinition => $d->definition(), $this->drafts);
     }
 
     /**
@@ -186,38 +169,17 @@ final class Routes
      */
     public function addDefinition(RouteDefinition $definition): void
     {
-        $this->drafts[] = [
-            'path' => $definition->path,
-            'controller' => $definition->controller,
-            'action' => $definition->action,
-            'methods' => $definition->methods,
-            'name' => $definition->name,
-            'requirements' => $definition->requirements,
-            'defaults' => $definition->defaults,
-            'middlewares' => $definition->middlewares,
-            'priority' => $definition->priority,
-        ];
-    }
-
-    /**
-     * @internal Allows PendingRoute to configure the last added draft.
-     * @return RouteDraft
-     */
-    public function draft(int $index): array
-    {
-        return $this->drafts[$index];
-    }
-
-    /**
-     * @internal
-     * @param RouteDraft $draft
-     */
-    public function replaceDraft(int $index, array $draft): void
-    {
-        $drafts = $this->drafts;
-        $drafts[$index] = $draft;
-        // Index assignment widens list to array; keys are 0..n-1 by construction.
-        $this->drafts = array_values($drafts);
+        $this->drafts[] = new RouteDraft(
+            $definition->path,
+            $definition->controller,
+            $definition->action,
+            $definition->methods,
+            $definition->name,
+            $definition->requirements,
+            $definition->defaults,
+            $definition->middlewares,
+            $definition->priority,
+        );
     }
 
     /**

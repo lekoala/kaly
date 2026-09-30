@@ -22,6 +22,7 @@ use Kaly\Http\InputMapperInterface;
 use Kaly\Http\NativePhpSessionProvider;
 use Kaly\Http\Psr17Discovery;
 use Kaly\Http\ResponseEmitter;
+use Kaly\Http\ResponseEmitterInterface;
 use Kaly\Http\ServerRequestFromGlobals;
 use Kaly\Http\SessionProviderInterface;
 use Kaly\I18n\LocaleResolver;
@@ -99,6 +100,7 @@ final class App implements RequestHandlerInterface
         TranslatorInterface::class => Translator::class,
         InputMapperInterface::class => InputMapper::class,
         AssetsInterface::class => Assets::class,
+        ResponseEmitterInterface::class => ResponseEmitter::class,
     ];
 
     private Paths $paths;
@@ -336,7 +338,7 @@ final class App implements RequestHandlerInterface
             return;
         }
 
-        (new ResponseEmitter())->emit($response);
+        $this->getContainer()->get(ResponseEmitterInterface::class)->emit($response);
     }
 
     public function shutdown(): void

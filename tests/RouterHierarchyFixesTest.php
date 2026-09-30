@@ -9,7 +9,10 @@ use Kaly\Core\Module;
 use Kaly\Http\MethodNotAllowedException;
 use Kaly\Http\RedirectException;
 use Kaly\Router\RedirectUris;
+use Kaly\Router\ResolverInterface;
+use Kaly\Router\Route;
 use Kaly\Router\Router;
+use Kaly\Router\RouteRequest;
 use Kaly\Router\Routes;
 use Kaly\Tests\Mocks\RouteHandlerFixture;
 use Kaly\Tests\Support\HttpFactory;
@@ -61,6 +64,61 @@ class RouterHierarchyFixesTest extends TestCase
         } catch (MethodNotAllowedException $e) {
             $this->assertEqualsCanonicalizing(['GET', 'POST'], $e->getAllowedMethods());
         }
+    }
+
+    public function testACustomResolverAtPriorityZeroFollowsTheTableWhenDeclaredAfter(): void
+    {
+        // routes() then resolver() at equal priority: the table is first,
+        // because that is the order config.php reads as
+        $after = $this
+            ->module()
+            ->routes(function (Routes $routes): void {
+                $routes->get('/shared', RouteHandlerFixture::class);
+            })
+            ->resolver(new class implements ResolverInterface {
+                public function resolve(RouteRequest $request): ?Route
+                {
+                    return $request->segments === ['shared'] ? $request->route(AliasController::class, 'index') : null;
+                }
+            });
+
+        // The table wins /shared, the custom resolver is never consulted
+        $route = $this->match(new Router([$after]), '/shop/shared/');
+        $this->assertSame(RouteHandlerFixture::class, $route->controller);
+
+        // The mirror order: declared before, it goes first
+        $before = $this
+            ->module()
+            ->resolver(new class implements ResolverInterface {
+                public function resolve(RouteRequest $request): ?Route
+                {
+                    return $request->segments === ['shared'] ? $request->route(AliasController::class, 'index') : null;
+                }
+            })
+            ->routes(function (Routes $routes): void {
+                $routes->get('/shared', RouteHandlerFixture::class);
+            });
+
+        $route = $this->match(new Router([$before]), '/shop/shared/');
+        $this->assertSame(AliasController::class, $route->controller);
+    }
+
+    public function testAPriorityStillWinsOverTheDeclarationOrder(): void
+    {
+        $module = $this
+            ->module()
+            ->routes(function (Routes $routes): void {
+                $routes->get('/shared', RouteHandlerFixture::class);
+            })
+            ->resolver(new class implements ResolverInterface {
+                public function resolve(RouteRequest $request): ?Route
+                {
+                    return $request->segments === ['shared'] ? $request->route(AliasController::class, 'index') : null;
+                }
+            }, priority: -10);
+
+        $route = $this->match(new Router([$module]), '/shop/shared/');
+        $this->assertSame(AliasController::class, $route->controller);
     }
 
     public function testReplaceSegmentOnlyTouchesTheFirstOccurrence(): void

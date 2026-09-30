@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
-use Kaly\Core\Ex;
 use Throwable;
 
 /**
@@ -13,19 +12,11 @@ use Throwable;
  * The body stays empty like any other client error: what the user is allowed
  * to do is the application's decision, not the framework's.
  */
-class ForbiddenException extends Ex implements HttpExceptionInterface
+class ForbiddenException extends HttpException
 {
     public function __construct(string $message = '', int $code = 403, ?Throwable $previous = null)
     {
-        if (!$message) {
-            $message = 'Forbidden';
-        }
-        parent::__construct($message, $code, $previous);
-    }
-
-    public function getResponseHeaders(): array
-    {
-        return [];
+        parent::__construct($message ?: 'Forbidden', $code, [], $previous);
     }
 
     public function getResponseBody(): string

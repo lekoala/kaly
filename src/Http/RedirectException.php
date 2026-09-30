@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Kaly\Http;
 
 use InvalidArgumentException;
-use Kaly\Core\Ex;
 use Psr\Http\Message\UriInterface;
 use Throwable;
 
-class RedirectException extends Ex implements HttpExceptionInterface
+class RedirectException extends HttpException
 {
     /**
      * The URL of the requested resource has been changed permanently.
@@ -72,18 +71,8 @@ class RedirectException extends Ex implements HttpExceptionInterface
             throw new InvalidArgumentException("{$code} is not a redirect status, expected one of " . implode(', ', self::REDIRECT_CODES));
         }
         $this->url = (string) $url;
-        $message = 'You are being redirected to ' . $url;
-        parent::__construct($message, $code, $previous);
-    }
 
-    public function getResponseHeaders(): array
-    {
-        return ['Location' => $this->url];
-    }
-
-    public function getResponseBody(): string
-    {
-        return $this->getMessage();
+        parent::__construct('You are being redirected to ' . $url, $code, ['Location' => $this->url], $previous);
     }
 
     /**
@@ -92,15 +81,5 @@ class RedirectException extends Ex implements HttpExceptionInterface
     public function getUrl(): string
     {
         return $this->url;
-    }
-
-    /**
-     * Set the value of url
-     * @return $this
-     */
-    public function setUrl(string $url): static
-    {
-        $this->url = $url;
-        return $this;
     }
 }

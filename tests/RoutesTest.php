@@ -24,6 +24,26 @@ class RoutesTest extends TestCase
         $this->assertSame(['GET'], $definition->methods);
     }
 
+    public function testAGroupedRouteCanStillBeNamedFromOutsideItsCallback(): void
+    {
+        $routes = new Routes();
+        $pending = null;
+
+        $routes
+            ->prefix('/api')
+            ->group(function (Routes $scoped) use (&$pending): void {
+                $pending = $scoped->get('/thing', [RouteHandlerFixture::class, 'show']);
+            });
+
+        // The handle outlives the callback that created it: a draft addressed by
+        // index used to be absorbed as a copy, silently dropping this
+        $pending?->name('thing');
+
+        [$definition] = $routes->definitions();
+        $this->assertSame('/api/thing', $definition->path);
+        $this->assertSame('thing', $definition->name);
+    }
+
     public function testFluentConfiguration(): void
     {
         $routes = new Routes();

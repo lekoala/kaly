@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
-use Kaly\Core\Ex;
 use Throwable;
 
 /**
  * Thrown when a route exists but not for the request HTTP method.
  * Results in a 405 response with an Allow header listing valid methods.
  */
-class MethodNotAllowedException extends Ex implements HttpExceptionInterface
+class MethodNotAllowedException extends HttpException
 {
     /**
      * @var string[]
@@ -24,10 +23,9 @@ class MethodNotAllowedException extends Ex implements HttpExceptionInterface
     public function __construct(array $allowedMethods = [], string $message = '', ?Throwable $previous = null)
     {
         $this->allowedMethods = array_values(array_unique($allowedMethods));
-        if (!$message) {
-            $message = 'Method not allowed';
-        }
-        parent::__construct($message, 405, $previous);
+        $headers = $this->allowedMethods === [] ? [] : ['Allow' => implode(', ', $this->allowedMethods)];
+
+        parent::__construct($message ?: 'Method not allowed', 405, $headers, $previous);
     }
 
     /**
@@ -36,14 +34,6 @@ class MethodNotAllowedException extends Ex implements HttpExceptionInterface
     public function getAllowedMethods(): array
     {
         return $this->allowedMethods;
-    }
-
-    public function getResponseHeaders(): array
-    {
-        if (empty($this->allowedMethods)) {
-            return [];
-        }
-        return ['Allow' => implode(', ', $this->allowedMethods)];
     }
 
     public function getResponseBody(): string

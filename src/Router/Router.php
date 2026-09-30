@@ -417,13 +417,20 @@ final class Router implements RouterInterface
         // one match space whatever the call they live in, and a 405 from the
         // table stays authoritative over the resolvers that follow. Custom
         // resolvers keep their priority around it; the convention last.
+        //
+        // The table keeps the position of its first routes() call, so at equal
+        // priority the declaration order is the one the config.php reads as:
+        // a custom resolver declared before routes() runs first, one declared
+        // after it runs last.
         $entries = [];
         $sequence = 0;
+        $tableSequence = null;
         $declaredTables = [];
         foreach ($module->getResolvers() as $declared) {
             $resolver = $declared['resolver'];
             if ($resolver instanceof Closure) {
                 $declaredTables[] = $resolver;
+                $tableSequence ??= $sequence++;
                 continue;
             }
             $entries[] = [$declared['priority'], $sequence++, $resolver];
@@ -440,7 +447,7 @@ final class Router implements RouterInterface
                 $id,
             );
             $this->tables[$id] = $table;
-            $entries[] = [0, $sequence++, $table];
+            $entries[] = [TableResolver::PRIORITY, $tableSequence, $table];
         }
         if ($module->hasConventionRouting()) {
             $entries[] = [ConventionResolver::PRIORITY, $sequence, $this->convention];

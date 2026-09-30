@@ -22,6 +22,14 @@ use RuntimeException;
  */
 final class TableResolver implements ResolverInterface
 {
+    /**
+     * The route table runs at the same priority as a custom resolver declared
+     * without one; the declaration order in config.php then decides.
+     *
+     * @see ConventionResolver::PRIORITY for the convention, which is last
+     */
+    public const PRIORITY = 0;
+
     private ?RouteCollection $collection = null;
 
     /**

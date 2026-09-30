@@ -6,8 +6,10 @@ namespace Kaly\Tests;
 
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
+use Kaly\Di\Definitions;
 use Kaly\Http\ContentType;
 use Kaly\Http\HttpContext;
+use Kaly\Http\ResponseEmitterInterface;
 use Kaly\Middleware\Builtin\FileServer;
 use Kaly\Router\Route;
 use Kaly\Router\Router;
@@ -17,6 +19,7 @@ use Kaly\Tests\Mocks\TestMiddleware;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 use TestModule\Controller\DemoController;
 use TestModule\Controller\IndexController;
 
@@ -38,6 +41,29 @@ class AppTest extends TestCase
         $app = App::create(__DIR__)->boot();
 
         $this->assertSame($app, $app->getContainer()->get(App::class));
+    }
+
+    public function testTheResponseEmitterIsSwappable(): void
+    {
+        $emitter = new class implements ResponseEmitterInterface {
+            public int $emitted = 0;
+
+            public function emit(ResponseInterface $response): bool
+            {
+                $this->emitted++;
+                return true;
+            }
+        };
+
+        $app = App::create(__DIR__)
+            ->configure(static function (Definitions $di) use ($emitter): void {
+                $di->set(ResponseEmitterInterface::class, $emitter);
+            })
+            ->boot();
+
+        $app->run(HttpFactory::createRequestFromGlobals()->withUri(new Uri('/test-module/index/foo/')));
+
+        $this->assertSame(1, $emitter->emitted);
     }
 
     public function testHandleBootsTheAppWhenNeeded(): void

@@ -117,6 +117,35 @@ No BC aliases are kept: update every usage in one pass.
   (eg: `vscode://file/%f:%l`), the Kaly debug page keeps using
   `DUMP_IDE_PLACEHOLDER` (eg: `vscode://file/{file}:{line}:0`).
 
+## Pre-1.0 consistency: one exception family, one emitter, one declaration order
+
+- **Every client-facing failure is now a `Kaly\Http\HttpException`.** It extends
+  `Kaly\Core\Ex` and carries the status, the extra headers and the body.
+  `NotFoundException`, `RouteNotFoundException`, `ForbiddenException`,
+  `MethodNotAllowedException`, `InputException`, `ValidationException`,
+  `RedirectException` and `ResponseException` all extend it, so one `catch`
+  covers the whole family. `InputException` (400) and `ValidationException` (422)
+  remain distinct failures, they are now siblings rather than unrelated classes.
+- **`Kaly\Core\Ex::getIntCode()` is removed.** It only existed to satisfy
+  `HttpExceptionInterface`, and every plain `Ex` inherited an HTTP accessor it
+  had no business exposing. A non-HTTP failure carries no status at all now,
+  which is what makes the `ExceptionHandler` guard meaningful. Use
+  `HttpException::getIntCode()`, or `(int) $e->getCode()`.
+- `ResponseEmitterInterface` is declared in `App::DEFAULT_IMPLEMENTATIONS` and
+  resolved from the container in `App::run()`, so replacing the emitter is a
+  `set()` and not a fork. Declaring the interface alone was a false
+  extensibility: `App::run()` news the concrete class up inline.
+- **Resolvers of equal priority now run in the order `config.php` reads as.**
+  The route table keeps the position of its *first* `routes()` call, so a custom
+  resolver declared after `routes()` runs after the table instead of before it.
+  Priorities still win over the declaration order; `TableResolver::PRIORITY` (0)
+  is now a named constant.
+- A route handle that outlives the `group()` callback that created it configures
+  its own route again. The draft is a shared `RouteDraft` object rather than an
+  array slot addressed by index, so a group no longer absorbs a copy and drop
+  the late mutation. `Routes::draft()` and `Routes::replaceDraft()` are removed;
+  they were internal plumbing for `PendingRoute`.
+
 ## Pre-1.0 correctness and API cleanup
 
 Behaviour fixes and the small public API changes that go with them.

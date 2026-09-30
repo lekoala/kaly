@@ -4,29 +4,18 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
-use Kaly\Core\Ex;
 use Throwable;
 
 /**
- * The input is well typed and still refused by a business rule.
+ * The request was well formed but its values are not acceptable.
  *
- * This is 422, distinct from an InputException (400) where the data could not
- * be represented by the declared type at all.
+ * Thrown from the constructor of a `RequestInput`, or from its `validate()`
+ * when it implements `ValidatableInput`.
  */
-class ValidationException extends Ex implements HttpExceptionInterface
+class ValidationException extends HttpException
 {
-    public function __construct(string $message, int $code = 422, ?Throwable $previous = null)
+    public function __construct(string $message = '', int $code = 422, ?Throwable $previous = null)
     {
-        parent::__construct($message, $code, $previous);
-    }
-
-    public function getResponseHeaders(): array
-    {
-        return [];
-    }
-
-    public function getResponseBody(): string
-    {
-        return $this->getMessage();
+        parent::__construct($message, $code, [], $previous);
     }
 }

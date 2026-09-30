@@ -5,36 +5,34 @@ declare(strict_types=1);
 namespace Kaly\Router;
 
 /**
- * Fluent configuration of a single route draft.
+ * Fluent configuration of a single route declaration.
  *
  * Returned by Routes::get()/post()/.../map(). Only per-route concerns live
  * here; structural composition (groups, prefixes) belongs to Routes.
+ *
+ * It holds the draft itself, not an index into it, so a handle that outlives
+ * the group() callback it was created in still configures its own route.
  */
 final class PendingRoute
 {
     public function __construct(
-        private Routes $routes,
-        private int $index,
+        private RouteDraft $draft,
     ) {}
 
     public function name(string $name): self
     {
-        $draft = $this->routes->draft($this->index);
-        $draft['name'] = $name;
-        $this->routes->replaceDraft($this->index, $draft);
+        $this->draft->name = $name;
         return $this;
     }
 
     public function where(string $param, string $regex): self
     {
-        $draft = $this->routes->draft($this->index);
-        $draft['requirements'][$param] = $regex;
-        $this->routes->replaceDraft($this->index, $draft);
+        $this->draft->requirements[$param] = $regex;
         return $this;
     }
 
     /**
-     * @param array<string,string> $requirements Param name => PCRE fragment.
+     * @param array<string,string> $requirements
      */
     public function wheres(array $requirements): self
     {
@@ -49,17 +47,13 @@ final class PendingRoute
      */
     public function middleware(string ...$middlewares): self
     {
-        $draft = $this->routes->draft($this->index);
-        $draft['middlewares'] = array_values([...$draft['middlewares'], ...$middlewares]);
-        $this->routes->replaceDraft($this->index, $draft);
+        $this->draft->middlewares = array_values([...$this->draft->middlewares, ...$middlewares]);
         return $this;
     }
 
     public function default(string $param, mixed $value): self
     {
-        $draft = $this->routes->draft($this->index);
-        $draft['defaults'][$param] = $value;
-        $this->routes->replaceDraft($this->index, $draft);
+        $this->draft->defaults[$param] = $value;
         return $this;
     }
 
@@ -76,9 +70,7 @@ final class PendingRoute
 
     public function priority(int $priority): self
     {
-        $draft = $this->routes->draft($this->index);
-        $draft['priority'] = $priority;
-        $this->routes->replaceDraft($this->index, $draft);
+        $this->draft->priority = $priority;
         return $this;
     }
 }
