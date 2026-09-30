@@ -53,6 +53,20 @@ No BC aliases are kept: update every usage in one pass.
 - `_functions/global.php` only provides `d()`/`dd()`: `env()` and `is_cli()`
   are removed (use `Kaly\Util\Env` and `php_sapi_name()`).
 
+## Slimmer clocks
+
+- `Kaly\Clock\AbstractClock` is removed: both clocks implement
+  `Psr\Clock\ClockInterface` directly, which stays the only public contract.
+- `new SystemClock()` now follows the PHP default timezone (so it sees
+  `APP_TIMEZONE`) instead of imposing UTC. Be explicit when the business clock
+  must stay UTC: `new SystemClock('UTC')`. `fromSystemTimezone()` and
+  `fromUtc()` are removed; `freeze()` stays as a test convenience.
+- `FrozenClock` now takes its instant as a required constructor argument and
+  gains `modify('+2 hours')` for readable time travel, next to `setTo()`.
+- Need monotonic time, a controllable `sleep()` or `ClockSensitiveTrait`?
+  Any PSR-20 implementation (eg: `symfony/clock`) plugs in with no adapter:
+  `$di->rebind(ClockInterface::class, $yourClock)`.
+
 ## kaly-di 0.3
 
 - `composer.json` now requires `lekoala/kaly-di: ^0.3`.

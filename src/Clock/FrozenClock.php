@@ -4,35 +4,28 @@ declare(strict_types=1);
 
 namespace Kaly\Clock;
 
-use DateInvalidTimeZoneException;
 use DateTimeImmutable;
-use DateTimeZone;
+use Psr\Clock\ClockInterface;
 
 /**
- * A clock frozen in time.
+ * A clock frozen in time, for tests.
+ *
+ * Application code should only depend on `Psr\Clock\ClockInterface::now()`,
+ * which keeps it portable across implementations.
  */
-final class FrozenClock extends AbstractClock
+final class FrozenClock implements ClockInterface
 {
-    private DateTimeImmutable $now;
+    public function __construct(
+        private DateTimeImmutable $now,
+    ) {}
 
-    public function __construct(?DateTimeImmutable $now = null)
-    {
-        if ($now === null) {
-            $now = new DateTimeImmutable();
-        }
-        $this->now = $now;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
     public function now(): DateTimeImmutable
     {
         return $this->now;
     }
 
     /**
-     * Sets the FrozenClock to a specific time.
+     * Sets the clock to a specific time.
      */
     public function setTo(DateTimeImmutable $now): void
     {
@@ -40,12 +33,12 @@ final class FrozenClock extends AbstractClock
     }
 
     /**
-     * Returns a new *Clock at current system time in UTC.
+     * Moves the clock, eg: `$clock->modify('+2 hours')`.
      *
-     * @throws DateInvalidTimeZoneException
+     * @throws \DateMalformedStringException If the modifier is invalid.
      */
-    public static function fromUtc(): FrozenClock
+    public function modify(string $modifier): void
     {
-        return new FrozenClock(new DateTimeImmutable('now', new DateTimeZone('UTC')));
+        $this->now = $this->now->modify($modifier);
     }
 }

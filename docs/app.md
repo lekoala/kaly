@@ -340,8 +340,9 @@ knowing:
 
 `APP_TIMEZONE` sets the global PHP timezone at boot. When it is absent, Kaly leaves the
 global timezone alone (`php.ini` or a prior `date_default_timezone_set()` survives) — no
-`UTC` is imposed. It does not reconfigure the injected `SystemClock`, which stays UTC by
-default (see `SystemClock::fromSystemTimezone()` for a system-timezone clock).
+`UTC` is imposed. The injected `SystemClock` follows the PHP default timezone, so it
+sees `APP_TIMEZONE`; pass an explicit `'UTC'` (`new SystemClock('UTC')`) when the
+business clock must stay UTC.
 
 ## Modules
 

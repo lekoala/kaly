@@ -7,12 +7,16 @@ namespace Kaly\Clock;
 use DateInvalidTimeZoneException;
 use DateTimeImmutable;
 use DateTimeZone;
+use Psr\Clock\ClockInterface;
 use Throwable;
 
 /**
  * A clock that relies on system time.
+ *
+ * The timezone defaults to the PHP default timezone (see APP_TIMEZONE):
+ * forcing UTC is the application's decision, `new SystemClock('UTC')`.
  */
-final class SystemClock extends AbstractClock
+final class SystemClock implements ClockInterface
 {
     private DateTimeZone $timezone;
 
@@ -21,56 +25,30 @@ final class SystemClock extends AbstractClock
      */
     public function __construct(DateTimeZone|string|null $timezone = null)
     {
-        if (!$timezone instanceof DateTimeZone) {
-            $timezone ??= 'UTC';
+        $timezone ??= date_default_timezone_get();
 
+        if (is_string($timezone)) {
+            // \Exception < PHP 8.3, \DateInvalidTimeZoneException >= PHP 8.3
             try {
-                $this->timezone = new DateTimeZone($timezone === '' ? 'UTC' : $timezone);
-
-                // \Exception < PHP 8.3, \DateInvalidTimeZoneException >= PHP 8.3
-                // DateInvalidTimeZoneException is polyfilled via symfony/polyfill-php83
+                $timezone = new DateTimeZone($timezone === '' ? 'UTC' : $timezone);
             } catch (Throwable $throwable) {
                 throw new DateInvalidTimeZoneException($throwable->getMessage(), intval($throwable->getCode()), $throwable);
             }
-            return;
         }
 
         $this->timezone = $timezone;
     }
 
-    /**
-     * Get a frozen copy of this clock
-     */
-    public function freeze(): FrozenClock
-    {
-        return new FrozenClock($this->now());
-    }
-
-    /**
-     * {@inheritDoc}
-     */
     public function now(): DateTimeImmutable
     {
         return new DateTimeImmutable('now', $this->timezone);
     }
 
     /**
-     * Returns a new SystemClock at current system time using the system's timezone.
-     *
-     * @throws DateInvalidTimeZoneException
+     * Get a frozen copy of this clock, for tests.
      */
-    public static function fromSystemTimezone(): SystemClock
+    public function freeze(): FrozenClock
     {
-        return new SystemClock(new DateTimeZone(date_default_timezone_get()));
-    }
-
-    /**
-     * Returns a new *Clock at current system time in UTC.
-     *
-     * @throws DateInvalidTimeZoneException
-     */
-    public static function fromUtc(): SystemClock
-    {
-        return new SystemClock(new DateTimeZone('UTC'));
+        return new FrozenClock($this->now());
     }
 }
