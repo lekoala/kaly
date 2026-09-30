@@ -252,7 +252,7 @@ class InputMapper implements InputMapperInterface
     {
         $class = $parameter->getDeclaringClass();
         return new LogicException(sprintf(
-            "Input property '%s' of %s has an unsupported type %s. Supported: string, int, float, bool, array, backed enums.",
+            "Input property '%s' of %s has an unsupported type %s, supported: string, int, float, bool, array, backed enums",
             $parameter->getName(),
             $class !== null ? $class->getName() : '(unknown)',
             (string) $parameter->getType(),

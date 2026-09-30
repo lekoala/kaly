@@ -87,7 +87,7 @@ final class OutgoingRunner
     {
         if (is_string($middleware)) {
             if ($this->container === null) {
-                throw new LogicException('A container is required to resolve an outgoing middleware class string.');
+                throw new LogicException('A container is required to resolve an outgoing middleware class string');
             }
             $middleware = $this->container->get($middleware);
         }
@@ -95,9 +95,9 @@ final class OutgoingRunner
             return $middleware;
         }
         if ($middleware instanceof MiddlewareInterface) {
-            throw new LogicException(sprintf('%s is a request middleware; it cannot run in the outgoing band.', $middleware::class));
+            throw new LogicException(sprintf('%s is a request middleware; it cannot run in the outgoing band', $middleware::class));
         }
-        throw new LogicException('Resolved outgoing middleware is of an unknown type.');
+        throw new LogicException('Resolved outgoing middleware is of an unknown type');
     }
 
     /**

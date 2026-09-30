@@ -35,10 +35,12 @@ final class ArraySessionProvider implements SessionProviderInterface
     public function create(ServerRequestInterface $request): SessionInterface
     {
         $options = $this->options;
-        if (!array_key_exists('secure', $options)) {
+        // The policy is the application baseline: derive from the request only
+        // when neither an explicit option nor the policy sets the value
+        if (!array_key_exists('secure', $options) && $this->policy->secure === null) {
             $options['secure'] = $request->getUri()->getScheme() === 'https';
         }
-        if (!array_key_exists('domain', $options)) {
+        if (!array_key_exists('domain', $options) && $this->policy->domain === null) {
             $options['domain'] = $request->getUri()->getHost();
         }
         $session = new ArraySession($options, $this->policy);
@@ -48,7 +50,7 @@ final class ArraySessionProvider implements SessionProviderInterface
         if ($param !== null && !is_string($param)) {
             throw new InvalidArgumentException('Session cookie value must be a string');
         }
-        if ($param !== null) {
+        if (is_string($param) && $param !== '') {
             $session->setId($param);
         }
 

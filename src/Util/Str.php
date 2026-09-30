@@ -69,7 +69,9 @@ final class Str
         }
         // Intl is only suggested: fall back to a best-effort ascii slug
         if (!class_exists(Transliterator::class)) {
-            $fallback = preg_replace('/[^a-z0-9]+/i', '-', $str) ?? '';
+            // Drop the connector punctuation the intl branch also removes, so
+            // 'my_page' does not become 'my-page' only without ext-intl
+            $fallback = preg_replace('/[^a-z0-9]+/i', '-', str_replace('_', '', $str)) ?? '';
             return trim(strtolower($fallback), '-');
         }
         $rules = <<<'RULES'

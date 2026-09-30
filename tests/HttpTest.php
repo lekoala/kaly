@@ -242,6 +242,18 @@ class HttpTest extends TestCase
         $this->assertNull(RequestUtils::getMediaType(new BaseServerRequest('GET', '/')));
     }
 
+    public function testAcceptParameterValuesAreQuoteAware(): void
+    {
+        // A quoted parameter containing a comma stays within one entry, and a
+        // spaced or quoted q weight is still read
+        $accept = Accept::parse('application/json; note="a,b"; q = 0.8, text/html');
+        $this->assertSame(0.8, $accept->qualityFor('application', 'json'));
+        $this->assertSame(1.0, $accept->qualityFor('text', 'html'));
+
+        $quoted = Accept::parse('application/json;q="0.5"');
+        $this->assertSame(0.5, $quoted->qualityFor('application', 'json'));
+    }
+
     public function testContentRangeSendResponse(): void
     {
         $headers = [

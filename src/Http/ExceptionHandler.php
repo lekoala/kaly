@@ -122,17 +122,18 @@ class ExceptionHandler implements ExceptionHandlerInterface
     public static function wantsJson(ServerRequestInterface $request): bool
     {
         $accept = Accept::fromRequest($request);
-        $json = max($accept->qualityFor('application', 'json'), $accept->qualityFor('application', '+json'));
-        $html = max($accept->qualityFor('text', 'html'), $accept->qualityFor('application', 'xhtml+xml'));
+        // Both sides are compared on what the client *named*: a bare wildcard
+        // expresses no preference, and must not turn an explicit JSON entry
+        // into a tie with HTML. That is the common `application/json, */*`.
+        $json = max($accept->explicitQualityFor('application', 'json'), $accept->explicitQualityFor('application', '+json'));
+        $html = max($accept->explicitQualityFor('text', 'html'), $accept->explicitQualityFor('application', 'xhtml+xml'));
 
         if ($json > 0 && $json > $html) {
             return true;
         }
 
-        // A JSON body is a preference only when the client did not ask for
-        // HTML: a bare wildcard says it does not care either way
-        $explicitHtml = max($accept->explicitQualityFor('text', 'html'), $accept->explicitQualityFor('application', 'xhtml+xml'));
+        // A JSON body is a preference only when the client did not ask for HTML
         $contentType = strtolower($request->getHeaderLine('Content-Type'));
-        return $explicitHtml === 0.0 && (str_contains($contentType, '/json') || str_contains($contentType, '+json'));
+        return $html === 0.0 && (str_contains($contentType, '/json') || str_contains($contentType, '+json'));
     }
 }

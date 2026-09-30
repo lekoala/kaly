@@ -97,6 +97,7 @@ final class Routes
      */
     public function map(array $methods, string|array $path, string|array $handler): PendingRoute
     {
+        $this->assertDeclarable();
         [$controller, $action] = self::normalizeHandler($handler);
         $draft = new RouteDraft(
             is_array($path)
@@ -181,6 +182,18 @@ final class Routes
     }
 
     /**
+     * A scope derived by prefix() or middleware() only declares through
+     * group(), which merges back into the root. Declaring directly on it would
+     * write into a view nobody reads, silently dropping the route.
+     */
+    private function assertDeclarable(): void
+    {
+        if ($this->parent !== null) {
+            throw new Ex('Routes::prefix() and middleware() scopes only declare routes through group()');
+        }
+    }
+
+    /**
      * Absorbs a group scope. Always called on the root, never on a derived view.
      */
     private function merge(self $child): void
@@ -198,6 +211,7 @@ final class Routes
      */
     public function addDefinition(RouteDefinition $definition): void
     {
+        $this->assertDeclarable();
         $this->drafts[] = new RouteDraft(
             $definition->path,
             $definition->controller,

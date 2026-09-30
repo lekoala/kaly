@@ -5,7 +5,7 @@
 Kaly loads PHP files at runtime:
 
 - `src/Core/Module.php`: module `config.php` via `require`
-- `src/Text/Translator.php`: compiled catalog cache via `file_put_contents` + `require`
+- `src/I18n/Translator.php`: compiled catalog cache via `file_put_contents` + `require`
 - `src/Util/Fs.php`: filesystem helpers (`mkdir`, `unlink`, `rmdir`, `glob`, `opendir`)
 
 If `temp/`, `cacheDir`, or `modulesDir` is writable by an untrusted user, it can lead to

@@ -31,7 +31,7 @@ final class MediaType
         if ($header === null) {
             return null;
         }
-        $parts = self::split($header);
+        $parts = self::splitOn($header, ';');
         $name = strtolower(trim(array_shift($parts) ?? ''));
         if ($name === '') {
             return null;
@@ -46,8 +46,9 @@ final class MediaType
             $eq = strpos($part, '=');
             if ($eq === false) {
                 // A bare parameter name: keep it, with an empty value
-                if (($name = strtolower(trim($part))) !== '') {
-                    $params[$name] = '';
+                $bareName = strtolower(trim($part));
+                if ($bareName !== '') {
+                    $params[$bareName] = '';
                 }
                 continue;
             }
@@ -123,11 +124,14 @@ final class MediaType
     }
 
     /**
-     * Split on `;` and `,` outside of quoted strings.
+     * Split a header on a single delimiter, ignoring delimiters inside quoted
+     * strings, and honouring backslash escapes within them.
+     *
+     * `;` and `,` are the delimiters media type and Accept parsing need.
      *
      * @return list<string>
      */
-    private static function split(string $header): array
+    public static function splitOn(string $header, string $delimiter): array
     {
         $parts = [];
         $current = '';
@@ -144,7 +148,7 @@ final class MediaType
                 $current .= $char;
                 continue;
             }
-            if (!$quoted && ($char === ';' || $char === ',')) {
+            if (!$quoted && $char === $delimiter) {
                 $parts[] = $current;
                 $current = '';
                 continue;

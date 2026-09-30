@@ -134,6 +134,6 @@ final class Assets implements AssetsInterface
             }
         }
 
-        throw new RuntimeException('Assets have not been published. Set APP_ASSETS_VERSION or run your asset publisher.');
+        throw new RuntimeException('Assets have not been published: set APP_ASSETS_VERSION or run your asset publisher');
     }
 }

@@ -37,6 +37,11 @@ class JsonTest extends TestCase
         $this->assertSame(['reason' => 'consultation'], Json::decodeMap('{"reason": "consultation"}'));
     }
 
+    public function testDecodeMapAcceptsAnEmptyObject(): void
+    {
+        $this->assertSame([], Json::decodeMap('{}'));
+    }
+
     public function testDecodeMapRejectsAJsonArray(): void
     {
         $this->expectException(JsonException::class);
@@ -72,6 +77,21 @@ class JsonTest extends TestCase
     {
         $this->expectException(JsonException::class);
         Json::decodeList('{"a": 1}');
+    }
+
+    public function testDecodeListRejectsObjectsThatLookLikeLists(): void
+    {
+        // `{"0": "x"}` and `{}` decode to shapes `array_is_list()` accepts,
+        // only the raw outer shape tells them apart from a real array
+        foreach (['{"0": "x"}', '{}'] as $json) {
+            $thrown = false;
+            try {
+                Json::decodeList($json);
+            } catch (JsonException) {
+                $thrown = true;
+            }
+            $this->assertTrue($thrown, 'Expected JsonException for ' . $json);
+        }
     }
 
     public function testValidateAcceptsValidJson(): void

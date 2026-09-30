@@ -23,6 +23,11 @@ final class ArraySession implements SessionInterface
     private string $name;
     private ?string $sessionId = null;
     private bool $started = false;
+    /**
+     * Set by destroy(): the client cookie must be expired on commit even
+     * though no id is left to write.
+     */
+    private bool $destroyed = false;
 
     /**
      * @var array<string,mixed>
@@ -125,6 +130,7 @@ final class ArraySession implements SessionInterface
         $this->originalData = [];
         $this->sessionId = null;
         $this->started = false;
+        $this->destroyed = true;
     }
 
     // #region In-memory-only concrete details (not part of the portable contract)
@@ -175,18 +181,22 @@ final class ArraySession implements SessionInterface
     {
         $this->close();
 
-        $id = $this->getId();
-        if ($id === null) {
-            return $response;
-        }
-
+        $name = $this->getName();
         $cookies = $request->getCookieParams();
-        $current = $cookies[$this->getName()] ?? null;
-        if ($current === $id) {
+        $current = $cookies[$name] ?? null;
+
+        if ($this->destroyed) {
+            return $current === null
+                ? $response
+                : $response->withAddedHeader('Set-Cookie', SetCookieHeader::build($name, '', $this->getCookieParams(), true));
+        }
+
+        $id = $this->getId();
+        if ($id === null || $current === $id) {
             return $response;
         }
 
-        return $response->withAddedHeader('Set-Cookie', SetCookieHeader::build($this->getName(), $id, $this->getCookieParams()));
+        return $response->withAddedHeader('Set-Cookie', SetCookieHeader::build($name, $id, $this->getCookieParams()));
     }
 
     // #endregion
@@ -197,7 +207,10 @@ final class ArraySession implements SessionInterface
             return;
         }
         $this->started = true;
-        $this->sessionId ??= bin2hex(random_bytes(16));
+        $this->destroyed = false;
+        if ($this->sessionId === null || $this->sessionId === '') {
+            $this->sessionId = bin2hex(random_bytes(16));
+        }
         $this->originalData = $this->data;
     }
 }

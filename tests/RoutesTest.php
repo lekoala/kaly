@@ -172,4 +172,13 @@ class RoutesTest extends TestCase
         [$definition] = $routes->definitions();
         $this->assertSame('/api/v2/users', $definition->path);
     }
+
+    public function testDeclaringDirectlyOnAScopedViewFails(): void
+    {
+        $routes = new Routes();
+        // A scope only declares through group(); a direct get() would write
+        // into a view nobody reads and silently drop the route
+        $this->expectException(Ex::class);
+        $routes->prefix('/api')->get('/x', [DispatcherController::class, 'stringResult']);
+    }
 }

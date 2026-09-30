@@ -175,4 +175,52 @@ class SessionTest extends TestCase
         $session = new NativePhpSession(['name' => 'CUSTOMNAME']);
         $this->assertSame('CUSTOMNAME', $session->getName());
     }
+
+    public function testRegenerateIdStartsAndRotatesAFreshSession(): void
+    {
+        $provider = $this->provider();
+        $session = $provider->create($this->request());
+        assert($session instanceof NativePhpSession);
+        $this->assertFalse($session->isActive());
+
+        $session->set('user', 'AUDIT-USER-A');
+        $before = $session->getId();
+        $session->regenerateId();
+
+        $this->assertNotNull($before);
+        $this->assertNotSame($before, $session->getId());
+        $this->assertSame('AUDIT-USER-A', $session->get('user'));
+        $session->destroy();
+    }
+
+    public function testDestroyExpiresTheClientCookieEvenBeforeStart(): void
+    {
+        $provider = $this->provider();
+        $request = (new BaseServerRequest('GET', 'https://example.test/'))->withCookieParams(['KALYAUDIT' => 'stale-session-id']);
+        $session = $provider->create($request);
+        assert($session instanceof NativePhpSession);
+        $this->assertFalse($session->isActive());
+
+        $session->destroy();
+        $response = $provider->commit($session, $request, HttpFactory::createResponse());
+
+        $cookie = $response->getHeaderLine('Set-Cookie');
+        $this->assertStringStartsWith('KALYAUDIT=', $cookie);
+        $this->assertStringContainsString('Max-Age=0', $cookie);
+    }
+
+    public function testExplicitPolicySecureAndDomainAreNotOverriddenByTheRequest(): void
+    {
+        $policy = new CookiePolicy(secure: true, domain: 'example.test');
+        $provider = new NativePhpSessionProvider([], $policy);
+        // An http request on another host would otherwise downgrade secure and
+        // steal the domain
+        $session = $provider->create(new BaseServerRequest('GET', 'http://other.test/'));
+        assert($session instanceof NativePhpSession);
+        $params = $session->getCookieParams();
+        $session->destroy();
+
+        $this->assertTrue($params['secure']);
+        $this->assertSame('example.test', $params['domain']);
+    }
 }

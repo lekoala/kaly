@@ -41,12 +41,12 @@ final class Accept
 
         $entries = [];
         $position = 0;
-        foreach (explode(',', $header) as $part) {
+        foreach (MediaType::splitOn($header, ',') as $part) {
             $part = trim($part);
             if ($part === '') {
                 continue;
             }
-            $pieces = explode(';', $part);
+            $pieces = MediaType::splitOn($part, ';');
             $name = strtolower(trim((string) array_shift($pieces)));
             // An entry without a type/subtype separator is not a media type
             if ($name === '' || !str_contains($name, '/')) {
@@ -133,11 +133,12 @@ final class Accept
     }
 
     /**
-     * The best weight given to a type by an entry that names it, ignoring
-     * wildcards.
+     * The best weight given to a type by an entry that names it, ignoring the
+     * anything wildcard (`type` = `*`).
      *
      * Used to tell "the client does not want HTML" from "the client does not
      * care": a bare wildcard expresses no opinion, so it does not count here.
+     * A family entry like `text/*` does name the type and does count.
      */
     public function explicitQualityFor(string $type, string $subtype = '*'): float
     {
@@ -185,12 +186,16 @@ final class Accept
     {
         foreach ($pieces as $piece) {
             $piece = trim($piece);
-            if (str_starts_with($piece, 'q=') || str_starts_with($piece, 'Q=')) {
-                $quality = (float) substr($piece, 2);
-                // A malformed or out of range weight means "not acceptable"
-                // rather than a silent default
-                return $quality >= 0.0 && $quality <= 1.0 ? $quality : 0.0;
+            $eq = strpos($piece, '=');
+            if ($eq === false || strtolower(trim(substr($piece, 0, $eq))) !== 'q') {
+                continue;
             }
+            // `q = 0.5` and `q="0.5"` are both seen in the wild
+            $value = trim(trim(substr($piece, $eq + 1)), "\"'");
+            $quality = (float) $value;
+            // A malformed or out of range weight means "not acceptable"
+            // rather than a silent default
+            return $quality >= 0.0 && $quality <= 1.0 ? $quality : 0.0;
         }
         return 1.0;
     }

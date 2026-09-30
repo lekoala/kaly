@@ -73,7 +73,7 @@ use Throwable;
  *
  * ```php
  * $app = App::create(__DIR__)
- *     ->configure(fn(Definitions $di) => $di->bind(ClockInterface::class, FrozenClock::class))
+ *     ->configure(fn(Definitions $di) => $di->rebind(ClockInterface::class, new SystemClock('UTC')))
  *     ->onError(fn(Throwable $e, HttpContext $ctx) => $sentry->capture($e));
  * $app->middleware()->routed(Authenticate::class);
  * ```

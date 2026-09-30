@@ -107,7 +107,7 @@ class RequestDispatcher implements RequestHandlerInterface
         if ($result === null) {
             throw new Ex(
                 "Controller '{$class}::{$action}' returned null: return an explicit response instead "
-                . '(eg: a 204 response from the response factory), a View, a JsonResponse, an array or a string.',
+                . '(eg: a 204 response from the response factory), a View, a JsonResponse, an array or a string',
             );
         }
         if (
@@ -121,7 +121,7 @@ class RequestDispatcher implements RequestHandlerInterface
         }
 
         throw new Ex(
-            'Controllers must return a ResponseInterface, a View, a JsonResponse, an array or a string. Got: ' . get_debug_type($result),
+            'Controllers must return a ResponseInterface, a View, a JsonResponse, an array or a string, got: ' . get_debug_type($result),
         );
     }
 

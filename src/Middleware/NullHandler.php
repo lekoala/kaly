@@ -16,6 +16,6 @@ final class NullHandler implements RequestHandlerInterface
 {
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        throw new LogicException('The final handler should not call the next handler.');
+        throw new LogicException('The final handler should not call the next handler');
     }
 }

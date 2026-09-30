@@ -70,11 +70,12 @@ final class NativePhpSessionProvider implements SessionProviderInterface
     private function optionsForRequest(ServerRequestInterface $request): array
     {
         $options = $this->options;
-        // Scope the cookie to the request; explicit options still win.
-        if (!array_key_exists('secure', $options)) {
+        // The policy is the application baseline: derive from the request only
+        // when neither an explicit option nor the policy sets the value
+        if (!array_key_exists('secure', $options) && $this->policy->secure === null) {
             $options['secure'] = $request->getUri()->getScheme() === 'https';
         }
-        if (!array_key_exists('domain', $options)) {
+        if (!array_key_exists('domain', $options) && $this->policy->domain === null) {
             $options['domain'] = $request->getUri()->getHost();
         }
         if ($this->isRememberMe($request)) {
@@ -91,7 +92,7 @@ final class NativePhpSessionProvider implements SessionProviderInterface
         if ($param !== null && !is_string($param)) {
             throw new InvalidArgumentException('Session cookie value must be a string');
         }
-        return $param;
+        return is_string($param) && $param !== '' ? $param : null;
     }
 
     private function isRememberMe(ServerRequestInterface $request): bool

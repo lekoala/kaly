@@ -116,9 +116,10 @@ primitive underneath: name + value + params in, header string out.
 ## Native PHP sessions
 
 `NativePhpSession` wraps the process-global `$_SESSION`. It is safe for
-sequential execution — Kaly resets the native session id on `start()` and
-`close()` so nothing leaks between requests — but two requests running
-concurrently in the same process must not share it.
+sequential execution — Kaly resets the native session id when it starts the
+session (`startSession()`) and when it closes it (`close()`) so nothing leaks
+between requests — but two requests running concurrently in the same process
+must not share it.
 
 ```text
 NativePhpSessionProvider (the default)

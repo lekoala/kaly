@@ -87,7 +87,7 @@ class MiddlewareRunner implements RequestHandlerInterface
     {
         if (is_string($middleware)) {
             if ($this->container === null) {
-                throw new LogicException('A container is required to resolve a middleware class string.');
+                throw new LogicException('A container is required to resolve a middleware class string');
             }
             $middleware = $this->container->get($middleware);
         }
@@ -96,12 +96,12 @@ class MiddlewareRunner implements RequestHandlerInterface
         }
         if ($middleware instanceof OutgoingMiddlewareInterface) {
             throw new LogicException(sprintf(
-                '%s is an outgoing middleware; it cannot run in the %s band.',
+                '%s is an outgoing middleware; it cannot run in the %s band',
                 $middleware::class,
                 $this->band->value,
             ));
         }
-        throw new LogicException('Resolved middleware is of an unknown type.');
+        throw new LogicException('Resolved middleware is of an unknown type');
     }
 
     /**
@@ -113,7 +113,7 @@ class MiddlewareRunner implements RequestHandlerInterface
         // stays a callable.
         if (is_string($handler) && class_exists($handler)) {
             if ($this->container === null) {
-                throw new LogicException('A container is required to resolve a final handler class string.');
+                throw new LogicException('A container is required to resolve a final handler class string');
             }
             $handler = $this->container->get($handler);
         }
@@ -127,7 +127,7 @@ class MiddlewareRunner implements RequestHandlerInterface
             return new MiddlewareToHandlerAdapter($handler);
         }
         throw new InvalidArgumentException(
-            'The final handler must be a RequestHandlerInterface, a callable, or a terminating psr-15 MiddlewareInterface.',
+            'The final handler must be a RequestHandlerInterface, a callable, or a terminating psr-15 MiddlewareInterface',
         );
     }
 

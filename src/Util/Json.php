@@ -30,7 +30,14 @@ final class Json
     /** @return list<mixed> */
     public static function decodeList(string $json): array
     {
-        return self::toList(self::decode($json));
+        $value = self::decode($json);
+        // An empty JSON object decodes like an empty array, so the raw shape
+        // is what tells them apart: `{"0": "x"}` is not a list either
+        if (self::shape($json) !== '[' || !is_array($value) || !array_is_list($value)) {
+            throw new JsonException('Expected a JSON array');
+        }
+
+        return $value;
     }
 
     /**
@@ -41,7 +48,18 @@ final class Json
      */
     public static function decodeMap(string $json): array
     {
-        return self::toMap(self::decode($json));
+        $value = self::decode($json);
+        if (self::shape($json) !== '{' || !is_array($value)) {
+            throw new JsonException('Expected a JSON object');
+        }
+        foreach (array_keys($value) as $key) {
+            if (!is_string($key)) {
+                throw new JsonException('Expected a JSON object');
+            }
+        }
+
+        /** @var array<string, mixed> $value verified above */
+        return $value;
     }
 
     public static function validate(string $json): bool
@@ -49,29 +67,14 @@ final class Json
         return json_validate($json);
     }
 
-    /** @return list<mixed> */
-    private static function toList(mixed $value): array
+    /**
+     * The first meaningful character of a JSON document: `{`, `[` or anything
+     * else for a scalar. `json_decode()` erases the array/object distinction
+     * on empty containers and numeric-string keys, this keeps it.
+     */
+    private static function shape(string $json): string
     {
-        if (!is_array($value) || !array_is_list($value)) {
-            throw new JsonException('Expected a JSON array.');
-        }
-
-        return $value;
-    }
-
-    /** @return array<string, mixed> */
-    private static function toMap(mixed $value): array
-    {
-        if (!is_array($value) || array_is_list($value)) {
-            throw new JsonException('Expected a JSON object.');
-        }
-        foreach (array_keys($value) as $key) {
-            if (!is_string($key)) {
-                throw new JsonException('Expected a JSON object.');
-            }
-        }
-
-        /** @var array<string, mixed> $value verified above */
-        return $value;
+        $trimmed = ltrim($json, " \t\n\r\0\x0B");
+        return $trimmed === '' ? '' : $trimmed[0];
     }
 }

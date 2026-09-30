@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
-use Exception;
 use InvalidArgumentException;
 use Kaly\Core\Ex;
 use Psr\Http\Message\ResponseInterface;
@@ -52,6 +51,11 @@ class NativePhpSession implements SessionInterface
     private CookiePolicy $policy;
     private string $name;
     private ?string $sessionId = null;
+    /**
+     * Set by destroy(): the client cookie must be expired on commit even
+     * though no id is left to write.
+     */
+    private bool $destroyed = false;
     /**
      * Options passed to session_start(). Cookie settings carry the cookie_
      * prefix. Behavior keys (regen_interval, ...) are consumed, not forwarded.
@@ -181,14 +185,13 @@ class NativePhpSession implements SessionInterface
 
     public function regenerateId(): void
     {
-        if ($this->isActive()) {
-            try {
-                if (session_regenerate_id(true)) {
-                    $this->sessionId = session_id() ?: null;
-                }
-            } catch (Throwable $e) {
-                throw new Exception('Failed to regenerate ID', (int) $e->getCode(), $e);
+        $this->ensureStarted();
+        try {
+            if (session_regenerate_id(true)) {
+                $this->sessionId = session_id() ?: null;
             }
+        } catch (Throwable $e) {
+            throw new Ex('Failed to regenerate session id', 0, $e);
         }
     }
 
@@ -197,8 +200,11 @@ class NativePhpSession implements SessionInterface
         if ($this->isActive()) {
             session_destroy();
             session_id('');
-            $this->sessionId = null;
         }
+        // Also covers a session that was never started: the client cookie must
+        // still be expired, otherwise the browser keeps a dangling session id
+        $this->sessionId = null;
+        $this->destroyed = true;
     }
 
     // #endregion
@@ -287,18 +293,23 @@ class NativePhpSession implements SessionInterface
             $this->close();
         }
 
-        $id = $this->getId();
-        if ($id === null) {
-            return $response;
-        }
-
+        $name = $this->getName();
         $cookies = $request->getCookieParams();
-        $current = $cookies[$this->getName()] ?? null;
-        if ($current === $id) {
+        $current = $cookies[$name] ?? null;
+
+        // A destroyed session clears the client cookie, there is no id left
+        if ($this->destroyed) {
+            return $current === null
+                ? $response
+                : $response->withAddedHeader('Set-Cookie', SetCookieHeader::build($name, '', $this->getCookieParams(), true));
+        }
+
+        $id = $this->getId();
+        if ($id === null || $current === $id) {
             return $response;
         }
 
-        return $response->withAddedHeader('Set-Cookie', SetCookieHeader::build($this->getName(), $id, $this->getCookieParams()));
+        return $response->withAddedHeader('Set-Cookie', SetCookieHeader::build($name, $id, $this->getCookieParams()));
     }
 
     // #endregion
@@ -342,6 +353,8 @@ class NativePhpSession implements SessionInterface
         try {
             session_start($this->options);
             $this->sessionId = session_id() ?: null;
+            // A fresh start supersedes a previous destroy()
+            $this->destroyed = false;
             $this->runIdRegeneration();
         } catch (Throwable $e) {
             throw new Ex('Failed to start session', 0, $e);

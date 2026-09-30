@@ -78,7 +78,7 @@ final class HttpContext
         $ctx = self::tryFrom($request);
 
         if ($ctx === null) {
-            throw new LogicException('No HTTP context is attached to the request.');
+            throw new LogicException('No HTTP context is attached to the request');
         }
 
         return $ctx;
@@ -133,7 +133,7 @@ final class HttpContext
      */
     public function route(): Route
     {
-        return $this->route ?? throw new LogicException('Request has not been routed yet.');
+        return $this->route ?? throw new LogicException('Request has not been routed yet');
     }
 
     public function hasRoute(): bool
@@ -180,7 +180,7 @@ final class HttpContext
 
     private function router(): RouterInterface
     {
-        return $this->router ?? throw new LogicException('Router has not been set on the context yet.');
+        return $this->router ?? throw new LogicException('Router has not been set on the context yet');
     }
 
     /**
@@ -193,7 +193,7 @@ final class HttpContext
      */
     public function locale(): string
     {
-        return $this->locale ?? throw new LogicException('Locale has not been resolved yet.');
+        return $this->locale ?? throw new LogicException('Locale has not been resolved yet');
     }
 
     public function hasLocale(): bool
@@ -216,7 +216,7 @@ final class HttpContext
      */
     public function response(): ResponseInterface
     {
-        return $this->response ?? throw new LogicException('Response is not available yet.');
+        return $this->response ?? throw new LogicException('Response is not available yet');
     }
 
     public function hasResponse(): bool

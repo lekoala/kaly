@@ -68,6 +68,34 @@ class SessionProviderTest extends TestCase
         $this->assertStringContainsString('KALYSESSID=', $response->getHeaderLine('Set-Cookie'));
     }
 
+    public function testArraySessionDestroyExpiresTheClientCookie(): void
+    {
+        $provider = new ArraySessionProvider();
+        $request = (new ServerRequest('GET', '/'))->withCookieParams(['KALYSESSID' => 'stale']);
+        $session = $provider->create($request);
+        $session->destroy();
+
+        $response = $provider->commit($session, $request, new Response());
+
+        $cookie = $response->getHeaderLine('Set-Cookie');
+        $this->assertStringStartsWith('KALYSESSID=', $cookie);
+        $this->assertStringContainsString('Max-Age=0', $cookie);
+    }
+
+    public function testArraySessionIgnoresAnEmptyCookieValueAndGeneratesAnId(): void
+    {
+        $provider = new ArraySessionProvider();
+        $request = (new ServerRequest('GET', '/'))->withCookieParams(['KALYSESSID' => '']);
+        $session = $provider->create($request);
+        $session->set('user', 'AUDIT-USER-A');
+
+        $response = $provider->commit($session, $request, new Response());
+
+        $cookie = $response->getHeaderLine('Set-Cookie');
+        $this->assertStringStartsWith('KALYSESSID=', $cookie);
+        $this->assertStringNotContainsString('KALYSESSID=;', $cookie);
+    }
+
     public function testKernelPassesItsProviderToEveryCycle(): void
     {
         $seen = [];

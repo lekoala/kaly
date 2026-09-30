@@ -132,6 +132,12 @@ class ErrorResponseTest extends TestCase
         yield 'anything' => ['*/*', '', false];
         yield 'json body, no preference' => ['*/*', 'application/json', true];
         yield 'json body, html accepted' => ['text/html', 'application/json', false];
+        // A wildcard expresses no preference: it must not tie an explicit JSON
+        // entry with HTML (the default Axios/fetch header)
+        yield 'json with wildcard' => ['application/json, text/plain, */*', '', true];
+        yield 'json with wildcard, html explicit' => ['application/json, text/html', '', false];
+        yield 'json refused' => ['application/json;q=0, */*', '', false];
+        yield 'html family accepted' => ['text/*', 'application/json', false];
     }
 
     #[DataProvider('acceptProvider')]

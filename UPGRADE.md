@@ -21,7 +21,13 @@ No BC aliases are kept: update every usage in one pass.
   session id, no cookie params. Transport details (`getId/setId/getName`,
   `close/isActive/discard`, cookie emission) stay available as concrete
   methods on `NativePhpSession`/`ArraySession` for code that explicitly opted
-  into them, and are driven by the provider.
+  into them, and are driven by the provider. `regenerateId()` starts the
+  session if needed before rotating, and `destroy()` expires the client cookie
+  even on a session that was never started, so logout is effective on the very
+  first call.
+- The request only scopes the cookie (`secure` on https, `domain` from the
+  host) when neither the provider options nor the bound `CookiePolicy` set the
+  value: an explicit policy is never downgraded by the request.
 - `ArrayDataInterface` is removed. `Cookies` keeps its own string-based
   contract (`get/set/has/remove/clear/all` + change tracking + `addToResponse`).
 - `CookiePolicy::default()/setDefault()` are removed, as are
@@ -34,9 +40,9 @@ No BC aliases are kept: update every usage in one pass.
   `session_name()`/`session_save_path()` for native sessions move to provider
   options (`name`, `save_path`).
 - `App::get()`, `getInjector()`, `getLogger()`, `getDebugLogger()` and
-  `respond()` are removed. `getContainer()` is the explicit escape hatch for
-  tests and integration (`$app->getContainer()->get(Foo::class)`),
-  `getKernel()` stays for the pipeline.
+  `respond()` are removed. `App::container()` is the explicit escape hatch for
+  tests and integration (`$app->container()->get(Foo::class)`),
+  `App::kernel()` stays for the pipeline (both are renamed below).
 - Controllers receive the cycle by **type**, not by parameter name:
   `__construct(ServerRequestInterface $httpRequest, HttpContext $context)`
   works whatever the names are; explicit route bindings still win. The old
@@ -48,7 +54,7 @@ No BC aliases are kept: update every usage in one pass.
   every cycle; middlewares and controllers use `from()`/`tryFrom()`, the
   pipeline rebinds it when the request object changes.
 - `Module` freezes after the `whenAllLoaded` second pass: mutating a module
-  from `App::getModules()` throws a `LogicException`.
+  from `App::modules()` throws a `LogicException`.
 - `Kaly\Core\HttpContext` moves to `Kaly\Http\HttpContext` (no alias).
 - `_functions/global.php` only provides `d()`/`dd()`: `env()` and `is_cli()`
   are removed (use `Kaly\Util\Env` and `php_sapi_name()`).
@@ -77,8 +83,10 @@ No BC aliases are kept: update every usage in one pass.
   (no `null` default, no `$assoc` flag).
 - `decodeArr()`/`decodeObj()` are replaced by `decodeList()` (`list<mixed>`)
   and `decodeMap()` (`array<string, mixed>`): malformed JSON or the wrong
-  outer shape throws a `JsonException`. A JSON object with numeric-string
-  keys (`{"0": "x"}`) is rejected by `decodeMap()`.
+  outer shape throws a `JsonException`. The outer shape is read from the raw
+  document, so the empty object `{}` is a valid `decodeMap()` (rejected by
+  `decodeList()`), and `{"0": "x"}` decodes to int keys and is rejected by
+  both.
 - `Json::validate()` is minimal again (`validate(string $json): bool`): no
   flags, depth or nullable input.
 - New `Kaly\Util\Types` for trivial `mixed` narrowing without conversion:
@@ -122,10 +130,12 @@ No BC aliases are kept: update every usage in one pass.
 - **`Kaly\Router\RouteGroup` is removed.** `Routes::prefix()` and
   `Routes::middleware()` now return a `Routes` scoped view instead, and
   `Routes::group()` is the single way to declare inside it — the group writes
-  into the routes you started with, however many scopes you derived.
-  `Routes::merge()` is private. Nothing referenced `RouteGroup` by type.
+  into the routes you started with, however many scopes you derived. Declaring
+  a route directly on a scope (`->prefix('/api')->get(...)`) throws instead of
+  silently dropping it. `Routes::merge()` is private. Nothing referenced
+  `RouteGroup` by type.
 - **Url generation failures throw `Kaly\Router\RouteGenerationException`**
-  instead of a bare `RuntimeException` (9 call sites in `Router` and
+  instead of a bare `RuntimeException` (11 call sites in `Router` and
   `TableResolver`, plus one in `ConventionResolver`). It extends `Ex`, so one
   `catch (Ex)` now covers a broken config *and* a url that cannot be built,
   which is the split the old `RuntimeException` hid.
