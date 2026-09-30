@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Core\HttpContext;
+use Kaly\Http\HttpContext;
 use Kaly\Router\Route;
 use LogicException;
 use Nyholm\Psr7\Response;
@@ -45,16 +45,18 @@ class HttpContextTest extends TestCase
         $this->assertNull(HttpContext::tryFrom(new ServerRequest('GET', '/')));
     }
 
-    public function testEnsureCreatesAndReusesTheContext(): void
+    public function testBindCreatesTheCycleAndReusesTheContext(): void
     {
         $request = new ServerRequest('GET', '/');
+        $ctx = new HttpContext($request);
+        $bound = $ctx->bind($request);
 
-        $ctx = HttpContext::ensure($request);
-        $this->assertSame($ctx, HttpContext::from($ctx->request()));
+        $this->assertSame($ctx, HttpContext::from($bound));
 
         // A brand new request derived from the bound one keeps the same context
         $derived = $ctx->request()->withAttribute('foo', 'bar');
-        $this->assertSame($ctx, HttpContext::ensure($derived));
+        $rebound = $ctx->bind($derived);
+        $this->assertSame($ctx, HttpContext::from($rebound));
         $this->assertSame('bar', $ctx->request()->getAttribute('foo'));
     }
 

@@ -4,6 +4,55 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Pre-1.0 session, App and pipeline cleanup
+
+No BC aliases are kept: update every usage in one pass.
+
+- `Kaly\Http\Session` is removed. Use `NativePhpSession` (sequential runtimes)
+  or a request-scoped `SessionInterface` through a `SessionProviderInterface`,
+  with `NativePhpSessionProvider` (default) and `ArraySessionProvider` (tests,
+  isolated cycles) provided.
+- `SessionFactoryInterface` is replaced by `SessionProviderInterface`:
+  `create($request)` builds the session, `commit($session, $request, $response)`
+  persists it and emits the `Set-Cookie` header. Bind your own provider for
+  concurrent runtimes. `NativePhpSessionFactory` is removed.
+- `SessionInterface` is an applicative contract only
+  (`get/set/has/remove/clear/pull/all` + `regenerateId/destroy`): no PSR-7, no
+  session id, no cookie params. Transport details (`getId/setId/getName`,
+  `close/isActive/discard`, cookie emission) stay available as concrete
+  methods on `NativePhpSession`/`ArraySession` for code that explicitly opted
+  into them, and are driven by the provider.
+- `ArrayDataInterface` is removed. `Cookies` keeps its own string-based
+  contract (`get/set/has/remove/clear/all` + change tracking + `addToResponse`).
+- `CookiePolicy::default()/setDefault()` are removed, as are
+  `NativePhpSession::configureDefaults()/configureExtra()/getExtraConfig()`.
+  One `CookiePolicy` instance is bound per `App` (historical baseline:
+  browser-session lifetime, httponly, Lax — override it in `configure()`).
+  `Cookies` and the session providers take it by injection; `new Cookies($request)`
+  and `new NativePhpSession([], $request)` become
+  `new Cookies($request, $policy)` and `(new NativePhpSessionProvider($options, $policy))->create($request)`.
+  `session_name()`/`session_save_path()` for native sessions move to provider
+  options (`name`, `save_path`).
+- `App::get()`, `getInjector()`, `getLogger()`, `getDebugLogger()` and
+  `respond()` are removed. `getContainer()` is the explicit escape hatch for
+  tests and integration (`$app->getContainer()->get(Foo::class)`),
+  `getKernel()` stays for the pipeline.
+- Controllers receive the cycle by **type**, not by parameter name:
+  `__construct(ServerRequestInterface $httpRequest, HttpContext $context)`
+  works whatever the names are; explicit route bindings still win. The old
+  `request`/`ctx` name convention is gone.
+- Controllers returning `null` now throw (`Ex`): a forgotten `return` is no
+  longer a silent 200 with an empty body. Return an explicit empty response
+  (eg: 204 from the response factory) instead.
+- `HttpContext::ensure()` is removed. The `Kernel` creates the context for
+  every cycle; middlewares and controllers use `from()`/`tryFrom()`, the
+  pipeline rebinds it when the request object changes.
+- `Module` freezes after the `whenAllLoaded` second pass: mutating a module
+  from `App::getModules()` throws a `LogicException`.
+- `Kaly\Core\HttpContext` moves to `Kaly\Http\HttpContext` (no alias).
+- `_functions/global.php` only provides `d()`/`dd()`: `env()` and `is_cli()`
+  are removed (use `Kaly\Util\Env` and `php_sapi_name()`).
+
 ## kaly-di 0.3
 
 - `composer.json` now requires `lekoala/kaly-di: ^0.3`.
@@ -19,8 +68,8 @@ how to migrate.
   fast instead of being ignored.
 - `Injector::make()` / `invoke()` validate the argument list (unknown named
   arguments, duplicates, surplus positionals): only pass what the callable
-  declares. The dispatcher only forwards `request`/`ctx` to controllers whose
-  constructor declares them.
+  declares. The dispatcher forwards the current request and context to
+  controllers by parameter type (`ServerRequestInterface`, `HttpContext`).
 - A union parameter with several available candidates is ambiguous and throws
   `UnresolvableParameterException`: pass the dependency explicitly.
 
@@ -42,7 +91,7 @@ how to migrate.
   PSR-15 middlewares: `try/finally` around `$handler->handle()` for metrics and cleanup,
   `try/commit/catch/rollback` for transactions.
 
-## Request-scoped sessions
+## Request-scoped sessions (superseded by the pre-1.0 cleanup above)
 
 - `SessionFactoryInterface::create($request)` says where the session of a request comes
   from. `NativePhpSessionFactory` is the default; bind your own factory for concurrent
@@ -91,8 +140,8 @@ how to migrate.
 - Session and cookie changes made through `$ctx->session()` / `$ctx->cookies()` are now
   written to the response by the kernel. Remove any manual `addToResponse()` call, or
   cookies will be emitted twice.
-- `NativePhpSession` built from a PSR-7 request no longer lets PHP send its own session
-  cookie and cache headers: the cookie is on the PSR-7 response.
+- `NativePhpSession` never lets PHP send its own session cookie and cache
+  headers: the provider writes the cookie on the PSR-7 response.
 - `CookiePolicy` rejects a SameSite value other than `None`, `Lax` or `Strict`.
 
 ## One App, typed hooks, closure configs

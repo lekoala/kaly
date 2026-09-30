@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use Kaly\Core\Ex;
-use Kaly\Core\HttpContext;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Di\Injector;
+use Kaly\Http\HttpContext;
 use Kaly\Http\RedirectException;
 use Kaly\I18n\LocaleResolver;
 use Kaly\I18n\LocalizedTranslator;
@@ -92,11 +92,11 @@ class RequestDispatcherTest extends TestCase
         $this->assertSame('{"a":1}', (string) $response->getBody());
     }
 
-    public function testNullResultIsEmpty(): void
+    public function testNullResultIsAProgrammingError(): void
     {
-        $response = $this->dispatch($this->dispatcher('nullResult'));
-        $this->assertSame(200, $response->getStatusCode());
-        $this->assertSame('', (string) $response->getBody());
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage('returned null');
+        $this->dispatch($this->dispatcher('nullResult'));
     }
 
     public function testRawResponseIsReturnedAsIs(): void

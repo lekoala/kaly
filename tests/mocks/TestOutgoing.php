@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests\Mocks;
 
-use Kaly\Core\HttpContext;
+use Kaly\Http\HttpContext;
 use Kaly\Middleware\OutgoingMiddlewareInterface;
 use Psr\Http\Message\ResponseInterface;
 

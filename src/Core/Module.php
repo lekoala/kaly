@@ -14,6 +14,7 @@ use Kaly\Util\Fs;
 use Kaly\Util\Str;
 use Kaly\View\RendererInterface;
 use Kaly\View\TemplatePathRegistryInterface;
+use LogicException;
 use Throwable;
 
 /**
@@ -74,6 +75,7 @@ final class Module
      * @var list<Closure(Definitions): void>
      */
     private array $whenAllLoaded = [];
+    private bool $frozen = false;
 
     public function __construct(string $dir)
     {
@@ -100,6 +102,7 @@ final class Module
      */
     public function priority(int $priority): self
     {
+        $this->assertNotFrozen();
         $this->priority = $priority;
         return $this;
     }
@@ -109,6 +112,7 @@ final class Module
      */
     public function namespace(string $namespace): self
     {
+        $this->assertNotFrozen();
         $this->namespace = trim($namespace, '\\');
         return $this;
     }
@@ -121,6 +125,7 @@ final class Module
      */
     public function mount(string|array $segment): self
     {
+        $this->assertNotFrozen();
         $segments = is_array($segment) ? $segment : ['*' => $segment];
         $this->mount = array_map(static fn(string $s): string => trim($s, '/'), $segments);
         return $this;
@@ -132,6 +137,7 @@ final class Module
      */
     public function localized(bool $localized = true): self
     {
+        $this->assertNotFrozen();
         $this->localized = $localized;
         return $this;
     }
@@ -153,6 +159,7 @@ final class Module
      */
     public function routes(Closure $routes): self
     {
+        $this->assertNotFrozen();
         $this->resolvers[] = ['priority' => 0, 'resolver' => $routes];
         return $this;
     }
@@ -166,6 +173,7 @@ final class Module
      */
     public function resolver(ResolverInterface|string $resolver, int $priority = 0): self
     {
+        $this->assertNotFrozen();
         $this->resolvers[] = ['priority' => $priority, 'resolver' => $resolver];
         return $this;
     }
@@ -181,6 +189,7 @@ final class Module
      */
     public function claim(string|array $prefix, Closure $routes): self
     {
+        $this->assertNotFrozen();
         $prefixes = is_array($prefix) ? $prefix : ['*' => $prefix];
         $this->claims[] = [
             'prefix' => array_map(static fn(string $p): string => '/' . trim($p, '/'), $prefixes),
@@ -194,6 +203,7 @@ final class Module
      */
     public function withoutConventionRouting(): self
     {
+        $this->assertNotFrozen();
         $this->conventionRouting = false;
         return $this;
     }
@@ -206,6 +216,7 @@ final class Module
      */
     public function whenAllLoaded(Closure $callback): self
     {
+        $this->assertNotFrozen();
         $this->whenAllLoaded[] = $callback;
         return $this;
     }
@@ -388,6 +399,28 @@ final class Module
         }
 
         $this->definitions->lock();
+    }
+
+    /**
+     * Freeze the declaration: from here on the module is a read model for
+     * routing and DI. Called by App once every module contributed, after the
+     * whenAllLoaded second pass. Like App::assertNotBooted().
+     */
+    public function freeze(): void
+    {
+        $this->frozen = true;
+    }
+
+    public function isFrozen(): bool
+    {
+        return $this->frozen;
+    }
+
+    private function assertNotFrozen(): void
+    {
+        if ($this->frozen) {
+            throw new LogicException("Module '{$this->name}' is frozen and can no longer be modified");
+        }
     }
 
     /**

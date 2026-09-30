@@ -6,7 +6,7 @@ namespace Kaly\Middleware;
 
 use Closure;
 use InvalidArgumentException;
-use Kaly\Core\HttpContext;
+use Kaly\Http\HttpContext;
 use LogicException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -145,10 +145,14 @@ class MiddlewareRunner implements RequestHandlerInterface
 
     /**
      * This is the entry point and represents the entire band as a single handler.
+     *
+     * The Kernel owns the cycle and binds its context before the pipeline
+     * runs; a standalone runner binds a bare context so the stack stays
+     * usable outside a kernel cycle.
      */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $ctx = HttpContext::ensure($request);
+        $ctx = HttpContext::tryFrom($request) ?? new HttpContext($request);
 
         // We start processing at the first middleware (index 0).
         // If the band is empty, the final handler is called directly.
@@ -163,7 +167,7 @@ class MiddlewareRunner implements RequestHandlerInterface
     {
         // Always reattach our context: a third party middleware is free to
         // hand over a brand new request object, the cycle must survive it.
-        $ctx ??= HttpContext::ensure($request);
+        $ctx ??= HttpContext::tryFrom($request) ?? new HttpContext($request);
         $request = $ctx->bind($request);
 
         $entries = $this->registry->band($this->band);

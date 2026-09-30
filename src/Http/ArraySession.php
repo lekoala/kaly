@@ -25,12 +25,12 @@ final class ArraySession implements SessionInterface
     private bool $started = false;
 
     /**
-     * @var array<string,int|bool|string|float|array<mixed>|object|null>
+     * @var array<string,mixed>
      */
     private array $data = [];
 
     /**
-     * @var array<string,int|bool|string|float|array<mixed>|object|null>
+     * @var array<string,mixed>
      */
     private array $originalData = [];
 
@@ -44,9 +44,9 @@ final class ArraySession implements SessionInterface
      *  (lifetime, path, domain, secure, httponly, samesite). Explicit options
      *  win over the policy baseline.
      */
-    public function __construct(array $options = [], ?ServerRequestInterface $request = null, ?CookiePolicy $policy = null)
+    public function __construct(array $options = [], ?CookiePolicy $policy = null)
     {
-        $options = array_merge(($policy ?? CookiePolicy::default())->toArray(), $options);
+        $options = array_merge(($policy ?? CookiePolicy::baseline())->toArray(), $options);
 
         $name = $options['name'] ?? null;
         if ($name !== null && (!is_string($name) || $name === '')) {
@@ -54,42 +54,38 @@ final class ArraySession implements SessionInterface
         }
         $this->name = $name ?? 'KALYSESSID';
 
-        $secure = $request !== null && $request->getUri()->getScheme() === 'https';
         $lifetime = $options['lifetime'] ?? 0;
         $path = $options['path'] ?? '/';
         $domain = $options['domain'] ?? '';
-        $secureOpt = $options['secure'] ?? $secure;
+        $secureOpt = $options['secure'] ?? false;
         $httponly = $options['httponly'] ?? true;
         $samesite = $options['samesite'] ?? 'Lax';
-        if ($request !== null) {
-            $domain = $request->getUri()->getHost();
-        } elseif (!is_string($domain)) {
-            $domain = '';
-        }
         $this->cookieParams = [
             'lifetime' => is_numeric($lifetime) ? (int) $lifetime : 0,
             'path' => is_string($path) ? $path : '/',
-            'domain' => $domain,
+            'domain' => is_string($domain) ? $domain : '',
             'secure' => is_bool($secureOpt) ? $secureOpt : (bool) $secureOpt,
             'httponly' => is_bool($httponly) ? $httponly : (bool) $httponly,
             'samesite' => is_string($samesite) ? $samesite : 'Lax',
         ];
-
-        if ($request) {
-            $this->setIdFromRequest($request);
-        }
     }
 
-    public function get(string $key, $default = null)
+    public function get(string $key, mixed $default = null): mixed
     {
         $this->open();
         return array_key_exists($key, $this->data) ? $this->data[$key] : $default;
     }
 
-    public function set(string $key, $value): void
+    public function set(string $key, mixed $value): void
     {
         $this->open();
         $this->data[$key] = $value;
+    }
+
+    public function has(string $key): bool
+    {
+        $this->open();
+        return isset($this->data[$key]);
     }
 
     public function remove(string $key): void
@@ -104,30 +100,11 @@ final class ArraySession implements SessionInterface
         $this->data = [];
     }
 
-    public function has(string $key): bool
+    public function pull(string $key, mixed $default = null): mixed
     {
-        $this->open();
-        return isset($this->data[$key]);
-    }
-
-    public function hasChanged(): bool
-    {
-        return $this->data !== $this->originalData;
-    }
-
-    public function getChanges(): array
-    {
-        $arr = [];
-        foreach ($this->data as $k => $v) {
-            if (!is_string($k)) {
-                continue;
-            }
-            $old = $this->originalData[$k] ?? null;
-            if ($old !== $v) {
-                $arr[$k] = [$old, $v];
-            }
-        }
-        return $arr;
+        $value = $this->get($key, $default);
+        $this->remove($key);
+        return $value;
     }
 
     public function all(): array
@@ -136,48 +113,10 @@ final class ArraySession implements SessionInterface
         return $this->data;
     }
 
-    public function isEmpty(): bool
+    public function regenerateId(): void
     {
-        return count($this->data) === 0;
-    }
-
-    public function jsonSerialize(): object
-    {
-        return (object) $this->data;
-    }
-
-    public function pull(string $key, int|bool|string|float|array|object|null $default = null): int|bool|string|float|array|object|null
-    {
-        $value = $this->get($key, $default);
-        $this->remove($key);
-        return $value;
-    }
-
-    public function open(): void
-    {
-        if ($this->started) {
-            return;
-        }
-        $this->start();
-    }
-
-    public function start(): void
-    {
-        if ($this->started) {
-            return;
-        }
-        $this->started = true;
-        $this->sessionId ??= bin2hex(random_bytes(16));
-        $this->originalData = $this->data;
-    }
-
-    public function close(): bool
-    {
-        if (!$this->started) {
-            return false;
-        }
-        $this->started = false;
-        return true;
+        $this->open();
+        $this->sessionId = bin2hex(random_bytes(16));
     }
 
     public function destroy(): void
@@ -188,21 +127,7 @@ final class ArraySession implements SessionInterface
         $this->started = false;
     }
 
-    public function discard(): void
-    {
-        $this->data = $this->originalData;
-    }
-
-    public function regenerateId(): void
-    {
-        $this->open();
-        $this->sessionId = bin2hex(random_bytes(16));
-    }
-
-    public function isActive(): bool
-    {
-        return $this->started;
-    }
+    // region In-memory-only concrete details (not part of the portable contract)
 
     public function getId(): ?string
     {
@@ -219,30 +144,34 @@ final class ArraySession implements SessionInterface
         return $this->name;
     }
 
-    public function getIdFromRequest(ServerRequestInterface $request): ?string
+    public function isActive(): bool
     {
-        $cookies = $request->getCookieParams();
-        $param = $cookies[$this->getName()] ?? null;
-        if ($param !== null && !is_string($param)) {
-            throw new InvalidArgumentException('Session cookie value must be a string');
-        }
-        return $param;
+        return $this->started;
     }
 
-    public function setIdFromRequest(ServerRequestInterface $request): void
+    public function close(): bool
     {
-        $id = $this->getIdFromRequest($request);
-        if ($id !== null) {
-            $this->setId($id);
+        if (!$this->started) {
+            return false;
         }
+        $this->started = false;
+        return true;
     }
 
+    public function discard(): void
+    {
+        $this->data = $this->originalData;
+    }
+
+    /**
+     * @return array{lifetime:int,path:string,domain:string,secure:bool,httponly:bool,samesite:string}
+     */
     public function getCookieParams(): array
     {
         return $this->cookieParams;
     }
 
-    public function addToResponse(ResponseInterface $response, ServerRequestInterface $request): ResponseInterface
+    public function commitToResponse(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $this->close();
 
@@ -251,12 +180,24 @@ final class ArraySession implements SessionInterface
             return $response;
         }
 
-        if ($this->getIdFromRequest($request) === $id) {
+        $cookies = $request->getCookieParams();
+        $current = $cookies[$this->getName()] ?? null;
+        if ($current === $id) {
             return $response;
         }
 
-        $cookie = SetCookieHeader::build($this->getName(), $id, $this->getCookieParams());
+        return $response->withAddedHeader('Set-Cookie', SetCookieHeader::build($this->getName(), $id, $this->getCookieParams()));
+    }
 
-        return $response->withAddedHeader('Set-Cookie', $cookie);
+    // endregion
+
+    private function open(): void
+    {
+        if ($this->started) {
+            return;
+        }
+        $this->started = true;
+        $this->sessionId ??= bin2hex(random_bytes(16));
+        $this->originalData = $this->data;
     }
 }

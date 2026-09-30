@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
-use Kaly\Core\HttpContext;
+use Kaly\Http\HttpContext;
 use Kaly\I18n\LocaleResolver;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -39,7 +39,11 @@ final class RoutingHandler implements RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $ctx = HttpContext::ensure($request);
+        // The Kernel binds the cycle context before the pipeline runs; a
+        // standalone handler binds a bare context instead, so downstream
+        // stages recover the same cycle through from().
+        $ctx = HttpContext::tryFrom($request) ?? new HttpContext($request);
+        $request = $ctx->bind($request);
 
         $ctx->useRouter($this->router);
         $route = $this->router->match($ctx->request());

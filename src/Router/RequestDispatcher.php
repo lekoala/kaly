@@ -8,9 +8,9 @@ use Kaly\Asset\Assets;
 use Kaly\Asset\AssetsInterface;
 use Kaly\Asset\AssetSources;
 use Kaly\Core\Ex;
-use Kaly\Core\HttpContext;
 use Kaly\Di\Injector;
 use Kaly\Http\ContentType;
+use Kaly\Http\HttpContext;
 use Kaly\Http\InputMapperInterface;
 use Kaly\Http\JsonResponse;
 use Kaly\Http\RequestInput;
@@ -26,7 +26,7 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use ReflectionClass;
 use ReflectionException;
-use ReflectionParameter;
+use ReflectionNamedType;
 
 /**
  * The terminal handler of the pipeline.
@@ -71,9 +71,9 @@ class RequestDispatcher implements RequestHandlerInterface
     }
 
     /**
-     * @return ResponseInterface|View|JsonResponse|array<mixed>|string|null
+     * @return ResponseInterface|View|JsonResponse|array<mixed>|string
      */
-    protected function dispatch(HttpContext $ctx, Route $route): ResponseInterface|View|JsonResponse|array|string|null
+    protected function dispatch(HttpContext $ctx, Route $route): ResponseInterface|View|JsonResponse|array|string
     {
         $class = $route->controller;
         if ($class === '') {
@@ -104,9 +104,14 @@ class RequestDispatcher implements RequestHandlerInterface
         // The injector constructs controllers, it never supplies action
         // arguments: nothing can be resolved from the container here.
         $result = $instance->{$action}(...$arguments);
+        if ($result === null) {
+            throw new Ex(
+                "Controller '{$class}::{$action}' returned null: return an explicit response instead "
+                . '(eg: a 204 response from the response factory), a View, a JsonResponse, an array or a string.',
+            );
+        }
         if (
-            $result === null
-            || is_string($result)
+            is_string($result)
             || is_array($result)
             || $result instanceof ResponseInterface
             || $result instanceof View
@@ -116,25 +121,28 @@ class RequestDispatcher implements RequestHandlerInterface
         }
 
         throw new Ex(
-            'Controllers must return a ResponseInterface, a View, a JsonResponse, an array, a string or null. Got: '
-                . get_debug_type($result),
+            'Controllers must return a ResponseInterface, a View, a JsonResponse, an array or a string. Got: ' . get_debug_type($result),
         );
     }
 
     /**
-     * Constructor argument names by class, to avoid reflecting on every request.
+     * Constructor parameters carrying the current cycle, by name, to avoid
+     * reflecting on every request. The parameter name is irrelevant to
+     * callers: what matters is the type (ServerRequestInterface or
+     * HttpContext). Explicit route bindings always win.
      *
-     * @var array<class-string,list<string>>
+     * @var array<class-string,array<string,class-string>>
      */
-    private static array $constructorParams = [];
+    private static array $contextParams = [];
 
     /**
      * Build the named arguments for the controller constructor.
      *
-     * The framework conveniences (`request`, `ctx`) are only passed when the
-     * constructor declares them: since kaly-di 0.3 the injector rejects
-     * unknown named arguments instead of ignoring them. Resolver bindings
-     * pass through untouched, so a typo there still fails fast.
+     * The current request and context are provided under the real parameter
+     * name whenever the constructor types one of them: since kaly-di 0.3 the
+     * injector rejects unknown named arguments instead of ignoring them, so
+     * they are only passed when declared. Resolver bindings pass through
+     * untouched, so a typo there still fails fast.
      *
      * @param class-string $class
      * @param array<string,mixed> $bindings Controller constructor arguments, by name
@@ -143,32 +151,44 @@ class RequestDispatcher implements RequestHandlerInterface
     private function controllerArguments(string $class, array $bindings, ServerRequestInterface $request, HttpContext $ctx): array
     {
         $arguments = $bindings;
-        foreach (['request' => $request, 'ctx' => $ctx] as $name => $value) {
-            if (!array_key_exists($name, $arguments) && in_array($name, self::constructorParamNames($class), true)) {
-                $arguments[$name] = $value;
+        foreach (self::contextParamTypes($class) as $paramName => $type) {
+            if (array_key_exists($paramName, $arguments)) {
+                continue;
             }
+            $arguments[$paramName] = $type === HttpContext::class ? $ctx : $request;
         }
         return $arguments;
     }
 
     /**
      * @param class-string $class
-     * @return list<string>
+     * @return array<string,class-string>
      */
-    private static function constructorParamNames(string $class): array
+    private static function contextParamTypes(string $class): array
     {
-        if (!array_key_exists($class, self::$constructorParams)) {
+        if (!array_key_exists($class, self::$contextParams)) {
             try {
                 $constructor = (new ReflectionClass($class))->getConstructor();
-                self::$constructorParams[$class] = $constructor === null
-                    ? []
-                    : array_map(static fn(ReflectionParameter $p): string => $p->getName(), $constructor->getParameters());
+                $map = [];
+                foreach ($constructor?->getParameters() ?? [] as $parameter) {
+                    $type = $parameter->getType();
+                    if (!$type instanceof ReflectionNamedType || $type->isBuiltin()) {
+                        continue;
+                    }
+                    $typeName = $type->getName();
+                    if ($typeName === HttpContext::class) {
+                        $map[$parameter->getName()] = HttpContext::class;
+                    } elseif ($typeName === ServerRequestInterface::class || is_a($typeName, ServerRequestInterface::class, true)) {
+                        $map[$parameter->getName()] = ServerRequestInterface::class;
+                    }
+                }
+                self::$contextParams[$class] = $map;
             } catch (ReflectionException) {
                 // Let Injector::make() report the real problem (unknown class)
                 return [];
             }
         }
-        return self::$constructorParams[$class];
+        return self::$contextParams[$class];
     }
 
     /**
@@ -184,9 +204,9 @@ class RequestDispatcher implements RequestHandlerInterface
     }
 
     /**
-     * @param ResponseInterface|View|JsonResponse|array<mixed>|string|null $result
+     * @param ResponseInterface|View|JsonResponse|array<mixed>|string $result
      */
-    protected function prepareResponse(ResponseInterface|View|JsonResponse|array|string|null $result, HttpContext $ctx): ResponseInterface
+    protected function prepareResponse(ResponseInterface|View|JsonResponse|array|string $result, HttpContext $ctx): ResponseInterface
     {
         if ($result instanceof ResponseInterface) {
             return $result;

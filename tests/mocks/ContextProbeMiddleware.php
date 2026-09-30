@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Tests\Mocks;
 
 use Closure;
-use Kaly\Core\HttpContext;
+use Kaly\Http\HttpContext;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;

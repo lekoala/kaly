@@ -6,8 +6,8 @@ namespace Kaly\Tests;
 
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
-use Kaly\Core\HttpContext;
 use Kaly\Http\ContentType;
+use Kaly\Http\HttpContext;
 use Kaly\Middleware\Builtin\FileServer;
 use Kaly\Router\Route;
 use Kaly\Router\Router;
@@ -64,7 +64,7 @@ class AppTest extends TestCase
         $app = new App(__DIR__);
         $app->boot();
 
-        $router = $app->get(RouterInterface::class);
+        $router = $app->getContainer()->get(RouterInterface::class);
         $this->assertInstanceOf(Router::class, $router);
 
         // first one is the fallback locale
@@ -206,7 +206,7 @@ class AppTest extends TestCase
         $this->assertEquals(ContentType::JSON, $response->getHeaderLine('Content-type'));
         $this->assertSame('[]', (string) $response->getBody());
 
-        // null => empty response
+        // empty string => empty response
         $response = $app->handle($base->withUri(new Uri('/test-module/index/noop/')));
         $this->assertEquals(200, $response->getStatusCode());
         $this->assertSame('', (string) $response->getBody());

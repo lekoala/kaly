@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Core;
 
+use Kaly\Http\HttpContext;
 use Kaly\Util\Env;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;

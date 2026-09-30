@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Kaly\Core;
 
+use Kaly\Http\CookiePolicy;
 use Kaly\Http\ExceptionHandlerInterface;
-use Kaly\Http\SessionFactoryInterface;
+use Kaly\Http\HttpContext;
+use Kaly\Http\SessionProviderInterface;
 use Kaly\Middleware\OutgoingRunner;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -35,12 +37,13 @@ final class Kernel implements RequestHandlerInterface
         private ExceptionHandlerInterface $exceptionHandler,
         private Hooks $hooks = new Hooks(),
         private ?OutgoingRunner $outgoing = null,
-        private ?SessionFactoryInterface $sessionFactory = null,
+        private ?SessionProviderInterface $sessionProvider = null,
+        private ?CookiePolicy $cookiePolicy = null,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $ctx = new HttpContext($request, $this->sessionFactory);
+        $ctx = new HttpContext($request, $this->sessionProvider, $this->cookiePolicy);
         $ctx->bind($request);
 
         // First boundary: produce a response, from the happy path or from an

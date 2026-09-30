@@ -93,7 +93,7 @@ Create one session per request through the request context (`$ctx->session()`).
 Native PHP session state is global to the process: Kaly resets the native session
 id on `start()` and `close()` so it cannot leak between sequential requests, but
 two requests running concurrently in the same process (eg: coroutines) must not
-share the native `$_SESSION`. For such runtimes, bind a `SessionFactoryInterface`
+share the native `$_SESSION`. For such runtimes, bind a `SessionProviderInterface`
 returning request-scoped storage, and avoid the `NativePhpSession` storage backend.
 See [Runtime](runtime.md).
 
@@ -105,7 +105,7 @@ The `onError()` hook is the only hook point needed.
 
 ```php
 use Kaly\Core\App;
-use Kaly\Core\HttpContext;
+use Kaly\Http\HttpContext;
 use Throwable;
 
 if (isset($_ENV['SENTRY_DSN'])) {

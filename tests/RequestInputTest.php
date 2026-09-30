@@ -7,10 +7,10 @@ namespace Kaly\Tests;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Core\Ex;
-use Kaly\Core\HttpContext;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Di\Injector;
+use Kaly\Http\HttpContext;
 use Kaly\I18n\LocaleResolver;
 use Kaly\I18n\Translator;
 use Kaly\Router\RequestDispatcher;
@@ -35,7 +35,7 @@ class RequestInputTest extends TestCase
 
     private function router(): RouterInterface
     {
-        return App::create(__DIR__)->boot()->get(RouterInterface::class);
+        return App::create(__DIR__)->boot()->getContainer()->get(RouterInterface::class);
     }
 
     private function match(string $path): Route

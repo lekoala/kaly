@@ -8,16 +8,8 @@ declare(strict_types=1);
 //
 // Nothing here reaches into the application: there is no global container in
 // kaly. To translate, use the $i18n variable of your views or inject a
-// TranslatorInterface. To log, inject a LoggerInterface.
-
-if (!function_exists('is_cli')) {
-    function is_cli(): bool
-    {
-        // http_response_code returns false if response_code is not provided
-        // and it is not invoked in a web server environment (such as from a CLI application).
-        return php_sapi_name() === 'cli' || !http_response_code();
-    }
-}
+// TranslatorInterface. To log, inject a LoggerInterface. To read
+// configuration, use Kaly\Util\Env.
 
 if (!function_exists('d')) {
     /**
@@ -57,15 +49,5 @@ if (!function_exists('dd')) {
     {
         d(...$vars);
         exit(1);
-    }
-}
-
-if (!function_exists('env')) {
-    /**
-     * Get env value
-     */
-    function env(string $name): string
-    {
-        return \Kaly\Util\Env::getString($name);
     }
 }

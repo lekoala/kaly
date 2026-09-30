@@ -176,8 +176,8 @@ class AssetServerTest extends TestCase
         });
         $app->boot();
         try {
-            $this->assertInstanceOf(AssetServer::class, $app->get(AssetServer::class));
-            $this->assertInstanceOf(AssetsInterface::class, $app->get(AssetsInterface::class));
+            $this->assertInstanceOf(AssetServer::class, $app->getContainer()->get(AssetServer::class));
+            $this->assertInstanceOf(AssetsInterface::class, $app->getContainer()->get(AssetsInterface::class));
         } finally {
             $app->shutdown();
         }

@@ -15,16 +15,17 @@ use InvalidArgumentException;
  * "inherit from php.ini at the use site"; an explicit entry wins over it.
  * Cookie *values* stay request-scoped (Cookies, SessionInterface).
  *
- * The default is set once at boot and shared by Cookies and sessions unless
- * an instance is injected explicitly:
+ * There is no global default: one instance lives in the container, bound per
+ * App with the historical baseline (session cookie dies with the browser,
+ * httponly, Lax) unless the application overrides it:
  *
  * ```text
  * application config
  *       ↓
- * CookiePolicy
+ * CookiePolicy (container service, one per App)
  *       ↓
  *  ┌────┴────┐
- * Cookies  Session
+ * Cookies  SessionProvider
  * ```
  */
 final class CookiePolicy
@@ -48,29 +49,18 @@ final class CookiePolicy
         }
     }
 
-    private static ?self $default = null;
-
     /**
-     * The application baseline. Seeded with the historical kaly defaults
-     * (session cookie dies with the browser, httponly, Lax); everything else
-     * inherits php.ini until configured.
+     * The historical kaly baseline: the session cookie dies with the browser,
+     * httponly, Lax. Everything else inherits php.ini until configured.
      */
-    public static function default(): self
+    public static function baseline(): self
     {
-        return self::$default ??= new self(lifetime: 0, httpOnly: true, sameSite: 'Lax');
-    }
-
-    /**
-     * Set once at boot. Prefer injecting a policy per instance in tests.
-     */
-    public static function setDefault(self $policy): void
-    {
-        self::$default = $policy;
+        return new self(lifetime: 0, httpOnly: true, sameSite: 'Lax');
     }
 
     /**
      * Derive a policy. Null means "keep the current value": to clear an
-     * override back to php.ini inheritance, set a fresh default instead.
+     * override back to php.ini inheritance, start from a fresh baseline instead.
      *
      * @param 'None'|'Lax'|'Strict'|'none'|'lax'|'strict'|null $sameSite
      */

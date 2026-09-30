@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use Kaly\Http\CookiePolicy;
 use Kaly\Http\Cookies;
-use Kaly\Http\Session;
 use Kaly\Http\SetCookieHeader;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
@@ -16,27 +16,25 @@ class CookiesTest extends TestCase
     /**
      * @param array<string,string> $cookieParams
      */
-    private function cookies(array $cookieParams): Cookies
+    private function cookies(array $cookieParams, ?CookiePolicy $policy = null): Cookies
     {
-        return new Cookies((new BaseServerRequest('GET', '/'))->withCookieParams($cookieParams));
+        return new Cookies(
+            (new BaseServerRequest('GET', '/'))->withCookieParams($cookieParams),
+            $policy ?? new CookiePolicy(lifetime: 0, httpOnly: true, sameSite: 'Lax'),
+        );
     }
 
-    public function testCookiesInheritTheConfiguredBaseline(): void
+    public function testCookiesInheritTheInjectedBaseline(): void
     {
-        Session::configureExtra(['httponly' => true, 'samesite' => 'Strict']);
-        try {
-            $cookies = $this->cookies([]);
-            $cookies->set('theme', 'dark');
-            $header = $cookies->addToResponse(new Response())->getHeaderLine('Set-Cookie');
+        $cookies = $this->cookies([], new CookiePolicy(lifetime: 0, httpOnly: true, sameSite: 'Strict'));
+        $cookies->set('theme', 'dark');
+        $header = $cookies->addToResponse(new Response())->getHeaderLine('Set-Cookie');
 
-            // Application cookies share the session cookie baseline rather than
-            // whatever php.ini happens to hold
-            $this->assertStringContainsString('theme=dark', $header);
-            $this->assertStringContainsString('; HttpOnly', $header);
-            $this->assertStringContainsString('; SameSite=Strict', $header);
-        } finally {
-            Session::configureExtra(['httponly' => true, 'samesite' => 'Lax']);
-        }
+        // Application cookies share the injected baseline rather than
+        // whatever php.ini happens to hold
+        $this->assertStringContainsString('theme=dark', $header);
+        $this->assertStringContainsString('; HttpOnly', $header);
+        $this->assertStringContainsString('; SameSite=Strict', $header);
     }
 
     public function testGetChangesReportsRemoval(): void

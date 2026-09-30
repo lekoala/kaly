@@ -64,7 +64,7 @@ final class MiddlewareRegistry
      * Add a middleware that runs before routing
      *
      * @param class-string|MiddlewareInterface $middleware
-     * @param Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the context and the container, returning false skips the middleware
+     * @param Closure(\Kaly\Http\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the context and the container, returning false skips the middleware
      */
     public function incoming(string|MiddlewareInterface $middleware, int $priority = 0, ?Closure $when = null): self
     {
@@ -75,7 +75,7 @@ final class MiddlewareRegistry
      * Add a middleware that runs once the route is known
      *
      * @param class-string|MiddlewareInterface $middleware
-     * @param Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the context and the container, returning false skips the middleware
+     * @param Closure(\Kaly\Http\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the context and the container, returning false skips the middleware
      */
     public function routed(string|MiddlewareInterface $middleware, int $priority = 0, ?Closure $when = null): self
     {
@@ -92,8 +92,8 @@ final class MiddlewareRegistry
      * response. Use it for headers that must be on every response (security
      * headers, request id, audit).
      *
-     * @param class-string|OutgoingMiddlewareInterface|Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Core\HttpContext): \Psr\Http\Message\ResponseInterface $middleware
-     * @param Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the current response, the context and the container; returning false skips the middleware
+     * @param class-string|OutgoingMiddlewareInterface|Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Http\HttpContext): \Psr\Http\Message\ResponseInterface $middleware
+     * @param Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Http\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the current response, the context and the container; returning false skips the middleware
      */
     public function outgoing(
         string|OutgoingMiddlewareInterface|Closure $middleware,
@@ -113,8 +113,8 @@ final class MiddlewareRegistry
      *
      * @param class-string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware
      * @param (
-     *     Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool
-     *     |Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool
+     *     Closure(\Kaly\Http\HttpContext, ?\Psr\Container\ContainerInterface): bool
+     *     |Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Http\HttpContext, ?\Psr\Container\ContainerInterface): bool
      * )|null $when Band-dependent condition, see MiddlewareEntry
      */
     public function add(

@@ -4,7 +4,7 @@ PSR-7 and PSR-15 give an excellent interop protocol, but not an application mode
 When everything is "just a middleware", you lose the notion of phase, of dependency
 and of already established context.
 
-Kaly keeps PSR as the boundary and adds `Kaly\Core\HttpContext` as the request scoped
+Kaly keeps PSR as the boundary and adds `Kaly\Http\HttpContext` as the request scoped
 state of the application: **PSR for interop, `HttpContext` for richness, bands for
 order**.
 
@@ -79,7 +79,7 @@ The context travels as the one and only kaly request attribute, so third party P
 middlewares simply ignore it and nothing new has to be implemented:
 
 ```php
-use Kaly\Core\HttpContext;
+use Kaly\Http\HttpContext;
 
 public function process(
     ServerRequestInterface $request,
@@ -95,7 +95,10 @@ public function process(
 
 - `HttpContext::from($request)` throws when no context is attached.
 - `HttpContext::tryFrom($request)` returns `null` instead.
-- `HttpContext::ensure($request)` creates and binds one if needed.
+-
+- The Kernel creates the context for every cycle and binds it to the request;
+- middlewares and controllers only ever retrieve it. There is no "create if
+- absent" helper: a missing context is a broken pipeline, not a default.
 
 In a controller extending `Kaly\Core\AbstractController`, use the `ctx()` helper:
 
@@ -144,7 +147,7 @@ $ctx->cookies()->set('theme', 'dark');
 ```
 
 This matters more than it looks. Both objects snapshot what the request arrived with
-(`Session` captures its initial data on start, `Cookies` its received cookies in the
+(`NativePhpSession` captures its data when started, `Cookies` its received cookies in the
 constructor) in order to know what changed. A per-request wrapper around the PSR
 request cannot hold them: every `withHeader()` / `withAttribute()` rebuilds the
 wrapper, so the snapshot would silently reset and the dirty tracking would lie. The
@@ -161,12 +164,16 @@ response. A session or cookie jar that was never touched costs nothing.
 ... -> dispatcher -> [commit session + cookies] -> outgoing -> finalize
 ```
 
-The default session comes from `NativePhpSessionFactory`, which wraps the
+The default session comes from `NativePhpSessionProvider`, which wraps the
 process-global `$_SESSION`: fine for sequential workers, unusable for concurrent
-ones. Such runtimes bind a `SessionFactoryInterface` returning request-scoped
-storage (or impose one per cycle with `useSession()`). Cookies need no such backend
-choice: they are emitted as `Set-Cookie` headers on the PSR-7 response, never through
-PHP globals. Both share the application-scoped `CookiePolicy` baseline. See [Runtime](runtime.md).
+ones. Such runtimes bind a `SessionProviderInterface` returning request-scoped
+storage (or impose one per cycle with `useSession()`). The provider also owns
+persistence: it reads the session id from the request and writes the
+`Set-Cookie` header on commit, so `SessionInterface` itself never sees PSR-7.
+Cookies need no such backend choice: they are emitted as `Set-Cookie` headers
+on the PSR-7 response, never through PHP globals. Both share the `CookiePolicy`
+service bound per `App` (historical baseline: browser-session lifetime,
+httponly, Lax). See [Runtime](runtime.md).
 
 Plain PSR requests keep their helpers as static functions in `Kaly\Http\RequestUtils`:
 

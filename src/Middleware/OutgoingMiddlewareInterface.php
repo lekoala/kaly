@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Middleware;
 
-use Kaly\Core\HttpContext;
+use Kaly\Http\HttpContext;
 use Psr\Http\Message\ResponseInterface;
 
 /**

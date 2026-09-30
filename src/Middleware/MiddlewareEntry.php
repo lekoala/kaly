@@ -15,8 +15,8 @@ final class MiddlewareEntry
     /**
      * @param class-string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware
      * @param (
-     *     Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool
-     *     |Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool
+     *     Closure(\Kaly\Http\HttpContext, ?\Psr\Container\ContainerInterface): bool
+     *     |Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Http\HttpContext, ?\Psr\Container\ContainerInterface): bool
      * )|null $condition
      *     The request bands call it with the context and the container, the
      *     outgoing band with the current response, the context and the container

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Http\Session;
+use Kaly\Http\CookiePolicy;
+use Kaly\Http\NativePhpSession;
+use Kaly\Http\NativePhpSessionProvider;
 use Kaly\Tests\Support\HttpFactory;
 use Kaly\Util\Fs;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
@@ -19,7 +21,9 @@ class SessionTest extends TestCase
     {
         $this->savePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'kaly-session-' . uniqid();
         Fs::mkDir($this->savePath);
-        Session::configureDefaults($this->savePath, 'KALYAUDIT');
+        NativePhpSession::configureForPsr7();
+        session_save_path($this->savePath);
+        session_name('KALYAUDIT');
     }
 
     protected function tearDown(): void
@@ -54,16 +58,25 @@ class SessionTest extends TestCase
         return new BaseServerRequest('GET', $uri);
     }
 
+    private function provider(array $options = []): NativePhpSessionProvider
+    {
+        return new NativePhpSessionProvider($options);
+    }
+
     public function testNextRequestWithoutCookieDoesNotReuseSession(): void
     {
-        $first = new Session([], $this->request());
+        $provider = $this->provider();
+        $first = $provider->create($this->request());
         $first->set('user', 'AUDIT-USER-A');
+        $this->assertSame('AUDIT-USER-A', $first->get('user'));
+        assert($first instanceof NativePhpSession);
         $firstId = $first->getId();
         $this->assertNotNull($firstId);
         $first->close();
 
         // A new request without the session cookie must start from scratch
-        $second = new Session([], $this->request());
+        $second = $provider->create($this->request());
+        assert($second instanceof NativePhpSession);
         $this->assertNotSame($firstId, $second->getId());
         $this->assertNull($second->get('user'));
         $second->discard();
@@ -71,96 +84,95 @@ class SessionTest extends TestCase
 
     public function testCookieIdFromRequestIsRestored(): void
     {
-        $first = new Session([], $this->request());
+        $provider = $this->provider();
+        $first = $provider->create($this->request());
         $first->set('user', 'AUDIT-USER-A');
+        assert($first instanceof NativePhpSession);
         $id = $first->getId();
         $this->assertNotNull($id);
         $first->close();
 
         $cookieRequest = (new BaseServerRequest('GET', 'https://example.test/'))->withCookieParams(['KALYAUDIT' => $id]);
-        $second = new Session([], $cookieRequest);
+        $second = $provider->create($cookieRequest);
+        assert($second instanceof NativePhpSession);
         $this->assertSame($id, $second->getId());
         $this->assertSame('AUDIT-USER-A', $second->get('user'));
         $second->destroy();
     }
 
-    public function testConfiguringDefaultsTwiceKeepsPsr7CookieHandling(): void
+    public function testPsr7CookieHandlingStaysDisabled(): void
     {
-        // setUp configured once already. Doing it again must not hand the
-        // cookie back to php (php 8.4+ warns when setting its cookie params
-        // while session.use_cookies is disabled).
-        Session::configureDefaults($this->savePath, 'KALYAUDIT');
-
+        // PHP never emits the session cookie itself: the provider writes the
+        // Set-Cookie header on the PSR-7 response.
         $this->assertSame('0', ini_get('session.use_cookies'));
         $this->assertSame('KALYAUDIT', session_name());
     }
 
-    public function testCookieDefaultsComeFromConfigNotFromPhpGlobals(): void
+    public function testCookieDefaultsComeFromPolicyNotFromPhpGlobals(): void
     {
         $before = session_get_cookie_params();
 
-        Session::configureExtra(['lifetime' => 1234, 'samesite' => 'Strict']);
-        try {
-            $defaults = Session::getCookieDefaults();
-            $this->assertSame(1234, $defaults['lifetime']);
-            $this->assertSame('Strict', $defaults['samesite']);
+        $session = new NativePhpSession([], new CookiePolicy(lifetime: 1234, httpOnly: true, sameSite: 'Strict'));
+        $defaults = $session->getCookieParams();
+        $this->assertSame(1234, $defaults['lifetime']);
+        $this->assertSame('Strict', $defaults['samesite']);
 
-            // Php global state is left untouched: we build the header ourselves
-            $this->assertSame($before, session_get_cookie_params());
-        } finally {
-            Session::configureExtra(['lifetime' => 0, 'samesite' => 'Lax']);
-        }
+        // Php global state is left untouched: we build the header ourselves
+        $this->assertSame($before, session_get_cookie_params());
+        $session->destroy();
     }
 
-    public function testConfiguredDefaultsReachTheSetCookieHeader(): void
+    public function testConfiguredPolicyReachesTheSetCookieHeader(): void
     {
-        Session::configureExtra(['samesite' => 'Strict']);
-        try {
-            $session = new Session([], $this->request());
-            $session->set('user', 'AUDIT-USER-A');
+        $provider = new NativePhpSessionProvider([], new CookiePolicy(lifetime: 0, httpOnly: true, sameSite: 'Strict'));
+        $session = $provider->create($this->request());
+        $session->set('user', 'AUDIT-USER-A');
 
-            $response = $session->addToResponse(HttpFactory::createResponse(), $this->request());
-            $session->destroy();
+        $response = $provider->commit($session, $this->request(), HttpFactory::createResponse());
+        $session->destroy();
 
-            $cookie = $response->getHeaderLine('Set-Cookie');
-            $this->assertStringStartsWith('KALYAUDIT=', $cookie);
-            $this->assertStringContainsString('; SameSite=Strict', $cookie);
-            $this->assertStringContainsString('; HttpOnly', $cookie);
-            // https request, so the cookie is scoped and secured
-            $this->assertStringContainsString('; Secure', $cookie);
-            $this->assertStringContainsString('; Domain=example.test', $cookie);
-        } finally {
-            Session::configureExtra(['samesite' => 'Lax']);
-        }
+        $cookie = $response->getHeaderLine('Set-Cookie');
+        $this->assertStringStartsWith('KALYAUDIT=', $cookie);
+        $this->assertStringContainsString('; SameSite=Strict', $cookie);
+        $this->assertStringContainsString('; HttpOnly', $cookie);
+        // https request, so the cookie is scoped and secured
+        $this->assertStringContainsString('; Secure', $cookie);
+        $this->assertStringContainsString('; Domain=example.test', $cookie);
     }
 
-    public function testIsRememberMeNeedsPostWithRememberKey(): void
+    public function testRememberMeExtendsTheCookieLifetime(): void
     {
-        $get = new BaseServerRequest('GET', 'https://example.test/');
-        $this->assertFalse(Session::isRememberMe($get));
-
-        // No parsed body at all must not raise a warning, just return false
-        $postWithoutBody = new BaseServerRequest('POST', 'https://example.test/');
-        $this->assertFalse(Session::isRememberMe($postWithoutBody));
-
-        // An object body (eg: JSON parsed without assoc) must not fatal, just return false
-        $postWithObjectBody = (new BaseServerRequest('POST', 'https://example.test/'))->withParsedBody(new \stdClass());
-        $this->assertFalse(Session::isRememberMe($postWithObjectBody));
-
+        $provider = $this->provider(['remember_lifetime' => 9999]);
         $post = (new BaseServerRequest('POST', 'https://example.test/'))->withParsedBody(['_remember' => '1']);
-        $this->assertTrue(Session::isRememberMe($post));
+        $session = $provider->create($post);
+        assert($session instanceof NativePhpSession);
+        $this->assertSame(9999, $session->getCookieParams()['lifetime']);
+        $session->destroy();
+
+        $get = new BaseServerRequest('GET', 'https://example.test/');
+        $plain = $provider->create($get);
+        assert($plain instanceof NativePhpSession);
+        $this->assertSame(0, $plain->getCookieParams()['lifetime']);
+        $plain->destroy();
+
+        // An object body (eg: JSON parsed without assoc) must not fatal
+        $postWithObjectBody = (new BaseServerRequest('POST', 'https://example.test/'))->withParsedBody(new \stdClass());
+        $objectSession = $provider->create($postWithObjectBody);
+        assert($objectSession instanceof NativePhpSession);
+        $this->assertSame(0, $objectSession->getCookieParams()['lifetime']);
+        $objectSession->destroy();
     }
 
     public function testGetNameFallsBackToConfiguredNameBeforeStart(): void
     {
-        $session = new Session([], null);
+        $session = new NativePhpSession();
         $this->assertFalse($session->isActive());
         $this->assertSame('KALYAUDIT', $session->getName());
     }
 
     public function testExplicitNameWins(): void
     {
-        $session = new Session(['name' => 'CUSTOMNAME'], null);
+        $session = new NativePhpSession(['name' => 'CUSTOMNAME']);
         $this->assertSame('CUSTOMNAME', $session->getName());
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
+use JsonSerializable;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -12,13 +13,17 @@ use Psr\Http\Message\ServerRequestInterface;
  * Set-Cookie headers on the PSR-7 response. Kaly never emits cookies through
  * PHP globals (no setcookie() call anywhere on this path).
  *
+ * Cookies carry strings: non-string values given to set() are JSON-encoded.
+ * Change tracking drives emission: untouched cookies cost nothing, removed or
+ * emptied cookies emit an expired Set-Cookie.
+ *
  * @link https://github.com/dflydev/dflydev-fig-cookies
  * @link https://github.com/yiisoft/cookies
  * @link https://github.com/hansott/psr7-cookies
  *
  * @phpstan-type CookieParams array{lifetime?:int,path?:string,domain?:string,secure?:bool,httponly?:bool,samesite?:string,partitioned?:bool}
  */
-class Cookies implements ArrayDataInterface
+class Cookies implements JsonSerializable
 {
     public const SAMESITE_MODES = ['None', 'Lax', 'Strict'];
 
@@ -37,7 +42,7 @@ class Cookies implements ArrayDataInterface
 
     public function __construct(
         ServerRequestInterface $request,
-        protected ?CookiePolicy $policy = null,
+        protected CookiePolicy $policy,
     ) {
         foreach ($request->getCookieParams() as $k => $v) {
             // PSR-7 allows array values (eg: foo[]=bar); store a string baseline
@@ -58,22 +63,15 @@ class Cookies implements ArrayDataInterface
         $this->originalData = $this->data;
     }
 
-    // region Interface
-
-    /**
-     * {@inheritDoc}
-     * @param ?string $default
-     * @return ?string
-     */
-    public function get(string $key, $default = null)
+    public function get(string $key, ?string $default = null): ?string
     {
         return $this->data[$key] ?? $default;
     }
 
     /**
-     * {@inheritDoc}
+     * @param mixed $value Strings are stored as-is, anything else is JSON-encoded
      */
-    public function set(string $key, $value): void
+    public function set(string $key, mixed $value): void
     {
         if (!is_string($value)) {
             $value = json_encode($value) ?: '';
@@ -81,40 +79,28 @@ class Cookies implements ArrayDataInterface
         $this->data[$key] = $value;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public function remove(string $key): void
     {
         unset($this->data[$key]);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public function clear(): void
     {
         $this->data = [];
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public function has(string $key): bool
     {
         return isset($this->data[$key]);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public function hasChanged(): bool
     {
         return $this->data !== $this->originalData;
     }
 
     /**
-     * {@inheritDoc}
+     * @return array<string,array{0:?string,1:?string}>
      */
     public function getChanges(): array
     {
@@ -141,30 +127,22 @@ class Cookies implements ArrayDataInterface
     }
 
     /**
-     * {@inheritDoc}
+     * @return array<string,string>
      */
     public function all(): array
     {
         return $this->data;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public function isEmpty(): bool
     {
         return !count($this->data);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     public function jsonSerialize(): object
     {
         return (object) $this->data;
     }
-
-    // endregion
 
     /**
      * @param string $k
@@ -200,15 +178,14 @@ class Cookies implements ArrayDataInterface
     }
 
     /**
-     * The application baseline this instance builds its cookies from:
-     * the injected policy, or the application default.
+     * The application baseline this instance builds its cookies from.
      *
      * @return CookieParams
      */
     protected function baselineParams(): array
     {
         /** @var CookieParams $params */
-        $params = array_merge(session_get_cookie_params(), ($this->policy ?? CookiePolicy::default())->toArray());
+        $params = array_merge(session_get_cookie_params(), $this->policy->toArray());
         return $params;
     }
 

@@ -7,8 +7,8 @@ namespace Kaly\Tests;
 use Fiber;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
-use Kaly\Core\HttpContext;
 use Kaly\Http\ArraySession;
+use Kaly\Http\HttpContext;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
@@ -198,11 +198,13 @@ class ConcurrentRequestTest extends TestCase
             public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
                 $ctx = HttpContext::from($request);
-                $ctx->useSession(new ArraySession([], $request));
+                $ctx->useSession(new ArraySession());
 
                 $label = $request->getHeaderLine('X-Probe');
                 $ctx->session()->set('owner', $label);
-                $this->sessionIds[$label] = $ctx->session()->getId() ?? '';
+                $imposed = $ctx->session();
+                assert($imposed instanceof ArraySession);
+                $this->sessionIds[$label] = $imposed->getId() ?? '';
 
                 Fiber::suspend();
 

@@ -2,13 +2,8 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Core;
+namespace Kaly\Http;
 
-use Kaly\Http\Cookies;
-use Kaly\Http\RequestUtils;
-use Kaly\Http\Session;
-use Kaly\Http\SessionFactoryInterface;
-use Kaly\Http\SessionInterface;
 use Kaly\Router\Route;
 use Kaly\Router\RouterInterface;
 use LogicException;
@@ -66,7 +61,8 @@ final class HttpContext
 
     public function __construct(
         private ServerRequestInterface $request,
-        private ?SessionFactoryInterface $sessionFactory = null,
+        private ?SessionProviderInterface $sessionProvider = null,
+        private ?CookiePolicy $cookiePolicy = null,
     ) {}
 
     /**
@@ -96,18 +92,6 @@ final class HttpContext
         $ctx = $request->getAttribute(self::ATTRIBUTE);
 
         return $ctx instanceof self ? $ctx : null;
-    }
-
-    /**
-     * Get the context attached to a request, creating and binding one if
-     * needed. The up to date request is always available as $ctx->request().
-     */
-    public static function ensure(ServerRequestInterface $request): self
-    {
-        $ctx = self::tryFrom($request) ?? new self($request);
-        $ctx->bind($request);
-
-        return $ctx;
     }
 
     /**
@@ -250,18 +234,17 @@ final class HttpContext
 
     /**
      * The session of this request. The context owns it, so the same instance
-     * is shared for the whole cycle and its dirty tracking stays meaningful.
+     * is shared for the whole cycle.
      *
-     * The session is not actually started unless open() or set() is called.
-     *
-     * The storage comes from the session factory given at construction (native
-     * PHP sessions by default). Concurrent runtimes bind a factory returning a
+     * The session is created lazily and started on first access. The storage
+     * comes from the session provider given at construction (native PHP
+     * sessions by default). Concurrent runtimes bind a provider returning a
      * request-scoped implementation instead, or impose one per cycle with
      * useSession().
      */
     public function session(): SessionInterface
     {
-        return $this->session ??= $this->sessionFactory?->create($this->request) ?? new Session([], $this->request);
+        return $this->session ??= $this->sessionProvider()->create($this->request);
     }
 
     /**
@@ -278,7 +261,7 @@ final class HttpContext
      */
     public function cookies(): Cookies
     {
-        return $this->cookies ??= new Cookies($this->request);
+        return $this->cookies ??= new Cookies($this->request, $this->cookiePolicy());
     }
 
     /**
@@ -293,13 +276,23 @@ final class HttpContext
     public function commit(ResponseInterface $response): ResponseInterface
     {
         if ($this->session !== null) {
-            $response = $this->session->addToResponse($response, $this->request);
+            $response = $this->sessionProvider()->commit($this->session, $this->request, $response);
         }
         if ($this->cookies !== null) {
             $response = $this->cookies->addToResponse($response);
         }
 
         return $response;
+    }
+
+    private function sessionProvider(): SessionProviderInterface
+    {
+        return $this->sessionProvider ??= new NativePhpSessionProvider(policy: $this->cookiePolicy());
+    }
+
+    private function cookiePolicy(): CookiePolicy
+    {
+        return $this->cookiePolicy ??= CookiePolicy::baseline();
     }
 
     /**

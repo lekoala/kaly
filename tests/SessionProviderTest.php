@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Core\HttpContext;
 use Kaly\Core\Kernel;
 use Kaly\Http\ArraySession;
+use Kaly\Http\ArraySessionProvider;
 use Kaly\Http\ExceptionHandler;
+use Kaly\Http\HttpContext;
 use Kaly\Http\NativePhpSession;
-use Kaly\Http\NativePhpSessionFactory;
-use Kaly\Http\SessionFactoryInterface;
+use Kaly\Http\NativePhpSessionProvider;
 use Kaly\Http\SessionInterface;
+use Kaly\Http\SessionProviderInterface;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
@@ -21,19 +22,15 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 /**
- * Where the session of a request comes from: a SessionFactoryInterface held
- * by the context, natively backed by default, swappable per runtime.
+ * Where the session of a request comes from and how it reaches the response:
+ * a SessionProviderInterface held by the context, natively backed by default,
+ * swappable per runtime.
  */
-class SessionFactoryTest extends TestCase
+class SessionProviderTest extends TestCase
 {
-    private function factory(): SessionFactoryInterface
+    private function provider(): SessionProviderInterface
     {
-        return new class implements SessionFactoryInterface {
-            public function create(ServerRequestInterface $request): SessionInterface
-            {
-                return new ArraySession([], $request);
-            }
-        };
+        return new ArraySessionProvider();
     }
 
     public function testDefaultSessionIsNative(): void
@@ -44,22 +41,34 @@ class SessionFactoryTest extends TestCase
         $this->assertSame($ctx->session(), $ctx->session(), 'the context owns one instance per cycle');
     }
 
-    public function testFactorySessionIsUsedWhenGiven(): void
+    public function testProviderSessionIsUsedWhenGiven(): void
     {
-        $ctx = new HttpContext(new ServerRequest('GET', '/'), $this->factory());
+        $ctx = new HttpContext(new ServerRequest('GET', '/'), $this->provider());
 
         $this->assertInstanceOf(ArraySession::class, $ctx->session());
         $this->assertSame($ctx->session(), $ctx->session(), 'the context owns one instance per cycle');
     }
 
-    public function testNativeFactoryBuildsNativeSessions(): void
+    public function testNativeProviderBuildsNativeSessions(): void
     {
-        $session = (new NativePhpSessionFactory())->create(new ServerRequest('GET', '/'));
+        $session = (new NativePhpSessionProvider())->create(new ServerRequest('GET', '/'));
 
         $this->assertInstanceOf(NativePhpSession::class, $session);
     }
 
-    public function testKernelPassesItsFactoryToEveryCycle(): void
+    public function testCommitEmitsTheSessionCookie(): void
+    {
+        $provider = new ArraySessionProvider();
+        $request = new ServerRequest('GET', '/');
+        $session = $provider->create($request);
+        $session->set('user', 'AUDIT-USER-A');
+
+        $response = $provider->commit($session, $request, new Response());
+
+        $this->assertStringContainsString('KALYSESSID=', $response->getHeaderLine('Set-Cookie'));
+    }
+
+    public function testKernelPassesItsProviderToEveryCycle(): void
     {
         $seen = [];
         $handler = new class($seen) implements RequestHandlerInterface {
@@ -79,7 +88,7 @@ class SessionFactoryTest extends TestCase
             }
         };
         $psr17 = new Psr17Factory();
-        $kernel = new Kernel($handler, new ExceptionHandler($psr17, $psr17), sessionFactory: $this->factory());
+        $kernel = new Kernel($handler, new ExceptionHandler($psr17, $psr17), sessionProvider: $this->provider());
 
         $kernel->handle(new ServerRequest('GET', '/'));
         $kernel->handle(new ServerRequest('GET', '/'));
@@ -91,7 +100,7 @@ class SessionFactoryTest extends TestCase
         $this->assertNotSame($seen[0], $seen[1], 'one session per cycle');
     }
 
-    public function testKernelWithoutFactoryKeepsTheNativeDefault(): void
+    public function testKernelWithoutProviderKeepsTheNativeDefault(): void
     {
         $seen = [];
         $handler = new class($seen) implements RequestHandlerInterface {

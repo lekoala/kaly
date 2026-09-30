@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Middleware;
 
 use Closure;
-use Kaly\Core\HttpContext;
+use Kaly\Http\HttpContext;
 use LogicException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;

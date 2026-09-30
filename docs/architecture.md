@@ -39,7 +39,7 @@ What belongs to a cycle lives in `HttpContext` (route, locale, session,
 cookies, response); what is shared lives in application-scoped services
 (router tables compiled once, `CookiePolicy`, translator). Nothing request
 scoped is static — except PHP's own `$_SESSION`, which is why concurrent
-runtimes bind a `SessionFactoryInterface` returning request-scoped storage.
+runtimes bind a `SessionProviderInterface` returning request-scoped storage.
 See [Http context](http-context.md) and [Runtime](runtime.md).
 
 ## Runtime vs tests vs development

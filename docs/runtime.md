@@ -108,10 +108,10 @@ Cookies are the model every request-scoped state should follow:
 
 `Cookies` holds no shared state, so concurrent cycles are isolated by
 construction. The application baseline (path, domain, secure, httponly,
-samesite...) lives in the application-scoped, immutable `CookiePolicy`,
-shared by `Cookies` and the session cookie; cookie *values* stay
-request-scoped. `SetCookieHeader` is the stateless primitive underneath:
-name + value + params in, header string out.
+samesite...) lives in the `CookiePolicy` service bound per `App` (immutable,
+never a process-global default), shared by `Cookies` and the session cookie;
+cookie *values* stay request-scoped. `SetCookieHeader` is the stateless
+primitive underneath: name + value + params in, header string out.
 
 ## Native PHP sessions
 
@@ -121,17 +121,20 @@ sequential execution — Kaly resets the native session id on `start()` and
 concurrently in the same process must not share it.
 
 ```text
-NativePhpSessionFactory (the default)
+NativePhpSessionProvider (the default)
     sequential worker    ✓
     concurrent Fibers    ✗
 
-a factory returning request-scoped storage
+a provider returning request-scoped storage
     sequential worker    ✓
     concurrent Fibers    ✓
 ```
 
-Concurrent runtimes bind a `SessionFactoryInterface` returning request-scoped
-storage. Cookie- or server-backed session policies are a decision of the
+Concurrent runtimes bind a `SessionProviderInterface` returning request-scoped
+storage. The provider owns transport (session id lookup, `Set-Cookie`
+emission) while `SessionInterface` stays a backend-agnostic applicative
+contract (`get/set/has/remove/clear/pull/all` + `regenerateId/destroy`).
+Cookie- or server-backed session policies are a decision of the
 application or of a dedicated package, not of the Kaly core.
 
 `ArraySession` is concurrency-safe but persists nothing between requests: tests

@@ -99,7 +99,10 @@ class IndexController extends AbstractController
         return new View('@TestModule/view', ['title' => 'View test']);
     }
 
-    public function noop(): void {}
+    public function noop(): string
+    {
+        return '';
+    }
 
     public function getipstate(): string
     {

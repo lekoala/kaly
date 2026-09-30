@@ -13,16 +13,17 @@ use Kaly\Asset\AssetSources;
 use Kaly\Clock\SystemClock;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
-use Kaly\Di\Injector;
+use Kaly\Http\CookiePolicy;
 use Kaly\Http\ExceptionHandler;
 use Kaly\Http\ExceptionHandlerInterface;
+use Kaly\Http\HttpContext;
 use Kaly\Http\InputMapper;
 use Kaly\Http\InputMapperInterface;
-use Kaly\Http\NativePhpSessionFactory;
+use Kaly\Http\NativePhpSessionProvider;
 use Kaly\Http\Psr17Discovery;
 use Kaly\Http\ResponseEmitter;
 use Kaly\Http\ServerRequestFromGlobals;
-use Kaly\Http\SessionFactoryInterface;
+use Kaly\Http\SessionProviderInterface;
 use Kaly\I18n\LocaleResolver;
 use Kaly\I18n\Translator;
 use Kaly\I18n\TranslatorInterface;
@@ -43,7 +44,6 @@ use Kaly\Util\Json;
 use LogicException;
 use Psr\Clock\ClockInterface;
 use Psr\Container\ContainerInterface;
-use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestFactoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -95,7 +95,7 @@ final class App implements RequestHandlerInterface
         LoggerInterface::class => NullLogger::class,
         // Our interfaces
         ExceptionHandlerInterface::class => ExceptionHandler::class,
-        SessionFactoryInterface::class => NativePhpSessionFactory::class,
+        SessionProviderInterface::class => NativePhpSessionProvider::class,
         TranslatorInterface::class => Translator::class,
         InputMapperInterface::class => InputMapper::class,
         AssetsInterface::class => Assets::class,
@@ -115,7 +115,6 @@ final class App implements RequestHandlerInterface
      */
     private array $modules = [];
     private ?Container $container = null;
-    private ?Injector $injector = null;
     private ?Kernel $kernel = null;
 
     /**
@@ -282,13 +281,13 @@ final class App implements RequestHandlerInterface
         }
 
         $this->container = new Container($this->buildDefinitions());
-        $this->injector = new Injector($this->container);
         $this->kernel = new Kernel(
             $this->createRequestHandler(),
             $this->container->get(ExceptionHandlerInterface::class),
             $this->hooks,
             new OutgoingRunner($this->container, $this->middleware, $this->hooks->error(...)),
-            $this->container->get(SessionFactoryInterface::class),
+            $this->container->get(SessionProviderInterface::class),
+            $this->container->get(CookiePolicy::class),
         );
 
         if ($this->debug) {
@@ -361,6 +360,10 @@ final class App implements RequestHandlerInterface
         return $this->modules;
     }
 
+    /**
+     * Explicit escape hatch for tests and integration: reach into the
+     * container directly instead of growing App shortcuts per service.
+     */
     public function getContainer(): Container
     {
         $this->assertBooted();
@@ -368,50 +371,11 @@ final class App implements RequestHandlerInterface
         return $this->container;
     }
 
-    /**
-     * This is a shortcut to access services from the container
-     * @template T of object
-     * @param class-string<T> $class
-     * @return T
-     */
-    public function get(string $class): object
-    {
-        return $this->getContainer()->get($class);
-    }
-
-    public function getInjector(): Injector
-    {
-        $this->assertBooted();
-        assert($this->injector !== null);
-        return $this->injector;
-    }
-
     public function getKernel(): Kernel
     {
         $this->assertBooted();
         assert($this->kernel !== null);
         return $this->kernel;
-    }
-
-    public function getLogger(): LoggerInterface
-    {
-        return $this->getContainer()->get(LoggerInterface::class);
-    }
-
-    public function getDebugLogger(): LoggerInterface
-    {
-        /** @var LoggerInterface $logger */
-        $logger = $this->getContainer()->get(self::DEBUG_LOGGER);
-        return $logger;
-    }
-
-    /**
-     * Create a simple response using the PSR-17 factories of the container
-     */
-    public function respond(string $body, int $code = 200): ResponseInterface
-    {
-        $response = $this->get(ResponseFactoryInterface::class)->createResponse($code);
-        return $response->withBody($this->get(StreamFactoryInterface::class)->createStream($body));
     }
 
     /**
@@ -466,6 +430,12 @@ final class App implements RequestHandlerInterface
             if (!$definitions->has($interface)) {
                 $definitions->bind($interface, $className);
             }
+        }
+
+        // One CookiePolicy per App: the historical baseline unless the
+        // application bound its own. Never a mutable process-global.
+        if (!$definitions->has(CookiePolicy::class)) {
+            $definitions->set(CookiePolicy::class, CookiePolicy::baseline());
         }
 
         // The default exception handler explains failures in debug mode only
@@ -589,6 +559,12 @@ final class App implements RequestHandlerInterface
             }
         }
 
+        // The declarative phase is over: routing and DI are built from here
+        // on, so the modules become a read model.
+        foreach ($modules as $module) {
+            $module->freeze();
+        }
+
         return $definitions;
     }
 
@@ -649,7 +625,9 @@ final class App implements RequestHandlerInterface
     {
         try {
             $configured = $this->middleware->toArray();
-            $this->getDebugLogger()->debug('pipeline status={status} configured incoming={incoming} routed={routed} outgoing={outgoing} | executed={executed}', [
+            /** @var LoggerInterface $logger */
+            $logger = $this->getContainer()->get(self::DEBUG_LOGGER);
+            $logger->debug('pipeline status={status} configured incoming={incoming} routed={routed} outgoing={outgoing} | executed={executed}', [
                 'status' => (string) $ctx->response()->getStatusCode(),
                 'incoming' => self::middlewareNames($configured['incoming'] ?? []),
                 'routed' => self::middlewareNames($configured['routed'] ?? []),

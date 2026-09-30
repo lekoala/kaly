@@ -6,6 +6,7 @@ namespace Kaly\Core;
 
 use Closure;
 use Kaly\Di\Definitions;
+use Kaly\Http\HttpContext;
 use Kaly\Http\HttpExceptionInterface;
 use Throwable;
 

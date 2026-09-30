@@ -153,7 +153,7 @@ class FileServerTest extends TestCase
         });
         $app->boot();
         try {
-            $server = $app->get(FileServer::class);
+            $server = $app->getContainer()->get(FileServer::class);
             $this->assertInstanceOf(FileServer::class, $server);
 
             $response = $server->process(new ServerRequest('GET', '/asset.txt'), new PredefinedResponseHandler(new Response(404)));

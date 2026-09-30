@@ -14,7 +14,13 @@ use Throwable;
 /**
  * Native PHP session storage, for sequential request execution only.
  *
- * It can be used with a middleware, or without. Also works for non psr-7 contexts.
+ * Implements the portable applicative contract only (get/set/has/remove/clear/
+ * pull/all + regenerateId/destroy). Everything transport-related (session id
+ * lookup, cookie emission, remember-me, id regeneration timing) is driven by
+ * the NativePhpSessionProvider; the extra public methods below (getId, setId,
+ * getName, close, isActive, discard, getCookieParams, commitToResponse) are
+ * concrete details for code that explicitly opted into native sessions, not
+ * part of the portable contract.
  *
  * Worker usage: since PHP's native session state is global to the process, a
  * new instance must be created for every request and `$_SESSION` must
@@ -22,11 +28,11 @@ use Throwable;
  * `start()` always resets the native session id so a previous request cannot
  * leak into the next one.
  *
- * Concurrent runtimes must bind a SessionFactoryInterface returning a
+ * Concurrent runtimes must bind a SessionProviderInterface returning a
  * request-scoped SessionInterface implementation instead.
  *
- * @phpstan-type SessionParams array{'regen_interval'?:int,'expiry_key'?:string,'remember_lifetime'?:int,'remember_key'?:string,'lifetime'?:int,'httponly'?:bool,'samesite'?:('Lax'|'lax'|'None'|'none'|'Strict'|'strict'),'csrf_key'?:string}
- * @phpstan-type AllSessionParams array{'regen_interval':int,'expiry_key':string,'remember_lifetime':int,'remember_key':string,'lifetime':int,'httponly':bool,'samesite':('Lax'|'lax'|'None'|'none'|'Strict'|'strict'),'csrf_key':string}
+ * @phpstan-type SessionOptions array{name?:string,save_path?:string,regen_interval?:int,expiry_key?:string,remember_lifetime?:int,remember_key?:string,lifetime?:int,path?:string,domain?:string,secure?:bool,httponly?:bool,samesite?:string,partitioned?:bool}
+ *
  * @link https://github.com/upscalesoftware/swoole-session
  * @link https://github.com/yiisoft/session
  * @link https://github.com/psr7-sessions/storageless
@@ -36,186 +42,188 @@ class NativePhpSession implements SessionInterface
 {
     public const SAMESITE_MODES = ['None', 'Lax', 'Strict'];
 
-    /**
-     * @var AllSessionParams
-     */
-    protected static array $config = [
+    private const DEFAULT_BEHAVIOR = [
         'regen_interval' => 3600,
         'expiry_key' => '_expiry',
         'remember_lifetime' => 31_536_000,
         'remember_key' => '_remember',
-        'lifetime' => 0, // When the browser closes
-        'httponly' => true,
-        'samesite' => 'Lax',
-        'csrf_key' => '_csrf',
     ];
-    protected ?string $sessionId = null;
+
+    private CookiePolicy $policy;
+    private string $name;
+    private ?string $sessionId = null;
     /**
-     * @var array<string,mixed>
-     */
-    protected array $originalData = [];
-    /**
-     * Options to pass to session_start. Cookie settings must start with cookie_
+     * Options passed to session_start(). Cookie settings carry the cookie_
+     * prefix. Behavior keys (regen_interval, ...) are consumed, not forwarded.
+     *
      * @link https://www.php.net/manual/en/session.configuration.php
      * @var array<string,mixed>
      */
-    protected array $options = [];
+    private array $options = [];
+    /**
+     * @var array{regen_interval:int,expiry_key:string,remember_lifetime:int,remember_key:string}
+     */
+    private array $behavior;
 
     /**
-     * @param array<string,mixed> $options
-     * @param ServerRequestInterface|null $request
+     * @param array<string,mixed> $options Explicit 'name' wins over session_name();
+     *  cookie entries (lifetime, path, domain, secure, httponly, samesite,
+     *  partitioned) win over the policy baseline; behavior entries tune id
+     *  regeneration and remember-me. 'save_path' sets session_save_path().
      */
-    public function __construct(array $options = [], ?ServerRequestInterface $request = null, ?CookiePolicy $policy = null)
+    public function __construct(array $options = [], ?CookiePolicy $policy = null)
     {
-        if ($request) {
-            $cookiesParameters = self::getOptionsForRequest($request, $policy);
-        } else {
-            $cookiesParameters = self::getCookieDefaults($policy);
+        $this->policy = $policy ?? CookiePolicy::baseline();
+
+        $behavior = array_merge(self::DEFAULT_BEHAVIOR, array_intersect_key($options, self::DEFAULT_BEHAVIOR));
+        $regenInterval = $behavior['regen_interval'] ?? self::DEFAULT_BEHAVIOR['regen_interval'];
+        $expiryKey = $behavior['expiry_key'] ?? self::DEFAULT_BEHAVIOR['expiry_key'];
+        $rememberLifetime = $behavior['remember_lifetime'] ?? self::DEFAULT_BEHAVIOR['remember_lifetime'];
+        $rememberKey = $behavior['remember_key'] ?? self::DEFAULT_BEHAVIOR['remember_key'];
+        $this->behavior = [
+            'regen_interval' => is_numeric($regenInterval) ? (int) $regenInterval : self::DEFAULT_BEHAVIOR['regen_interval'],
+            'expiry_key' => is_string($expiryKey) && $expiryKey !== '' ? $expiryKey : self::DEFAULT_BEHAVIOR['expiry_key'],
+            'remember_lifetime' => is_numeric($rememberLifetime) ? (int) $rememberLifetime : self::DEFAULT_BEHAVIOR['remember_lifetime'],
+            'remember_key' => is_string($rememberKey) && $rememberKey !== '' ? $rememberKey : self::DEFAULT_BEHAVIOR['remember_key'],
+        ];
+
+        if (isset($options['save_path']) && is_string($options['save_path']) && $options['save_path'] !== '') {
+            session_save_path($options['save_path']);
         }
-        $cookiesParameters = array_combine(
-            array_map(static fn($v): string => "cookie_{$v}", array_keys($cookiesParameters)),
-            $cookiesParameters,
+
+        $name = $options['name'] ?? null;
+        if ($name !== null && (!is_string($name) || $name === '')) {
+            throw new InvalidArgumentException('Session name must be a string');
+        }
+        $this->name = $name ?? session_name() ?: 'PHPSESSID';
+
+        $cookieParams = array_merge(self::cookieDefaults($this->policy), self::explicitCookieParams($options));
+        $cookieOptions = [];
+        foreach ($cookieParams as $k => $v) {
+            $cookieOptions["cookie_{$k}"] = $v;
+        }
+        // Built for a PSR-7 response: the session cookie belongs to the
+        // response (see commitToResponse), php must not send headers.
+        // Passed to session_start() only, the ini state stays untouched.
+        $forward = $options;
+        unset(
+            $forward['name'],
+            $forward['save_path'],
+            $forward['regen_interval'],
+            $forward['expiry_key'],
+            $forward['remember_lifetime'],
+            $forward['remember_key'],
+            $forward['lifetime'],
+            $forward['path'],
+            $forward['domain'],
+            $forward['secure'],
+            $forward['httponly'],
+            $forward['samesite'],
+            $forward['partitioned'],
         );
-        if ($request) {
-            // Built from a PSR-7 request: the session cookie belongs to the
-            // PSR-7 response (see addToResponse), php must not send headers.
-            // Passed to session_start() only, the ini state stays untouched.
-            $cookiesParameters += [
+        $this->options = array_merge(
+            $cookieOptions,
+            [
                 'use_cookies' => '0',
                 'use_only_cookies' => '1',
                 'use_trans_sid' => '0',
                 'cache_limiter' => '',
-            ];
-        }
-        $this->options = array_merge($cookiesParameters, $options);
-        if ($request) {
-            $this->setIdFromRequest($request);
-        }
+            ],
+            $forward,
+        );
     }
 
-    /**
-     * Use with caution, this will not update the file last modification date
-     * @link https://www.php.net/manual/en/function.session-start.php#125487
-     */
-    public function setReadAndClose(): void
-    {
-        $this->options['read_and_close'] = true;
-    }
+    // region SessionInterface (portable applicative contract)
 
-    // region Interface
-
-    /**
-     * Read the native session storage as a string-keyed array.
-     *
-     * Session values must stay serializable, hence the value union.
-     *
-     * @return array<string, int|bool|string|float|array<mixed>|object|null>
-     */
-    private static function sessionData(): array
+    public function get(string $key, mixed $default = null): mixed
     {
-        /** @var array<string, int|bool|string|float|array<mixed>|object|null> $data */
-        $data = $_SESSION ?? [];
-        return $data;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function get(string $key, $default = null)
-    {
-        $this->open();
+        $this->ensureStarted();
         $data = self::sessionData();
         return array_key_exists($key, $data) ? $data[$key] : $default;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    public function set(string $key, $value): void
+    public function set(string $key, mixed $value): void
     {
-        $this->open();
+        $this->ensureStarted();
         $_SESSION[$key] = $value;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    public function remove(string $key): void
-    {
-        $this->open();
-        unset($_SESSION[$key]);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function clear(): void
-    {
-        $this->open();
-        $_SESSION = [];
-    }
-
-    /**
-     * {@inheritDoc}
-     */
     public function has(string $key): bool
     {
-        $this->open();
+        $this->ensureStarted();
         return isset($_SESSION[$key]);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    public function hasChanged(): bool
+    public function remove(string $key): void
     {
-        return $_SESSION !== $this->originalData;
+        $this->ensureStarted();
+        unset($_SESSION[$key]);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    public function getChanges(): array
+    public function clear(): void
     {
-        $arr = [];
-        foreach ($_SESSION as $k => $v) {
-            if (!is_string($k)) {
-                continue;
-            }
-            $old = $this->originalData[$k] ?? null;
-            if ($old !== $v) {
-                $arr[$k] = [$old, $v];
-            }
-        }
-        return $arr;
+        $this->ensureStarted();
+        $_SESSION = [];
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    public function pull(string $key, mixed $default = null): mixed
+    {
+        $value = $this->get($key, $default);
+        $this->remove($key);
+        return $value;
+    }
+
     public function all(): array
     {
-        $this->open();
+        $this->ensureStarted();
         return self::sessionData();
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    public function isEmpty(): bool
+    public function regenerateId(): void
     {
-        return !count($_SESSION);
+        if ($this->isActive()) {
+            try {
+                if (session_regenerate_id(true)) {
+                    $this->sessionId = session_id() ?: null;
+                }
+            } catch (Throwable $e) {
+                throw new Exception('Failed to regenerate ID', (int) $e->getCode(), $e);
+            }
+        }
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    public function jsonSerialize(): object
+    public function destroy(): void
     {
-        return (object) $_SESSION;
+        if ($this->isActive()) {
+            session_destroy();
+            session_id('');
+            $this->sessionId = null;
+        }
     }
 
     // endregion
+
+    // region Native-only concrete details (not part of the portable contract)
+
+    public function getId(): ?string
+    {
+        return $this->sessionId === '' ? null : $this->sessionId;
+    }
+
+    public function setId(string $sessionId): void
+    {
+        $this->sessionId = $sessionId;
+    }
+
+    public function getName(): string
+    {
+        return $this->name;
+    }
+
+    public function isActive(): bool
+    {
+        return session_status() === PHP_SESSION_ACTIVE;
+    }
 
     /**
      * @return bool True if session was closed by this call
@@ -232,64 +240,6 @@ class NativePhpSession implements SessionInterface
         return false;
     }
 
-    /**
-     * The same as start, except it won't start again if already started
-     */
-    public function open(): void
-    {
-        if ($this->isActive()) {
-            return;
-        }
-
-        $this->start();
-    }
-
-    /**
-     * Start a session. Will throw errors if already started. Use open instead
-     */
-    public function start(): void
-    {
-        self::checkSessionCanStart();
-
-        // Always reset the native session context to the id carried by this
-        // instance (or an empty id for a request without a session cookie).
-        // Without the empty reset, PHP would reuse the id left over by a
-        // previous request handled in the same worker process.
-        session_id($this->sessionId ?? '');
-
-        try {
-            session_start($this->options);
-            $this->sessionId = session_id() ?: null;
-            $this->originalData = self::sessionData();
-            $this->runIdRegeneration();
-        } catch (Throwable $e) {
-            throw new Ex('Failed to start session', 0, $e);
-        }
-    }
-
-    public function isActive(): bool
-    {
-        return session_status() === PHP_SESSION_ACTIVE;
-    }
-
-    public function getId(): ?string
-    {
-        return $this->sessionId === '' ? null : $this->sessionId;
-    }
-
-    public function regenerateId(): void
-    {
-        if ($this->isActive()) {
-            try {
-                if (session_regenerate_id(true)) {
-                    $this->sessionId = session_id() ?: null;
-                }
-            } catch (Throwable $e) {
-                throw new Exception('Failed to regenerate ID', (int) $e->getCode(), $e);
-            }
-        }
-    }
-
     public function discard(): void
     {
         if ($this->isActive()) {
@@ -298,191 +248,113 @@ class NativePhpSession implements SessionInterface
         }
     }
 
-    public function getName(): string
+    /**
+     * @return array{lifetime:int,path:string,domain:string,secure:bool,httponly:bool,samesite:string,partitioned?:bool}
+     */
+    public function getCookieParams(): array
     {
-        // session_name() is valid even when no session is active, so it is the
-        // reliable source of the configured name. An explicit option wins.
-        $name = $this->options['name'] ?? session_name();
-        if (!is_string($name) || $name === '') {
-            $name = session_name();
+        $options = [];
+        foreach ($this->options as $k => $v) {
+            if (!str_starts_with($k, 'cookie_')) {
+                continue;
+            }
+            if (!is_scalar($v) && $v !== null) {
+                continue;
+            }
+            $options[str_replace('cookie_', '', $k)] = $v;
         }
-        if (!is_string($name)) {
-            throw new InvalidArgumentException('Session name must be a string');
+        $params = [
+            'lifetime' => (int) ($options['lifetime'] ?? 0),
+            'path' => (string) ($options['path'] ?? '/'),
+            'domain' => (string) ($options['domain'] ?? ''),
+            'secure' => (bool) ($options['secure'] ?? false),
+            'httponly' => (bool) ($options['httponly'] ?? true),
+            'samesite' => (string) ($options['samesite'] ?? 'Lax'),
+        ];
+        if (array_key_exists('partitioned', $options)) {
+            $params['partitioned'] = (bool) $options['partitioned'];
         }
-        return $name;
+        return $params;
     }
 
     /**
-     * Retrieves and remove a value
-     *
-     * @param int|bool|string|float|array<mixed>|object|null $default
-     * @return int|bool|string|float|array<mixed>|object|null
+     * Write the session cookie to the PSR-7 response if the id is new.
+     * Closes the native session first so the lock is released.
      */
-    public function pull(string $key, int|bool|string|float|array|object|null $default = null): int|bool|string|float|array|object|null
-    {
-        $value = $this->get($key, $default);
-        $this->remove($key);
-        return $value;
-    }
-
-    public function destroy(): void
+    public function commitToResponse(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         if ($this->isActive()) {
-            session_destroy();
-            session_id('');
-            $this->sessionId = null;
+            $this->close();
         }
-    }
 
-    public function setId(string $sessionId): void
-    {
-        $this->sessionId = $sessionId;
-    }
+        $id = $this->getId();
+        if ($id === null) {
+            return $response;
+        }
 
-    public function getIdFromRequest(ServerRequestInterface $request): ?string
-    {
         $cookies = $request->getCookieParams();
-        $param = $cookies[$this->getName()] ?? null;
-        if ($param !== null && !is_string($param)) {
-            throw new InvalidArgumentException('Session cookie value must be a string');
+        $current = $cookies[$this->getName()] ?? null;
+        if ($current === $id) {
+            return $response;
         }
-        return $param;
+
+        return $response->withAddedHeader('Set-Cookie', SetCookieHeader::build($this->getName(), $id, $this->getCookieParams()));
     }
 
-    public function setIdFromRequest(ServerRequestInterface $request): void
-    {
-        $id = $this->getIdFromRequest($request);
-        if ($id !== null) {
-            $this->setId($id);
-        }
-    }
+    // endregion
 
     /**
-     * Configure defaults to better values
+     * Read the native session storage as a string-keyed array.
+     *
+     * @return array<string,mixed>
      */
-    public static function configureDefaults(?string $path = null, ?string $name = null, bool $psr = true): void
+    private static function sessionData(): array
     {
-        if ($path) {
-            session_save_path($path);
-        }
-        if ($name) {
-            session_name($name);
-        }
+        /** @var array<string,mixed> $data */
+        $data = $_SESSION ?? [];
+        return $data;
+    }
 
-        if ($psr) {
-            // We emit the Set-Cookie header ourselves, so php is never told
-            // about the cookie params: they live in our own config and are
-            // read through getCookieDefaults().
-            self::configureForPsr7();
+    private function ensureStarted(): void
+    {
+        if ($this->isActive()) {
             return;
         }
-
-        // Php emits the session cookie itself, so it needs the params
-        $policy = CookiePolicy::default();
-        session_set_cookie_params([
-            'lifetime' => $policy->lifetime ?? self::$config['lifetime'],
-            'httponly' => $policy->httpOnly ?? self::$config['httponly'],
-            'samesite' => $policy->sameSite ?? self::$config['samesite'],
-        ]);
+        $this->startSession();
     }
 
     /**
-     * The cookie params a session cookie is built from.
-     *
-     * Php stays the source of the settings it alone knows about (path, domain,
-     * secure, partitioned as configured in php.ini), while the application
-     * CookiePolicy wins over it. Nothing is ever written back to php:
-     * mutating global ini state to read it again later made the values order
-     * dependent and, since php 8.4, warned when session.use_cookies was
-     * disabled for psr-7.
-     *
-     * @return array{lifetime:int,path:string,domain:string,secure:bool,httponly:bool,samesite:string,partitioned?:bool}
+     * Start the native session for this instance. Always resets the native
+     * session context to the id carried by this instance (or an empty id for
+     * a request without a session cookie): without the empty reset, PHP would
+     * reuse the id left over by a previous request in the same worker process.
      */
-    public static function getCookieDefaults(?CookiePolicy $policy = null): array
+    private function startSession(): void
     {
-        return array_merge(session_get_cookie_params(), ($policy ?? CookiePolicy::default())->toArray());
-    }
+        self::checkSessionCanStart();
 
-    /**
-     * Cookie entries (lifetime, httponly, samesite) feed the application
-     * CookiePolicy shared with Cookies; the rest stays session config.
-     *
-     * @param SessionParams $arr
-     * @return void
-     */
-    public static function configureExtra(array $arr = []): void
-    {
-        $lifetime = array_key_exists('lifetime', $arr) && is_numeric($arr['lifetime']) ? (int) $arr['lifetime'] : null;
-        $httpOnly = array_key_exists('httponly', $arr) && is_bool($arr['httponly']) ? $arr['httponly'] : null;
-        $sameSite = array_key_exists('samesite', $arr) && is_string($arr['samesite']) ? $arr['samesite'] : null;
-        if ($lifetime !== null || $httpOnly !== null || $sameSite !== null) {
-            CookiePolicy::setDefault(CookiePolicy::default()->with(lifetime: $lifetime, httpOnly: $httpOnly, sameSite: $sameSite));
+        // The name is process-global in PHP: align it for this start only.
+        if ($this->name !== '' && $this->name !== session_name()) {
+            session_name($this->name);
         }
-        self::$config = array_merge(self::$config, $arr);
-    }
+        session_id($this->sessionId ?? '');
 
-    /**
-     * @return AllSessionParams
-     */
-    public static function getExtraConfig(): array
-    {
-        return self::$config;
-    }
-
-    /**
-     * @link https://paul-m-jones.com/post/2016/04/12/psr-7-and-session-cookies/
-     */
-    public static function configureForPsr7(): void
-    {
-        // No auto-start! You should only use a session when needed
-        ini_set('session.auto_start', '0');
-
-        // PSR-7 compatibility
-        ini_set('session.use_trans_sid', '0');
-        ini_set('session.use_cookies', '0');
-        ini_set('session.use_only_cookies', '1');
-        // Reject user provided session ids that were not initialized by PHP
-        ini_set('session.use_strict_mode', '1');
-        // Prevent PHP to send headers
-        ini_set('session.cache_limiter', '');
-    }
-
-    /**
-     * Returns a better set of cookie options based on current request
-     * Cookie will be secured on https and scoped to the domain
-     * @return array{lifetime:int,path:string,domain:string,secure:bool,httponly:bool,samesite:string,partitioned?:bool}
-     */
-    public static function getOptionsForRequest(ServerRequestInterface $request, ?CookiePolicy $policy = null): array
-    {
-        $options = array_merge(self::getCookieDefaults($policy), [
-            'secure' => $request->getUri()->getScheme() === 'https',
-            'domain' => $request->getUri()->getHost(),
-        ]);
-        if (self::isRememberMe($request)) {
-            $options['lifetime'] = self::$config['remember_lifetime'];
+        try {
+            session_start($this->options);
+            $this->sessionId = session_id() ?: null;
+            $this->runIdRegeneration();
+        } catch (Throwable $e) {
+            throw new Ex('Failed to start session', 0, $e);
         }
-        return $options;
-    }
-
-    public static function isRememberMe(ServerRequestInterface $request): bool
-    {
-        if ($request->getMethod() !== 'POST') {
-            return false;
-        }
-        $body = $request->getParsedBody();
-        if (!is_array($body)) {
-            return false;
-        }
-        return !empty($body[self::$config['remember_key']]);
     }
 
     /**
-     * Regenerate the session ID if it's needed.
+     * Regenerate the session ID if needed.
      */
-    public function runIdRegeneration(): void
+    private function runIdRegeneration(): void
     {
-        $interval = self::$config['regen_interval'];
-        $key = self::$config['expiry_key'];
+        $interval = $this->behavior['regen_interval'];
+        $key = $this->behavior['expiry_key'];
         if ($interval <= 0) {
             return;
         }
@@ -510,64 +382,58 @@ class NativePhpSession implements SessionInterface
     }
 
     /**
-     * @return array{lifetime:int,path:string,domain:string,secure:bool,httponly:bool,samesite:string,partitioned?:bool}
+     * PSR-7 compatibility: never auto-start, never let PHP emit cookies or
+     * rewrite urls. We emit the Set-Cookie header ourselves.
+     *
+     * Process-global by nature (ini entries); called once by the provider.
+     *
+     * @link https://paul-m-jones.com/post/2016/04/12/psr-7-and-session-cookies/
      */
-    public function getCookieParams(): array
+    public static function configureForPsr7(): void
     {
-        $options = [];
-        foreach ($this->options as $k => $v) {
-            if (!str_starts_with($k, 'cookie_')) {
-                continue;
-            }
-            // Only scalar values can become cookie params; anything else
-            // (eg: a nested array from user options) is skipped
-            if (!is_scalar($v) && $v !== null) {
-                continue;
-            }
-
-            $options[str_replace('cookie_', '', $k)] = $v;
-        }
-        $params = [
-            'lifetime' => (int) ($options['lifetime'] ?? 0),
-            'path' => (string) ($options['path'] ?? '/'),
-            'domain' => (string) ($options['domain'] ?? ''),
-            'secure' => (bool) ($options['secure'] ?? false),
-            'httponly' => (bool) ($options['httponly'] ?? true),
-            'samesite' => (string) ($options['samesite'] ?? 'Lax'),
-        ];
-        if (array_key_exists('partitioned', $options)) {
-            $params['partitioned'] = (bool) $options['partitioned'];
-        }
-        return $params;
+        ini_set('session.auto_start', '0');
+        ini_set('session.use_trans_sid', '0');
+        ini_set('session.use_cookies', '0');
+        ini_set('session.use_only_cookies', '1');
+        ini_set('session.use_strict_mode', '1');
+        ini_set('session.cache_limiter', '');
     }
 
     /**
-     * Write a session cookie to the PSR-7 response.
-     * Cookie will only be added if necessary
+     * The cookie params a session cookie is built from: php stays the source
+     * of the settings it alone knows about (path, domain, secure, partitioned
+     * as configured in php.ini), while the application CookiePolicy wins
+     * over it. Nothing is ever written back to php.
+     *
+     * @return array{lifetime:int,path:string,domain:string,secure:bool,httponly:bool,samesite:string,partitioned?:bool}
      */
-    public function addToResponse(ResponseInterface $response, ServerRequestInterface $request): ResponseInterface
+    public static function cookieDefaults(?CookiePolicy $policy = null): array
     {
-        // Close if still active
-        if ($this->isActive()) {
-            $this->close();
+        return array_merge(session_get_cookie_params(), ($policy ?? CookiePolicy::baseline())->toArray());
+    }
+
+    /**
+     * @param array<string,mixed> $options
+     * @return array{lifetime?:int,path?:string,domain?:string,secure?:bool,httponly?:bool,samesite?:string,partitioned?:bool}
+     */
+    private static function explicitCookieParams(array $options): array
+    {
+        /** @var array{lifetime?:int,path?:string,domain?:string,secure?:bool,httponly?:bool,samesite?:string,partitioned?:bool} $params */
+        $params = [];
+        $lifetime = $options['lifetime'] ?? null;
+        if (is_numeric($lifetime)) {
+            $params['lifetime'] = (int) $lifetime;
         }
-
-        // No id...
-        $id = $this->getId();
-        if ($id === null) {
-            return $response;
+        foreach (['path', 'domain', 'samesite'] as $k) {
+            if (isset($options[$k]) && is_string($options[$k])) {
+                $params[$k] = $options[$k];
+            }
         }
-
-        if ($this->getIdFromRequest($request) === $id) {
-            // SID not changed, no need to send new cookie.
-            return $response;
+        foreach (['secure', 'httponly', 'partitioned'] as $k) {
+            if (array_key_exists($k, $options) && is_bool($options[$k])) {
+                $params[$k] = $options[$k];
+            }
         }
-
-        $name = $this->getName();
-        $params = $this->getCookieParams();
-
-        $cookie = SetCookieHeader::build($name, $id, $params);
-
-        return $response->withAddedHeader('Set-Cookie', $cookie);
+        return $params;
     }
 }

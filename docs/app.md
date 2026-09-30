@@ -381,6 +381,10 @@ A controller must return one of:
 
 - a `ResponseInterface` (used as-is)
 - a `Kaly\View\View` (rendered to HTML by the configured renderer)
+- a `Kaly\Http\JsonResponse` (JSON response with status and headers)
 - an `array` (JSON response)
 - a `string` (HTML response)
-- `null` (empty response)
+
+Returning `null` (eg: a forgotten `return`) is a programming error and throws.
+To answer with no body, return an explicit empty response instead, eg: a 204
+from the PSR-17 response factory.

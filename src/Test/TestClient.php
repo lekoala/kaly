@@ -33,11 +33,11 @@ final class TestClient
      */
     public static function for(App $app): self
     {
-        $requests = $app->get(ServerRequestFactoryInterface::class);
+        $requests = $app->getContainer()->get(ServerRequestFactoryInterface::class);
         if (!$requests instanceof ServerRequestFactoryInterface) {
             throw new LogicException('The container must provide a ' . ServerRequestFactoryInterface::class);
         }
-        $streams = $app->get(StreamFactoryInterface::class);
+        $streams = $app->getContainer()->get(StreamFactoryInterface::class);
         if (!$streams instanceof StreamFactoryInterface) {
             throw new LogicException('The container must provide a ' . StreamFactoryInterface::class);
         }

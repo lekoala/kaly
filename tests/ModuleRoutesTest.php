@@ -45,7 +45,7 @@ class ModuleRoutesTest extends TestCase
 
     private function router(): RouterInterface
     {
-        return $this->app->get(RouterInterface::class);
+        return $this->app->getContainer()->get(RouterInterface::class);
     }
 
     public function testALocalRouteIsRelativeToTheModuleMount(): void
