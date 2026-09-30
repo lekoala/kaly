@@ -11,7 +11,7 @@ use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Di\Injector;
 use Kaly\Ex;
-use Kaly\Http\RedirectException;
+use Kaly\Http\Exception\RedirectException;
 use Kaly\I18n\LocaleResolver;
 use Kaly\I18n\LocalizedTranslator;
 use Kaly\I18n\Translator;

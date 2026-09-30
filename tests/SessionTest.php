@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Http\CookiePolicy;
-use Kaly\Http\NativePhpSession;
-use Kaly\Http\NativePhpSessionProvider;
+use Kaly\Http\Cookie\CookiePolicy;
+use Kaly\Http\Session\NativePhpSession;
+use Kaly\Http\Session\NativePhpSessionProvider;
 use Kaly\Tests\Support\HttpFactory;
 use Kaly\Util\Fs;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;

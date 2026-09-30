@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
-use Kaly\Http\RequestInput;
+use Kaly\Http\Input\RequestInput;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**

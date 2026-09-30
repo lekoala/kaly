@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Router;
 
 use Kaly\Ex;
-use Kaly\Http\RedirectException;
+use Kaly\Http\Exception\RedirectException;
 use Kaly\Util\Str;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ServerRequestInterface;

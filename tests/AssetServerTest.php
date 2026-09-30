@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use Kaly\Asset\AssetServer;
 use Kaly\Asset\AssetsInterface;
 use Kaly\Asset\AssetSources;
 use Kaly\Core\App;
 use Kaly\Di\Definitions;
 use Kaly\Http\FileResponseFactory;
-use Kaly\Middleware\AssetServer;
 use Kaly\Test\PredefinedResponseHandler;
 use Kaly\Util\Fs;
 use Nyholm\Psr7\Factory\Psr17Factory;

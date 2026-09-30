@@ -9,7 +9,7 @@ use ErrorException;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
-class ErrorHandler
+final class ErrorHandler
 {
     private static ?int $errLevel = null;
     private static ?string $displayErrors = null;

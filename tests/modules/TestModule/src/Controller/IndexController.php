@@ -6,8 +6,8 @@ namespace TestModule\Controller;
 
 use Exception;
 use Kaly\Core\AbstractController;
-use Kaly\Http\RedirectException;
-use Kaly\Http\ValidationException;
+use Kaly\Http\Exception\RedirectException;
+use Kaly\Http\Input\ValidationException;
 use Kaly\Tests\Mocks\SaveInput;
 use Kaly\View\View;
 use Nyholm\Psr7\Response;
@@ -28,6 +28,11 @@ class IndexController extends AbstractController
     protected function isinvalid(): string
     {
         return 'never returns because protected';
+    }
+
+    public static function staticaction(): string
+    {
+        return 'never reached because static';
     }
 
     public function foo(): string

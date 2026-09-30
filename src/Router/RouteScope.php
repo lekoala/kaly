@@ -48,7 +48,10 @@ interface RouteScope
     public function resolvers(): array;
 
     /**
-     * Path prefixes owned outside the scope segment, each with its own table
+     * Path prefixes owned outside the scope segment, each with its own table.
+     *
+     * A claim is a self-contained entry point: a matched claim resolves in
+     * its own table alone — the scope resolvers() never run under it.
      *
      * @return list<array{prefix:array<string,string>,routes:RoutesDeclaration}>
      */

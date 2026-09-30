@@ -6,8 +6,8 @@ namespace Kaly\Tests;
 
 use Kaly\Core\Module;
 use Kaly\Ex;
-use Kaly\Http\MethodNotAllowedException;
-use Kaly\Http\RedirectException;
+use Kaly\Http\Exception\MethodNotAllowedException;
+use Kaly\Http\Exception\RedirectException;
 use Kaly\Router\RedirectUris;
 use Kaly\Router\ResolverInterface;
 use Kaly\Router\Route;

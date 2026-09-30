@@ -17,7 +17,7 @@ use RuntimeException;
  * @link https://github.com/laminas/laminas-httphandlerrunner/blob/2.11.x/src/Emitter/SapiEmitter.php
  * @link https://github.com/httpsoft/http-emitter/blob/master/src/SapiEmitter.php
  */
-class ResponseEmitter implements ResponseEmitterInterface
+final class ResponseEmitter implements ResponseEmitterInterface
 {
     public const EMPTY_RESPONSES = [100, 101, 102, 204, 205, 304];
 

@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use Kaly\Ex;
-use Kaly\Http\ForbiddenException;
-use Kaly\Http\HttpException;
-use Kaly\Http\HttpExceptionInterface;
-use Kaly\Http\InputException;
-use Kaly\Http\MethodNotAllowedException;
-use Kaly\Http\NotFoundException;
-use Kaly\Http\RedirectException;
-use Kaly\Http\ValidationException;
+use Kaly\Http\Exception\ForbiddenException;
+use Kaly\Http\Exception\HttpException;
+use Kaly\Http\Exception\HttpExceptionInterface;
+use Kaly\Http\Exception\MethodNotAllowedException;
+use Kaly\Http\Exception\NotFoundException;
+use Kaly\Http\Exception\RedirectException;
+use Kaly\Http\Input\InputException;
+use Kaly\Http\Input\ValidationException;
 use Kaly\Router\RouteNotFoundException;
 use PHPUnit\Framework\TestCase;
 

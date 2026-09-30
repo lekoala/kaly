@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Http;
 
 use InvalidArgumentException;
+use Kaly\Http\Exception\ForbiddenException;
 use Kaly\Util\Fs;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;

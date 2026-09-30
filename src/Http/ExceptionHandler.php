@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
+use Kaly\Http\Exception\HttpExceptionInterface;
 use Kaly\Util\Json;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -25,7 +26,7 @@ use Throwable;
  *   nothing internal leaks: a generic exception or a 404 only says what the
  *   status says.
  */
-class ExceptionHandler implements ExceptionHandlerInterface
+final class ExceptionHandler implements ExceptionHandlerInterface
 {
     public const PROBLEM_JSON = 'application/problem+json';
 

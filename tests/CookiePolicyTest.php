@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use InvalidArgumentException;
-use Kaly\Http\CookiePolicy;
-use Kaly\Http\Cookies;
+use Kaly\Http\Cookie\CookiePolicy;
+use Kaly\Http\Cookie\Cookies;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
 use PHPUnit\Framework\TestCase;

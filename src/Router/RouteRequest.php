@@ -53,7 +53,7 @@ final readonly class RouteRequest
      * @param array<string,mixed> $bindings Controller constructor arguments, by name
      * @param string|null $name The qualified name of the route (`module:name`), if it has one
      * @param list<class-string> $middlewares The middlewares scoped to this route, outermost first
-     * @param class-string<\Kaly\Http\RequestInput>|null $inputClass The trailing input of the action
+     * @param class-string<\Kaly\Http\Input\RequestInput>|null $inputClass The trailing input of the action
      */
     public function route(
         string $controller,

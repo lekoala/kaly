@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
-use Kaly\Http\NotFoundException;
+use Kaly\Http\Exception\NotFoundException;
 
 /**
  * No module resolver knows the url: an expected outcome (404), never a

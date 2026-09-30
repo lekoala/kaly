@@ -151,7 +151,7 @@ class RequestInputTest extends TestCase
         $ctx = new HttpContext($request);
 
         $this->expectException(Ex::class);
-        $this->expectExceptionMessage('bind a Kaly\Http\InputMapperInterface');
+        $this->expectExceptionMessage('bind a Kaly\Http\Input\InputMapperInterface');
         $handler->handle($ctx->bind($request));
     }
 }

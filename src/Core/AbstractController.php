@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Core;
 
-use Kaly\Http\RedirectException;
+use Kaly\Http\Exception\RedirectException;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**

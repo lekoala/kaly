@@ -8,7 +8,7 @@ use Fiber;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Core\HttpContext;
-use Kaly\Http\ArraySession;
+use Kaly\Http\Session\ArraySession;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;

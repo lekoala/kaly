@@ -7,8 +7,9 @@ how to migrate.
 ## The request cycle lives in Core
 
 The package boundaries now follow the layer: Http is the protocol, Router is
-urls, Core is the request cycle, `Kaly\Middleware` keeps the optional PSR-15
-implementations. No BC aliases are kept: update every usage in one pass.
+urls, Core is the request cycle. `Kaly\Middleware` no longer exists — the
+machinery belongs to Core and the built-in middlewares moved to their domains.
+No BC aliases are kept: update every usage in one pass.
 
 - `Kaly\Http\HttpContext` moves to `Kaly\Core\HttpContext`.
 - `Kaly\Router\RoutingHandler` and `Kaly\Router\RequestDispatcher` move to
@@ -21,11 +22,19 @@ implementations. No BC aliases are kept: update every usage in one pass.
   `OutgoingMiddlewareInterface` → `OutgoingInterface`, `OutgoingRunner`,
   `ClosureOutgoing`, `CallableToHandlerAdapter`, `MiddlewareToHandlerAdapter`,
   `NullHandler` and `RunNextHandler` keep their names under the new namespace.
-- `Kaly\Middleware\Builtin\*` flattens to `Kaly\Middleware\*`:
-  `FileServer`, `AssetServer`, `PreventFileAccess`.
+- The built-in middlewares move to their domains: `AssetServer` →
+  `Kaly\Asset\AssetServer`, `FileServer` → `Kaly\Http\FileServer`,
+  `PreventFileAccess` → `Kaly\Http\PreventFileAccess`.
 - `Kaly\Middleware\PredefinedResponseHandler` moves to `Kaly\Test`.
 - `Kaly\Core\Ex` moves to `Kaly\Ex`: the framework exception is a leaf, every
   package may throw it.
+- `Kaly\Http` groups its sub-domains: `Kaly\Http\Session\*` (session
+  interfaces, `SessionCookie`, providers and storages), `Kaly\Http\Cookie\*`
+  (`CookiePolicy`, `Cookies`, `SetCookieHeader`), `Kaly\Http\Input\*`
+  (`RequestInput`, `InputMapper`, `InputException`, `ValidatableInput`,
+  `ValidationException`) and `Kaly\Http\Exception\*` (`HttpException`,
+  `HttpExceptionInterface`, `NotFound`, `Forbidden`, `MethodNotAllowed`,
+  `Redirect`, `Response` exceptions).
 - `Kaly\Http\JsonResponse` is renamed `Kaly\Http\JsonResult`: it is a
   controller result converted by the dispatcher, not a PSR-7 response.
 - `ExceptionHandler::wantsJson()` moves to `Accept::prefersJson()` — content
@@ -41,6 +50,18 @@ implementations. No BC aliases are kept: update every usage in one pass.
   answering mount/locale/resolvers/claims can be registered. `Module`
   implements it. `Module::resolvers()` entries hold `RoutesDeclaration`
   objects instead of raw closures, and claims too.
+- `RouteDraft` and `PendingRoute` are removed: `RouteDefinition` is the single
+  declaration shape, mutable and fluent while the table is declared —
+  `$routes->get(...)` returns it directly (`->name()`, `->where()`,
+  `->middleware()`, `->default()`, `->priority()`).
+  `Routes::addDefinition()` no longer round-trips through a draft.
+- `RouteParamCoercer` folds into `ActionSignature::coerce()`, the single home
+  of action-signature introspection.
+- `ActionSignature` owns the rules every route source shares: action
+  admissibility (public, non-static, non-magic except `__invoke`) and the
+  trailing `RequestInput` placement. Convention routing now refuses static
+  methods like declared routes always did, and a misplaced `RequestInput`
+  fails at table compilation instead of dispatch.
 - `AssetPublisher::prune(keep: 3)` removes old versioned directories after a
   publish; the live `.version` is never removed.
 - `FileServer` never serves dotfiles (`/.env`, `/.git/...`), except the
@@ -60,13 +81,18 @@ No BC aliases are kept: update every usage in one pass.
   concurrent runtimes. `NativePhpSessionFactory` is removed.
 - `SessionInterface` is an applicative contract only
   (`get/set/has/remove/clear/pull/all` + `regenerateId/destroy`): no PSR-7, no
-  session id, no cookie params. Transport details (`getId/setId/getName`,
-  `close/isActive/discard`, cookie emission) stay available as concrete
-  methods on `NativePhpSession`/`ArraySession` for code that explicitly opted
-  into them, and are driven by the provider. `regenerateId()` starts the
-  session if needed before rotating, and `destroy()` expires the client cookie
-  even on a session that was never started, so logout is effective on the very
-  first call.
+  session id, no cookie params. The transport read-model is a capability:
+  `CookieSessionInterface` (`getId/setId/getName`, `isDestroyed`, `close`,
+  `getCookieParams`), implemented by `NativePhpSession` and `ArraySession`.
+  Providers only ever speak to that interface — never to a concrete session —
+  and delegate the shared rules to `SessionCookie` (incoming id lookup,
+  option derivation, `Set-Cookie` emission). `commitToResponse()` is removed
+  from the sessions; `isActive`/`discard` remain concrete details.
+  `regenerateId()` starts the session if needed before rotating, and
+  `destroy()` expires the client cookie even on a session that was never
+  started, so logout is effective on the very first call.
+- `Cookies::SAMESITE_MODES` and `NativePhpSession::SAMESITE_MODES` are removed:
+  `CookiePolicy::SAMESITE_MODES` is the single list.
 - The request only scopes the cookie (`secure` on https, `domain` from the
   host) when neither the provider options nor the bound `CookiePolicy` set the
   value: an explicit policy is never downgraded by the request.
@@ -207,7 +233,7 @@ No BC aliases are kept: update every usage in one pass.
 
 ## Pre-1.0 consistency: one exception family, one emitter, one declaration order
 
-- **Every client-facing failure is now a `Kaly\Http\HttpException`.** It extends
+- **Every client-facing failure is now a `Kaly\Http\Exception\HttpException`.** It extends
   `Kaly\Ex` and carries the status, the extra headers and the body.
   `NotFoundException`, `RouteNotFoundException`, `ForbiddenException`,
   `MethodNotAllowedException`, `InputException`, `ValidationException`,
@@ -231,10 +257,10 @@ No BC aliases are kept: update every usage in one pass.
   Priorities still win over the declaration order; `TableResolver::PRIORITY` (0)
   is now a named constant.
 - A route handle that outlives the `group()` callback that created it configures
-  its own route again. The draft is a shared `RouteDraft` object rather than an
-  array slot addressed by index, so a group no longer absorbs a copy and drop
-  the late mutation. `Routes::draft()` and `Routes::replaceDraft()` are removed;
-  they were internal plumbing for `PendingRoute`.
+  its own route again. `get()` returns the `RouteDefinition` itself rather
+  than an index into the table, so a group no longer absorbs a copy and drops
+  the late mutation. `Routes::draft()` and `Routes::replaceDraft()` are
+  removed; they were internal plumbing.
 
 ## Pre-1.0 correctness and API cleanup
 
@@ -266,7 +292,7 @@ Behaviour fixes and the small public API changes that go with them.
 - `RedirectException` only accepts a real redirect status (301, 302, 303, 307,
   308). `304` is not a redirect and no longer carries a `Location` header; the
   constant is `RedirectException::NOT_MODIFIED` if you need to name it.
-- `Kaly\Http\ForbiddenException` is added (403, empty body). Access control stays
+- `Kaly\Http\Exception\ForbiddenException` is added (403, empty body). Access control stays
   the application's, but the framework now has the class its own documentation
   used to reference.
 

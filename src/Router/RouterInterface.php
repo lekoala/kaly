@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Kaly\Router;
 
 use Exception;
-use Kaly\Http\MethodNotAllowedException;
-use Kaly\Http\NotFoundException;
-use Kaly\Http\RedirectException;
+use Kaly\Http\Exception\MethodNotAllowedException;
+use Kaly\Http\Exception\NotFoundException;
+use Kaly\Http\Exception\RedirectException;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**

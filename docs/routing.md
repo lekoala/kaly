@@ -119,7 +119,7 @@ The last resolver of every module maps `controller/action/params`:
   coerced strictly: a value that does not fit an `int`/`float`/`bool` parameter does
   not match (404). A variadic `...$rest` takes every remaining segment; extra
   segments otherwise do not match.
-- One trailing `Kaly\Http\RequestInput` parameter is built from the query string and
+- One trailing `Kaly\Http\Input\RequestInput` parameter is built from the query string and
   the body, and consumes no segment (see [Request input](input.md)). Any other
   object parameter is refused: services belong to the constructor.
 - One canonical url per action: `/index/`, `/cart/index/` and camelized spellings

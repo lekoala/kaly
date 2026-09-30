@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Tests\Mocks;
 
-use Kaly\Http\ValidatableInput;
-use Kaly\Http\ValidationException;
+use Kaly\Http\Input\ValidatableInput;
+use Kaly\Http\Input\ValidationException;
 
 final readonly class PaginationInput implements ValidatableInput
 {

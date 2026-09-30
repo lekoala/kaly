@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Http\InputException;
-use Kaly\Http\InputMapper;
-use Kaly\Http\RequestInput;
-use Kaly\Http\ValidationException;
+use Kaly\Http\Input\InputException;
+use Kaly\Http\Input\InputMapper;
+use Kaly\Http\Input\RequestInput;
+use Kaly\Http\Input\ValidationException;
 use Kaly\Tests\Mocks\FullInput;
 use Kaly\Tests\Mocks\PaginationInput;
 use Kaly\Tests\Mocks\PatientStatus;

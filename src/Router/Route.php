@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
-use Kaly\Http\RequestInput;
+use Kaly\Http\Input\RequestInput;
 
 /**
  * A resolved route: the final, immutable answer of a module resolver.

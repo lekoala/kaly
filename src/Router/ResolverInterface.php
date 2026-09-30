@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
-use Kaly\Http\MethodNotAllowedException;
-use Kaly\Http\RedirectException;
+use Kaly\Http\Exception\MethodNotAllowedException;
+use Kaly\Http\Exception\RedirectException;
 
 /**
  * Resolves the url of a module, below its entry point.

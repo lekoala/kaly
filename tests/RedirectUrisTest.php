@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Http\RedirectException;
+use Kaly\Http\Exception\RedirectException;
 use Kaly\Router\RedirectUris;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
 use PHPUnit\Framework\TestCase;

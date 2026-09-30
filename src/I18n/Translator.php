@@ -16,7 +16,7 @@ use RuntimeException;
  * locale of the current request. Pass the locale explicitly, or wrap it in a
  * LocalizedTranslator built from the locale resolved for the request.
  */
-class Translator implements TranslatorInterface
+final class Translator implements TranslatorInterface
 {
     public const DEFAULT_DOMAIN = 'messages';
 

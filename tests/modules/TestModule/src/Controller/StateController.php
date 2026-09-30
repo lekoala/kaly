@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace TestModule\Controller;
 
 use Kaly\Core\AbstractController;
-use Kaly\Http\ForbiddenException;
-use Kaly\Http\RedirectException;
+use Kaly\Http\Exception\ForbiddenException;
+use Kaly\Http\Exception\RedirectException;
 
 class StateController extends AbstractController
 {

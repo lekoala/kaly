@@ -28,6 +28,6 @@ The goal before 1.0 is to converge toward the smallest, clearest, most durable p
 - Exception messages are a single sentence, with no trailing punctuation. This
   applies to native exceptions too (`InvalidArgumentException`, `LogicException`,
   `RuntimeException`), not only to `Kaly\Ex`.
-- Client-facing failures extend `Kaly\Http\HttpException` and carry their own
+- Client-facing failures extend `Kaly\Http\Exception\HttpException` and carry their own
   status, headers and body. A non-HTTP failure is a plain `Kaly\Ex` and
   carries no status.

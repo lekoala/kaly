@@ -39,6 +39,13 @@ class RouterTest extends TestCase
         $this->assertSame('123', (string) $response->getBody());
     }
 
+    public function testStaticActionIsNotRoutable(): void
+    {
+        // Same admissibility rule as declared routes: public AND non-static
+        $this->assertSame(404, $this->request('/test-module/index/staticaction/')->getStatusCode());
+        $this->assertSame(404, $this->request('/test-module/index/isinvalid/')->getStatusCode());
+    }
+
     public function testInvalidIntParameterIsNotFound(): void
     {
         $response = $this->request('/test-module/index/typed-int/abc/');

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Kaly\Core;
 
 use Kaly\Core\Middleware\OutgoingRunner;
-use Kaly\Http\CookiePolicy;
+use Kaly\Http\Cookie\CookiePolicy;
 use Kaly\Http\ExceptionHandlerInterface;
-use Kaly\Http\SessionProviderInterface;
+use Kaly\Http\Session\SessionProviderInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;

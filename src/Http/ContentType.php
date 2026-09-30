@@ -7,7 +7,7 @@ namespace Kaly\Http;
 /**
  * https://developer.mozilla.org/en-US/docs/Web/HTTP/MIME_types/Common_types
  */
-class ContentType
+final class ContentType
 {
     public const PLAIN = 'text/plain';
     public const HTML = 'text/html';

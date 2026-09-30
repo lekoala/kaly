@@ -26,7 +26,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * The response is not mirrored during the unwind, a middleware already owns
  * the one returned by its own handler.
  */
-class Runner implements RequestHandlerInterface
+final class Runner implements RequestHandlerInterface
 {
     protected RequestHandlerInterface $requestHandler;
     protected Registry $registry;

@@ -6,7 +6,7 @@ namespace Kaly\Router;
 
 use Closure;
 use Kaly\Ex;
-use Kaly\Http\MethodNotAllowedException;
+use Kaly\Http\Exception\MethodNotAllowedException;
 use ReflectionNamedType;
 
 /**
@@ -190,7 +190,7 @@ final class TableResolver implements ResolverInterface
                 $type = $param->getType();
                 if ($type instanceof ReflectionNamedType && $type->isBuiltin()) {
                     try {
-                        $out[] = RouteParamCoercer::coerce($type->getName(), $matches[$name]);
+                        $out[] = ActionSignature::coerce($type->getName(), $matches[$name]);
                     } catch (RouteNotFoundException) {
                         return null;
                     }

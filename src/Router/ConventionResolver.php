@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Kaly\Router;
 
 use Kaly\Ex;
-use Kaly\Http\MethodNotAllowedException;
-use Kaly\Http\RedirectException;
-use Kaly\Http\RequestInput;
+use Kaly\Http\Exception\MethodNotAllowedException;
+use Kaly\Http\Exception\RedirectException;
+use Kaly\Http\Input\RequestInput;
 use Kaly\Util\Str;
 use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionParameter;
-use ReflectionUnionType;
 
 /**
  * Resolves the conventional urls of a module: `controller/action/params`.
@@ -230,20 +229,14 @@ final class ConventionResolver implements ResolverInterface
     }
 
     /**
-     * Can this method be reached through routing? Protected and magic methods
-     * (except __invoke) are never exposed.
+     * Can this method be reached through routing? The rule is shared with
+     * declared routes: public, non-static, non-magic except __invoke.
      *
      * @param ReflectionClass<object> $refl
      */
     private function isRoutableAction(ReflectionClass $refl, string $action): bool
     {
-        if ($action === '' || !$refl->hasMethod($action)) {
-            return false;
-        }
-        if (str_starts_with($action, '__') && $action !== RouterInterface::FALLBACK_ACTION) {
-            return false;
-        }
-        return $refl->getMethod($action)->isPublic();
+        return $action !== '' && $refl->hasMethod($action) && ActionSignature::isAdmissible($refl->getMethod($action));
     }
 
     /**
@@ -296,7 +289,7 @@ final class ConventionResolver implements ResolverInterface
             // Services belong to the constructor: an action argument is either a
             // route segment or the trailing input, never something the container
             // could fill in silently.
-            if (self::hasClassType($actionParam)) {
+            if (ActionSignature::hasClassType($actionParam)) {
                 throw new Ex(
                     "Parameter '{$paramName}' of action '{$action}' on '{$class}' must be a route scalar"
                     . ' or a trailing '
@@ -309,7 +302,7 @@ final class ConventionResolver implements ResolverInterface
             $value = $m->parts[$i] ?? '';
             $type = $actionParam->getType();
             if ($type instanceof ReflectionNamedType && $value !== '' && $type->isBuiltin()) {
-                $params[$i] = RouteParamCoercer::coerce($type->getName(), $value);
+                $params[$i] = ActionSignature::coerce($type->getName(), $value);
             }
 
             if ($actionParam->isVariadic()) {
@@ -332,60 +325,10 @@ final class ConventionResolver implements ResolverInterface
      */
     private function extractInputClass(array &$actionParams, string $class, string $action): ?string
     {
-        $last = count($actionParams) - 1;
-        $inputClass = null;
-        foreach ($actionParams as $i => $actionParam) {
-            $name = self::inputClassOf($actionParam);
-            if ($name === null) {
-                continue;
-            }
-            if ($i !== $last) {
-                throw new Ex(
-                    RequestInput::class
-                    . " parameter '{$actionParam->getName()}' must be the last parameter"
-                    . " of action '{$action}' on '{$class}'",
-                );
-            }
-            $inputClass = $name;
-        }
-
+        $inputClass = ActionSignature::inputOf($actionParams, $action, $class);
         if ($inputClass !== null) {
             array_pop($actionParams);
         }
-
         return $inputClass;
-    }
-
-    /**
-     * @return class-string<RequestInput>|null
-     */
-    private static function inputClassOf(ReflectionParameter $param): ?string
-    {
-        $type = $param->getType();
-        if (!$type instanceof ReflectionNamedType || $type->isBuiltin()) {
-            return null;
-        }
-        $name = $type->getName();
-        if (!is_a($name, RequestInput::class, true)) {
-            return null;
-        }
-        /** @var class-string<RequestInput> $name */
-        return $name;
-    }
-
-    /**
-     * Does this parameter expect an object? Such a parameter can never be
-     * satisfied by a url segment.
-     */
-    private static function hasClassType(ReflectionParameter $param): bool
-    {
-        $type = $param->getType();
-        $types = $type instanceof ReflectionUnionType ? $type->getTypes() : [$type];
-        foreach ($types as $t) {
-            if ($t instanceof ReflectionNamedType && !$t->isBuiltin()) {
-                return true;
-            }
-        }
-        return false;
     }
 }

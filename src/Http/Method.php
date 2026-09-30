@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
-class Method
+final class Method
 {
     public const GET = 'GET';
     public const POST = 'POST';

@@ -177,12 +177,12 @@ The three failures are distinct and must not collapse into one:
 A 404 means *there is no such route*. A 400 means *the route exists, the data is
 unusable*. A 422 means *the data is well formed and still unacceptable*.
 
-`Kaly\Http\InputException` carries the 400, `Kaly\Http\ValidationException` the 422.
+`Kaly\Http\Input\InputException` carries the 400, `Kaly\Http\Input\ValidationException` the 422.
 Both are `HttpExceptionInterface`, so the kernel turns them into responses on its own.
 
 ## Supported conversions
 
-`Kaly\Http\InputMapper` is bound by default and covers, deliberately, only this:
+`Kaly\Http\Input\InputMapper` is bound by default and covers, deliberately, only this:
 
 | Declared type | Accepted |
 | --- | --- |
@@ -204,7 +204,7 @@ for each is decided explicitly. A property the mapper cannot build throws a
 `LogicException`: it would fail for every single client, so it is a programming error,
 not a bad request.
 
-Bind your own `Kaly\Http\InputMapperInterface` to replace the whole thing.
+Bind your own `Kaly\Http\Input\InputMapperInterface` to replace the whole thing.
 
 ## Breaking change
 

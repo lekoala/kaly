@@ -7,7 +7,7 @@ namespace Kaly\Tests;
 use Kaly\Core\App;
 use Kaly\Di\Definitions;
 use Kaly\Http\FileResponseFactory;
-use Kaly\Middleware\FileServer;
+use Kaly\Http\FileServer;
 use Kaly\Test\PredefinedResponseHandler;
 use Kaly\Util\Fs;
 use Nyholm\Psr7\Factory\Psr17Factory;

@@ -13,7 +13,7 @@ use RuntimeException;
 /**
  * A dead simple logger. You can set the base log level. Any message below this level will be ignored.
  */
-class FileLogger extends AbstractLogger
+final class FileLogger extends AbstractLogger
 {
     protected string $destination;
     protected int $level;

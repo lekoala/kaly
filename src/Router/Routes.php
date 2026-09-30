@@ -22,14 +22,13 @@ use Kaly\Ex;
  * middlewares compose routes.
  *
  * @see RouteDefinition
- * @see RouteDraft
  */
 final class Routes
 {
     /**
-     * @var list<RouteDraft>
+     * @var list<RouteDefinition>
      */
-    private array $drafts = [];
+    private array $definitions = [];
 
     /**
      * The scope this one was derived from by prefix() or middleware(), so a
@@ -49,7 +48,7 @@ final class Routes
      * @param string|array<string,string> $path A path, or one path per locale: ['fr' => '/a-propos', 'en' => '/about']
      * @param string|array<mixed> $handler
      */
-    public function get(string|array $path, string|array $handler): PendingRoute
+    public function get(string|array $path, string|array $handler): RouteDefinition
     {
         return $this->map(['GET'], $path, $handler);
     }
@@ -58,7 +57,7 @@ final class Routes
      * @param string|array<string,string> $path
      * @param string|array<mixed> $handler
      */
-    public function post(string|array $path, string|array $handler): PendingRoute
+    public function post(string|array $path, string|array $handler): RouteDefinition
     {
         return $this->map(['POST'], $path, $handler);
     }
@@ -67,7 +66,7 @@ final class Routes
      * @param string|array<string,string> $path
      * @param string|array<mixed> $handler
      */
-    public function put(string|array $path, string|array $handler): PendingRoute
+    public function put(string|array $path, string|array $handler): RouteDefinition
     {
         return $this->map(['PUT'], $path, $handler);
     }
@@ -76,7 +75,7 @@ final class Routes
      * @param string|array<string,string> $path
      * @param string|array<mixed> $handler
      */
-    public function patch(string|array $path, string|array $handler): PendingRoute
+    public function patch(string|array $path, string|array $handler): RouteDefinition
     {
         return $this->map(['PATCH'], $path, $handler);
     }
@@ -85,7 +84,7 @@ final class Routes
      * @param string|array<string,string> $path
      * @param string|array<mixed> $handler
      */
-    public function delete(string|array $path, string|array $handler): PendingRoute
+    public function delete(string|array $path, string|array $handler): RouteDefinition
     {
         return $this->map(['DELETE'], $path, $handler);
     }
@@ -95,11 +94,11 @@ final class Routes
      * @param string|array<string,string> $path A path, or one path per locale
      * @param string|array<mixed> $handler [Controller::class, 'action'], Controller::class (__invoke) or 'Controller::action'.
      */
-    public function map(array $methods, string|array $path, string|array $handler): PendingRoute
+    public function map(array $methods, string|array $path, string|array $handler): RouteDefinition
     {
         $this->assertDeclarable();
         [$controller, $action] = self::normalizeHandler($handler);
-        $draft = new RouteDraft(
+        $definition = new RouteDefinition(
             is_array($path)
                 ? array_map(fn(string $p): string => self::joinPath($this->prefix, $p), $path)
                 : self::joinPath($this->prefix, $path),
@@ -108,8 +107,8 @@ final class Routes
             array_values(array_unique(array_map(strtoupper(...), $methods))),
             middlewares: $this->middlewares,
         );
-        $this->drafts[] = $draft;
-        return new PendingRoute($draft);
+        $this->definitions[] = $definition;
+        return $definition;
     }
 
     /**
@@ -170,7 +169,7 @@ final class Routes
      */
     public function definitions(): array
     {
-        return array_map(static fn(RouteDraft $d): RouteDefinition => $d->definition(), $this->drafts);
+        return $this->definitions;
     }
 
     /**
@@ -198,8 +197,8 @@ final class Routes
      */
     private function merge(self $child): void
     {
-        foreach ($child->drafts as $draft) {
-            $this->drafts[] = $draft;
+        foreach ($child->definitions as $definition) {
+            $this->definitions[] = $definition;
         }
     }
 
@@ -212,17 +211,7 @@ final class Routes
     public function addDefinition(RouteDefinition $definition): void
     {
         $this->assertDeclarable();
-        $this->drafts[] = new RouteDraft(
-            $definition->path,
-            $definition->controller,
-            $definition->action,
-            $definition->methods,
-            $definition->name,
-            $definition->requirements,
-            $definition->defaults,
-            $definition->middlewares,
-            $definition->priority,
-        );
+        $this->definitions[] = $definition;
     }
 
     /**
@@ -257,11 +246,8 @@ final class Routes
             throw new Ex("Route handler '{$class}::{$action}' does not exist");
         }
         $method = new \ReflectionMethod($class, $action);
-        if (!$method->isPublic() || $method->isStatic()) {
-            throw new Ex("Route handler '{$class}::{$action}' must be a public non-static method");
-        }
-        if (str_starts_with($action, '__') && $action !== RouterInterface::FALLBACK_ACTION) {
-            throw new Ex("Route handler '{$class}::{$action}' is not an admissible action");
+        if (!ActionSignature::isAdmissible($method)) {
+            throw new Ex("Route handler '{$class}::{$action}' must be a public, non-static method, non-magic except __invoke");
         }
         return [$class, $action];
     }

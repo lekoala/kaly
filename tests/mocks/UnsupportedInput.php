@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Tests\Mocks;
 
 use DateTimeImmutable;
-use Kaly\Http\RequestInput;
+use Kaly\Http\Input\RequestInput;
 
 final readonly class UnsupportedInput implements RequestInput
 {

@@ -20,7 +20,7 @@ use Psr\Http\Message\ServerRequestInterface;
  * 3. Accept-Language negotiation among the allowed locales
  * 4. the default locale
  */
-class LocaleResolver
+final class LocaleResolver
 {
     public const ATTR_LOCALE_REQUEST = 'locale';
 
@@ -63,7 +63,7 @@ class LocaleResolver
      * Unknown, malformed or disallowed locales fall back to the default rather
      * than failing the request.
      */
-    protected function normalize(string $locale): string
+    private function normalize(string $locale): string
     {
         if (!Locale::isValid($locale)) {
             return $this->defaultLocale;

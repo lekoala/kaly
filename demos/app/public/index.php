@@ -1,8 +1,8 @@
 <?php
 
 use Kaly\Core\App;
-use Kaly\Middleware\FileServer;
-use Kaly\Middleware\PreventFileAccess;
+use Kaly\Http\FileServer;
+use Kaly\Http\PreventFileAccess;
 
 // The demo runs on the framework repository dependencies
 require dirname(__DIR__, 3) . '/vendor/autoload.php';

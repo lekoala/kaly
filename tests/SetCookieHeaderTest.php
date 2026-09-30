@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Http\SetCookieHeader;
+use Kaly\Http\Cookie\SetCookieHeader;
 use PHPUnit\Framework\TestCase;
 
 class SetCookieHeaderTest extends TestCase

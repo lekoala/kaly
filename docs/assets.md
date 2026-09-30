@@ -122,4 +122,4 @@ fails.
 | `Kaly\Asset\Assets` | dev (`/_assets/...`) and prod (`/assets/<version>/...`) URLs |
 | `Kaly\Asset\AssetSources` | namespace => directory map shared by all three consumers |
 | `Kaly\Asset\AssetPublisher` | build-time copy + `.version` |
-| `Kaly\Middleware\AssetServer` | dev serving, opt-in |
+| `Kaly\Asset\AssetServer` | dev serving, opt-in |

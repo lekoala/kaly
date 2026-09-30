@@ -9,9 +9,9 @@ use Kaly\Asset\NullAssets;
 use Kaly\Di\Injector;
 use Kaly\Ex;
 use Kaly\Http\ContentType;
-use Kaly\Http\InputMapperInterface;
+use Kaly\Http\Input\InputMapperInterface;
+use Kaly\Http\Input\RequestInput;
 use Kaly\Http\JsonResult;
-use Kaly\Http\RequestInput;
 use Kaly\I18n\LocalizedTranslator;
 use Kaly\I18n\TranslatorInterface;
 use Kaly\Router\Route;
@@ -34,7 +34,7 @@ use ReflectionNamedType;
  * RoutingHandler and read from the context. It only goes from a resolved route
  * to a PSR-7 response.
  */
-class RequestDispatcher implements RequestHandlerInterface
+final class RequestDispatcher implements RequestHandlerInterface
 {
     // Reserved render variable holding the translator bound to the request locale
     public const VAR_I18N = 'i18n';

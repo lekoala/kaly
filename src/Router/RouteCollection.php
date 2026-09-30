@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Kaly\Router;
 
 use Kaly\Ex;
-use Kaly\Http\RequestInput;
+use Kaly\Http\Input\RequestInput;
 use ReflectionClass;
-use ReflectionNamedType;
 
 /**
  * A frozen, compiled table of route definitions: the local routes of one
@@ -283,20 +282,6 @@ final class RouteCollection
         if (!$reflection->hasMethod($action)) {
             return null;
         }
-        $params = $reflection->getMethod($action)->getParameters();
-        if ($params === []) {
-            return null;
-        }
-        $last = $params[count($params) - 1];
-        $type = $last->getType();
-        if (!$type instanceof ReflectionNamedType || $type->isBuiltin()) {
-            return null;
-        }
-        $name = $type->getName();
-        if (!is_a($name, RequestInput::class, true)) {
-            return null;
-        }
-        /** @var class-string<RequestInput> $name */
-        return $name;
+        return ActionSignature::inputOf($reflection->getMethod($action)->getParameters(), $action, $reflection->getName());
     }
 }
