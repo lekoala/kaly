@@ -91,6 +91,44 @@ final class Fs
     }
 
     /**
+     * Whether a relative path carries a segment that is empty (`a//b`),
+     * `.`, `..`, or dot-prefixed (`.env`, `a/.git/x`): the segments never
+     * valid in a published or served path.
+     */
+    public static function hasDotSegment(string $path): bool
+    {
+        foreach (explode('/', $path) as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..' || str_starts_with($segment, '.')) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Remove a directory and its contents.
+     */
+    public static function removeDir(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::CURRENT_AS_PATHNAME),
+            \RecursiveIteratorIterator::CHILD_FIRST,
+        );
+        /** @var string $pathname */
+        foreach ($iterator as $pathname) {
+            if (is_dir($pathname) && !is_link($pathname)) {
+                rmdir($pathname);
+                continue;
+            }
+            unlink($pathname);
+        }
+        rmdir($dir);
+    }
+
+    /**
      * Strip the base directory prefix from a path. Only a leading prefix is
      * stripped: a path that does not start with the base is returned untouched.
      */

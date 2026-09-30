@@ -80,6 +80,45 @@ final class AssetPublisher
     }
 
     /**
+     * Remove old published versions, keeping the $keep most recent
+     * directories. The version named by `.version` is always kept too,
+     * even when it falls outside that window: a rolled-back app keeps
+     * serving its assets. Call this from the build script after publish().
+     *
+     * @return int The number of removed versions
+     */
+    public function prune(int $keep = 3): int
+    {
+        $assetsDir = Fs::toDir($this->publicDir, 'assets');
+        if (!is_dir($assetsDir)) {
+            return 0;
+        }
+
+        $active = trim(Fs::getFile(Fs::toDir($assetsDir, Assets::VERSION_FILE)));
+
+        $versions = [];
+        foreach (glob(Fs::toDir($assetsDir, '*'), GLOB_ONLYDIR) ?: [] as $dir) {
+            $version = basename($dir);
+            if (!str_starts_with($version, '.')) {
+                $versions[$version] = (int) filemtime($dir);
+            }
+        }
+        arsort($versions);
+
+        $removed = 0;
+        $position = 0;
+        foreach (array_keys($versions) as $version) {
+            $position++;
+            if ($position <= $keep || $version === $active) {
+                continue;
+            }
+            Fs::removeDir(Fs::toDir($assetsDir, $version));
+            $removed++;
+        }
+        return $removed;
+    }
+
+    /**
      * Deterministic content hash over sorted relative paths and file
      * contents (SHA-256, truncated to 10 chars).
      */
@@ -145,7 +184,7 @@ final class AssetPublisher
             $relative = str_replace(DIRECTORY_SEPARATOR, '/', (string) substr($pathname, strlen(Fs::dir($dir)) + 1));
             // Dot segments are skipped rather than fatal: a `.git/` inside a
             // source dir must not fail the publish
-            if (Assets::hasDotSegment($relative)) {
+            if (Fs::hasDotSegment($relative)) {
                 continue;
             }
             if (is_link($pathname)) {

@@ -95,24 +95,9 @@ final class Assets implements AssetsInterface
     public static function assertValidPath(string $path, string $original = ''): void
     {
         $original = $original === '' ? $path : $original;
-        if ($path === '' || str_starts_with($path, '/') || str_contains($path, "\0") || self::hasDotSegment($path)) {
+        if ($path === '' || str_starts_with($path, '/') || str_contains($path, "\0") || Fs::hasDotSegment($path)) {
             throw new InvalidArgumentException("Invalid asset path '{$original}'");
         }
-    }
-
-    /**
-     * Whether a relative path carries a dot segment (`.env`, `a/.git/x`) or
-     * an empty one (`a//b`): rejected by assertValidPath, skipped by the
-     * publisher.
-     */
-    public static function hasDotSegment(string $path): bool
-    {
-        foreach (explode('/', $path) as $segment) {
-            if ($segment === '' || $segment === '.' || $segment === '..' || str_starts_with($segment, '.')) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**

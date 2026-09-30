@@ -176,6 +176,50 @@ class AssetPublisherTest extends TestCase
         $publisher->publish('../evil');
     }
 
+    public function testPruneRemovesTheOldestVersions(): void
+    {
+        $this->seedHappyPath();
+        $publisher = new AssetPublisher($this->sources(), $this->base . '/public');
+
+        foreach (['v1', 'v2', 'v3', 'v4'] as $index => $version) {
+            $publisher->publish($version);
+            // v4 is live; v1 is the oldest on disk
+            touch($this->base . "/public/assets/{$version}", time() - 400 + (100 * $index));
+        }
+
+        $this->assertSame(2, $publisher->prune(keep: 2));
+        $this->assertFileDoesNotExist($this->base . '/public/assets/v1');
+        $this->assertFileDoesNotExist($this->base . '/public/assets/v2');
+        $this->assertDirectoryExists($this->base . '/public/assets/v3');
+        $this->assertDirectoryExists($this->base . '/public/assets/v4');
+    }
+
+    public function testPruneNeverRemovesTheLiveVersion(): void
+    {
+        $this->seedHappyPath();
+        $publisher = new AssetPublisher($this->sources(), $this->base . '/public');
+        $publisher->publish('v1');
+        $publisher->publish('v2');
+        $publisher->publish('v3');
+
+        // Rolled back: v1 is live but the oldest on disk
+        touch($this->base . '/public/assets/v1', time() - 300);
+        touch($this->base . '/public/assets/v2', time() - 200);
+        touch($this->base . '/public/assets/v3', time() - 100);
+        Fs::putFile($this->base . '/public/assets/.version', "v1\n");
+
+        $this->assertSame(1, $publisher->prune(keep: 1));
+        $this->assertDirectoryExists($this->base . '/public/assets/v1');
+        $this->assertFileDoesNotExist($this->base . '/public/assets/v2');
+        $this->assertDirectoryExists($this->base . '/public/assets/v3');
+    }
+
+    public function testPruneWithoutPublishedAssetsIsNoop(): void
+    {
+        $publisher = new AssetPublisher($this->sources(), $this->base . '/public');
+        $this->assertSame(0, $publisher->prune());
+    }
+
     public function testPublishedVersionFeedsAssetUrls(): void
     {
         $this->seedHappyPath();

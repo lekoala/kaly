@@ -35,7 +35,13 @@ class FileServer implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        $path = $request->getUri()->getPath();
+        // Hidden files and dot segments (.env, .git, ...) are never served.
+        // `.well-known` is the public protocol convention (acme, webfinger)
+        $path = ltrim($request->getUri()->getPath(), '/');
+        if (Fs::hasDotSegment($path) && !str_starts_with($path, '.well-known/')) {
+            return $handler->handle($request);
+        }
+
         $filename = Fs::toDir($this->publicDir, $path);
 
         // Reject path traversal, symlink escapes and non regular files

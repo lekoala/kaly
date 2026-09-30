@@ -138,6 +138,30 @@ class FileServerTest extends TestCase
         $this->assertSame(404, $response->getStatusCode());
     }
 
+    public function testDotfilesAreNotServed(): void
+    {
+        Fs::putFile($this->base . '/public/.env', 'DOTFILE-SENTINEL');
+        Fs::putFile($this->base . '/public/.git/config', 'GIT-SENTINEL');
+        Fs::putFile($this->base . '/public/assets/.version', "v1\n");
+
+        foreach (['/.env', '/.git/config', '/assets/.version'] as $uri) {
+            $this->assertSame(404, $this->serve('GET', $uri)->getStatusCode(), $uri);
+        }
+    }
+
+    public function testWellKnownDirectoryIsServed(): void
+    {
+        Fs::putFile($this->base . '/public/.well-known/acme-challenge/token', 'challenge');
+
+        $response = $this->serve('GET', '/.well-known/acme-challenge/token');
+        try {
+            $this->assertSame(200, $response->getStatusCode());
+            $this->assertSame('challenge', (string) $response->getBody());
+        } finally {
+            $response->getBody()->close();
+        }
+    }
+
     public function testMissingFileIsDelegated(): void
     {
         $response = $this->serve('GET', '/missing.txt');

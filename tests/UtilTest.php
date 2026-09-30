@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use Kaly\Util\Arr;
+use Kaly\Util\Fs;
 use Kaly\Util\Str;
 use PHPUnit\Framework\TestCase;
 
@@ -133,6 +134,28 @@ class UtilTest extends TestCase
             'a' => 1,
             'b' => 2,
         ]));
+    }
+
+    public function testHasDotSegment(): void
+    {
+        $this->assertTrue(Fs::hasDotSegment('.env'));
+        $this->assertTrue(Fs::hasDotSegment('a/.git/config'));
+        $this->assertTrue(Fs::hasDotSegment('a/../b'));
+        $this->assertTrue(Fs::hasDotSegment('a//b'));
+        $this->assertFalse(Fs::hasDotSegment('a/b.txt'));
+        $this->assertFalse(Fs::hasDotSegment('file.txt'));
+    }
+
+    public function testRemoveDir(): void
+    {
+        $dir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'kaly-rmdir-' . uniqid();
+        Fs::putFile($dir . '/a/b/c.txt', 'x');
+        $this->assertFileExists($dir . '/a/b/c.txt');
+
+        Fs::removeDir($dir);
+        $this->assertFileDoesNotExist($dir);
+        // A missing directory is a no-op
+        Fs::removeDir($dir);
     }
 
     public function testArrayMergeDistinct(): void
