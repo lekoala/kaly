@@ -162,6 +162,8 @@ final class App implements RequestHandlerInterface
 
     /**
      * Force the debug mode, driven by APP_DEBUG by default
+     *
+     * This is the setter: read the state with isDebug(), never with debug().
      */
     public function debug(bool $debug = true): self
     {

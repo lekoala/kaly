@@ -31,8 +31,11 @@ class RedirectException extends Ex implements HttpExceptionInterface
      * This is used for caching purposes.
      * It tells the client that the response has not been modified,
      * so the client can continue to use the same cached version of the response.
+     *
+     * 304 is not a redirect and is deliberately absent from this class: it
+     * answers a conditional request, it does not point at another url.
      */
-    public const NOT_MODIFIED_REDIRECT = 304;
+    public const NOT_MODIFIED = 304;
     /**
      * The server sends this response to direct the client to get the requested resource
      * at another URI with same method that was used in the prior request.
@@ -50,15 +53,23 @@ class RedirectException extends Ex implements HttpExceptionInterface
      */
     public const PERMANENT_REDIRECT = 308;
 
+    /**
+     * The response codes that redirect, with a Location header: everything
+     * else in the 3xx range (304 Not Modified) is not a redirect and must not
+     * carry one.
+     */
+    public const REDIRECT_CODES = [301, 302, 303, 307, 308];
+
     protected string $url;
 
     /**
      * @param string|UriInterface $url
+     * @param int $code One of REDIRECT_CODES
      */
     public function __construct($url, int $code = 307, ?Throwable $previous = null)
     {
-        if ($code < 300 || $code > 399) {
-            throw new InvalidArgumentException("{$code} should be between 300 and 399");
+        if (!in_array($code, self::REDIRECT_CODES, true)) {
+            throw new InvalidArgumentException("{$code} is not a redirect status, expected one of " . implode(', ', self::REDIRECT_CODES));
         }
         $this->url = (string) $url;
         $message = 'You are being redirected to ' . $url;

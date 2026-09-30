@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use Kaly\Http;
+use Kaly\Http\Accept;
+use Kaly\Http\ExceptionHandler;
 use Kaly\Http\RequestUtils;
 use Kaly\Http\ResponseEmitter;
 use Kaly\Tests\Support\HttpFactory;
@@ -160,6 +162,84 @@ class HttpTest extends TestCase
 
         $blank = new BaseServerRequest('GET', '/', [], null, '1.1', ['REMOTE_ADDR' => '']);
         $this->assertSame('0.0.0.0', RequestUtils::getIp($blank));
+    }
+
+    public function testAcceptWeightsDecideTheBestType(): void
+    {
+        // Best first: the weights sort the entries, whatever the client order
+        $weighted = Accept::parse('text/plain;q=1.0, application/json;q=0.9');
+        $this->assertSame(['text/plain', 'application/json'], $weighted->toArray());
+
+        $best = Accept::parse('text/html;q=0.5, application/json');
+        $this->assertSame(['application/json', 'text/html'], $best->toArray());
+
+        // The priority list is the server preference, filtered by what the
+        // client accepts: html is refused here, so json answers either way
+        $request = (new BaseServerRequest('GET', '/'))->withHeader('Accept', 'text/html;q=0.5, application/json');
+        $this->assertSame('application/json', RequestUtils::getPreferredContentType($request, ['application/json', 'text/html']));
+        $this->assertSame('application/json', RequestUtils::getPreferredContentType($request, ['text/html', 'application/json']));
+    }
+
+    public function testTheServerPriorityBreaksATie(): void
+    {
+        // Same weight: the server order decides
+        $request = (new BaseServerRequest('GET', '/'))->withHeader('Accept', 'text/html, application/json');
+        $this->assertSame('application/json', RequestUtils::getPreferredContentType($request, ['application/json', 'text/html']));
+        $this->assertSame('text/html', RequestUtils::getPreferredContentType($request, ['text/html', 'application/json']));
+    }
+
+    public function testAcceptWildcardsOnlyFillTheGaps(): void
+    {
+        $request = (new BaseServerRequest('GET', '/'))->withHeader('Accept', 'text/html;q=0.5, */*;q=0.9');
+        $accept = Accept::fromRequest($request);
+
+        // The explicit entry is the client's real opinion for text/html
+        $this->assertSame(0.5, $accept->qualityFor('text', 'html'));
+        // The wildcard is all the client said about application/json
+        $this->assertSame(0.9, $accept->qualityFor('application', 'json'));
+        // ... but it expresses no opinion, so it is not an explicit acceptance
+        $this->assertSame(0.0, $accept->explicitQualityFor('application', 'json'));
+        $this->assertSame(0.5, $accept->explicitQualityFor('text', 'html'));
+    }
+
+    public function testAcceptReadsTheSameHeaderForEveryCaller(): void
+    {
+        $request = (new BaseServerRequest('GET', '/'))->withHeader('Accept', 'text/html;q=0.5, application/json');
+        $accept = Accept::fromRequest($request);
+
+        // The negotiator and the legacy list agree, best first
+        $this->assertSame(['application/json', 'text/html'], $accept->toArray());
+        $this->assertSame($accept->toArray(), RequestUtils::parseAcceptHeader($request));
+        // and both see the weights
+        $this->assertTrue(ExceptionHandler::wantsJson($request));
+    }
+
+    public function testNegotiationFallsBackWhenTheClientRefusesEverything(): void
+    {
+        $request = (new BaseServerRequest('GET', '/'))->withHeader('Accept', 'application/xml');
+
+        // Nothing in the list is acceptable, so the server preference answers
+        $this->assertSame('text/html', RequestUtils::getPreferredContentType($request, ['text/html']));
+        // A client that sent no preference is served plain text
+        $this->assertSame('text/plain', RequestUtils::getPreferredContentType(new BaseServerRequest('GET', '/')));
+    }
+
+    public function testMediaTypeParamsSurviveOddHeaders(): void
+    {
+        // A parameter without a value used to read past the end of the part
+        $valueless = (new BaseServerRequest('GET', '/'))->withHeader('Content-Type', 'text/html;charset');
+        $this->assertSame(['charset' => ''], RequestUtils::getMediaTypeParams($valueless));
+        $this->assertSame('text/html', RequestUtils::getMediaType($valueless));
+
+        // A quoted value keeps the separators it contains
+        $boundary = (new BaseServerRequest('GET', '/'))->withHeader('Content-Type', 'multipart/form-data; boundary="a;b"');
+        $this->assertSame('a;b', RequestUtils::getMediaTypeParams($boundary)['boundary']);
+
+        $charset = (new BaseServerRequest('GET', '/'))->withHeader('Content-Type', 'application/json; charset=UTF-8');
+        $this->assertSame('UTF-8', RequestUtils::getContentCharset($charset));
+
+        $this->assertSame([], RequestUtils::getMediaTypeParams(new BaseServerRequest('GET', '/')));
+        $this->assertNull(RequestUtils::getMediaType(new BaseServerRequest('GET', '/')));
     }
 
     public function testContentRangeSendResponse(): void

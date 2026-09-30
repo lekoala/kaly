@@ -33,7 +33,8 @@ final class CookiePolicy
     public const SAMESITE_MODES = ['None', 'Lax', 'Strict'];
 
     /**
-     * @param 'None'|'Lax'|'Strict'|'none'|'lax'|'strict'|null $sameSite
+     * @param 'None'|'Lax'|'Strict'|'none'|'lax'|'strict'|null $sameSite Canonicalised on the way in, so a
+     *        policy can never hold a mode the Set-Cookie builder would drop
      */
     public function __construct(
         public readonly ?int $lifetime = null,
@@ -41,13 +42,17 @@ final class CookiePolicy
         public readonly ?string $domain = null,
         public readonly ?bool $secure = null,
         public readonly ?bool $httpOnly = null,
-        public readonly ?string $sameSite = null,
+        ?string $sameSite = null,
         public readonly ?bool $partitioned = null,
     ) {
-        if ($sameSite !== null && !in_array(ucfirst(strtolower($sameSite)), self::SAMESITE_MODES, true)) {
+        $canonical = $sameSite === null ? null : ucfirst(strtolower($sameSite));
+        if ($canonical !== null && !in_array($canonical, self::SAMESITE_MODES, true)) {
             throw new InvalidArgumentException("Invalid SameSite mode '{$sameSite}', expected None, Lax or Strict");
         }
+        $this->sameSite = $canonical;
     }
+
+    public readonly ?string $sameSite;
 
     /**
      * The historical kaly baseline: the session cookie dies with the browser,

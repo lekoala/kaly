@@ -47,7 +47,7 @@ directly in debug mode through `Kaly\Middleware\Builtin\AssetServer` on
 `/_assets/*`:
 
 ```php
-if ($app->debug()) {
+if ($app->isDebug()) {
     $app->middleware()->incoming(AssetServer::class);
 }
 ```

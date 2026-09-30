@@ -62,42 +62,22 @@ final class RequestUtils
      */
     public static function getMediaType(ServerRequestInterface $request): ?string
     {
-        $contentType = self::getContentType($request);
-
-        if ($contentType) {
-            $contentTypeParts = preg_split('/\s*[;,]\s*/', $contentType);
-            if ($contentTypeParts === false) {
-                return null;
-            }
-            return strtolower($contentTypeParts[0]);
-        }
-
-        return null;
+        $media = MediaType::parse(self::getContentType($request));
+        return $media === null || $media->isEmpty() ? null : (string) $media;
     }
 
     /**
      * Get request media type params, if known.
      *
-     * @return string[]
+     * A parameter without a value yields an empty string, and quoted values
+     * keep the separators they contain.
+     *
+     * @return array<string,string>
      */
     public static function getMediaTypeParams(ServerRequestInterface $request): array
     {
-        $contentType = self::getContentType($request);
-        $contentTypeParams = [];
-
-        if ($contentType) {
-            $contentTypeParts = preg_split('/\s*[;,]\s*/', $contentType);
-            if ($contentTypeParts !== false) {
-                $contentTypePartsLength = count($contentTypeParts);
-                for ($i = 1; $i < $contentTypePartsLength; $i++) {
-                    $paramParts = explode('=', $contentTypeParts[$i]);
-                    /** @var string[] $paramParts */
-                    $contentTypeParams[strtolower($paramParts[0])] = $paramParts[1];
-                }
-            }
-        }
-
-        return $contentTypeParams;
+        $media = MediaType::parse(self::getContentType($request));
+        return $media === null ? [] : $media->params;
     }
 
     /**
@@ -201,45 +181,35 @@ final class RequestUtils
     }
 
     /**
-     * The best content type for this request. Falls back to the first entry of
-     * the priority list, or to plain text when none is given.
+     * The best content type for this request, from a server priority list.
+     *
+     * The client leads: an entry weighs as much as its own q value says. The
+     * priority list is the server preference, in order, and breaks ties. When
+     * the client accepts nothing from the list, the first entry of the list is
+     * the answer; with no list either, the best type the client asked for, or
+     * plain text.
      *
      * @param string[] $priorityList
      */
     public static function getPreferredContentType(ServerRequestInterface $request, array $priorityList = []): string
     {
-        $accepted = self::parseAcceptHeader($request);
-        if (!empty($priorityList)) {
-            foreach ($priorityList as $item) {
-                if (in_array($item, $accepted, true)) {
-                    return $item;
-                }
-            }
-            return $priorityList[0];
+        $accept = Accept::fromRequest($request);
+        if ($priorityList !== []) {
+            return $accept->negotiate($priorityList) ?? $priorityList[0];
         }
-        return $accepted[0] ?? ContentType::PLAIN;
+        $accepted = $accept->toArray();
+        // A client that expressed no preference is served the wildcard
+        return $accepted[0] === '*/*' ? ContentType::PLAIN : $accepted[0];
     }
 
     /**
+     * The media types the client accepts, best first.
+     *
      * @return array<string>
      */
     public static function parseAcceptHeader(ServerRequestInterface $request): array
     {
-        $header = $request->getHeader('Accept')[0] ?? '';
-        $arr = [];
-        foreach (explode(',', $header) as $part) {
-            $subparts = explode(';', $part);
-            $mime = $subparts[0] ?? '';
-            $types = explode('/', $mime);
-
-            // Ignore invalid mimetypes
-            if (!isset($types[1])) {
-                continue;
-            }
-
-            $arr[] = $mime;
-        }
-        return $arr;
+        return Accept::fromRequest($request)->toArray();
     }
 
     /**

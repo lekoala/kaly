@@ -50,7 +50,7 @@ if Bun or another tool resolves them, its output must land browser-ready in
 The application opts in to serving sources directly, typically in debug mode:
 
 ```php
-if ($app->debug()) {
+if ($app->isDebug()) {
     $app->middleware()->incoming(AssetServer::class);
 }
 ```

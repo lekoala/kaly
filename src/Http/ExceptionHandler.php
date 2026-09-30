@@ -121,28 +121,18 @@ class ExceptionHandler implements ExceptionHandlerInterface
      */
     public static function wantsJson(ServerRequestInterface $request): bool
     {
-        $json = 0.0;
-        $html = 0.0;
-        foreach (explode(',', $request->getHeaderLine('Accept')) as $part) {
-            $params = explode(';', $part);
-            $type = strtolower(trim($params[0]));
-            $q = 1.0;
-            foreach (array_slice($params, 1) as $param) {
-                $param = trim($param);
-                if (str_starts_with($param, 'q=')) {
-                    $q = (float) substr($param, 2);
-                }
-            }
-            if (str_ends_with($type, '/json') || str_ends_with($type, '+json')) {
-                $json = max($json, $q);
-            } elseif ($type === 'text/html' || $type === 'application/xhtml+xml') {
-                $html = max($html, $q);
-            }
-        }
+        $accept = Accept::fromRequest($request);
+        $json = max($accept->qualityFor('application', 'json'), $accept->qualityFor('application', '+json'));
+        $html = max($accept->qualityFor('text', 'html'), $accept->qualityFor('application', 'xhtml+xml'));
+
         if ($json > 0 && $json > $html) {
             return true;
         }
+
+        // A JSON body is a preference only when the client did not ask for
+        // HTML: a bare wildcard says it does not care either way
+        $explicitHtml = max($accept->explicitQualityFor('text', 'html'), $accept->explicitQualityFor('application', 'xhtml+xml'));
         $contentType = strtolower($request->getHeaderLine('Content-Type'));
-        return $html === 0.0 && (str_contains($contentType, '/json') || str_contains($contentType, '+json'));
+        return $explicitHtml === 0.0 && (str_contains($contentType, '/json') || str_contains($contentType, '+json'));
     }
 }

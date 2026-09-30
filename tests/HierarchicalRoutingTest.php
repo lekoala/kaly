@@ -78,6 +78,21 @@ class HierarchicalRoutingTest extends TestCase
         $this->assertSame(404, $this->get('/en/boutique/produit/velo/')->getStatusCode());
     }
 
+    public function testACamelizedSegmentRedirectsToTheCanonicalUrl(): void
+    {
+        // /shop/Cart/ resolves CartController, but the canonical url is lowercase
+        $response = $this->get('/en/shop/Cart/');
+        $this->assertSame(307, $response->getStatusCode());
+        $this->assertSame('/en/shop/cart/', $response->getHeaderLine('Location'));
+
+        $response = $this->get('/en/shop/Product/');
+        $this->assertSame(307, $response->getStatusCode());
+        $this->assertSame('/en/shop/product/', $response->getHeaderLine('Location'));
+
+        // The redirect converges: it is not a loop back to the same url
+        $this->assertSame(200, $this->get('/en/shop/cart/')->getStatusCode());
+    }
+
     public function testALocalizedModuleRequiresItsLocale(): void
     {
         $response = $this->get('/boutique/produit/velo/');

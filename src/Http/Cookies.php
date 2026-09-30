@@ -196,7 +196,7 @@ class Cookies implements JsonSerializable
         $defaultParams = $this->baselineParams();
 
         foreach ($this->getChanges() as $name => $arr) {
-            $value = $arr[1] ?? null;
+            $value = $arr[1];
             /** @var CookieParams $params */
             $params = array_merge($defaultParams, $this->getParams($name) ?? []);
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use InvalidArgumentException;
 use Kaly\Http\CookiePolicy;
 use Kaly\Http\Cookies;
 use Nyholm\Psr7\Response;
@@ -41,6 +42,27 @@ class CookiePolicyTest extends TestCase
         $this->assertSame(0, $derived->lifetime);
         // The baseline itself is untouched: the policy is immutable
         $this->assertSame('Lax', $baseline->sameSite);
+    }
+
+    public function testSameSiteIsCanonicalisedSoItIsNeverDropped(): void
+    {
+        foreach (['Strict', 'strict', 'STRICT'] as $spelling) {
+            $policy = new CookiePolicy(sameSite: $spelling);
+            $this->assertSame('Strict', $policy->sameSite, "spelling '{$spelling}'");
+        }
+
+        // The policy holds a mode the Set-Cookie builder can actually emit
+        $request = new BaseServerRequest('GET', '/');
+        $cookies = new Cookies($request, new CookiePolicy(sameSite: 'STRICT'));
+        $cookies->set('theme', 'dark');
+        $header = $cookies->addToResponse(new Response())->getHeaderLine('Set-Cookie');
+        $this->assertStringContainsString('; SameSite=Strict', $header);
+    }
+
+    public function testAnUnknownSameSiteIsRefused(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        new CookiePolicy(sameSite: 'Whatever');
     }
 
     public function testPoliciesArePerInstanceNeverGlobal(): void

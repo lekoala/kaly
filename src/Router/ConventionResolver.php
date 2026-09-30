@@ -142,7 +142,7 @@ final class ConventionResolver implements ResolverInterface
 
         // Don't allow calling camelized parts, we use lowercase
         if ($part && $part === $camelPart) {
-            throw $this->redirect($m, $camelPart, $part);
+            throw $this->redirect($m, $camelPart, Str::decamelize($camelPart));
         }
 
         // Do not allow direct /index calls

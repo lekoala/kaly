@@ -27,7 +27,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * application opts in explicitly, typically in debug mode:
  *
  * ```php
- * if ($app->debug()) {
+ * if ($app->isDebug()) {
  *     $app->middleware()->incoming(AssetServer::class);
  * }
  * ```
