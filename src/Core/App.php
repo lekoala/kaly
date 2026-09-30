@@ -389,7 +389,7 @@ final class App implements RequestHandlerInterface
         }
         // composer.json is decoded as a plain array; callers read well-formed entries only
         /** @var array{name?:string,autoload?:array{psr-4?:array<string,string>}} $data */
-        $data = Json::decodeArr(Fs::getFile($filename));
+        $data = Json::decodeMap(Fs::getFile($filename));
         return $data;
     }
 

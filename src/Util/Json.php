@@ -5,103 +5,73 @@ declare(strict_types=1);
 namespace Kaly\Util;
 
 use JsonException;
-use RuntimeException;
-use stdClass;
 
 /**
- * Typesafe json utilities
+ * The JSON boundary: one place for encode/decode, strict by contract —
+ * malformed input or the wrong outer shape throws, never falls back
+ * silently. `decodeMap()`/`decodeList()` also give static analysis the outer
+ * structure so callers stop negotiating with `mixed` immediately.
+ * Field-level narrowing on decoded values belongs to `Types`.
  *
- * @link https://github.com/nette/utils/blob/master/src/Utils/Json.php
  * @link https://wiki.php.net/rfc/json_throw_on_error
  */
 final class Json
 {
-    /**
-     * @param array<mixed>|string|object $value
-     * @param int<0, max> $flags
-     * @param int<1, max> $depth
-     * @return string
-     */
-    public static function encode(array|string|object $value, int $flags = 0, int $depth = 512): string
+    public static function encode(mixed $value, int $flags = 0): string
     {
-        if (is_string($value)) {
-            return $value;
-        }
-        // Use safer defaults
-        if ($flags === 0) {
-            $flags = JSON_INVALID_UTF8_SUBSTITUTE;
-        }
-        $result = json_encode($value, $flags, $depth);
-        if ($result === false) {
-            throw new JsonException(json_last_error_msg(), json_last_error());
-        }
-        return $result;
+        return json_encode($value, $flags | JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
+    }
+
+    public static function decode(string $json): mixed
+    {
+        return json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    /** @return list<mixed> */
+    public static function decodeList(string $json): array
+    {
+        return self::toList(self::decode($json));
     }
 
     /**
-     * Decode a JSON string, throwing on invalid input.
+     * @return array<string, mixed>
      *
-     * A null or missing input decodes to an empty array entry point.
+     * A JSON object with numeric-string keys ({"0": "x"}) decodes to int
+     * keys and is rejected: it is not representable as our map shape.
      */
-    public static function decode(?string $value = null, bool $assoc = true): mixed
+    public static function decodeMap(string $json): array
     {
-        if ($value === null) {
-            $value = '[]';
-        }
-        $result = json_decode($value, $assoc);
-        if ($result === null) {
-            throw new JsonException(json_last_error_msg(), json_last_error());
-        }
-        return $result;
+        return self::toMap(self::decode($json));
     }
 
-    /**
-     * Decode a JSON object string, returning an array.
-     *
-     * @return array<mixed>
-     */
-    public static function decodeArr(?string $value = null): array
+    public static function validate(string $json): bool
     {
-        if (!$value) {
-            return [];
-        }
-        $res = self::decode($value, true);
-        if (!is_array($res)) {
-            throw new RuntimeException('Decoded value is not an array');
-        }
-        return $res;
+        return json_validate($json);
     }
 
-    /**
-     * Decode a JSON object string, returning an object.
-     */
-    public static function decodeObj(?string $value = null): object
+    /** @return list<mixed> */
+    private static function toList(mixed $value): array
     {
-        if (!$value) {
-            return new stdClass();
+        if (!is_array($value) || !array_is_list($value)) {
+            throw new JsonException('Expected a JSON array.');
         }
-        $res = self::decode($value, false);
-        if (!is_object($res)) {
-            throw new RuntimeException('Decoded value is not an object');
-        }
-        return $res;
+
+        return $value;
     }
 
-    /**
-     * Check whether a string holds valid JSON.
-     *
-     * Only JSON_INVALID_UTF8_IGNORE is meaningful for validation.
-     *
-     * @param string|null $string
-     * @param 0|JSON_INVALID_UTF8_IGNORE $flags
-     * @param int<1, max> $depth
-     * @return bool
-     */
-    public static function validate(?string $string = null, int $flags = 0, int $depth = 512): bool
+    /** @return array<string, mixed> */
+    private static function toMap(mixed $value): array
     {
-        if (!$string) {
-            return false;
+        if (!is_array($value) || array_is_list($value)) {
+            throw new JsonException('Expected a JSON object.');
         }
-        return json_validate($string, $depth, $flags);
+        foreach (array_keys($value) as $key) {
+            if (!is_string($key)) {
+                throw new JsonException('Expected a JSON object.');
+            }
+        }
+
+        /** @var array<string, mixed> $value verified above */
+        return $value;
     }
 }

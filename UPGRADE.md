@@ -67,6 +67,24 @@ No BC aliases are kept: update every usage in one pass.
   Any PSR-20 implementation (eg: `symfony/clock`) plugs in with no adapter:
   `$di->rebind(ClockInterface::class, $yourClock)`.
 
+## Strict JSON boundary and mixed narrowing
+
+- `Json::encode()` always produces real JSON: `encode('foo')` returns `'"foo"'`
+  instead of the bare `foo`. It throws (`JSON_THROW_ON_ERROR`) on failure and
+  substitutes invalid UTF-8.
+- `Json::decode()` throws on malformed input only: the valid JSON document
+  `null` now decodes to `null` instead of throwing. It takes a plain string
+  (no `null` default, no `$assoc` flag).
+- `decodeArr()`/`decodeObj()` are replaced by `decodeList()` (`list<mixed>`)
+  and `decodeMap()` (`array<string, mixed>`): malformed JSON or the wrong
+  outer shape throws a `JsonException`. A JSON object with numeric-string
+  keys (`{"0": "x"}`) is rejected by `decodeMap()`.
+- `Json::validate()` is minimal again (`validate(string $json): bool`): no
+  flags, depth or nullable input.
+- New `Kaly\Util\Types` for trivial `mixed` narrowing without conversion:
+  `stringOrNull()`, `intOrNull()`, `boolOrNull()`, `listOrEmpty()`,
+  `mapOrEmpty()`. `Types::intOrNull("42")` is `null`, never `(int) "42"`.
+
 ## kaly-di 0.3
 
 - `composer.json` now requires `lekoala/kaly-di: ^0.3`.
