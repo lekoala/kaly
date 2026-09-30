@@ -20,7 +20,7 @@ class SessionTest extends TestCase
     protected function setUp(): void
     {
         $this->savePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'kaly-session-' . uniqid();
-        Fs::mkDir($this->savePath);
+        Fs::ensureDir($this->savePath);
         NativePhpSession::configureForPsr7();
         session_save_path($this->savePath);
         session_name('KALYAUDIT');

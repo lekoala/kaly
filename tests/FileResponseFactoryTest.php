@@ -18,7 +18,7 @@ class FileResponseFactoryTest extends TestCase
     protected function setUp(): void
     {
         $this->base = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'kaly-fileresponse-' . uniqid();
-        Fs::mkDir($this->base . '/storage');
+        Fs::ensureDir($this->base . '/storage');
         Fs::putFile($this->base . '/storage/invoice.pdf', 'AUDIT-INVOICE-BYTES');
         Fs::putFile($this->base . '/storage/source.php', '<?php /* AUDIT-PRIVATE-SOURCE */');
 

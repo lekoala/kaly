@@ -19,8 +19,8 @@ class AssetPublisherTest extends TestCase
     protected function setUp(): void
     {
         $this->base = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'kaly-publisher-' . uniqid();
-        Fs::mkDir($this->base . '/public');
-        Fs::mkDir($this->base . '/modules');
+        Fs::ensureDir($this->base . '/public');
+        Fs::ensureDir($this->base . '/modules');
 
         unset($_ENV[Assets::ENV_VERSION]);
     }
@@ -60,7 +60,7 @@ class AssetPublisherTest extends TestCase
         Fs::putFile($this->base . '/assets/components/dialog.js', 'export default 1;');
         Fs::putFile($this->base . '/assets/images/logo.svg', '<svg></svg>');
         Fs::putFile($this->base . '/assets/.env', 'secret');
-        Fs::mkDir($this->base . '/assets/.git');
+        Fs::ensureDir($this->base . '/assets/.git');
         Fs::putFile($this->base . '/assets/.git/HEAD', 'ref');
         Fs::putFile($this->base . '/modules/Admin/assets/admin.js', 'console.log(1);');
         Fs::putFile($this->base . '/modules/Admin/assets/admin.css', 'body {}');

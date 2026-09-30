@@ -26,8 +26,8 @@ class FileServerTest extends TestCase
     protected function setUp(): void
     {
         $this->base = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'kaly-fileserver-' . uniqid();
-        Fs::mkDir($this->base . '/public');
-        Fs::mkDir($this->base . '/modules');
+        Fs::ensureDir($this->base . '/public');
+        Fs::ensureDir($this->base . '/modules');
         Fs::putFile($this->base . '/private-note', 'AUDIT-PRIVATE-SENTINEL');
         Fs::putFile($this->base . '/public/asset.txt', 'hello static');
         Fs::putFile($this->base . '/public/sample.php', '<?php /* AUDIT-SOURCE-SENTINEL */');

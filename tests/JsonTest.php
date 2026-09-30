@@ -104,4 +104,73 @@ class JsonTest extends TestCase
         $this->assertFalse(Json::validate('{oops'));
         $this->assertFalse(Json::validate(''));
     }
+
+    public function testDecodeRelaxedAcceptsInformalInput(): void
+    {
+        $this->assertSame(['a' => 1], Json::decodeRelaxed('{a: 1}'));
+        $this->assertSame('x', Json::decodeRelaxed("'x'"));
+    }
+
+    public function testDecodeRelaxedLeavesValidJsonUntouched(): void
+    {
+        // `a:` inside a string is data, not a key: the strict path never rewrites
+        $this->assertSame(['msg' => 'a: 1'], Json::decodeRelaxed('{"msg": "a: 1"}'));
+    }
+
+    public function testDecodeMapRelaxedAcceptsBareKeysAndSingleQuotes(): void
+    {
+        $this->assertSame(
+            ['a' => 1, 'b' => 'x', 'c' => true, 'd' => null, 'e' => 1.5],
+            Json::decodeMapRelaxed("a: 1, b: 'x', c: true, d: null, e: 1.5"),
+        );
+    }
+
+    public function testDecodeMapRelaxedAcceptsBracedAndNestedInput(): void
+    {
+        $this->assertSame(['a' => ['b' => 2]], Json::decodeMapRelaxed('{a: {b: 2}}'));
+        $this->assertSame(['a' => [['b' => 2]]], Json::decodeMapRelaxed('{a: [{b: 2}]}'));
+    }
+
+    public function testDecodeMapRelaxedAcceptsDashedKeysAndEscapedQuotes(): void
+    {
+        $this->assertSame(['data-key' => "it's"], Json::decodeMapRelaxed("data-key: 'it\\'s'"));
+    }
+
+    public function testDecodeMapRelaxedTreatsEmptyInputAsAnEmptyConfig(): void
+    {
+        $this->assertSame([], Json::decodeMapRelaxed(''));
+        $this->assertSame([], Json::decodeMapRelaxed('  '));
+    }
+
+    public function testDecodeMapRelaxedRejectsBareValuesAndTrailingCommas(): void
+    {
+        // The relax step is not a grammar: `foo` stays bare and `,}` stays
+        // malformed, the final decode rejects both
+        foreach (['a: foo', 'a: 1,'] as $text) {
+            $thrown = false;
+            try {
+                Json::decodeMapRelaxed($text);
+            } catch (JsonException) {
+                $thrown = true;
+            }
+            $this->assertTrue($thrown, 'Expected JsonException for ' . $text);
+        }
+    }
+
+    public function testDecodeMapRelaxedRejectsAList(): void
+    {
+        $this->expectException(JsonException::class);
+        Json::decodeMapRelaxed('[1, 2]');
+    }
+
+    public function testDecodeListRelaxedAcceptsRelaxedMembers(): void
+    {
+        $this->assertSame([['a' => 1], 'x'], Json::decodeListRelaxed("[{a: 1}, 'x']"));
+    }
+
+    public function testDecodeListRelaxedRejectsAMap(): void
+    {
+        $this->expectException(JsonException::class);
+        Json::decodeListRelaxed('{a: 1}');
+    }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Log;
 
 use Kaly\Util\Str;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LogLevel;
 use RuntimeException;
@@ -45,7 +46,9 @@ class FileLogger extends AbstractLogger
     {
         $replace = [];
         foreach ($context as $key => $val) {
-            $replace['{' . $key . '}'] = Str::stringify($val);
+            $replace['{' . $key . '}'] = $val instanceof ResponseInterface
+                ? 'Response: ' . Str::truncate((string) $val->getBody())
+                : Str::stringify($val);
         }
         return strtr($message, $replace);
     }

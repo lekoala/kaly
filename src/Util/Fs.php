@@ -19,19 +19,6 @@ use Exception;
 final class Fs
 {
     /**
-     * Create a directory if it does not exist.
-     *
-     * @param int $flags Permissions used on creation
-     */
-    public static function mkDir(string $dir, int $flags = 0o755, bool $recursive = true): bool
-    {
-        if (!is_dir($dir)) {
-            return mkdir($dir, $flags, $recursive);
-        }
-        return true;
-    }
-
-    /**
      * Read a whole file, returning an empty string when unreadable.
      */
     public static function getFile(string $filename): string
@@ -49,7 +36,7 @@ final class Fs
     public static function putFile(string $filename, string $data): bool
     {
         $dir = dirname($filename);
-        self::mkDir($dir);
+        self::ensureDir($dir);
         $res = file_put_contents($filename, $data);
         return $res !== false;
     }
@@ -104,11 +91,15 @@ final class Fs
     }
 
     /**
-     * Strip the base directory prefix from a path.
+     * Strip the base directory prefix from a path. Only a leading prefix is
+     * stripped: a path that does not start with the base is returned untouched.
      */
     public static function relativePath(string $baseDir, string $path): string
     {
-        return str_replace($baseDir, '', $path);
+        if (str_starts_with($path, $baseDir)) {
+            return substr($path, strlen($baseDir));
+        }
+        return $path;
     }
 
     /**

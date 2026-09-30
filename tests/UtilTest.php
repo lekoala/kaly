@@ -126,34 +126,13 @@ class UtilTest extends TestCase
         $this->assertSame(self::class, Str::stringify($this));
     }
 
-    public function testArrCompare(): void
+    public function testArrMapAssoc(): void
     {
-        $old = ['a' => 1, 'b' => 2, 'c' => 3];
-        $new = ['a' => 1, 'b' => 20, 'd' => 4];
-
-        // changed, and a key the old value did not have at all
-        $this->assertSame(['b' => [2, 20], 'd' => [null, 4]], Arr::compare($old, $new));
-        $this->assertSame([], Arr::compare($old, $old));
-    }
-
-    public function testArrMapHelpers(): void
-    {
-        $this->assertSame([2, 4], Arr::map(static fn(int $n): int => $n * 2, [1, 2]));
-
         // keys are preserved, as the docblock example assumes
         $this->assertSame(['a' => 'a=1', 'b' => 'b=2'], Arr::mapAssoc(static fn(string $key, int $value): string => $key . '=' . $value, [
             'a' => 1,
             'b' => 2,
         ]));
-    }
-
-    public function testArrStringValues(): void
-    {
-        // values follow Str::stringify(), which names rather than formats
-        $this->assertSame(
-            ['n' => 'int', 'b' => '(bool) true', 'deep' => ['k' => 'v']],
-            Arr::stringValues(['n' => 42, 'b' => true, 'deep' => ['k' => 'v']]),
-        );
     }
 
     public function testArrayMergeDistinct(): void

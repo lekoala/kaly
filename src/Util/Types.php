@@ -7,6 +7,8 @@ namespace Kaly\Util;
 /**
  * Trivial `mixed` narrowing, permissive exactly where the name says so:
  * `*OrNull`/`*OrEmpty` return an explicit fallback, never a conversion.
+ * It is the field-level companion of `Json::decodeMap()`/`decodeList()`:
+ * they give the outer shape, this narrows each value on read.
  * No speculative primitives — a member is added only after the same pattern
  * repeats in the codebase. Anything carrying domain semantics (statuses,
  * dates, ids) stays in the domain, not here.

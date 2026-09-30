@@ -28,8 +28,8 @@ class AssetServerTest extends TestCase
     protected function setUp(): void
     {
         $this->base = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'kaly-assetserver-' . uniqid();
-        Fs::mkDir($this->base . '/public');
-        Fs::mkDir($this->base . '/modules');
+        Fs::ensureDir($this->base . '/public');
+        Fs::ensureDir($this->base . '/modules');
         Fs::putFile($this->base . '/assets/app.js', 'console.log(1);');
         Fs::putFile($this->base . '/assets/.secret', 'nope');
         Fs::putFile($this->base . '/assets/evil.php', '<?php /* AUDIT-SOURCE-SENTINEL */');

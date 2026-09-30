@@ -20,9 +20,9 @@ class AssetTest extends TestCase
     protected function setUp(): void
     {
         $this->base = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'kaly-assets-' . uniqid();
-        Fs::mkDir($this->base . '/public/assets');
-        Fs::mkDir($this->base . '/assets');
-        Fs::mkDir($this->base . '/modules/Admin/assets');
+        Fs::ensureDir($this->base . '/public/assets');
+        Fs::ensureDir($this->base . '/assets');
+        Fs::ensureDir($this->base . '/modules/Admin/assets');
         Fs::putFile($this->base . '/assets/app.js', 'console.log(1);');
 
         $this->sources = new AssetSources([

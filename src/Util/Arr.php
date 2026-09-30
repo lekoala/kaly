@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Kaly\Util;
 
-use Stringable;
-
 /**
  * Array helpers used by the framework and its consumers.
  *
@@ -53,37 +51,6 @@ final class Arr
     }
 
     /**
-     * Return keys where values differ between two arrays.
-     *
-     * @param array<mixed> $old Previous values
-     * @param array<mixed> $new New values
-     * @return array<mixed> Map of key to [old, new] pairs
-     */
-    public static function compare(array $old, array $new): array
-    {
-        $arr = [];
-        foreach ($new as $k => $v) {
-            $ov = $old[$k] ?? null;
-            if ($ov !== $v) {
-                $arr[$k] = [$ov, $v];
-            }
-        }
-        return $arr;
-    }
-
-    /**
-     * Map values, preserving keys.
-     *
-     * @param callable $fn Receives the value, returns the new value
-     * @param array<mixed> $arr Input array
-     * @return array<mixed>
-     */
-    public static function map(callable $fn, array $arr): array
-    {
-        return array_map($fn, $arr);
-    }
-
-    /**
      * Map with access to both key and value, preserving the keys.
      *
      * Unlike array_map, the callback receives ($key, $value).
@@ -99,29 +66,6 @@ final class Arr
         $result = [];
         foreach ($array as $key => $value) {
             $result[$key] = $callback($key, $value);
-        }
-        return $result;
-    }
-
-    /**
-     * Convert all values to string, preserving keys and nesting.
-     *
-     * Nested arrays are converted recursively. Values follow Str::stringify().
-     *
-     * @param array<mixed> $arr Input array
-     * @return array<mixed> Same structure with string values
-     */
-    public static function stringValues(array $arr): array
-    {
-        $result = [];
-        foreach ($arr as $k => $v) {
-            if (is_array($v)) {
-                $result[$k] = self::stringValues($v);
-            } elseif ($v instanceof Stringable) {
-                $result[$k] = (string) $v;
-            } else {
-                $result[$k] = Str::stringify($v);
-            }
         }
         return $result;
     }
