@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Http\HttpContext;
-use Kaly\Middleware\MiddlewareBand;
-use Kaly\Middleware\MiddlewareRegistry;
-use Kaly\Middleware\OutgoingMiddlewareInterface;
-use Kaly\Middleware\OutgoingRunner;
+use Kaly\Core\HttpContext;
+use Kaly\Core\Middleware\Band;
+use Kaly\Core\Middleware\OutgoingInterface;
+use Kaly\Core\Middleware\OutgoingRunner;
+use Kaly\Core\Middleware\Registry;
 use Kaly\Tests\Mocks\TestOutgoing;
 use LogicException;
 use Nyholm\Psr7\Response;
@@ -22,9 +22,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class OutgoingRunnerTest extends TestCase
 {
-    private function transform(string $name, ?array &$log): OutgoingMiddlewareInterface
+    private function transform(string $name, ?array &$log): OutgoingInterface
     {
-        return new class($name, $log) implements OutgoingMiddlewareInterface {
+        return new class($name, $log) implements OutgoingInterface {
             /**
              * @param array<string>|null $log
              */
@@ -49,7 +49,7 @@ class OutgoingRunnerTest extends TestCase
     public function testOutgoingsRunByPriorityAndRegistrationOrder(): void
     {
         $log = [];
-        $registry = new MiddlewareRegistry();
+        $registry = new Registry();
         $registry->outgoing($this->transform('late', $log), priority: 200);
         $registry->outgoing($this->transform('first', $log), priority: -10);
         $registry->outgoing($this->transform('same-a', $log));
@@ -64,9 +64,9 @@ class OutgoingRunnerTest extends TestCase
     public function testConditionReceivesTheCurrentResponse(): void
     {
         $run = [];
-        $registry = new MiddlewareRegistry();
+        $registry = new Registry();
         // Turns the response into a 404 before the conditions below evaluate
-        $registry->outgoing(new class implements OutgoingMiddlewareInterface {
+        $registry->outgoing(new class implements OutgoingInterface {
             public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
             {
                 return $response->withStatus(404);
@@ -89,7 +89,7 @@ class OutgoingRunnerTest extends TestCase
     public function testFalseConditionSkipsAndDoesNotMark(): void
     {
         $ctx = $this->context();
-        $registry = new MiddlewareRegistry();
+        $registry = new Registry();
         $registry->outgoing($this->transform('never', $log), when: static fn(): bool => false);
 
         $response = (new OutgoingRunner(null, $registry))->process(new Response(200), $ctx);
@@ -112,7 +112,7 @@ class OutgoingRunnerTest extends TestCase
             }
         };
 
-        $registry = new MiddlewareRegistry();
+        $registry = new Registry();
         $registry->outgoing(TestOutgoing::class);
 
         $response = (new OutgoingRunner($container, $registry))->process(new Response(200), $this->context());
@@ -139,7 +139,7 @@ class OutgoingRunnerTest extends TestCase
             }
         };
 
-        $registry = new MiddlewareRegistry();
+        $registry = new Registry();
         $registry->outgoing('Some\Wrong\Outgoing\Class');
 
         $this->expectException(LogicException::class);
@@ -149,7 +149,7 @@ class OutgoingRunnerTest extends TestCase
     public function testExecutedOutgoingsAreMarkedOnTheContext(): void
     {
         $ctx = $this->context();
-        $registry = new MiddlewareRegistry();
+        $registry = new Registry();
         $registry->outgoing(new TestOutgoing());
 
         $response = (new OutgoingRunner(null, $registry))->process(new Response(200), $ctx);
@@ -160,13 +160,13 @@ class OutgoingRunnerTest extends TestCase
 
     public function testOutgoingIsAThirdBandOfTheRegistry(): void
     {
-        $registry = new MiddlewareRegistry();
+        $registry = new Registry();
         $registry->outgoing(TestOutgoing::class);
 
-        $this->assertCount(1, $registry->band(MiddlewareBand::Outgoing));
-        $this->assertCount(0, $registry->band(MiddlewareBand::Incoming));
-        $this->assertCount(0, $registry->band(MiddlewareBand::Routed));
+        $this->assertCount(1, $registry->band(Band::Outgoing));
+        $this->assertCount(0, $registry->band(Band::Incoming));
+        $this->assertCount(0, $registry->band(Band::Routed));
         $this->assertArrayHasKey('outgoing', $registry->toArray());
-        $this->assertTrue($registry->has(TestOutgoing::class, MiddlewareBand::Outgoing));
+        $this->assertTrue($registry->has(TestOutgoing::class, Band::Outgoing));
     }
 }

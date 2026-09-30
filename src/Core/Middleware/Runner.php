@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Middleware;
+namespace Kaly\Core\Middleware;
 
 use Closure;
 use InvalidArgumentException;
-use Kaly\Http\HttpContext;
+use Kaly\Core\HttpContext;
 use LogicException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -18,7 +18,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * A stateless PSR-15 middleware stack.
  *
  * The runner only executes one band of an already ordered configuration: the
- * ordering itself belongs to the MiddlewareRegistry. No per-request state is
+ * ordering itself belongs to the Registry. No per-request state is
  * kept internally, so the same runner safely handles many requests.
  *
  * While running, it keeps the HttpContext in sync: the current request is
@@ -26,33 +26,33 @@ use Psr\Http\Server\RequestHandlerInterface;
  * The response is not mirrored during the unwind, a middleware already owns
  * the one returned by its own handler.
  */
-class MiddlewareRunner implements RequestHandlerInterface
+class Runner implements RequestHandlerInterface
 {
     protected RequestHandlerInterface $requestHandler;
-    protected MiddlewareRegistry $registry;
+    protected Registry $registry;
 
     /**
      * @param class-string|callable|RequestHandlerInterface|MiddlewareInterface $requestHandler The final handler of the stack
      * @param ContainerInterface|null $container Used to resolve middleware class strings
-     * @param MiddlewareRegistry|null $registry The shared configuration, a private one is created if omitted
-     * @param MiddlewareBand $band The band this runner executes
+     * @param Registry|null $registry The shared configuration, a private one is created if omitted
+     * @param Band $band The band this runner executes
      */
     public function __construct(
         string|callable|RequestHandlerInterface|MiddlewareInterface $requestHandler,
         protected ?ContainerInterface $container = null,
-        ?MiddlewareRegistry $registry = null,
-        protected MiddlewareBand $band = MiddlewareBand::Incoming,
+        ?Registry $registry = null,
+        protected Band $band = Band::Incoming,
     ) {
         $this->requestHandler = $this->resolveFinalHandler($requestHandler);
-        $this->registry = $registry ?? new MiddlewareRegistry();
+        $this->registry = $registry ?? new Registry();
     }
 
-    public function getRegistry(): MiddlewareRegistry
+    public function getRegistry(): Registry
     {
         return $this->registry;
     }
 
-    public function getBand(): MiddlewareBand
+    public function getBand(): Band
     {
         return $this->band;
     }
@@ -61,7 +61,7 @@ class MiddlewareRunner implements RequestHandlerInterface
      * Register a request middleware in the band of this runner.
      *
      * An outgoing middleware cannot run in a request band: use the shared
-     * MiddlewareRegistry::add() if you really need to mix families.
+     * Registry::add() if you really need to mix families.
      *
      * @param class-string|MiddlewareInterface $middleware
      */
@@ -81,9 +81,9 @@ class MiddlewareRunner implements RequestHandlerInterface
     }
 
     /**
-     * @param class-string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface|OutgoingInterface $middleware
      */
-    protected function resolveMiddleware(string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware): MiddlewareInterface
+    protected function resolveMiddleware(string|MiddlewareInterface|OutgoingInterface $middleware): MiddlewareInterface
     {
         if (is_string($middleware)) {
             if ($this->container === null) {
@@ -94,7 +94,7 @@ class MiddlewareRunner implements RequestHandlerInterface
         if ($middleware instanceof MiddlewareInterface) {
             return $middleware;
         }
-        if ($middleware instanceof OutgoingMiddlewareInterface) {
+        if ($middleware instanceof OutgoingInterface) {
             throw new LogicException(sprintf(
                 '%s is an outgoing middleware; it cannot run in the %s band',
                 $middleware::class,

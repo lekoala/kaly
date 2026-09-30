@@ -12,7 +12,7 @@ use Psr\Http\Message\ServerRequestInterface;
  *
  * One implementation of the q weights, so every caller agrees on what the
  * client asked for: RequestUtils::getPreferredContentType() picks from a server
- * priority list, ExceptionHandler::wantsJson() asks whether JSON beats HTML.
+ * priority list, prefersJson() asks whether JSON beats HTML.
  *
  * Entries keep their specificity: an explicit `text/html` outranks `text/*` at
  * equal weight, and a wildcard only applies to the types that no explicit entry
@@ -30,6 +30,28 @@ final class Accept
     public static function fromRequest(ServerRequestInterface $request): self
     {
         return self::parse($request->getHeaderLine('Accept'));
+    }
+
+    /**
+     * Does the client prefer JSON over HTML? The Accept weights decide; a
+     * JSON request body counts as a preference when HTML is not accepted.
+     */
+    public static function prefersJson(ServerRequestInterface $request): bool
+    {
+        $accept = self::fromRequest($request);
+        // Both sides are compared on what the client *named*: a bare wildcard
+        // expresses no preference, and must not turn an explicit JSON entry
+        // into a tie with HTML. That is the common `application/json, */*`.
+        $json = max($accept->explicitQualityFor('application', 'json'), $accept->explicitQualityFor('application', '+json'));
+        $html = max($accept->explicitQualityFor('text', 'html'), $accept->explicitQualityFor('application', 'xhtml+xml'));
+
+        if ($json > 0 && $json > $html) {
+            return true;
+        }
+
+        // A JSON body is a preference only when the client did not ask for HTML
+        $contentType = strtolower($request->getHeaderLine('Content-Type'));
+        return $html === 0.0 && (str_contains($contentType, '/json') || str_contains($contentType, '+json'));
     }
 
     public static function parse(string $header): self

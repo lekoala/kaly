@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Http\HttpContext;
-use Kaly\Middleware\MiddlewareBand;
-use Kaly\Middleware\MiddlewareRegistry;
-use Kaly\Middleware\MiddlewareRunner;
-use Kaly\Middleware\OutgoingMiddlewareInterface;
+use Kaly\Core\HttpContext;
+use Kaly\Core\Middleware\Band;
+use Kaly\Core\Middleware\OutgoingInterface;
+use Kaly\Core\Middleware\Registry;
+use Kaly\Core\Middleware\Runner;
 use Kaly\Tests\Mocks\TestMiddleware;
 use LogicException;
 use Nyholm\Psr7\Response;
@@ -19,7 +19,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
-class MiddlewareRegistryTest extends TestCase
+class RegistryTest extends TestCase
 {
     private function tracer(string $name, ?array &$log): MiddlewareInterface
     {
@@ -42,27 +42,27 @@ class MiddlewareRegistryTest extends TestCase
 
     public function testBandsAreIndependent(): void
     {
-        $registry = new MiddlewareRegistry();
+        $registry = new Registry();
         $registry->incoming(TestMiddleware::class);
 
-        $this->assertCount(1, $registry->band(MiddlewareBand::Incoming));
-        $this->assertCount(0, $registry->band(MiddlewareBand::Routed));
+        $this->assertCount(1, $registry->band(Band::Incoming));
+        $this->assertCount(0, $registry->band(Band::Routed));
 
         $this->assertTrue($registry->has(TestMiddleware::class));
-        $this->assertTrue($registry->has(TestMiddleware::class, MiddlewareBand::Incoming));
-        $this->assertFalse($registry->has(TestMiddleware::class, MiddlewareBand::Routed));
+        $this->assertTrue($registry->has(TestMiddleware::class, Band::Incoming));
+        $this->assertFalse($registry->has(TestMiddleware::class, Band::Routed));
     }
 
     public function testPriorityOrdersInsideABandAndRegistrationBreaksTies(): void
     {
         $log = [];
-        $registry = new MiddlewareRegistry();
+        $registry = new Registry();
         $registry->incoming($this->tracer('late', $log), priority: 200);
         $registry->incoming($this->tracer('first', $log), priority: -10);
         $registry->incoming($this->tracer('same-a', $log));
         $registry->incoming($this->tracer('same-b', $log));
 
-        $runner = new MiddlewareRunner(static fn(): ResponseInterface => new Response(200), null, $registry, MiddlewareBand::Incoming);
+        $runner = new Runner(static fn(): ResponseInterface => new Response(200), null, $registry, Band::Incoming);
         $runner->handle(new ServerRequest('GET', '/'));
 
         $this->assertSame(['first', 'same-a', 'same-b', 'late'], $log);
@@ -71,14 +71,14 @@ class MiddlewareRegistryTest extends TestCase
     public function testEntriesAddedAfterASortAreStillOrdered(): void
     {
         $log = [];
-        $registry = new MiddlewareRegistry();
+        $registry = new Registry();
         $registry->incoming($this->tracer('b', $log), priority: 100);
 
         // Sorting the band caches it, adding must invalidate that cache
-        $this->assertCount(1, $registry->band(MiddlewareBand::Incoming));
+        $this->assertCount(1, $registry->band(Band::Incoming));
         $registry->incoming($this->tracer('a', $log), priority: 50);
 
-        $runner = new MiddlewareRunner(static fn(): ResponseInterface => new Response(200), null, $registry, MiddlewareBand::Incoming);
+        $runner = new Runner(static fn(): ResponseInterface => new Response(200), null, $registry, Band::Incoming);
         $runner->handle(new ServerRequest('GET', '/'));
 
         $this->assertSame(['a', 'b'], $log);
@@ -86,13 +86,13 @@ class MiddlewareRegistryTest extends TestCase
 
     public function testClearRemovesABand(): void
     {
-        $registry = new MiddlewareRegistry();
+        $registry = new Registry();
         $registry->incoming(TestMiddleware::class);
         $registry->routed(TestMiddleware::class);
 
-        $registry->clear(MiddlewareBand::Incoming);
-        $this->assertFalse($registry->has(TestMiddleware::class, MiddlewareBand::Incoming));
-        $this->assertTrue($registry->has(TestMiddleware::class, MiddlewareBand::Routed));
+        $registry->clear(Band::Incoming);
+        $this->assertFalse($registry->has(TestMiddleware::class, Band::Incoming));
+        $this->assertTrue($registry->has(TestMiddleware::class, Band::Routed));
 
         $registry->clear();
         $this->assertFalse($registry->has(TestMiddleware::class));
@@ -101,13 +101,13 @@ class MiddlewareRegistryTest extends TestCase
     public function testConditionReceivesTheContext(): void
     {
         $seen = null;
-        $registry = new MiddlewareRegistry();
+        $registry = new Registry();
         $registry->incoming(new TestMiddleware(), when: static function (HttpContext $ctx) use (&$seen): bool {
             $seen = $ctx;
             return false;
         });
 
-        $runner = new MiddlewareRunner(
+        $runner = new Runner(
             static fn(ServerRequestInterface $request): ResponseInterface => new Response(
                 200,
                 [],
@@ -115,7 +115,7 @@ class MiddlewareRegistryTest extends TestCase
             ),
             null,
             $registry,
-            MiddlewareBand::Incoming,
+            Band::Incoming,
         );
         $response = $runner->handle(new ServerRequest('GET', '/'));
 
@@ -126,10 +126,10 @@ class MiddlewareRegistryTest extends TestCase
 
     public function testRunnerTracksExecutedMiddlewaresAndResponse(): void
     {
-        $registry = new MiddlewareRegistry();
+        $registry = new Registry();
         $registry->incoming(new TestMiddleware());
 
-        $runner = new MiddlewareRunner(static fn(): ResponseInterface => new Response(204), null, $registry, MiddlewareBand::Incoming);
+        $runner = new Runner(static fn(): ResponseInterface => new Response(204), null, $registry, Band::Incoming);
 
         $request = new ServerRequest('GET', '/');
         $ctx = new HttpContext($request);
@@ -142,7 +142,7 @@ class MiddlewareRegistryTest extends TestCase
 
     public function testContextSurvivesAMiddlewareBuildingABrandNewRequest(): void
     {
-        $registry = new MiddlewareRegistry();
+        $registry = new Registry();
         $registry->incoming(new class implements MiddlewareInterface {
             public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
@@ -151,7 +151,7 @@ class MiddlewareRegistryTest extends TestCase
             }
         });
 
-        $runner = new MiddlewareRunner(
+        $runner = new Runner(
             static fn(ServerRequestInterface $request): ResponseInterface => new Response(
                 200,
                 [],
@@ -159,7 +159,7 @@ class MiddlewareRegistryTest extends TestCase
             ),
             null,
             $registry,
-            MiddlewareBand::Incoming,
+            Band::Incoming,
         );
 
         $request = new ServerRequest('GET', '/');
@@ -172,15 +172,15 @@ class MiddlewareRegistryTest extends TestCase
 
     public function testRequestBandRejectsAnOutgoingMiddleware(): void
     {
-        $registry = new MiddlewareRegistry();
-        $registry->add(MiddlewareBand::Incoming, new class implements OutgoingMiddlewareInterface {
+        $registry = new Registry();
+        $registry->add(Band::Incoming, new class implements OutgoingInterface {
             public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
             {
                 return $response;
             }
         });
 
-        $runner = new MiddlewareRunner(static fn(): ResponseInterface => new Response(200), null, $registry, MiddlewareBand::Incoming);
+        $runner = new Runner(static fn(): ResponseInterface => new Response(200), null, $registry, Band::Incoming);
 
         $this->expectException(LogicException::class);
         $runner->handle(new ServerRequest('GET', '/'));

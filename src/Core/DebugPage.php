@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Core;
 
-use Kaly\Http\HttpContext;
+use Kaly\Http\DebugPageInterface;
 use Kaly\Util\Env;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
@@ -17,7 +17,7 @@ use Throwable;
  * what the cycle had established (route, locale, middlewares that ran).
  * Everything coming from the exception or the request is escaped.
  */
-final class DebugPage
+final class DebugPage implements DebugPageInterface
 {
     private const EXCERPT_LINES = 5;
 

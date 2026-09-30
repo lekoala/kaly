@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Middleware;
+namespace Kaly\Core\Middleware;
 
 /**
  * The middleware phases of a kaly request.
@@ -21,7 +21,7 @@ namespace Kaly\Middleware;
  * once the response exists, whatever its origin (happy path, short-circuit or
  * exception), and transforms it into the response that really leaves.
  */
-enum MiddlewareBand: string
+enum Band: string
 {
     /**
      * Runs before any routing happened: trusted proxies, request id, static

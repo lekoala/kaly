@@ -79,17 +79,6 @@ class LocaleResolverTest extends TestCase
         $this->assertSame('en', $resolver->resolve($this->request()));
     }
 
-    public function testApplySetsTheAttribute(): void
-    {
-        $resolver = new LocaleResolver('en', ['en', 'fr']);
-
-        $request = $resolver->apply($this->request());
-        $this->assertSame('en', $request->getAttribute(LocaleResolver::ATTR_LOCALE_REQUEST));
-
-        $request = $resolver->apply($this->request('fr'));
-        $this->assertSame('fr', $request->getAttribute(LocaleResolver::ATTR_LOCALE_REQUEST));
-    }
-
     public function testWorksWithAPlainPsr7Request(): void
     {
         $resolver = new LocaleResolver('en', ['en', 'fr']);

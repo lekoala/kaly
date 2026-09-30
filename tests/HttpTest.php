@@ -6,7 +6,6 @@ namespace Kaly\Tests;
 
 use Kaly\Http;
 use Kaly\Http\Accept;
-use Kaly\Http\ExceptionHandler;
 use Kaly\Http\RequestUtils;
 use Kaly\Http\ResponseEmitter;
 use Kaly\Tests\Support\HttpFactory;
@@ -211,7 +210,7 @@ class HttpTest extends TestCase
         $this->assertSame(['application/json', 'text/html'], $accept->toArray());
         $this->assertSame($accept->toArray(), RequestUtils::parseAcceptHeader($request));
         // and both see the weights
-        $this->assertTrue(ExceptionHandler::wantsJson($request));
+        $this->assertTrue(Accept::prefersJson($request));
     }
 
     public function testNegotiationFallsBackWhenTheClientRefusesEverything(): void

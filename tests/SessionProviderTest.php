@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use Kaly\Core\HttpContext;
 use Kaly\Core\Kernel;
 use Kaly\Http\ArraySession;
 use Kaly\Http\ArraySessionProvider;
 use Kaly\Http\ExceptionHandler;
-use Kaly\Http\HttpContext;
 use Kaly\Http\NativePhpSession;
 use Kaly\Http\NativePhpSessionProvider;
 use Kaly\Http\SessionInterface;

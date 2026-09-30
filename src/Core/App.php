@@ -11,12 +11,17 @@ use Kaly\Asset\Assets;
 use Kaly\Asset\AssetsInterface;
 use Kaly\Asset\AssetSources;
 use Kaly\Clock\SystemClock;
+use Kaly\Core\Middleware\Band;
+use Kaly\Core\Middleware\OutgoingRunner;
+use Kaly\Core\Middleware\Registry;
+use Kaly\Core\Middleware\RouteRunner;
+use Kaly\Core\Middleware\Runner;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Http\CookiePolicy;
+use Kaly\Http\DebugPageInterface;
 use Kaly\Http\ExceptionHandler;
 use Kaly\Http\ExceptionHandlerInterface;
-use Kaly\Http\HttpContext;
 use Kaly\Http\InputMapper;
 use Kaly\Http\InputMapperInterface;
 use Kaly\Http\NativePhpSessionProvider;
@@ -29,16 +34,9 @@ use Kaly\I18n\LocaleResolver;
 use Kaly\I18n\Translator;
 use Kaly\I18n\TranslatorInterface;
 use Kaly\Log\FileLogger;
-use Kaly\Middleware\Builtin\FileServer;
-use Kaly\Middleware\MiddlewareBand;
-use Kaly\Middleware\MiddlewareRegistry;
-use Kaly\Middleware\MiddlewareRunner;
-use Kaly\Middleware\OutgoingRunner;
-use Kaly\Middleware\RouteMiddlewareRunner;
-use Kaly\Router\RequestDispatcher;
+use Kaly\Middleware\FileServer;
 use Kaly\Router\Router;
 use Kaly\Router\RouterInterface;
-use Kaly\Router\RoutingHandler;
 use Kaly\Util\Env;
 use Kaly\Util\Fs;
 use Kaly\Util\Json;
@@ -95,6 +93,7 @@ final class App implements RequestHandlerInterface
         // PSR-3
         LoggerInterface::class => NullLogger::class,
         // Our interfaces
+        DebugPageInterface::class => DebugPage::class,
         ExceptionHandlerInterface::class => ExceptionHandler::class,
         SessionProviderInterface::class => NativePhpSessionProvider::class,
         TranslatorInterface::class => Translator::class,
@@ -105,7 +104,7 @@ final class App implements RequestHandlerInterface
 
     private Paths $paths;
     private Hooks $hooks;
-    private MiddlewareRegistry $middleware;
+    private Registry $middleware;
     private bool $debug = false;
     /**
      * @var list<string>
@@ -134,7 +133,7 @@ final class App implements RequestHandlerInterface
 
         $this->paths = new Paths($dir);
         $this->hooks = new Hooks();
-        $this->middleware = new MiddlewareRegistry();
+        $this->middleware = new Registry();
 
         $envFile = $this->paths->base . '/.env';
         if ($loadEnv && !Env::getBool(self::IGNORE_DOT_ENV) && is_file($envFile)) {
@@ -258,7 +257,7 @@ final class App implements RequestHandlerInterface
      *     ->outgoing(SecurityHeaders::class, always: true);
      * ```
      */
-    public function middleware(): MiddlewareRegistry
+    public function middleware(): Registry
     {
         return $this->middleware;
     }
@@ -415,7 +414,7 @@ final class App implements RequestHandlerInterface
         $definitions->set(self::class, $this);
 
         // Modules can register middlewares through the container
-        $definitions->set(MiddlewareRegistry::class, $this->middleware);
+        $definitions->set(Registry::class, $this->middleware);
 
         // PSR-17 factories of the installed PSR-7 implementation
         foreach (Psr17Discovery::find() as $interface => $class) {
@@ -591,15 +590,15 @@ final class App implements RequestHandlerInterface
         }
 
         // Declared route middlewares always run, right before the controller
-        $dispatcher = new RouteMiddlewareRunner($container->get(RequestDispatcher::class), $container);
+        $dispatcher = new RouteRunner($container->get(RequestDispatcher::class), $container);
 
         // The route is known from here on
-        $routed = new MiddlewareRunner($dispatcher, $container, $this->middleware, MiddlewareBand::Routed);
+        $routed = new Runner($dispatcher, $container, $this->middleware, Band::Routed);
 
         // Fixed structural step of the framework, not a configurable middleware
         $routing = new RoutingHandler($container->get(RouterInterface::class), $container->get(LocaleResolver::class), $routed);
 
-        return new MiddlewareRunner($routing, $container, $this->middleware, MiddlewareBand::Incoming);
+        return new Runner($routing, $container, $this->middleware, Band::Incoming);
     }
 
     private function requestFromGlobals(): ServerRequestInterface

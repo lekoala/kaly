@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Middleware;
+namespace Kaly\Core\Middleware;
 
 use Closure;
-use Kaly\Http\HttpContext;
+use Kaly\Core\HttpContext;
 use LogicException;
 use Psr\Http\Message\ResponseInterface;
 
@@ -19,7 +19,7 @@ use Psr\Http\Message\ResponseInterface;
  * );
  * ```
  */
-final class ClosureOutgoing implements OutgoingMiddlewareInterface
+final class ClosureOutgoing implements OutgoingInterface
 {
     /**
      * @param Closure(ResponseInterface, HttpContext): ResponseInterface $closure

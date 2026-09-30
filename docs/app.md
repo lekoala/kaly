@@ -252,8 +252,8 @@ are discarded. Headers that must survive an outgoing failure belong in an
 ```php
 $app->middleware()->outgoing(WebpResponse::class);
 
-// WebpResponse implements Kaly\Middleware\OutgoingMiddlewareInterface:
-final class WebpResponse implements OutgoingMiddlewareInterface
+// WebpResponse implements Kaly\Core\Middleware\OutgoingInterface:
+final class WebpResponse implements OutgoingInterface
 {
     public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
     {
@@ -266,7 +266,7 @@ An outgoing middleware also runs on responses with no route at all (an incoming
 short-circuit, a routing 404) — guard `route()` and `locale()`:
 
 ```php
-final class RouteHeader implements OutgoingMiddlewareInterface
+final class RouteHeader implements OutgoingInterface
 {
     public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
     {
@@ -393,7 +393,7 @@ A controller must return one of:
 
 - a `ResponseInterface` (used as-is)
 - a `Kaly\View\View` (rendered to HTML by the configured renderer)
-- a `Kaly\Http\JsonResponse` (JSON response with status and headers)
+- a `Kaly\Http\JsonResult` (JSON response with status and headers)
 - an `array` (JSON response)
 - a `string` (HTML response)
 

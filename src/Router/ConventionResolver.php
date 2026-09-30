@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
-use Kaly\Core\Ex;
+use Kaly\Ex;
 use Kaly\Http\MethodNotAllowedException;
 use Kaly\Http\RedirectException;
 use Kaly\Http\RequestInput;

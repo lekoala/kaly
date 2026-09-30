@@ -2,8 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Http;
+namespace Kaly\Core;
 
+use Kaly\Http\CookiePolicy;
+use Kaly\Http\Cookies;
+use Kaly\Http\NativePhpSessionProvider;
+use Kaly\Http\RequestUtils;
+use Kaly\Http\SessionInterface;
+use Kaly\Http\SessionProviderInterface;
 use Kaly\Router\Route;
 use Kaly\Router\RouterInterface;
 use LogicException;

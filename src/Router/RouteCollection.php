@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
-use Kaly\Core\Ex;
+use Kaly\Ex;
 use Kaly\Http\RequestInput;
 use ReflectionClass;
 use ReflectionNamedType;

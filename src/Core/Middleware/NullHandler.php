@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Middleware;
+namespace Kaly\Core\Middleware;
 
 use LogicException;
 use Psr\Http\Message\ResponseInterface;

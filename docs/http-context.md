@@ -4,7 +4,7 @@ PSR-7 and PSR-15 give an excellent interop protocol, but not an application mode
 When everything is "just a middleware", you lose the notion of phase, of dependency
 and of already established context.
 
-Kaly keeps PSR as the boundary and adds `Kaly\Http\HttpContext` as the request scoped
+Kaly keeps PSR as the boundary and adds `Kaly\Core\HttpContext` as the request scoped
 state of the application: **PSR for interop, `HttpContext` for richness, bands for
 order**.
 
@@ -79,7 +79,7 @@ The context travels as the one and only kaly request attribute, so third party P
 middlewares simply ignore it and nothing new has to be implemented:
 
 ```php
-use Kaly\Http\HttpContext;
+use Kaly\Core\HttpContext;
 
 public function process(
     ServerRequestInterface $request,

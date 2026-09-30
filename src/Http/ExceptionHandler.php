@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
-use Kaly\Core\DebugPage;
 use Kaly\Util\Json;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -21,9 +20,10 @@ use Throwable;
  *   becomes a 500 (or its own 4xx/5xx code).
  * - The format follows the client: `application/problem+json` (RFC 9457) for
  *   a JSON client, HTML or plain text otherwise.
- * - In debug mode, the response explains the failure (DebugPage, or an
- *   `exception` member in JSON). In production, nothing internal leaks: a
- *   generic exception or a 404 only says what the status says.
+ * - In debug mode, the response explains the failure (the bound
+ *   DebugPageInterface, or an `exception` member in JSON). In production,
+ *   nothing internal leaks: a generic exception or a 404 only says what the
+ *   status says.
  */
 class ExceptionHandler implements ExceptionHandlerInterface
 {
@@ -34,6 +34,7 @@ class ExceptionHandler implements ExceptionHandlerInterface
         protected StreamFactoryInterface $streamFactory,
         protected ?LoggerInterface $logger = null,
         protected bool $debug = false,
+        protected ?DebugPageInterface $debugPage = null,
     ) {}
 
     public function toResponse(Throwable $exception, ?ServerRequestInterface $request = null): ResponseInterface
@@ -63,7 +64,7 @@ class ExceptionHandler implements ExceptionHandlerInterface
             return $this->withBody($response, $body);
         }
 
-        if ($request !== null && self::wantsJson($request)) {
+        if ($request !== null && Accept::prefersJson($request)) {
             return $this->problem($response, $exception, $body);
         }
 
@@ -72,8 +73,15 @@ class ExceptionHandler implements ExceptionHandlerInterface
         }
 
         if ($this->debug) {
-            $html = (new DebugPage())->html($exception, $request, $status);
-            return $this->withBody($response->withHeader('Content-Type', ContentType::HTML . '; charset=utf-8'), $html);
+            if ($this->debugPage !== null) {
+                $html = $this->debugPage->html($exception, $request, $status);
+                return $this->withBody($response->withHeader('Content-Type', ContentType::HTML . '; charset=utf-8'), $html);
+            }
+            // Without a bound debug page the failure is still explained, in plain text
+            return $this->withBody(
+                $response->withHeader('Content-Type', 'text/plain; charset=utf-8'),
+                $exception->getMessage() . "\n\n" . $exception->getTraceAsString(),
+            );
         }
 
         $public = $status === 500 ? 'Server error' : $response->getReasonPhrase();
@@ -113,27 +121,5 @@ class ExceptionHandler implements ExceptionHandlerInterface
     protected function withBody(ResponseInterface $response, string $body): ResponseInterface
     {
         return $response->withBody($this->streamFactory->createStream($body));
-    }
-
-    /**
-     * Does the client prefer JSON over HTML? The Accept weights decide; a
-     * JSON request body counts as a preference when HTML is not accepted.
-     */
-    public static function wantsJson(ServerRequestInterface $request): bool
-    {
-        $accept = Accept::fromRequest($request);
-        // Both sides are compared on what the client *named*: a bare wildcard
-        // expresses no preference, and must not turn an explicit JSON entry
-        // into a tie with HTML. That is the common `application/json, */*`.
-        $json = max($accept->explicitQualityFor('application', 'json'), $accept->explicitQualityFor('application', '+json'));
-        $html = max($accept->explicitQualityFor('text', 'html'), $accept->explicitQualityFor('application', 'xhtml+xml'));
-
-        if ($json > 0 && $json > $html) {
-            return true;
-        }
-
-        // A JSON body is a preference only when the client did not ask for HTML
-        $contentType = strtolower($request->getHeaderLine('Content-Type'));
-        return $html === 0.0 && (str_contains($contentType, '/json') || str_contains($contentType, '+json'));
     }
 }

@@ -8,8 +8,11 @@ use Closure;
 use Error;
 use InvalidArgumentException;
 use Kaly\Di\Definitions;
+use Kaly\Ex;
 use Kaly\Router\ResolverInterface;
 use Kaly\Router\Routes;
+use Kaly\Router\RouteScope;
+use Kaly\Router\RoutesDeclaration;
 use Kaly\Util\Fs;
 use Kaly\Util\Str;
 use Kaly\View\RendererInterface;
@@ -50,7 +53,7 @@ use Throwable;
  * decamelized name (`modules/Shop` answers on `/shop/...`), except the one
  * whose namespace is the default one (`App`), which answers without prefix.
  */
-final class Module
+final class Module implements RouteScope
 {
     private string $dir;
     private string $name;
@@ -63,11 +66,11 @@ final class Module
     private bool $localized = false;
     private bool $conventionRouting = true;
     /**
-     * @var list<array{priority:int,resolver:ResolverInterface|class-string<ResolverInterface>|Closure(Routes): void}>
+     * @var list<array{priority:int,resolver:ResolverInterface|class-string<ResolverInterface>|RoutesDeclaration}>
      */
     private array $resolvers = [];
     /**
-     * @var list<array{prefix:array<string,string>,routes:Closure(Routes): void}>
+     * @var list<array{prefix:array<string,string>,routes:RoutesDeclaration}>
      */
     private array $claims = [];
     private Definitions $definitions;
@@ -160,7 +163,7 @@ final class Module
     public function routes(Closure $routes): self
     {
         $this->assertNotFrozen();
-        $this->resolvers[] = ['priority' => 0, 'resolver' => $routes];
+        $this->resolvers[] = ['priority' => 0, 'resolver' => new RoutesDeclaration($routes)];
         return $this;
     }
 
@@ -193,7 +196,7 @@ final class Module
         $prefixes = is_array($prefix) ? $prefix : ['*' => $prefix];
         $this->claims[] = [
             'prefix' => array_map(static fn(string $p): string => '/' . trim($p, '/'), $prefixes),
-            'routes' => $routes,
+            'routes' => new RoutesDeclaration($routes),
         ];
         return $this;
     }
@@ -277,7 +280,7 @@ final class Module
     }
 
     /**
-     * @return list<array{priority:int,resolver:ResolverInterface|class-string<ResolverInterface>|Closure(Routes): void}>
+     * @return list<array{priority:int,resolver:ResolverInterface|class-string<ResolverInterface>|RoutesDeclaration}>
      */
     public function resolvers(): array
     {
@@ -285,7 +288,7 @@ final class Module
     }
 
     /**
-     * @return list<array{prefix:array<string,string>,routes:Closure(Routes): void}>
+     * @return list<array{prefix:array<string,string>,routes:RoutesDeclaration}>
      */
     public function claims(): array
     {

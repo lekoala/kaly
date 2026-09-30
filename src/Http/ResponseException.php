@@ -9,7 +9,7 @@ use Throwable;
 /**
  * An exception that already is the response body (eg: the debug dump of dd()).
  *
- * Shaped responses belong to controller results (View, JsonResponse), not to
+ * Shaped responses belong to controller results (View, JsonResult), not to
  * exceptions: this class carries no content type nor status mapping.
  */
 class ResponseException extends HttpException

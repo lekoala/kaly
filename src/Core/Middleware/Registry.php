@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Middleware;
+namespace Kaly\Core\Middleware;
 
 use Closure;
 use Psr\Http\Server\MiddlewareInterface;
@@ -46,15 +46,15 @@ use Psr\Http\Server\MiddlewareInterface;
  * - the phase order is fixed: incoming, then routing, then routed, then outgoing
  * - inside a phase, priority ascending, then registration order
  */
-final class MiddlewareRegistry
+final class Registry
 {
     /**
-     * @var array<string,list<MiddlewareEntry>>
+     * @var array<string,list<Entry>>
      */
     private array $entries = [];
 
     /**
-     * @var array<string,list<MiddlewareEntry>>
+     * @var array<string,list<Entry>>
      */
     private array $sorted = [];
 
@@ -64,22 +64,22 @@ final class MiddlewareRegistry
      * Add a middleware that runs before routing
      *
      * @param class-string|MiddlewareInterface $middleware
-     * @param Closure(\Kaly\Http\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the context and the container, returning false skips the middleware
+     * @param Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the context and the container, returning false skips the middleware
      */
     public function incoming(string|MiddlewareInterface $middleware, int $priority = 0, ?Closure $when = null): self
     {
-        return $this->add(MiddlewareBand::Incoming, $middleware, $priority, $when);
+        return $this->add(Band::Incoming, $middleware, $priority, $when);
     }
 
     /**
      * Add a middleware that runs once the route is known
      *
      * @param class-string|MiddlewareInterface $middleware
-     * @param Closure(\Kaly\Http\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the context and the container, returning false skips the middleware
+     * @param Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the context and the container, returning false skips the middleware
      */
     public function routed(string|MiddlewareInterface $middleware, int $priority = 0, ?Closure $when = null): self
     {
-        return $this->add(MiddlewareBand::Routed, $middleware, $priority, $when);
+        return $this->add(Band::Routed, $middleware, $priority, $when);
     }
 
     /**
@@ -92,11 +92,11 @@ final class MiddlewareRegistry
      * response. Use it for headers that must be on every response (security
      * headers, request id, audit).
      *
-     * @param class-string|OutgoingMiddlewareInterface|Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Http\HttpContext): \Psr\Http\Message\ResponseInterface $middleware
-     * @param Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Http\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the current response, the context and the container; returning false skips the middleware
+     * @param class-string|OutgoingInterface|Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Core\HttpContext): \Psr\Http\Message\ResponseInterface $middleware
+     * @param Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the current response, the context and the container; returning false skips the middleware
      */
     public function outgoing(
-        string|OutgoingMiddlewareInterface|Closure $middleware,
+        string|OutgoingInterface|Closure $middleware,
         int $priority = 0,
         ?Closure $when = null,
         bool $always = false,
@@ -104,30 +104,30 @@ final class MiddlewareRegistry
         if ($middleware instanceof Closure) {
             $middleware = new ClosureOutgoing($middleware);
         }
-        return $this->add(MiddlewareBand::Outgoing, $middleware, $priority, $when, $always);
+        return $this->add(Band::Outgoing, $middleware, $priority, $when, $always);
     }
 
     /**
      * Generic entry point. The typed facades (incoming, routed, outgoing) are
      * the intended API; this stays wide so both runners can share one registry.
      *
-     * @param class-string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface|OutgoingInterface $middleware
      * @param (
-     *     Closure(\Kaly\Http\HttpContext, ?\Psr\Container\ContainerInterface): bool
-     *     |Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Http\HttpContext, ?\Psr\Container\ContainerInterface): bool
-     * )|null $when Band-dependent condition, see MiddlewareEntry
+     *     Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool
+     *     |Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool
+     * )|null $when Band-dependent condition, see Entry
      */
     public function add(
-        MiddlewareBand $band,
-        string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware,
+        Band $band,
+        string|MiddlewareInterface|OutgoingInterface $middleware,
         int $priority = 0,
         ?Closure $when = null,
         bool $always = false,
     ): self {
-        if ($always && $band !== MiddlewareBand::Outgoing) {
+        if ($always && $band !== Band::Outgoing) {
             throw new \InvalidArgumentException('Only an outgoing middleware can be marked always');
         }
-        $this->entries[$band->value][] = new MiddlewareEntry($middleware, $priority, $when, $this->sequence++, $always);
+        $this->entries[$band->value][] = new Entry($middleware, $priority, $when, $this->sequence++, $always);
         unset($this->sorted[$band->value]);
 
         return $this;
@@ -136,9 +136,9 @@ final class MiddlewareRegistry
     /**
      * The ordered entries of a band
      *
-     * @return list<MiddlewareEntry>
+     * @return list<Entry>
      */
-    public function band(MiddlewareBand $band): array
+    public function band(Band $band): array
     {
         $cached = $this->sorted[$band->value] ?? null;
         if ($cached !== null) {
@@ -146,10 +146,7 @@ final class MiddlewareRegistry
         }
 
         $entries = $this->entries[$band->value] ?? [];
-        usort(
-            $entries,
-            static fn(MiddlewareEntry $a, MiddlewareEntry $b): int => [$a->priority, $a->sequence] <=> [$b->priority, $b->sequence],
-        );
+        usort($entries, static fn(Entry $a, Entry $b): int => [$a->priority, $a->sequence] <=> [$b->priority, $b->sequence]);
 
         return $this->sorted[$band->value] = $entries;
     }
@@ -157,9 +154,9 @@ final class MiddlewareRegistry
     /**
      * @param class-string $middlewareClass
      */
-    public function has(string $middlewareClass, ?MiddlewareBand $band = null): bool
+    public function has(string $middlewareClass, ?Band $band = null): bool
     {
-        $bands = $band === null ? MiddlewareBand::cases() : [$band];
+        $bands = $band === null ? Band::cases() : [$band];
 
         foreach ($bands as $case) {
             foreach ($this->entries[$case->value] ?? [] as $entry) {
@@ -172,9 +169,9 @@ final class MiddlewareRegistry
         return false;
     }
 
-    public function clear(?MiddlewareBand $band = null): self
+    public function clear(?Band $band = null): self
     {
-        $bands = $band === null ? MiddlewareBand::cases() : [$band];
+        $bands = $band === null ? Band::cases() : [$band];
 
         foreach ($bands as $case) {
             unset($this->entries[$case->value], $this->sorted[$case->value]);
@@ -184,13 +181,13 @@ final class MiddlewareRegistry
     }
 
     /**
-     * @return array<string,list<class-string|MiddlewareInterface|OutgoingMiddlewareInterface>>
+     * @return array<string,list<class-string|MiddlewareInterface|OutgoingInterface>>
      */
     public function toArray(): array
     {
         $all = [];
-        foreach (MiddlewareBand::cases() as $case) {
-            $all[$case->value] = array_map(static fn(MiddlewareEntry $entry) => $entry->middleware, $this->band($case));
+        foreach (Band::cases() as $case) {
+            $all[$case->value] = array_map(static fn(Entry $entry) => $entry->middleware, $this->band($case));
         }
 
         return $all;

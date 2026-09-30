@@ -6,8 +6,9 @@ namespace Kaly\Tests;
 
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
-use Kaly\Core\Ex;
 use Kaly\Core\Module;
+use Kaly\Ex;
+use Kaly\Http\Accept;
 use Kaly\Http\ExceptionHandler;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\ServerRequest;
@@ -147,7 +148,7 @@ class ErrorResponseTest extends TestCase
         if ($contentType !== '') {
             $request = $request->withHeader('Content-Type', $contentType);
         }
-        $this->assertSame($json, ExceptionHandler::wantsJson($request));
+        $this->assertSame($json, Accept::prefersJson($request));
     }
 
     public function testAFailingConfigNamesItsModule(): void

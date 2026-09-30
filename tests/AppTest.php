@@ -6,11 +6,11 @@ namespace Kaly\Tests;
 
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
+use Kaly\Core\HttpContext;
 use Kaly\Di\Definitions;
 use Kaly\Http\ContentType;
-use Kaly\Http\HttpContext;
 use Kaly\Http\ResponseEmitterInterface;
-use Kaly\Middleware\Builtin\FileServer;
+use Kaly\Middleware\FileServer;
 use Kaly\Router\Route;
 use Kaly\Router\Router;
 use Kaly\Router\RouterInterface;

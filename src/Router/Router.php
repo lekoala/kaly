@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
-use Closure;
-use Kaly\Core\Ex;
-use Kaly\Core\Module;
+use Kaly\Ex;
 use Kaly\Http\RedirectException;
 use Kaly\Util\Str;
 use Psr\Container\ContainerInterface;
@@ -36,7 +34,7 @@ final class Router implements RouterInterface
     public const DEFAULT_NAMESPACE = 'App';
 
     /**
-     * @var array<string,Module> By module id
+     * @var array<string,RouteScope> By module id
      */
     private array $modules = [];
 
@@ -69,7 +67,7 @@ final class Router implements RouterInterface
     private ConventionResolver $convention;
 
     /**
-     * @param list<Module> $modules
+     * @param list<RouteScope> $modules
      * @param list<string> $locales The application locales, the first one is the default
      */
     public function __construct(
@@ -144,7 +142,7 @@ final class Router implements RouterInterface
      *
      * @param list<string> $all Every segment of the path
      */
-    private function enforceLocale(ServerRequestInterface $request, Module $module, ?string $locale, array $all): void
+    private function enforceLocale(ServerRequestInterface $request, RouteScope $module, ?string $locale, array $all): void
     {
         $localized = $module->isLocalized() && $this->locales !== [];
         if ($locale !== null && !$localized) {
@@ -389,7 +387,7 @@ final class Router implements RouterInterface
 
     // #region Registration
 
-    private function register(Module $module): void
+    private function register(RouteScope $module): void
     {
         $id = $module->id();
         if (isset($this->modules[$id])) {
@@ -433,8 +431,8 @@ final class Router implements RouterInterface
         $declaredTables = [];
         foreach ($module->resolvers() as $declared) {
             $resolver = $declared['resolver'];
-            if ($resolver instanceof Closure) {
-                $declaredTables[] = $resolver;
+            if ($resolver instanceof RoutesDeclaration) {
+                $declaredTables[] = $resolver->declare;
                 $tableSequence ??= $sequence++;
                 continue;
             }
@@ -488,7 +486,7 @@ final class Router implements RouterInterface
         return null;
     }
 
-    private function registerClaims(Module $module): void
+    private function registerClaims(RouteScope $module): void
     {
         $id = $module->id();
         foreach ($module->claims() as $claim) {
@@ -501,7 +499,7 @@ final class Router implements RouterInterface
                 );
             }
             $table = new TableResolver(
-                $claim['routes'],
+                $claim['routes']->declare,
                 "claim '" . implode("', '", $claim['prefix']) . "' of module '{$id}' (config.php)",
                 $module->isLocalized(),
                 $id,

@@ -6,8 +6,8 @@ namespace Kaly\Tests;
 
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
-use Kaly\Core\Ex;
-use Kaly\Http\HttpContext;
+use Kaly\Core\HttpContext;
+use Kaly\Ex;
 use Kaly\Router\RouteCollection;
 use Kaly\Router\RouteDefinition;
 use Kaly\Tests\Mocks\DenyMiddleware;

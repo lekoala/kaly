@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Http;
 
 use InvalidArgumentException;
-use Kaly\Core\Ex;
+use Kaly\Ex;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;

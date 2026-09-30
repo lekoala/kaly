@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Middleware;
+namespace Kaly\Core\Middleware;
 
-use Kaly\Http\HttpContext;
+use Kaly\Core\HttpContext;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -22,12 +22,12 @@ use Psr\Http\Server\RequestHandlerInterface;
  * from `#[Middleware]` on the controller. They behave exactly like a routed
  * middleware: resolved from the container and marked on the context.
  */
-final class RouteMiddlewareRunner implements RequestHandlerInterface
+final class RouteRunner implements RequestHandlerInterface
 {
     /**
      * One stateless runner per distinct middleware list, built on first use
      *
-     * @var array<string,MiddlewareRunner>
+     * @var array<string,Runner>
      */
     private array $runners = [];
 
@@ -49,18 +49,18 @@ final class RouteMiddlewareRunner implements RequestHandlerInterface
     /**
      * @param list<class-string> $middlewares
      */
-    private function runnerFor(array $middlewares): MiddlewareRunner
+    private function runnerFor(array $middlewares): Runner
     {
         $key = implode('|', $middlewares);
         if (isset($this->runners[$key])) {
             return $this->runners[$key];
         }
 
-        $registry = new MiddlewareRegistry();
+        $registry = new Registry();
         foreach ($middlewares as $middleware) {
             $registry->routed($middleware);
         }
 
-        return $this->runners[$key] = new MiddlewareRunner($this->handler, $this->container, $registry, MiddlewareBand::Routed);
+        return $this->runners[$key] = new Runner($this->handler, $this->container, $registry, Band::Routed);
     }
 }

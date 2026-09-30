@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use Kaly\Core\Middleware\Runner;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
-use Kaly\Middleware\MiddlewareRunner;
-use Kaly\Middleware\PredefinedResponseHandler;
+use Kaly\Test\PredefinedResponseHandler;
 use LogicException;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
@@ -20,7 +20,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 use RuntimeException;
 use Throwable;
 
-class MiddlewareRunnerTest extends TestCase
+class RunnerTest extends TestCase
 {
     private function finalHandler(): RequestHandlerInterface
     {
@@ -34,14 +34,14 @@ class MiddlewareRunnerTest extends TestCase
 
     public function testEmptyStackRunsFinalHandler(): void
     {
-        $runner = new MiddlewareRunner($this->finalHandler());
+        $runner = new Runner($this->finalHandler());
         $response = $runner->handle(new ServerRequest('GET', '/'));
         $this->assertSame('final', (string) $response->getBody());
     }
 
     public function testPsr15MiddlewareRunsAroundHandler(): void
     {
-        $runner = new MiddlewareRunner($this->finalHandler());
+        $runner = new Runner($this->finalHandler());
         $runner->add(new class implements MiddlewareInterface {
             public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
@@ -58,7 +58,7 @@ class MiddlewareRunnerTest extends TestCase
 
     public function testPsr15MiddlewareCanShortCircuit(): void
     {
-        $runner = new MiddlewareRunner($this->finalHandler());
+        $runner = new Runner($this->finalHandler());
         $runner->add(new class implements MiddlewareInterface {
             public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
@@ -73,7 +73,7 @@ class MiddlewareRunnerTest extends TestCase
 
     public function testConditionSkipsMiddleware(): void
     {
-        $runner = new MiddlewareRunner($this->finalHandler());
+        $runner = new Runner($this->finalHandler());
         $runner->add(
             new class implements MiddlewareInterface {
                 public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -91,7 +91,7 @@ class MiddlewareRunnerTest extends TestCase
     public function testMiddlewareRunsBeforeAndAfter(): void
     {
         $events = [];
-        $runner = new MiddlewareRunner(function () use (&$events): ResponseInterface {
+        $runner = new Runner(function () use (&$events): ResponseInterface {
             $events[] = 'inner';
             return new Response(200);
         });
@@ -122,7 +122,7 @@ class MiddlewareRunnerTest extends TestCase
 
     public function testAfterSeesTheRequestTheMiddlewareItselfForwarded(): void
     {
-        $runner = new MiddlewareRunner(fn(): ResponseInterface => new Response(200));
+        $runner = new Runner(fn(): ResponseInterface => new Response(200));
         $runner->add(new class implements MiddlewareInterface {
             public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
@@ -139,7 +139,7 @@ class MiddlewareRunnerTest extends TestCase
     public function testShortCircuitSkipsBothInnerLayersAndAfterCode(): void
     {
         $ran = false;
-        $runner = new MiddlewareRunner(function () use (&$ran): ResponseInterface {
+        $runner = new Runner(function () use (&$ran): ResponseInterface {
             $ran = true;
             return new Response(200);
         });
@@ -159,7 +159,7 @@ class MiddlewareRunnerTest extends TestCase
 
     public function testAnOuterAfterStillWrapsAShortCircuit(): void
     {
-        $runner = new MiddlewareRunner(fn(): ResponseInterface => new Response(200));
+        $runner = new Runner(fn(): ResponseInterface => new Response(200));
         $runner->add(new class implements MiddlewareInterface {
             public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
@@ -181,7 +181,7 @@ class MiddlewareRunnerTest extends TestCase
 
     public function testMiddlewareCanCatchADownstreamException(): void
     {
-        $runner = new MiddlewareRunner(function (): ResponseInterface {
+        $runner = new Runner(function (): ResponseInterface {
             throw new RuntimeException('boom');
         });
         $runner->add(new class implements MiddlewareInterface {
@@ -202,7 +202,7 @@ class MiddlewareRunnerTest extends TestCase
 
     public function testAnUncaughtDownstreamExceptionStillEscapes(): void
     {
-        $runner = new MiddlewareRunner(function (): ResponseInterface {
+        $runner = new Runner(function (): ResponseInterface {
             throw new RuntimeException('boom');
         });
         $runner->add(new class implements MiddlewareInterface {
@@ -219,7 +219,7 @@ class MiddlewareRunnerTest extends TestCase
 
     public function testARecoveredExceptionStillRunsTheOuterAfter(): void
     {
-        $runner = new MiddlewareRunner(function (): ResponseInterface {
+        $runner = new Runner(function (): ResponseInterface {
             throw new RuntimeException('deep');
         });
         $runner->add(new class implements MiddlewareInterface {
@@ -266,7 +266,7 @@ class MiddlewareRunnerTest extends TestCase
                 $this->events[] = 'rollback';
             }
         };
-        $runner = new MiddlewareRunner(fn(): ResponseInterface => new Response(200));
+        $runner = new Runner(fn(): ResponseInterface => new Response(200));
         $runner->add(new class($transaction) implements MiddlewareInterface {
             public function __construct(
                 private object $transaction,
@@ -293,7 +293,7 @@ class MiddlewareRunnerTest extends TestCase
     {
         $definitions = new Definitions();
         $definitions->set(PredefinedResponseHandler::class, new PredefinedResponseHandler(new Response(204, [], 'from container')));
-        $runner = new MiddlewareRunner(PredefinedResponseHandler::class, new Container($definitions));
+        $runner = new Runner(PredefinedResponseHandler::class, new Container($definitions));
 
         $response = $runner->handle(new ServerRequest('GET', '/'));
         $this->assertSame(204, $response->getStatusCode());
@@ -304,14 +304,14 @@ class MiddlewareRunnerTest extends TestCase
     {
         $this->expectException(LogicException::class);
         $this->expectExceptionMessage('A container is required');
-        new MiddlewareRunner(PredefinedResponseHandler::class);
+        new Runner(PredefinedResponseHandler::class);
     }
 
     public function testSkippedMiddlewaresCostNoStackFrame(): void
     {
         $depthFor = function (int $count): int {
             $depth = 0;
-            $runner = new MiddlewareRunner(function () use (&$depth): ResponseInterface {
+            $runner = new Runner(function () use (&$depth): ResponseInterface {
                 $depth = count(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS));
                 return new Response(200);
             });
@@ -351,7 +351,7 @@ class MiddlewareRunnerTest extends TestCase
             }
         };
 
-        $runner = new MiddlewareRunner(fn(): ResponseInterface => new Response(200), $container);
+        $runner = new Runner(fn(): ResponseInterface => new Response(200), $container);
         $runner->add('Some\Middleware\That\Does\Not\Exist', when: static fn(): bool => false);
 
         $this->assertSame(200, $runner->handle(new ServerRequest('GET', '/'))->getStatusCode());
@@ -361,7 +361,7 @@ class MiddlewareRunnerTest extends TestCase
     public function testMultipleRequestsOnSameRunner(): void
     {
         $calls = 0;
-        $runner = new MiddlewareRunner(function () use (&$calls): ResponseInterface {
+        $runner = new Runner(function () use (&$calls): ResponseInterface {
             $calls++;
             return new Response(200, [], (string) $calls);
         });

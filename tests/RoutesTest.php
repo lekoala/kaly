@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Core\Ex;
+use Kaly\Ex;
 use Kaly\Router\Routes;
 use Kaly\Tests\Mocks\DispatcherController;
 use Kaly\Tests\Mocks\RouteHandlerFixture;

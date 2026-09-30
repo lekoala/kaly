@@ -9,7 +9,7 @@ Kaly is renderer agnostic. The core only exposes:
 
 Controllers return a `View`; the dispatcher renders it through the configured
 `RendererInterface`. An `array` is returned as JSON (200), a
-`Kaly\Http\JsonResponse::of($data, 201)` as JSON with its status code and headers,
+`Kaly\Http\JsonResult::of($data, 201)` as JSON with its status code and headers,
 a `string` as HTML. If no renderer is configured, returning a `View` throws.
 
 Every render also receives an `i18n` variable: a translator bound to the locale of the

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Core;
+namespace Kaly;
 
 use Exception;
 

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Router;
+namespace Kaly\Core;
 
-use Kaly\Http\HttpContext;
 use Kaly\I18n\LocaleResolver;
+use Kaly\Router\RouterInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Http\HttpContext;
+use Kaly\Core\HttpContext;
 use Kaly\Router\Route;
 use LogicException;
 use Nyholm\Psr7\Response;

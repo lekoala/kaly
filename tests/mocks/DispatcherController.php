@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Tests\Mocks;
 
 use Kaly\Core\AbstractController;
-use Kaly\Http\JsonResponse;
+use Kaly\Http\JsonResult;
 use Kaly\View\View;
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
@@ -77,9 +77,9 @@ class DispatcherController extends AbstractController
     /**
      * @return array<string,int>
      */
-    public function jsonResponseResult(): JsonResponse
+    public function jsonResponseResult(): JsonResult
     {
-        return JsonResponse::of(['a' => 1], 201, ['X-Test' => 'yes']);
+        return JsonResult::of(['a' => 1], 201, ['X-Test' => 'yes']);
     }
 
     public function viewResultWithStatus(): View

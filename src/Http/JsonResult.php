@@ -11,7 +11,7 @@ namespace Kaly\Http;
  * The dispatcher turns it into a response. A plain array result stays the
  * shorthand for a 200 JSON response.
  */
-final readonly class JsonResponse
+final readonly class JsonResult
 {
     /**
      * @param array<string,mixed> $data

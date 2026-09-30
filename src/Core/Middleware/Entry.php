@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Middleware;
+namespace Kaly\Core\Middleware;
 
 use Closure;
 use Psr\Http\Server\MiddlewareInterface;
@@ -10,13 +10,13 @@ use Psr\Http\Server\MiddlewareInterface;
 /**
  * @internal A registered middleware with its ordering and its condition
  */
-final class MiddlewareEntry
+final class Entry
 {
     /**
-     * @param class-string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface|OutgoingInterface $middleware
      * @param (
-     *     Closure(\Kaly\Http\HttpContext, ?\Psr\Container\ContainerInterface): bool
-     *     |Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Http\HttpContext, ?\Psr\Container\ContainerInterface): bool
+     *     Closure(\Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool
+     *     |Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool
      * )|null $condition
      *     The request bands call it with the context and the container, the
      *     outgoing band with the current response, the context and the container
@@ -24,7 +24,7 @@ final class MiddlewareEntry
      * @param bool $always Outgoing only: runs on every response, never breaks it
      */
     public function __construct(
-        public readonly string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware,
+        public readonly string|MiddlewareInterface|OutgoingInterface $middleware,
         public readonly int $priority = 0,
         public readonly ?Closure $condition = null,
         public readonly int $sequence = 0,

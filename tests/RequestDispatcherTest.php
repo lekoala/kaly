@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Core\Ex;
+use Kaly\Core\HttpContext;
+use Kaly\Core\RequestDispatcher;
+use Kaly\Core\RoutingHandler;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Di\Injector;
-use Kaly\Http\HttpContext;
+use Kaly\Ex;
 use Kaly\Http\RedirectException;
 use Kaly\I18n\LocaleResolver;
 use Kaly\I18n\LocalizedTranslator;
 use Kaly\I18n\Translator;
-use Kaly\Router\RequestDispatcher;
 use Kaly\Router\Route;
 use Kaly\Router\RouterInterface;
-use Kaly\Router\RoutingHandler;
 use Kaly\Tests\Mocks\DispatcherController;
 use Kaly\View\RendererInterface;
 use Nyholm\Psr7\Factory\Psr17Factory;
@@ -226,7 +226,7 @@ class RequestDispatcherTest extends TestCase
         $this->assertSame('Closure', (string) $response->getBody());
     }
 
-    public function testJsonResponseResultCarriesStatusAndHeaders(): void
+    public function testJsonResultCarriesStatusAndHeaders(): void
     {
         $response = $this->dispatch($this->dispatcher('jsonResponseResult'));
         $this->assertSame(201, $response->getStatusCode());

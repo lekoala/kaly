@@ -27,15 +27,6 @@ class RedirectException extends HttpException
      */
     public const OTHER_REDIRECT = 303;
     /**
-     * This is used for caching purposes.
-     * It tells the client that the response has not been modified,
-     * so the client can continue to use the same cached version of the response.
-     *
-     * 304 is not a redirect and is deliberately absent from this class: it
-     * answers a conditional request, it does not point at another url.
-     */
-    public const NOT_MODIFIED = 304;
-    /**
      * The server sends this response to direct the client to get the requested resource
      * at another URI with same method that was used in the prior request.
      * This has the same semantics as the 302 Found HTTP response code,

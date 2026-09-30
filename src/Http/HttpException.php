@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
-use Kaly\Core\Ex;
+use Kaly\Ex;
 use Throwable;
 
 /**
@@ -13,7 +13,7 @@ use Throwable;
  * Every HTTP failure in Kaly extends this, so a catch or a match on the family
  * is enough to cover the whole 3xx/4xx/5xx surface. The status, the extra
  * headers and the body live here: a non-HTTP failure (a bad config, a missing
- * module) is a plain `Kaly\Core\Ex` and carries no status at all.
+ * module) is a plain `Kaly\Ex` and carries no status at all.
  */
 abstract class HttpException extends Ex implements HttpExceptionInterface
 {

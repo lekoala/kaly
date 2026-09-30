@@ -1,7 +1,7 @@
 # JSON APIs
 
 Return data, not responses. A plain `array` is rendered as a 200 JSON response;
-`JsonResponse::of()` sets the status code and headers:
+`JsonResult::of()` sets the status code and headers:
 
 ```php
 public function show(int $id): array
@@ -9,10 +9,10 @@ public function show(int $id): array
     return ['id' => $id, 'name' => $this->products->name($id)];
 }
 
-public function create(CreateInput $input): JsonResponse
+public function create(CreateInput $input): JsonResult
 {
     $product = $this->products->create($input->name);
-    return JsonResponse::of(['id' => $product->id], 201);
+    return JsonResult::of(['id' => $product->id], 201);
 }
 ```
 

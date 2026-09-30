@@ -6,9 +6,9 @@ namespace Kaly\Tests;
 
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
+use Kaly\Core\HttpContext;
+use Kaly\Core\Middleware\OutgoingInterface;
 use Kaly\Di\Definitions;
-use Kaly\Http\HttpContext;
-use Kaly\Middleware\OutgoingMiddlewareInterface;
 use Kaly\Tests\Mocks\TestOutgoing;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Response;
@@ -34,9 +34,9 @@ class OutgoingBandTest extends TestCase
         return $app;
     }
 
-    private function auditOutgoing(): OutgoingMiddlewareInterface
+    private function auditOutgoing(): OutgoingInterface
     {
-        return new class implements OutgoingMiddlewareInterface {
+        return new class implements OutgoingInterface {
             public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
             {
                 return $response->withHeader('X-Audit', 'yes');
@@ -96,7 +96,7 @@ class OutgoingBandTest extends TestCase
     {
         $app = $this->app();
         $runs = 0;
-        $app->middleware()->outgoing(new class($runs) implements OutgoingMiddlewareInterface {
+        $app->middleware()->outgoing(new class($runs) implements OutgoingInterface {
             /**
              * @param int $runs
              */
@@ -121,7 +121,7 @@ class OutgoingBandTest extends TestCase
     public function testReturnedResponseFromOutgoingIsUsedAsIs(): void
     {
         $app = $this->app();
-        $app->middleware()->outgoing(new class implements OutgoingMiddlewareInterface {
+        $app->middleware()->outgoing(new class implements OutgoingInterface {
             public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
             {
                 return new Response(418, ['X-Replaced' => 'yes'], 'replaced');
@@ -138,14 +138,14 @@ class OutgoingBandTest extends TestCase
     public function testFailureOfOneOutgoingDiscardsEarlierTransformationsButFinalizerStillRuns(): void
     {
         $app = $this->app();
-        $app->middleware()->outgoing(new class implements OutgoingMiddlewareInterface {
+        $app->middleware()->outgoing(new class implements OutgoingInterface {
             public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
             {
                 return $response->withHeader('X-Before-Failure', 'yes');
             }
         });
         $runs = 0;
-        $app->middleware()->outgoing(new class($runs) implements OutgoingMiddlewareInterface {
+        $app->middleware()->outgoing(new class($runs) implements OutgoingInterface {
             /**
              * @param int $runs
              */
@@ -217,7 +217,7 @@ class OutgoingBandTest extends TestCase
         $context = $logger->records[0]['context'];
         $this->assertSame('418', $context['status'], 'the status is a string, not an int');
         $this->assertSame(
-            [TestOutgoing::class, \Kaly\Middleware\ClosureOutgoing::class],
+            [TestOutgoing::class, \Kaly\Core\Middleware\ClosureOutgoing::class],
             $context['outgoing'],
             'configured outgoing middlewares are class names',
         );

@@ -1,6 +1,6 @@
 <?php
 
-use Kaly\Middleware\MiddlewareRunner;
+use Kaly\Core\Middleware\Runner;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use Psr\Http\Message\ResponseInterface;
@@ -81,7 +81,7 @@ class AppHandler implements MiddlewareInterface
 
 echo "<h2>Test Case: Successful Run</h2>";
 
-$runner = (new MiddlewareRunner(new AppHandler()))
+$runner = (new Runner(new AppHandler()))
     ->add(new AddTimestampMiddleware())
     ->add(new SimplePsr15Logger())
     ->add(new StandardAuthMiddleware());
@@ -195,7 +195,7 @@ $responseBody = $psr17Factory->createStream('Hello world');
 $response = $psr17Factory->createResponse(200)->withBody($responseBody);
 
 $regularHandler = new RegularHandler();
-$stack = new MiddlewareRunner($regularHandler);
+$stack = new Runner($regularHandler);
 $stack->add($middleware1);
 $stack->add($middleware2);
 
@@ -210,7 +210,7 @@ echo "Body: " . $stackResponse->getBody();
 echo '<hr/>';
 
 $handler = new ThrowingHandler();
-$stack = new MiddlewareRunner($handler);
+$stack = new Runner($handler);
 $stack->add($middleware1);
 $stack->add($middleware2);
 
@@ -218,7 +218,7 @@ echo '<pre>';
 try {
     $stack->handle($serverRequest);
 } catch (Throwable $e) {
-    // MiddlewareRunner does not catch for you: the exception bubbles out of
+    // Runner does not catch for you: the exception bubbles out of
     // the stack, and the kernel turns it into an error response in an app
     echo '<b>Exception escaped the stack:</b> ' . get_class($e) . '<br>';
     echo $e->getMessage() . '<br>';

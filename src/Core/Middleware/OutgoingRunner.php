@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Middleware;
+namespace Kaly\Core\Middleware;
 
 use Closure;
-use Kaly\Http\HttpContext;
+use Kaly\Core\HttpContext;
 use LogicException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -43,22 +43,22 @@ use Throwable;
  */
 final class OutgoingRunner
 {
-    protected MiddlewareRegistry $registry;
+    protected Registry $registry;
 
     /**
      * @param ContainerInterface|null $container Used to resolve outgoing middleware class strings
-     * @param MiddlewareRegistry|null $registry The shared configuration, a private one is created if omitted
+     * @param Registry|null $registry The shared configuration, a private one is created if omitted
      * @param (Closure(\Throwable, HttpContext): void)|null $report Receives the failures of `always` middlewares
      */
     public function __construct(
         protected ?ContainerInterface $container = null,
-        ?MiddlewareRegistry $registry = null,
+        ?Registry $registry = null,
         protected ?Closure $report = null,
     ) {
-        $this->registry = $registry ?? new MiddlewareRegistry();
+        $this->registry = $registry ?? new Registry();
     }
 
-    public function getRegistry(): MiddlewareRegistry
+    public function getRegistry(): Registry
     {
         return $this->registry;
     }
@@ -66,24 +66,20 @@ final class OutgoingRunner
     /**
      * Register an outgoing middleware in the shared configuration
      *
-     * @param class-string|OutgoingMiddlewareInterface $middleware
+     * @param class-string|OutgoingInterface $middleware
      * @param Closure|null $when Receives the current response, the context and the container; returning false skips the middleware
      */
-    public function add(
-        string|OutgoingMiddlewareInterface|Closure $middleware,
-        int $priority = 0,
-        ?Closure $when = null,
-        bool $always = false,
-    ): self {
+    public function add(string|OutgoingInterface|Closure $middleware, int $priority = 0, ?Closure $when = null, bool $always = false): self
+    {
         $this->registry->outgoing($middleware, $priority, $when, $always);
 
         return $this;
     }
 
     /**
-     * @param class-string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware
+     * @param class-string|MiddlewareInterface|OutgoingInterface $middleware
      */
-    protected function resolveMiddleware(string|MiddlewareInterface|OutgoingMiddlewareInterface $middleware): OutgoingMiddlewareInterface
+    protected function resolveMiddleware(string|MiddlewareInterface|OutgoingInterface $middleware): OutgoingInterface
     {
         if (is_string($middleware)) {
             if ($this->container === null) {
@@ -91,7 +87,7 @@ final class OutgoingRunner
             }
             $middleware = $this->container->get($middleware);
         }
-        if ($middleware instanceof OutgoingMiddlewareInterface) {
+        if ($middleware instanceof OutgoingInterface) {
             return $middleware;
         }
         if ($middleware instanceof MiddlewareInterface) {
@@ -125,7 +121,7 @@ final class OutgoingRunner
     {
         $current = $response;
 
-        foreach ($this->registry->band(MiddlewareBand::Outgoing) as $entry) {
+        foreach ($this->registry->band(Band::Outgoing) as $entry) {
             if ($recovering && !$entry->always) {
                 continue;
             }
@@ -146,7 +142,7 @@ final class OutgoingRunner
         return $current;
     }
 
-    private function step(MiddlewareEntry $entry, ResponseInterface $response, HttpContext $ctx): ResponseInterface
+    private function step(Entry $entry, ResponseInterface $response, HttpContext $ctx): ResponseInterface
     {
         if (!$this->shouldRun($entry->condition, $response, $ctx)) {
             return $response;

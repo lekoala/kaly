@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Kaly\Tests\Mocks;
 
-use Kaly\Http\HttpContext;
-use Kaly\Middleware\OutgoingMiddlewareInterface;
+use Kaly\Core\HttpContext;
+use Kaly\Core\Middleware\OutgoingInterface;
 use Psr\Http\Message\ResponseInterface;
 
-class TestOutgoing implements OutgoingMiddlewareInterface
+class TestOutgoing implements OutgoingInterface
 {
     public const HEADER = 'X-Test-Outgoing';
     public const VALUE = 'done';

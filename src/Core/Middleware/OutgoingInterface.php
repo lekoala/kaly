@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Middleware;
+namespace Kaly\Core\Middleware;
 
-use Kaly\Http\HttpContext;
+use Kaly\Core\HttpContext;
 use Psr\Http\Message\ResponseInterface;
 
 /**
@@ -17,7 +17,7 @@ use Psr\Http\Message\ResponseInterface;
  * kernel:
  *
  * ```php
- * final class WebpResponse implements OutgoingMiddlewareInterface
+ * final class WebpResponse implements OutgoingInterface
  * {
  *     public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
  *     {
@@ -32,7 +32,7 @@ use Psr\Http\Message\ResponseInterface;
  * not replayed. Headers that must survive an outgoing failure belong in an
  * `always` outgoing middleware.
  */
-interface OutgoingMiddlewareInterface
+interface OutgoingInterface
 {
     public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface;
 }

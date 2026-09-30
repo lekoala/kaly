@@ -4,6 +4,48 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## The request cycle lives in Core
+
+The package boundaries now follow the layer: Http is the protocol, Router is
+urls, Core is the request cycle, `Kaly\Middleware` keeps the optional PSR-15
+implementations. No BC aliases are kept: update every usage in one pass.
+
+- `Kaly\Http\HttpContext` moves to `Kaly\Core\HttpContext`.
+- `Kaly\Router\RoutingHandler` and `Kaly\Router\RequestDispatcher` move to
+  `Kaly\Core`. The router matches and generates urls; dispatching and the
+  pipeline are the cycle's business.
+- The middleware machinery moves to `Kaly\Core\Middleware` and shortens:
+  `MiddlewareBand` → `Band`, `MiddlewareEntry` → `Entry`,
+  `MiddlewareRegistry` → `Registry`, `MiddlewareRunner` → `Runner`,
+  `RouteMiddlewareRunner` → `RouteRunner`,
+  `OutgoingMiddlewareInterface` → `OutgoingInterface`, `OutgoingRunner`,
+  `ClosureOutgoing`, `CallableToHandlerAdapter`, `MiddlewareToHandlerAdapter`,
+  `NullHandler` and `RunNextHandler` keep their names under the new namespace.
+- `Kaly\Middleware\Builtin\*` flattens to `Kaly\Middleware\*`:
+  `FileServer`, `AssetServer`, `PreventFileAccess`.
+- `Kaly\Middleware\PredefinedResponseHandler` moves to `Kaly\Test`.
+- `Kaly\Core\Ex` moves to `Kaly\Ex`: the framework exception is a leaf, every
+  package may throw it.
+- `Kaly\Http\JsonResponse` is renamed `Kaly\Http\JsonResult`: it is a
+  controller result converted by the dispatcher, not a PSR-7 response.
+- `ExceptionHandler::wantsJson()` moves to `Accept::prefersJson()` — content
+  negotiation lives on `Accept`.
+- `ExceptionHandler` no longer renders the debug page itself: it takes an
+  optional `DebugPageInterface` (Http), implemented by `Kaly\Core\DebugPage`
+  and bound by default. Debug without a bound page falls back to a plain text
+  trace.
+- `LocaleResolver::apply()` is removed (`resolve()` + `useLocale()` cover it).
+- `RedirectException::NOT_MODIFIED` is removed: 304 is not a redirect and
+  never belonged there.
+- `Router` no longer knows `Module`: it takes `list<RouteScope>` — any object
+  answering mount/locale/resolvers/claims can be registered. `Module`
+  implements it. `Module::resolvers()` entries hold `RoutesDeclaration`
+  objects instead of raw closures, and claims too.
+- `AssetPublisher::prune(keep: 3)` removes old versioned directories after a
+  publish; the live `.version` is never removed.
+- `FileServer` never serves dotfiles (`/.env`, `/.git/...`), except the
+  `/.well-known/` convention.
+
 ## Pre-1.0 session, App and pipeline cleanup
 
 No BC aliases are kept: update every usage in one pass.
@@ -55,7 +97,7 @@ No BC aliases are kept: update every usage in one pass.
   pipeline rebinds it when the request object changes.
 - `Module` freezes after the `whenAllLoaded` second pass: mutating a module
   from `App::modules()` throws a `LogicException`.
-- `Kaly\Core\HttpContext` moves to `Kaly\Http\HttpContext` (no alias).
+- `Kaly\Http\HttpContext` moves to `Kaly\Core\HttpContext` (no alias).
 - `_functions/global.php` only provides `d()`/`dd()`: `env()` and `is_cli()`
   are removed (use `Kaly\Util\Env` and `php_sapi_name()`).
 
@@ -166,17 +208,17 @@ No BC aliases are kept: update every usage in one pass.
 ## Pre-1.0 consistency: one exception family, one emitter, one declaration order
 
 - **Every client-facing failure is now a `Kaly\Http\HttpException`.** It extends
-  `Kaly\Core\Ex` and carries the status, the extra headers and the body.
+  `Kaly\Ex` and carries the status, the extra headers and the body.
   `NotFoundException`, `RouteNotFoundException`, `ForbiddenException`,
   `MethodNotAllowedException`, `InputException`, `ValidationException`,
   `RedirectException` and `ResponseException` all extend it, so one `catch`
   covers the whole family. `InputException` (400) and `ValidationException` (422)
   remain distinct failures, they are now siblings rather than unrelated classes.
-- **`Kaly\Core\Ex::getIntCode()` is removed, and `HttpExceptionInterface::getIntCode()`
+- **`Kaly\Ex::getIntCode()` is removed, and `HttpExceptionInterface::getIntCode()`
   becomes `status()`.** The integer conversion belonged to HTTP, which is the
   only layer with a status: `Exception::getCode()` is typed `int|string`, and
   wrapping it in `intval()` gave every Kaly exception an artificial numeric
-  contract. `Kaly\Core\Ex` is now a bare marker, and `HttpException::status()`
+  contract. `Kaly\Ex` is now a bare marker, and `HttpException::status()`
   is the semantic accessor. A non-HTTP failure carries no status at all, which
   is what makes the `ExceptionHandler` guard meaningful.
 - `ResponseEmitterInterface` is declared in `App::DEFAULT_IMPLEMENTATIONS` and

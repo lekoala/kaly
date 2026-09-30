@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Router;
+namespace Kaly\Core;
 
 use Kaly\Asset\AssetsInterface;
 use Kaly\Asset\NullAssets;
-use Kaly\Core\Ex;
 use Kaly\Di\Injector;
+use Kaly\Ex;
 use Kaly\Http\ContentType;
-use Kaly\Http\HttpContext;
 use Kaly\Http\InputMapperInterface;
-use Kaly\Http\JsonResponse;
+use Kaly\Http\JsonResult;
 use Kaly\Http\RequestInput;
 use Kaly\I18n\LocalizedTranslator;
 use Kaly\I18n\TranslatorInterface;
+use Kaly\Router\Route;
 use Kaly\Util\Json;
 use Kaly\View\RendererInterface;
 use Kaly\View\View;
@@ -69,9 +69,9 @@ class RequestDispatcher implements RequestHandlerInterface
     }
 
     /**
-     * @return ResponseInterface|View|JsonResponse|array<mixed>|string
+     * @return ResponseInterface|View|JsonResult|array<mixed>|string
      */
-    protected function dispatch(HttpContext $ctx, Route $route): ResponseInterface|View|JsonResponse|array|string
+    protected function dispatch(HttpContext $ctx, Route $route): ResponseInterface|View|JsonResult|array|string
     {
         $class = $route->controller;
         if ($class === '') {
@@ -105,7 +105,7 @@ class RequestDispatcher implements RequestHandlerInterface
         if ($result === null) {
             throw new Ex(
                 "Controller '{$class}::{$action}' returned null: return an explicit response instead "
-                . '(eg: a 204 response from the response factory), a View, a JsonResponse, an array or a string',
+                . '(eg: a 204 response from the response factory), a View, a JsonResult, an array or a string',
             );
         }
         if (
@@ -113,13 +113,13 @@ class RequestDispatcher implements RequestHandlerInterface
             || is_array($result)
             || $result instanceof ResponseInterface
             || $result instanceof View
-            || $result instanceof JsonResponse
+            || $result instanceof JsonResult
         ) {
             return $result;
         }
 
         throw new Ex(
-            'Controllers must return a ResponseInterface, a View, a JsonResponse, an array or a string, got: ' . get_debug_type($result),
+            'Controllers must return a ResponseInterface, a View, a JsonResult, an array or a string, got: ' . get_debug_type($result),
         );
     }
 
@@ -202,14 +202,14 @@ class RequestDispatcher implements RequestHandlerInterface
     }
 
     /**
-     * @param ResponseInterface|View|JsonResponse|array<mixed>|string $result
+     * @param ResponseInterface|View|JsonResult|array<mixed>|string $result
      */
-    protected function prepareResponse(ResponseInterface|View|JsonResponse|array|string $result, HttpContext $ctx): ResponseInterface
+    protected function prepareResponse(ResponseInterface|View|JsonResult|array|string $result, HttpContext $ctx): ResponseInterface
     {
         if ($result instanceof ResponseInterface) {
             return $result;
         }
-        if ($result instanceof JsonResponse) {
+        if ($result instanceof JsonResult) {
             return $this->createResponse(Json::encode($result->data), ContentType::JSON, $result->status, $result->headers);
         }
         if ($result instanceof View) {

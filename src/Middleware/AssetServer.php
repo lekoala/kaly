@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Middleware\Builtin;
+namespace Kaly\Middleware;
 
 use InvalidArgumentException;
 use Kaly\Asset\Assets;

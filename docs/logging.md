@@ -103,7 +103,7 @@ The `onError()` hook is the only hook point needed.
 
 ```php
 use Kaly\Core\App;
-use Kaly\Http\HttpContext;
+use Kaly\Core\HttpContext;
 use Throwable;
 
 if (isset($_ENV['SENTRY_DSN'])) {

@@ -6,8 +6,8 @@ namespace Kaly\Tests;
 
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
-use Kaly\Core\Ex;
 use Kaly\Core\Module;
+use Kaly\Ex;
 use Kaly\Router\Router;
 use Kaly\Router\RouterInterface;
 use Kaly\Router\Routes;

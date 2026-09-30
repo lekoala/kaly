@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use Kaly\Core\Middleware\NullHandler;
 use Kaly\Http\NotFoundException;
-use Kaly\Middleware\Builtin\PreventFileAccess;
-use Kaly\Middleware\NullHandler;
-use Kaly\Middleware\PredefinedResponseHandler;
+use Kaly\Middleware\PreventFileAccess;
+use Kaly\Test\PredefinedResponseHandler;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\TestCase;

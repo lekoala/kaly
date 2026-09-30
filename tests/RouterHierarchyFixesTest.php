@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Core\Ex;
 use Kaly\Core\Module;
+use Kaly\Ex;
 use Kaly\Http\MethodNotAllowedException;
 use Kaly\Http\RedirectException;
 use Kaly\Router\RedirectUris;

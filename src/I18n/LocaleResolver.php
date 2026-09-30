@@ -60,15 +60,6 @@ class LocaleResolver
     }
 
     /**
-     * Resolve the locale and expose it on the request under the locale attribute,
-     * even when the visitor expressed no preference.
-     */
-    public function apply(ServerRequestInterface $request, ?string $routeLocale = null): ServerRequestInterface
-    {
-        return $request->withAttribute(self::ATTR_LOCALE_REQUEST, $this->resolve($request, $routeLocale));
-    }
-
-    /**
      * Unknown, malformed or disallowed locales fall back to the default rather
      * than failing the request.
      */
