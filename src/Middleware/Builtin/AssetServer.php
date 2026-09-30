@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use Kaly\Asset\Assets;
 use Kaly\Asset\AssetSources;
 use Kaly\Http\FileResponseFactory;
+use Kaly\Http\PublicFilePolicy;
 use Kaly\Util\Fs;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -34,8 +35,6 @@ use Psr\Http\Server\RequestHandlerInterface;
  */
 final class AssetServer implements MiddlewareInterface
 {
-    public const PREFIX = '/_assets/';
-
     public function __construct(
         private AssetSources $sources,
         private FileResponseFactory $files,
@@ -48,11 +47,11 @@ final class AssetServer implements MiddlewareInterface
         }
 
         $path = $request->getUri()->getPath();
-        if (!str_starts_with($path, self::PREFIX)) {
+        if (!str_starts_with($path, Assets::DEV_PREFIX)) {
             return $handler->handle($request);
         }
 
-        $remainder = substr($path, strlen(self::PREFIX));
+        $remainder = substr($path, strlen(Assets::DEV_PREFIX));
         $slash = strpos($remainder, '/');
         if ($slash === false || $slash === 0 || $slash === (strlen($remainder) - 1)) {
             return $handler->handle($request);
@@ -75,7 +74,7 @@ final class AssetServer implements MiddlewareInterface
         }
 
         $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-        if (in_array($extension, FileServer::FORBIDDEN_EXTENSIONS, true)) {
+        if (in_array($extension, PublicFilePolicy::FORBIDDEN_EXTENSIONS, true)) {
             return $handler->handle($request);
         }
 

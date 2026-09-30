@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Asset;
 
 use InvalidArgumentException;
-use Kaly\Middleware\Builtin\FileServer;
+use Kaly\Http\PublicFilePolicy;
 use Kaly\Util\Env;
 use Kaly\Util\Fs;
 use RuntimeException;
@@ -143,15 +143,9 @@ final class AssetPublisher
         /** @var string $pathname */
         foreach ($iterator as $pathname) {
             $relative = str_replace(DIRECTORY_SEPARATOR, '/', (string) substr($pathname, strlen(Fs::dir($dir)) + 1));
-            $segments = explode('/', $relative);
-            $dotted = false;
-            foreach ($segments as $segment) {
-                if ($segment === '' || $segment === '.' || $segment === '..' || str_starts_with($segment, '.')) {
-                    $dotted = true;
-                    break;
-                }
-            }
-            if ($dotted) {
+            // Dot segments are skipped rather than fatal: a `.git/` inside a
+            // source dir must not fail the publish
+            if (Assets::hasDotSegment($relative)) {
                 continue;
             }
             if (is_link($pathname)) {
@@ -161,7 +155,7 @@ final class AssetPublisher
                 continue;
             }
             $extension = strtolower(pathinfo($pathname, PATHINFO_EXTENSION));
-            if (in_array($extension, FileServer::FORBIDDEN_EXTENSIONS, true)) {
+            if (in_array($extension, PublicFilePolicy::FORBIDDEN_EXTENSIONS, true)) {
                 throw new RuntimeException("Asset extension '.{$extension}' is not publishable: '{$pathname}'");
             }
             $files[$relative] = $pathname;

@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
-use Kaly\Asset\Assets;
 use Kaly\Asset\AssetsInterface;
-use Kaly\Asset\AssetSources;
+use Kaly\Asset\NullAssets;
 use Kaly\Core\Ex;
 use Kaly\Di\Injector;
 use Kaly\Http\ContentType;
@@ -54,9 +53,8 @@ class RequestDispatcher implements RequestHandlerInterface
         protected ?AssetsInterface $assets = null,
     ) {
         // `asset` always exists, like `url` and `i18n`: without an explicit
-        // binding the fallback only fails when actually called in prod
-        // without a published version.
-        $this->assets ??= new Assets(new AssetSources([]), sys_get_temp_dir());
+        // binding the call itself explains what is missing.
+        $this->assets ??= new NullAssets();
     }
 
     public function handle(ServerRequestInterface $request): ResponseInterface

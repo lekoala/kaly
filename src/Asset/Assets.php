@@ -15,12 +15,18 @@ use RuntimeException;
  * AssetPublisher (build).
  *
  * ```text
- * dev:  /_assets/app/app.js
+ * dev:  /_assets/app/app.js       (DEV_PREFIX, served by AssetServer)
  * prod: /assets/8af319c42d/app/app.js
  * ```
  */
 final class Assets implements AssetsInterface
 {
+    /**
+     * The url prefix of development asset urls, also the prefix AssetServer
+     * answers on.
+     */
+    public const DEV_PREFIX = '/_assets/';
+
     public const ENV_VERSION = 'APP_ASSETS_VERSION';
     public const VERSION_FILE = '.version';
 
@@ -45,7 +51,7 @@ final class Assets implements AssetsInterface
         $this->sources->get($namespace);
 
         if ($this->dev) {
-            return $this->baseUrl . '/_assets/' . $namespace . '/' . $path;
+            return $this->baseUrl . self::DEV_PREFIX . $namespace . '/' . $path;
         }
 
         $version = $this->resolveVersion();
@@ -89,17 +95,24 @@ final class Assets implements AssetsInterface
     public static function assertValidPath(string $path, string $original = ''): void
     {
         $original = $original === '' ? $path : $original;
-        if ($path === '' || str_starts_with($path, '/')) {
+        if ($path === '' || str_starts_with($path, '/') || str_contains($path, "\0") || self::hasDotSegment($path)) {
             throw new InvalidArgumentException("Invalid asset path '{$original}'");
         }
-        if (str_contains($path, "\0")) {
-            throw new InvalidArgumentException("Invalid asset path '{$original}'");
-        }
+    }
+
+    /**
+     * Whether a relative path carries a dot segment (`.env`, `a/.git/x`) or
+     * an empty one (`a//b`): rejected by assertValidPath, skipped by the
+     * publisher.
+     */
+    public static function hasDotSegment(string $path): bool
+    {
         foreach (explode('/', $path) as $segment) {
             if ($segment === '' || $segment === '.' || $segment === '..' || str_starts_with($segment, '.')) {
-                throw new InvalidArgumentException("Invalid asset path '{$original}'");
+                return true;
             }
         }
+        return false;
     }
 
     /**

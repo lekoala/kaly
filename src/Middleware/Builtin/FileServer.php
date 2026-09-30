@@ -6,6 +6,7 @@ namespace Kaly\Middleware\Builtin;
 
 use InvalidArgumentException;
 use Kaly\Http\FileResponseFactory;
+use Kaly\Http\PublicFilePolicy;
 use Kaly\Util\Fs;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -15,10 +16,10 @@ use Psr\Http\Server\RequestHandlerInterface;
 /**
  * Serves public static files from a directory.
  *
- * This is the public-file policy on top of FileResponseFactory: URI to path
- * resolution, directory jail and forbidden extensions. Private downloads
- * (invoices, attachments, ...) belong in application code after an access
- * check, using FileResponseFactory directly.
+ * This is the public-file policy (PublicFilePolicy) on top of
+ * FileResponseFactory: URI to path resolution, directory jail and forbidden
+ * extensions. Private downloads (invoices, attachments, ...) belong in
+ * application code after an access check, using FileResponseFactory directly.
  */
 class FileServer implements MiddlewareInterface
 {
@@ -26,27 +27,6 @@ class FileServer implements MiddlewareInterface
         private string $publicDir,
         private FileResponseFactory $files,
     ) {}
-
-    /**
-     * Extensions that must never be served as static files.
-     *
-     * This policy belongs to the public directory only: a legitimate private
-     * download may well be a `.zip`, an `archive.xml` or any other extension.
-     */
-    public const FORBIDDEN_EXTENSIONS = [
-        'php',
-        'phtml',
-        'phar',
-        'php3',
-        'php4',
-        'php5',
-        'php7',
-        'php8',
-        'pht',
-        'inc',
-        'cgi',
-        'pl',
-    ];
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
@@ -64,7 +44,7 @@ class FileServer implements MiddlewareInterface
         }
 
         $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-        if (in_array($extension, self::FORBIDDEN_EXTENSIONS, true)) {
+        if (in_array($extension, PublicFilePolicy::FORBIDDEN_EXTENSIONS, true)) {
             return $handler->handle($request);
         }
 
