@@ -53,18 +53,31 @@ final class Json
     /**
      * Informal input decoded by the strict decoder after a small relax
      * step: unquoted keys and single-quoted strings are normalized,
-     * everything else is left for `json_decode` to judge. Valid JSON is
-     * never rewritten.
+     * everything else is left for `json_decode` to judge.
+     *
+     * The first meaningful character decides the path: `[`/`{` claim a
+     * real container and get strict first (valid JSON is never rewritten),
+     * relaxed only on failure. Anything else is scalar-or-informal input
+     * and goes through relax directly.
      */
     public static function decodeRelaxed(string $text): mixed
     {
-        return self::decodeLenient($text)[1];
+        $shape = self::shape($text);
+        if ($shape === '[' || $shape === '{') {
+            try {
+                return self::decode($text);
+            } catch (JsonException) {
+                // A container-shaped failure gets its chance relaxed
+                // @mago-expect lint:no-empty-catch-clause
+            }
+        }
+        return self::decode(self::relax($text));
     }
 
     /** @return list<mixed> */
     public static function decodeListRelaxed(string $text): array
     {
-        return self::assertList(...self::decodeLenient($text));
+        return self::assertList($text, self::decodeRelaxed($text));
     }
 
     /**
@@ -76,43 +89,21 @@ final class Json
     public static function decodeMapRelaxed(string $text): array
     {
         $text = trim($text);
-        if ($text === '') {
+        $shape = self::shape($text);
+        if ($shape === '') {
             return [];
         }
-        try {
-            $value = self::decode($text);
-            $candidate = $text;
-        } catch (JsonException) {
-            // A map may omit its braces entirely
-            $candidate = self::relax($text);
-            if (!str_starts_with($candidate, '{')) {
-                $candidate = '{' . $candidate . '}';
-            }
-            $value = self::decode($candidate);
+        // Not container-shaped: the informal map, `a: 1, b: 'x'`
+        if ($shape !== '{' && $shape !== '[') {
+            $text = '{' . self::relax($text) . '}';
+            return self::assertMap($text, self::decode($text));
         }
-
-        return self::assertMap($candidate, $value);
+        return self::assertMap($text, self::decodeRelaxed($text));
     }
 
     public static function validate(string $json): bool
     {
         return json_validate($json);
-    }
-
-    /**
-     * Strict first, then relaxed: the decoded value and the text it was
-     * actually decoded from, so shape checks stay honest.
-     *
-     * @return array{0:string,1:mixed}
-     */
-    private static function decodeLenient(string $text): array
-    {
-        try {
-            return [$text, self::decode($text)];
-        } catch (JsonException) {
-            $relaxed = self::relax($text);
-            return [$relaxed, self::decode($relaxed)];
-        }
     }
 
     /**
