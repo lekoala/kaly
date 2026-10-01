@@ -89,3 +89,79 @@ deny-from = [
     "Kaly\\Log\\**",
     "Kaly\\Util\\**",
 ]
+
+# The remaining layers form an explicit order: a layer may depend on the ones
+# below it, never the reverse. Util and Clock are foundations, Log builds on
+# them, Http is the protocol, Router/Asset/I18n/View are domains, Core composes
+# everything. Encoding the order this way also makes a cycle impossible outside
+# Core and Test.
+#
+#   Util, Clock                  foundations
+#   Log                          foundations + Util
+#   Http                         protocol; foundations + Log
+#   Router, Asset, I18n, View    domains; Http + foundations
+#   Core                         composition; everything
+#   Test                         toolkit; everything (unrestricted)
+
+[[guard.perimeter.restrictions]]
+dependency = "Kaly\\Log\\**"
+deny-from = [
+    "Kaly\\Util\\**",
+    "Kaly\\Clock\\**",
+]
+
+[[guard.perimeter.restrictions]]
+dependency = "Kaly\\Http\\**"
+deny-from = [
+    "Kaly\\Util\\**",
+    "Kaly\\Clock\\**",
+    "Kaly\\Log\\**",
+]
+
+[[guard.perimeter.restrictions]]
+dependency = "Kaly\\Router\\**"
+deny-from = [
+    "Kaly\\Util\\**",
+    "Kaly\\Clock\\**",
+    "Kaly\\Log\\**",
+    "Kaly\\Http\\**",
+    "Kaly\\Asset\\**",
+    "Kaly\\I18n\\**",
+    "Kaly\\View\\**",
+]
+
+[[guard.perimeter.restrictions]]
+dependency = "Kaly\\Asset\\**"
+deny-from = [
+    "Kaly\\Util\\**",
+    "Kaly\\Clock\\**",
+    "Kaly\\Log\\**",
+    "Kaly\\Http\\**",
+    "Kaly\\Router\\**",
+    "Kaly\\I18n\\**",
+    "Kaly\\View\\**",
+]
+
+[[guard.perimeter.restrictions]]
+dependency = "Kaly\\I18n\\**"
+deny-from = [
+    "Kaly\\Util\\**",
+    "Kaly\\Clock\\**",
+    "Kaly\\Log\\**",
+    "Kaly\\Http\\**",
+    "Kaly\\Router\\**",
+    "Kaly\\Asset\\**",
+    "Kaly\\View\\**",
+]
+
+[[guard.perimeter.restrictions]]
+dependency = "Kaly\\View\\**"
+deny-from = [
+    "Kaly\\Util\\**",
+    "Kaly\\Clock\\**",
+    "Kaly\\Log\\**",
+    "Kaly\\Http\\**",
+    "Kaly\\Router\\**",
+    "Kaly\\Asset\\**",
+    "Kaly\\I18n\\**",
+]
