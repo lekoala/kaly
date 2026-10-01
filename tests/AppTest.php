@@ -85,6 +85,44 @@ class AppTest extends TestCase
         $app->configure(static function (): void {});
     }
 
+    public function testAFailedBootIsTerminal(): void
+    {
+        $app = App::create(__DIR__)->configure(static function (Definitions $di): void {
+            throw new \RuntimeException('boom');
+        });
+
+        try {
+            $app->boot();
+            $this->fail('boot must propagate the failure');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('boom', $e->getMessage());
+        }
+
+        $this->assertFalse($app->isBooted());
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('previously failed');
+        $app->boot();
+    }
+
+    public function testContainerIsUnavailableAfterAFailedBoot(): void
+    {
+        $app = App::create(__DIR__)->configure(static function (Definitions $di): void {
+            throw new \RuntimeException('boom');
+        });
+
+        try {
+            $app->boot();
+            $this->fail('boot must propagate the failure');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('boom', $e->getMessage());
+        }
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('must be booted first');
+        $app->container();
+    }
+
     public function testLocaleDetection(): void
     {
         $app = new App(__DIR__);

@@ -4,6 +4,19 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Frozen route table and one-shot boot
+
+- `RouteCollection::definitions()` is removed. The compiled table copies every
+  `RouteDefinition` on construction and never exposes its own state: mutating
+  the handle you declared with (`$routes->get(...)`) after the table compiled
+  no longer changes matching or url generation. `RouteCollection` and its
+  `entries()` are `@internal`; `byName()` returns a copy.
+- `App` boots once. A boot that throws leaves that instance unusable: a later
+  `boot()` throws "App boot previously failed; create a new App instance", and
+  `isBooted()` stays false. A boot runs user code with side effects (autoloader
+  registration, external calls) that cannot be rolled back, so a failed boot is
+  terminal: create a new `App` to retry.
+
 ## Persistence and transport are separate in the HTTP cycle
 
 - `SessionProviderInterface::commit($session, $request, $response)` is split

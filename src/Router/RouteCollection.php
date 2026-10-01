@@ -9,13 +9,20 @@ use Kaly\Http\Input\RequestInput;
 use ReflectionClass;
 
 /**
- * A frozen, compiled table of route definitions: the local routes of one
- * module entry point (its mount or one of its claims).
+ * A frozen, compiled table of routes: the local routes of one module entry
+ * point (its mount or one of its claims).
  *
- * Paths are relative to that entry point. A definition with one path per
+ * Paths are relative to that entry point. A declaration with one path per
  * locale compiles to one entry per locale. Entries are sorted by priority
  * then specificity; the sort is stable so declaration order wins ties.
  * Regexes are precompiled, so matching never reflects.
+ *
+ * The table keeps its own copies of the declarations: every `RouteDefinition`
+ * is cloned on construction, so mutating the handle a caller still holds
+ * cannot desynchronize the precompiled regex from the path. The copies never
+ * leak: `byName()` returns a clone too, and `definitions()` is gone.
+ *
+ * @internal
  *
  * @phpstan-type RouteEntry array{regex:string,locale:?string,paramNames:list<string>,definition:RouteDefinition,inputClass:class-string<RequestInput>|null,middlewares:list<class-string>,reflection:ReflectionClass<object>}
  */
@@ -27,6 +34,8 @@ final class RouteCollection
     private array $entries;
 
     /**
+     * The private copies of the declarations, one per route whatever its locale
+     *
      * @var list<RouteDefinition>
      */
     private array $definitions;
@@ -36,11 +45,12 @@ final class RouteCollection
      */
     public function __construct(array $definitions)
     {
-        $this->definitions = array_values($definitions);
-        $this->failOnDuplicateNames($this->definitions);
-        $this->failOnCollisions($this->definitions);
+        $definitions = array_map(static fn(RouteDefinition $definition): RouteDefinition => clone $definition, array_values($definitions));
+        $this->definitions = $definitions;
+        $this->failOnDuplicateNames($definitions);
+        $this->failOnCollisions($definitions);
         $entries = [];
-        foreach ($this->definitions as $definition) {
+        foreach ($definitions as $definition) {
             $reflection = new ReflectionClass($definition->controller);
             // Resolved and validated when the table is compiled: a declared
             // middleware that cannot run fails here, never silently
@@ -86,18 +96,17 @@ final class RouteCollection
     }
 
     /**
-     * @return list<RouteDefinition>
+     * A copy of the declaration carrying a name, if any. A name identifies
+     * exactly one declaration; duplicates already failed at compile time.
+     *
+     * The copy is deliberate: the caller may read it (url generation) but can
+     * never mutate the table through it.
      */
-    public function definitions(): array
-    {
-        return $this->definitions;
-    }
-
     public function byName(string $name): ?RouteDefinition
     {
         foreach ($this->definitions as $definition) {
             if ($definition->name === $name) {
-                return $definition;
+                return clone $definition;
             }
         }
         return null;

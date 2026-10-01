@@ -111,6 +111,8 @@ final class App implements RequestHandlerInterface
      */
     private array $locales = [];
     private bool $booted = false;
+    private bool $booting = false;
+    private bool $bootFailed = false;
     /**
      * @var list<Module>
      */
@@ -269,35 +271,61 @@ final class App implements RequestHandlerInterface
     /**
      * Load the modules, build the container and the request kernel.
      * Called automatically by handle() and run().
+     *
+     * Boot is one-shot: a failure is terminal. A boot runs user code
+     * (`config.php`, `configure()`, `onBoot()`) with side effects an
+     * autoloader registration or an external call cannot roll back, so the
+     * instance never pretends a failed boot is retryable. Create a new App.
      */
     public function boot(): self
     {
         if ($this->booted) {
             throw new LogicException('App is already booted');
         }
-        $this->booted = true;
-
-        ErrorHandler::configureDefaults($this->debug);
-
-        if ($this->debug) {
-            $this->paths->ensureAll();
+        if ($this->booting) {
+            throw new LogicException('App is already booting');
+        }
+        if ($this->bootFailed) {
+            throw new LogicException('App boot previously failed; create a new App instance');
         }
 
-        $this->container = new Container($this->buildDefinitions());
-        $this->kernel = new Kernel(
-            $this->createRequestHandler(),
-            $this->container->get(ExceptionHandlerInterface::class),
-            $this->hooks,
-            new OutgoingRunner($this->container, $this->middleware, $this->hooks->error(...)),
-            $this->container->get(SessionProviderInterface::class),
-            $this->container->get(CookiePolicy::class),
-        );
+        $this->booting = true;
 
-        if ($this->debug) {
-            $this->hooks->terminate[] = $this->logPipeline(...);
+        try {
+            ErrorHandler::configureDefaults($this->debug);
+
+            if ($this->debug) {
+                $this->paths->ensureAll();
+            }
+
+            $this->container = new Container($this->buildDefinitions());
+            $this->kernel = new Kernel(
+                $this->createRequestHandler(),
+                $this->container->get(ExceptionHandlerInterface::class),
+                $this->hooks,
+                new OutgoingRunner($this->container, $this->middleware, $this->hooks->error(...)),
+                $this->container->get(SessionProviderInterface::class),
+                $this->container->get(CookiePolicy::class),
+            );
+
+            $this->hooks->boot($this);
+
+            if ($this->debug) {
+                $this->hooks->terminate[] = $this->logPipeline(...);
+            }
+
+            // Available only once everything above succeeded
+            $this->booted = true;
+        } catch (Throwable $ex) {
+            // Drop the half-built state and mark the instance unusable
+            $this->container = null;
+            $this->kernel = null;
+            $this->modules = [];
+            $this->bootFailed = true;
+            throw $ex;
+        } finally {
+            $this->booting = false;
         }
-
-        $this->hooks->boot($this);
 
         return $this;
     }
@@ -656,16 +684,21 @@ final class App implements RequestHandlerInterface
         return $names;
     }
 
+    /**
+     * Available once booted, or while booting: the boot itself (and an onBoot
+     * hook) reads the container and the kernel before the app is declared
+     * booted.
+     */
     private function assertBooted(): void
     {
-        if (!$this->booted) {
+        if (!$this->booted && !$this->booting) {
             throw new LogicException('App must be booted first');
         }
     }
 
     private function assertNotBooted(string $what): void
     {
-        if ($this->booted) {
+        if ($this->booted || $this->booting) {
             throw new LogicException("Cannot change the {$what} of a booted app");
         }
     }

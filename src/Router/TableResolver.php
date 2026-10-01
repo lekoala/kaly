@@ -75,7 +75,8 @@ final class TableResolver implements ResolverInterface
                 continue;
             }
 
-            $methods = array_map(strtoupper(...), $entry['definition']->methods);
+            $definition = $entry['definition'];
+            $methods = array_map(strtoupper(...), $definition->methods);
             if ($methods !== [] && !in_array($method, $methods, true)) {
                 foreach ($methods as $m) {
                     $allowed[$m] = true;
@@ -88,7 +89,6 @@ final class TableResolver implements ResolverInterface
                 continue;
             }
 
-            $definition = $entry['definition'];
             return $request->route(
                 $definition->controller,
                 $definition->action,

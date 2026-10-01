@@ -108,6 +108,35 @@ class RouteCollectionTest extends TestCase
         $this->assertSame('/users/{slug}', $entries[0]['definition']->path);
     }
 
+    public function testMutatingADefinitionAfterCompilationDoesNotAffectTheTable(): void
+    {
+        $definition = $this->definition('/before', 'show', ['name' => 'test']);
+        $collection = new RouteCollection([$definition]);
+
+        // The declaration is still the mutable DSL object...
+        $definition->path = '/after';
+        $definition->name = 'changed';
+
+        // ...but the table kept its own copy
+        $this->assertSame('/before', $collection->entries()[0]['definition']->path);
+        $this->assertNotNull($collection->byName('test'));
+        $this->assertNull($collection->byName('changed'));
+    }
+
+    public function testByNameReturnsACopyThatCannotMutateTheTable(): void
+    {
+        $collection = new RouteCollection([
+            $this->definition('/before', 'show', ['name' => 'test']),
+        ]);
+
+        $found = $collection->byName('test');
+        $this->assertNotNull($found);
+        $found->path = '/evil';
+
+        $this->assertSame('/before', $collection->byName('test')?->path);
+        $this->assertSame('/before', $collection->entries()[0]['definition']->path);
+    }
+
     public function testEmptyMethodsOverlapEverything(): void
     {
         $routes = new Routes();
@@ -137,8 +166,8 @@ class RouteCollectionTest extends TestCase
         $entries = $collection->entries();
         $entries[] = $entries[0];
         unset($entries[0]);
-        $definitions = $collection->definitions();
-        $definitions[] = $definitions[0];
+        $rows = $collection->toArray();
+        $rows[] = $rows[0];
 
         $this->assertSame(1, $collection->count());
         $this->assertCount(1, $collection->entries());
