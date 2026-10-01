@@ -11,22 +11,20 @@ use Psr\Http\Message\ServerRequestInterface;
  * How the session of a request is obtained and persisted.
  *
  * The provider owns HTTP and persistence: it reads the request to build the
- * session, persists it, then writes its transport back to the response. The
- * session itself only carries applicative state and never sees PSR-7.
+ * session, then writes the session back to the final response, storage and
+ * transport together. The session itself only carries applicative state and
+ * never sees PSR-7.
  *
- * Persistence and transport are two distinct moments: `persist()` releases
- * the storage as soon as the request pipeline is done, while
- * `applyToResponse()` adds the session cookie to the final response, after
- * the outgoing phase. This way an outgoing failure that replaces the response
- * cannot lose a session, nor a cookie.
+ * The commit happens once, after the outgoing phase: a session read or written
+ * by an outgoing middleware is persisted like any other, and a response an
+ * outgoing middleware replaced still carries the session cookie.
  *
  * ```text
  * HttpContext
  *     ↓
  * SessionProvider
  *     ├── create(request) → SessionInterface
- *     ├── persist(session)                        storage
- *     └── applyToResponse(session, request, response)   transport
+ *     └── commit(session, request, response)   storage + transport
  * ```
  */
 interface SessionProviderInterface
@@ -34,17 +32,9 @@ interface SessionProviderInterface
     public function create(ServerRequestInterface $request): SessionInterface;
 
     /**
-     * Write the session storage back. Never touches the response.
+     * Write the session storage back and apply its transport (the Set-Cookie
+     * header) to the final response. A backend without a cookie returns the
+     * response unchanged.
      */
-    public function persist(SessionInterface $session): void;
-
-    /**
-     * Apply the session transport (its Set-Cookie header) to the final
-     * response. A backend without a cookie returns the response unchanged.
-     */
-    public function applyToResponse(
-        SessionInterface $session,
-        ServerRequestInterface $request,
-        ResponseInterface $response,
-    ): ResponseInterface;
+    public function commit(SessionInterface $session, ServerRequestInterface $request, ResponseInterface $response): ResponseInterface;
 }

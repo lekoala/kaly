@@ -88,7 +88,9 @@ final class RouteCollection
 
     /**
      * @return list<RouteEntry>
-     * @internal Consumed by TableResolver only.
+     * @internal Matcher access only: the entries carry the private, mutable
+     * `RouteDefinition` copies, so callers must never mutate them or hand them
+     * out. Public inspection goes through toArray().
      */
     public function entries(): array
     {

@@ -45,8 +45,8 @@ Boot and request handling are split in two objects:
   middleware configuration; `boot()` builds everything once. `handle()` and `run()` boot
   the app when needed.
 - `Kaly\Core\Kernel` — a stateless PSR-15 `RequestHandlerInterface`. It creates the
-  [HttpContext](http-context.md) of the cycle, delegates to the pipeline, commits the
-  session and cookies, runs the outgoing phase and maps exceptions to responses.
+  [HttpContext](http-context.md) of the cycle, delegates to the pipeline, runs the
+  outgoing phase, commits the session and cookies, and maps exceptions to responses.
 
 Because the kernel holds no per-request state, the same app can handle many requests,
 which makes worker setups (RoadRunner, Swoole, FrankenPHP...) straightforward.
@@ -116,7 +116,7 @@ variables, the PSR-7 messages or the [HttpContext](http-context.md), never in a
 middleware property.
 
 ```text
-incoming -> routing -> routed -> route middlewares -> dispatcher -> (kernel) -> outgoing
+incoming -> routing -> routed -> route middlewares -> dispatcher -> (kernel) -> outgoing -> commit
 ```
 
 - **incoming** runs before anything is routed: trusted proxies, request id, static
@@ -279,7 +279,9 @@ final class RouteHeader implements OutgoingInterface
 
 An outgoing middleware marked `always` is a **guarantee** rather than a step. It runs
 on every response that leaves the application, including the error response that
-replaces a failed outgoing phase, and it can be a plain closure:
+replaces a failed outgoing phase or a failed final commit. Because of the latter it
+can run more than once for one request, so it must stay free of side effects. It can
+be a plain closure:
 
 ```php
 $app->middleware()->outgoing(

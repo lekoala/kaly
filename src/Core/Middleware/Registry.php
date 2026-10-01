@@ -88,9 +88,12 @@ final class Registry
      *
      * With `always: true` the middleware is a guarantee rather than a step:
      * it also runs on the error response that replaces a failed outgoing
-     * phase, and its own failure is reported without ever replacing the
-     * response. Use it for headers that must be on every response (security
-     * headers, request id, audit).
+     * phase or a failed final commit, and its own failure is reported without
+     * ever replacing the response. Because it can run more than once for a
+     * single request, an `always` transformation must stay free of side
+     * effects and return a response derived from the one it received. Use it
+     * for headers that must be on every response (security headers, request
+     * id, audit).
      *
      * @param class-string|OutgoingInterface|Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Core\HttpContext): \Psr\Http\Message\ResponseInterface $middleware
      * @param Closure(\Psr\Http\Message\ResponseInterface, \Kaly\Core\HttpContext, ?\Psr\Container\ContainerInterface): bool|null $when Receives the current response, the context and the container; returning false skips the middleware

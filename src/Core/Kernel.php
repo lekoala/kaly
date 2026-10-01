@@ -24,9 +24,8 @@ use Throwable;
  * one request -> one context -> the whole cycle -> one response
  *
  * pipeline (incoming, routing, routed, route middlewares, dispatcher)
- *   -> persist (session storage)
  *   -> outgoing
- *   -> apply (session cookie, cookies)
+ *   -> commit (session storage, session cookie, cookies)
  *   -> terminate hooks
  * ```
  */
@@ -54,15 +53,6 @@ final class Kernel implements RequestHandlerInterface
             $response = $this->handleException($ex, $ctx);
         }
 
-        // The session storage is written back whatever the origin of the
-        // response, before the outgoing phase: the state the cycle established
-        // is never lost, even if a later step fails.
-        try {
-            $ctx->persist();
-        } catch (Throwable $ex) {
-            $response = $this->handleException($ex, $ctx);
-        }
-
         // Second boundary: the outgoing phase sees the response whatever its
         // origin. It is attempted once for every response: if an outgoing
         // middleware throws, the phase stops and the exception is converted to
@@ -75,12 +65,18 @@ final class Kernel implements RequestHandlerInterface
             }
         }
 
-        // Transport is applied last, on the final response: a session or a
-        // cookie already set survives an outgoing failure that replaced it.
+        // The state the cycle established is committed last, on the final
+        // response: the session is persisted and its cookie emitted, cookie
+        // changes become headers. If the commit itself fails, the error
+        // response still runs through the `always` middlewares, without
+        // retrying the failed commit.
         try {
-            $response = $ctx->applyToResponse($response);
+            $response = $ctx->commit($response);
         } catch (Throwable $ex) {
             $response = $this->handleException($ex, $ctx);
+            if ($this->outgoing !== null) {
+                $response = $this->outgoing->process($response, $ctx, recovering: true);
+            }
         }
 
         // The cycle is over: from here on the context exposes its response

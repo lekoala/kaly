@@ -19,7 +19,7 @@ signature. See [Modules](modules.md) and [DI](di.md).
 
 ```text
 incoming -> routing -> routed -> [route middlewares] -> dispatcher
-  -> commit (session, cookies) -> outgoing -> terminate hooks
+  -> outgoing -> commit (session, cookies) -> terminate hooks
 ```
 
 - **incoming**: before routing, no route yet (`HttpContext::from()` works,
@@ -27,10 +27,11 @@ incoming -> routing -> routed -> [route middlewares] -> dispatcher
 - **routing**: structural, not configurable — one module owns the url.
 - **routed + dispatcher**: `route()` and `locale()` guaranteed; `$ctx->url()`
   generates for the request locale.
-- **commit**: session and cookies owned by the context are written back,
-  whatever produced the response.
 - **outgoing**: transforms the final response (`Response -> Response`);
   `always` middlewares also cover error responses.
+- **commit**: the session and cookies owned by the context are committed to
+  the response, whatever produced it (a session touched during outgoing
+  included).
 - **terminate**: observability only, never the response.
 
 ## Ownership

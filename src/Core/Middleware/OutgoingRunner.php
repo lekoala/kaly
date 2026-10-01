@@ -36,7 +36,9 @@ use Throwable;
  * The phase is attempted at most once per response: if an outgoing middleware
  * throws, the phase stops and the whole previous transformation is replaced by
  * the error response built by the kernel. The kernel then recovers: only the
- * `always` middlewares run on that error response.
+ * `always` middlewares run on that error response. The same recovery runs when
+ * the final commit fails, so a middleware marked `always` may see two
+ * responses for one request and must stay side-effect free.
  *
  * An `always` middleware never breaks a response: if it throws, the failure
  * is reported and the response it received goes on unchanged.

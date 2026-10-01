@@ -14,8 +14,8 @@ use Psr\Http\Message\ServerRequestInterface;
  * The transport rules every cookie-carried session shares.
  *
  * Read the incoming id, resolve the cookie options for the request, release
- * the storage and apply the Set-Cookie header to the final response. Providers
- * delegate here instead of knowing concrete session classes.
+ * the storage and emit the Set-Cookie header on commit. Providers delegate
+ * here instead of knowing concrete session classes.
  */
 final class SessionCookie
 {
@@ -50,24 +50,16 @@ final class SessionCookie
     }
 
     /**
-     * Release the session storage. Persistence is separate from transport:
-     * it must happen whatever response finally leaves, an outgoing failure
-     * included, so the session data is never lost.
+     * Release the session storage, then emit the Set-Cookie header when the
+     * id changed — or expire the client cookie when the session is destroyed.
      */
-    public static function release(CookieSessionInterface $session): void
-    {
-        $session->close();
-    }
-
-    /**
-     * Emit the Set-Cookie header when the id changed — or expire the client
-     * cookie when the session is destroyed. Applied to the final response.
-     */
-    public static function apply(
+    public static function commit(
         CookieSessionInterface $session,
         ServerRequestInterface $request,
         ResponseInterface $response,
     ): ResponseInterface {
+        $session->close();
+
         $name = $session->getName();
         $current = $request->getCookieParams()[$name] ?? null;
 

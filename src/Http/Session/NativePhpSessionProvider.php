@@ -17,7 +17,7 @@ use Psr\Http\Message\ServerRequestInterface;
  *
  * The provider owns transport: it derives the session id from the request
  * cookie, scopes the cookie to the request (secure/domain), honors
- * remember-me, persists the storage and applies the Set-Cookie header to the
+ * remember-me, commits the storage and applies the Set-Cookie header to the
  * final response.
  */
 final class NativePhpSessionProvider implements SessionProviderInterface
@@ -51,20 +51,10 @@ final class NativePhpSessionProvider implements SessionProviderInterface
         return $session;
     }
 
-    public function persist(SessionInterface $session): void
+    public function commit(SessionInterface $session, ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         if ($session instanceof CookieSessionInterface) {
-            SessionCookie::release($session);
-        }
-    }
-
-    public function applyToResponse(
-        SessionInterface $session,
-        ServerRequestInterface $request,
-        ResponseInterface $response,
-    ): ResponseInterface {
-        if ($session instanceof CookieSessionInterface) {
-            return SessionCookie::apply($session, $request, $response);
+            return SessionCookie::commit($session, $request, $response);
         }
         return $response;
     }

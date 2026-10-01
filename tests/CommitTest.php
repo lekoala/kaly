@@ -9,12 +9,15 @@ use Kaly\Core\ErrorHandler;
 use Kaly\Core\HttpContext;
 use Kaly\Core\Middleware\OutgoingInterface;
 use Kaly\Di\Definitions;
+use Kaly\Http\Session\ArraySession;
 use Kaly\Http\Session\ArraySessionProvider;
+use Kaly\Http\Session\SessionInterface;
 use Kaly\Http\Session\SessionProviderInterface;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 
 /**
  * What a cycle writes to its context reaches the response without any
@@ -107,5 +110,75 @@ class CommitTest extends TestCase
         $cookies = implode("\n", $response->getHeader('Set-Cookie'));
         $this->assertStringContainsString('remember=yes', $cookies);
         $this->assertStringContainsString('KALYSESSID=', $cookies);
+    }
+
+    public function testSessionWrittenInOutgoingIsCommitted(): void
+    {
+        $this->app
+            ->middleware()
+            ->outgoing(new class implements OutgoingInterface {
+                public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
+                {
+                    $ctx->session()->set('late', 'yes');
+                    return $response;
+                }
+            });
+
+        $response = $this->get('/test-module/state/untouched/');
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertStringContainsString(
+            'KALYSESSID=',
+            $response->getHeaderLine('Set-Cookie'),
+            'a session written during outgoing is committed after the phase',
+        );
+    }
+
+    public function testAFailingCommitStillRunsAlwaysOutgoingWithoutReplayingThePhase(): void
+    {
+        $app = new App(__DIR__);
+        $app->configure(static function (Definitions $di): void {
+            $di->set(SessionProviderInterface::class, new class implements SessionProviderInterface {
+                public function create(ServerRequestInterface $request): SessionInterface
+                {
+                    return new ArraySession();
+                }
+
+                public function commit(
+                    SessionInterface $session,
+                    ServerRequestInterface $request,
+                    ResponseInterface $response,
+                ): ResponseInterface {
+                    throw new \RuntimeException('commit failed');
+                }
+            });
+        });
+        $app->boot();
+
+        $runs = 0;
+        $app->middleware()->outgoing(new class($runs) implements OutgoingInterface {
+            /**
+             * @param int $runs
+             */
+            public function __construct(
+                private int &$runs,
+            ) {}
+
+            public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
+            {
+                $this->runs++;
+                return $response;
+            }
+        });
+        $app->middleware()->outgoing(static fn(ResponseInterface $response, HttpContext $ctx): ResponseInterface => $response->withHeader(
+            'X-Security',
+            'yes',
+        ), always: true);
+
+        $response = $app->handle(HttpFactory::createRequestFromGlobals()->withUri(new Uri('/test-module/state/login/')));
+
+        $this->assertSame(500, $response->getStatusCode());
+        $this->assertSame('yes', $response->getHeaderLine('X-Security'), 'always runs on a failed commit');
+        $this->assertSame(1, $runs, 'a failed commit does not replay the outgoing phase');
     }
 }

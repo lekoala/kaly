@@ -271,32 +271,17 @@ final class HttpContext
     }
 
     /**
-     * @internal Called once by the kernel as soon as the request pipeline
-     * produced a response, error responses included (a login that sets the
-     * session then redirects must keep its session).
-     *
-     * Writes the session storage back. It never touches the response, so the
-     * session is saved whatever response finally leaves, an outgoing failure
-     * included. A session never touched costs nothing.
-     */
-    public function persist(): void
-    {
-        if ($this->session !== null && $this->sessionProvider !== null) {
-            $this->sessionProvider->persist($this->session);
-        }
-    }
-
-    /**
      * @internal Called once by the kernel on the final response, after the
-     * outgoing phase. Applies the transport: the session cookie and the cookie
-     * changes become Set-Cookie headers. Applying last is what keeps a cookie
-     * set before an outgoing failure from being lost. A session or cookie jar
-     * never touched costs nothing.
+     * outgoing phase. Commits the state the cycle changed: the session storage
+     * is written back and its cookie emitted if needed, the cookie changes
+     * become Set-Cookie headers. Committing last is what keeps a session or a
+     * cookie set before an outgoing failure from being lost. A session or
+     * cookie jar never touched costs nothing.
      */
-    public function applyToResponse(ResponseInterface $response): ResponseInterface
+    public function commit(ResponseInterface $response): ResponseInterface
     {
         if ($this->session !== null && $this->sessionProvider !== null) {
-            $response = $this->sessionProvider->applyToResponse($this->session, $this->request, $response);
+            $response = $this->sessionProvider->commit($this->session, $this->request, $response);
         }
         if ($this->cookies !== null) {
             $response = $this->cookies->addToResponse($response);

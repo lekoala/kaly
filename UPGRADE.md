@@ -17,19 +17,21 @@ how to migrate.
   registration, external calls) that cannot be rolled back, so a failed boot is
   terminal: create a new `App` to retry.
 
-## Persistence and transport are separate in the HTTP cycle
+## The HTTP cycle commits after the outgoing phase
 
-- `SessionProviderInterface::commit($session, $request, $response)` is split
-  into `persist($session): void` (writes the storage back, never touches the
-  response) and `applyToResponse($session, $request, $response): ResponseInterface`
-  (applies the session `Set-Cookie`). Update custom providers.
-- `HttpContext::commit($response)` is replaced by `persist(): void` and
-  `applyToResponse($response): ResponseInterface`.
-- The kernel now persists the session before the outgoing phase and applies
-  the cookies (session cookie and `Cookies`) to the final response, after it.
-  A cookie set before an outgoing failure that replaced the response is no
-  longer lost. Rule: the session state is settled by `persist()`; cookie
-  additions remain allowed until `applyToResponse()`.
+- `HttpContext::commit($response)` is back. The kernel runs the outgoing phase
+  first, then commits the state the cycle established: the session storage and
+  its cookie, plus the cookie changes. A session read or written by an outgoing
+  middleware is persisted like any other, and a response an outgoing middleware
+  replaced still carries the cookies.
+- `SessionProviderInterface` is back to a single
+  `commit($session, $request, $response): ResponseInterface`. The
+  `persist()`/`applyToResponse()` split introduced while stabilizing the cycle
+  is removed: update custom providers.
+- If the final commit fails, the error response runs through the `always`
+  outgoing middlewares, and the commit is never retried. An `always`
+  middleware can therefore run twice for one request: it must be side-effect
+  free.
 - `ExceptionHandler` no longer reads `Exception::$code` as a status for a
   non-HTTP exception: only an `HttpExceptionInterface` carries a status, any
   other failure is a 500.

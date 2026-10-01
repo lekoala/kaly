@@ -604,7 +604,7 @@ final class App implements RequestHandlerInterface
      * the content of the middleware phases is configurable:
      *
      * ```text
-     * incoming -> routing -> routed -> route middlewares -> dispatcher -> (kernel) -> outgoing
+     * incoming -> routing -> routed -> route middlewares -> dispatcher -> (kernel) -> outgoing -> commit
      * ```
      *
      * A custom RequestHandlerInterface binding takes precedence.

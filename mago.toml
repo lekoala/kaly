@@ -94,7 +94,7 @@ deny-from = [
 # below it, never the reverse. Util and Clock are foundations, Log builds on
 # them, Http is the protocol, Router/Asset/I18n/View are domains, Core composes
 # everything. Encoding the order this way also makes a cycle impossible outside
-# Core and Test.
+# Core and Test, and outside the Util/Clock pair, which are peer foundations.
 #
 #   Util, Clock                  foundations
 #   Log                          foundations + Util
