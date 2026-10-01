@@ -15,8 +15,10 @@ abstract class GuardedBaseController extends AbstractController
     protected function trace(): string
     {
         $trace = $this->request->getAttribute(AbstractTraceMiddleware::ATTRIBUTE, []);
-        assert(is_array($trace));
+        if (!is_array($trace)) {
+            return '';
+        }
 
-        return implode(',', $trace);
+        return implode(',', array_map(static fn(mixed $value): string => is_string($value) ? $value : '', $trace));
     }
 }

@@ -6,6 +6,7 @@ namespace Kaly\Tests;
 
 use InvalidArgumentException;
 use Kaly\Http\FileResponseFactory;
+use Kaly\Tests\Support\TempDir;
 use Kaly\Util\Fs;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use PHPUnit\Framework\TestCase;
@@ -28,25 +29,7 @@ class FileResponseFactoryTest extends TestCase
 
     protected function tearDown(): void
     {
-        self::removeDir($this->base);
-    }
-
-    /**
-     * Delete a temp directory recursively (test-only helper).
-     */
-    private static function removeDir(string $dir): void
-    {
-        if (!is_dir($dir)) {
-            return;
-        }
-        $items = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        foreach ($items as $item) {
-            $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
-        }
-        rmdir($dir);
+        TempDir::remove($this->base);
     }
 
     public function testInlineByDefaultWithNoDisposition(): void

@@ -52,6 +52,8 @@ class StateController extends AbstractController
     {
         $query = $this->request->getQueryParams()['q'] ?? '-';
         $cookie = $this->request->getCookieParams()['theme'] ?? '-';
+        $query = is_scalar($query) ? (string) $query : '-';
+        $cookie = is_scalar($cookie) ? (string) $cookie : '-';
         return "q={$query};theme={$cookie};";
     }
 }

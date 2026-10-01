@@ -25,7 +25,7 @@ use PHPUnit\Framework\TestCase;
 class SapiWorkerTest extends TestCase
 {
     /**
-     * @var array<string,mixed>
+     * @var array<mixed>
      */
     private array $server;
 

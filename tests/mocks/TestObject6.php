@@ -9,8 +9,10 @@ class TestObject6 implements TestAltInterface, TestInterface
     public string $v;
     public string $v2;
     public ?string $v3;
+    /** @var array<mixed> */
     public array $arr;
 
+    /** @param array<mixed> $arr */
     public function __construct(string $v, string $v2, array $arr, ?string $v3 = null)
     {
         $this->v = $v;

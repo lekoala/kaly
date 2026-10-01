@@ -40,6 +40,10 @@ class IndexController extends AbstractController
         return 'foo';
     }
 
+    /**
+     * @param array<mixed> $arr
+     * @return array<mixed>
+     */
     public function arr(array $arr): array
     {
         return $arr;
@@ -71,12 +75,13 @@ class IndexController extends AbstractController
     public function middleware(): string
     {
         $attr = $this->request->getAttribute('test-attribute');
-        return (string) $attr;
+        return is_scalar($attr) ? (string) $attr : '';
     }
 
     public function middlewareException(): never
     {
-        throw new Exception($this->request->getAttribute('test-attribute'));
+        $attr = $this->request->getAttribute('test-attribute');
+        throw new Exception(is_scalar($attr) ? (string) $attr : '');
     }
 
     public function getip(): string

@@ -18,7 +18,16 @@ use PHPUnit\Framework\TestCase;
 class RouteCollectionTest extends TestCase
 {
     /**
-     * @param array<string,mixed> $overrides
+     * @param array{
+     *     path?:string,
+     *     action?:string,
+     *     methods?:list<string>,
+     *     name?:string|null,
+     *     requirements?:array<string,string>,
+     *     defaults?:array<string,mixed>,
+     *     middlewares?:list<class-string>,
+     *     priority?:int
+     * } $overrides
      */
     private function definition(string $path, string $action = 'show', array $overrides = []): RouteDefinition
     {

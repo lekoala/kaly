@@ -12,7 +12,7 @@ require_once $dir . '/vendor/autoload.php';
 
 // Mock classes
 // require_once __DIR__ . '/../src/_functions/global.php';
-foreach (glob(__DIR__ . '/mocks/*.php') as $f) {
+foreach (glob(__DIR__ . '/mocks/*.php') ?: [] as $f) {
     require_once $f;
 }
 // Modules

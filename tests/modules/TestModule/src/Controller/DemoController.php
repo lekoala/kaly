@@ -8,7 +8,7 @@ use Kaly\Core\AbstractController;
 
 class DemoController extends AbstractController
 {
-    public function index($param = ''): string
+    public function index(string $param = ''): string
     {
         if ($param) {
             return "hello {$param}";
@@ -37,12 +37,12 @@ class DemoController extends AbstractController
         return 'hello underscore';
     }
 
-    public function arr(...$args): string
+    public function arr(string ...$args): string
     {
         return 'hello ' . implode(',', $args);
     }
 
-    public function arrplus(string $test, ...$args): string
+    public function arrplus(string $test, string ...$args): string
     {
         return 'hello ' . $test . ',' . implode(',', $args);
     }

@@ -27,7 +27,11 @@ return static function (Module $module, Definitions $di): void {
         new KalyTplRenderer(new ViewEngine(__DIR__ . '/templates')),
     )->set(App::DEBUG_LOGGER, function (): FileLogger {
         $script = $_SERVER['SCRIPT_NAME'] ?? '';
-        $basePath = substr((string) $script, 0, strpos((string) $script, 'vendor' . DIRECTORY_SEPARATOR . 'bin'));
+        if (!is_string($script)) {
+            $script = '';
+        }
+        $pos = strpos($script, 'vendor' . DIRECTORY_SEPARATOR . 'bin');
+        $basePath = $pos === false ? '' : substr($script, 0, $pos);
         return new FileLogger("{$basePath}/tests.log");
     });
 

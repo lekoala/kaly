@@ -185,11 +185,16 @@ class OutgoingBandTest extends TestCase
              */
             public array $records = [];
 
+            /**
+             * @param mixed $level
+             * @param mixed $message
+             * @param array<string,mixed> $context
+             */
             public function log($level, $message, array $context = []): void
             {
                 $this->records[] = [
-                    'level' => $level,
-                    'message' => $message,
+                    'level' => is_scalar($level) ? (string) $level : '',
+                    'message' => $message instanceof \Stringable || is_scalar($message) ? (string) $message : '',
                     'context' => $context,
                 ];
             }
@@ -221,6 +226,10 @@ class OutgoingBandTest extends TestCase
             $context['outgoing'],
             'configured outgoing middlewares are class names',
         );
-        $this->assertContains(TestOutgoing::class, $context['executed']);
+        $executed = $context['executed'];
+        if (!is_array($executed)) {
+            $this->fail('executed must be an array');
+        }
+        $this->assertContains(TestOutgoing::class, $executed);
     }
 }

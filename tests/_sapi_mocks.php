@@ -39,10 +39,11 @@ namespace Kaly\Core {
         return false;
     }
 
-    function http_response_code(int $response_code = 0): int|false
+    function http_response_code(int $response_code = 0): int
     {
         HttpTest::$mockResponse[__FUNCTION__] = func_get_args();
 
+        /** @var int $code */
         static $code = 200;
         if (func_num_args() === 0) {
             return $code;

@@ -17,6 +17,7 @@ use Psr\Http\Message\ServerRequestInterface;
 
 class HttpTest extends TestCase
 {
+    /** @var array<string,mixed> */
     public static array $mockResponse = [];
 
     public function testParseLanguage(): void

@@ -8,6 +8,7 @@ use Kaly\Http\Cookie\CookiePolicy;
 use Kaly\Http\Session\NativePhpSession;
 use Kaly\Http\Session\NativePhpSessionProvider;
 use Kaly\Tests\Support\HttpFactory;
+use Kaly\Tests\Support\TempDir;
 use Kaly\Util\Fs;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
 use PHPUnit\Framework\TestCase;
@@ -32,25 +33,7 @@ class SessionTest extends TestCase
             session_abort();
         }
         session_id('');
-        self::removeDir($this->savePath);
-    }
-
-    /**
-     * Delete a temp directory recursively (test-only helper).
-     */
-    private static function removeDir(string $dir): void
-    {
-        if (!is_dir($dir)) {
-            return;
-        }
-        $items = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        foreach ($items as $item) {
-            $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
-        }
-        rmdir($dir);
+        TempDir::remove($this->savePath);
     }
 
     private function request(string $uri = 'https://example.test/'): ServerRequestInterface
@@ -58,6 +41,9 @@ class SessionTest extends TestCase
         return new BaseServerRequest('GET', $uri);
     }
 
+    /**
+     * @param array<string,mixed> $options
+     */
     private function provider(array $options = []): NativePhpSessionProvider
     {
         return new NativePhpSessionProvider($options);

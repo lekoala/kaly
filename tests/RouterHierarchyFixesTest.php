@@ -37,7 +37,7 @@ class RouterHierarchyFixesTest extends TestCase
             ->withoutConventionRouting();
     }
 
-    private function match(Router $router, string $path, string $method = 'GET'): mixed
+    private function match(Router $router, string $path, string $method = 'GET'): Route
     {
         $request = HttpFactory::createRequestFromGlobals()->withUri(new Uri($path))->withMethod($method);
         return $router->match($request);
@@ -55,8 +55,8 @@ class RouterHierarchyFixesTest extends TestCase
             });
         $router = new Router([$module]);
 
-        $this->assertNotNull($this->match($router, '/shop/same/', 'GET'));
-        $this->assertNotNull($this->match($router, '/shop/same/', 'POST'));
+        $this->assertSame(RouteHandlerFixture::class, $this->match($router, '/shop/same/', 'GET')->controller);
+        $this->assertSame(RouteHandlerFixture::class, $this->match($router, '/shop/same/', 'POST')->controller);
 
         try {
             $this->match($router, '/shop/same/', 'PUT');
@@ -256,8 +256,8 @@ class RouterHierarchyFixesTest extends TestCase
         $router = new Router([$module]);
 
         // Both calls feed one table
-        $this->assertNotNull($this->match($router, '/test-module/alias/hello/'));
-        $this->assertNotNull($this->match($router, '/test-module/alias/priority/'));
+        $this->assertSame(AliasController::class, $this->match($router, '/test-module/alias/hello/')->controller);
+        $this->assertSame(AliasController::class, $this->match($router, '/test-module/alias/priority/')->controller);
 
         // ... but POST never falls through to the convention
         try {

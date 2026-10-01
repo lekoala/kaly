@@ -11,6 +11,7 @@ use Kaly\Ex;
 use Kaly\Http\Accept;
 use Kaly\Http\ExceptionHandler;
 use Kaly\Tests\Support\HttpFactory;
+use Kaly\Util\Json;
 use Nyholm\Psr7\ServerRequest;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -97,7 +98,7 @@ class ErrorResponseTest extends TestCase
     {
         $app = App::create(__DIR__)->debug(true);
 
-        $problem = json_decode((string) $this->get($app, '/test-module/demo/func/too/many/', 'application/json')->getBody(), true);
+        $problem = Json::decodeMap((string) $this->get($app, '/test-module/demo/func/too/many/', 'application/json')->getBody());
 
         $this->assertSame(404, $problem['status']);
         $this->assertIsString($problem['detail']);
@@ -115,7 +116,7 @@ class ErrorResponseTest extends TestCase
 
         $response = $this->get($app, '/test-module/index/validation/', 'application/json');
         $this->assertSame(ExceptionHandler::PROBLEM_JSON, $response->getHeaderLine('Content-Type'));
-        $problem = json_decode((string) $response->getBody(), true);
+        $problem = Json::decodeMap((string) $response->getBody());
         $this->assertSame('This is invalid', $problem['detail']);
         $this->assertSame(422, $problem['status']);
     }

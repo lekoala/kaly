@@ -22,6 +22,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class OutgoingRunnerTest extends TestCase
 {
+    /**
+     * @param array<string>|null $log
+     */
     private function transform(string $name, ?array &$log): OutgoingInterface
     {
         return new class($name, $log) implements OutgoingInterface {

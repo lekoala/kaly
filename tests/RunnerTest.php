@@ -8,6 +8,7 @@ use Kaly\Core\Middleware\Runner;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Test\PredefinedResponseHandler;
+use Kaly\Tests\Mocks\TransactionInterface;
 use LogicException;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
@@ -128,7 +129,8 @@ class RunnerTest extends TestCase
             {
                 $forwarded = $request->withAttribute('tag', 'set-before');
                 $response = $handler->handle($forwarded);
-                return $response->withHeader('X-Tag', (string) $forwarded->getAttribute('tag'));
+                $tag = $forwarded->getAttribute('tag');
+                return $response->withHeader('X-Tag', is_string($tag) ? $tag : '');
             }
         });
 
@@ -247,10 +249,13 @@ class RunnerTest extends TestCase
 
     public function testTransactionCommitsOrRollsBack(): void
     {
+        /** @var list<string> $events */
         $events = [];
-        $transaction = new class($events) {
+        $transaction = new class($events) implements TransactionInterface {
+            /** @var list<string> */
             public array $events;
 
+            /** @param list<string> $events */
             public function __construct(array &$events)
             {
                 $this->events = &$events;
@@ -269,7 +274,7 @@ class RunnerTest extends TestCase
         $runner = new Runner(fn(): ResponseInterface => new Response(200));
         $runner->add(new class($transaction) implements MiddlewareInterface {
             public function __construct(
-                private object $transaction,
+                private TransactionInterface $transaction,
             ) {}
 
             public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface

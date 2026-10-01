@@ -42,7 +42,8 @@ class HappyPathTest extends TestCase
                 {
                     $forwarded = $request->withAttribute('request-id', 'rid-1');
                     $response = $handler->handle($forwarded);
-                    return $response->withHeader('X-Request-Id', (string) $forwarded->getAttribute('request-id'));
+                    $requestId = $forwarded->getAttribute('request-id');
+                    return $response->withHeader('X-Request-Id', is_string($requestId) ? $requestId : '');
                 }
             })
             ->routed(

@@ -11,7 +11,7 @@ use RuntimeException;
 
 class EnvTest extends TestCase
 {
-    /** @var array<string,mixed> */
+    /** @var array<mixed> */
     private array $envBackup = [];
 
     /** @var array<string> */

@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use Kaly\Asset\AssetPublisher;
 use Kaly\Asset\Assets;
 use Kaly\Asset\AssetSources;
+use Kaly\Tests\Support\TempDir;
 use Kaly\Util\Fs;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -28,22 +29,7 @@ class AssetPublisherTest extends TestCase
     protected function tearDown(): void
     {
         unset($_ENV[Assets::ENV_VERSION]);
-        self::removeDir($this->base);
-    }
-
-    private static function removeDir(string $dir): void
-    {
-        if (!is_dir($dir)) {
-            return;
-        }
-        $items = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        foreach ($items as $item) {
-            $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
-        }
-        rmdir($dir);
+        TempDir::remove($this->base);
     }
 
     private function sources(): AssetSources

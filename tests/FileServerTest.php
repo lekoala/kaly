@@ -9,6 +9,7 @@ use Kaly\Di\Definitions;
 use Kaly\Http\FileResponseFactory;
 use Kaly\Http\FileServer;
 use Kaly\Test\PredefinedResponseHandler;
+use Kaly\Tests\Support\TempDir;
 use Kaly\Util\Fs;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
@@ -38,45 +39,7 @@ class FileServerTest extends TestCase
 
     protected function tearDown(): void
     {
-        self::removeDir($this->base);
-    }
-
-    /**
-     * Delete a temp directory recursively (test-only helper).
-     *
-     * Retried: on Windows an unlink can briefly fail while a handle (a file
-     * stream the test forgot to close, the indexer, the antivirus) is still
-     * open.
-     */
-    private static function removeDir(string $dir, int $attempts = 5): void
-    {
-        for ($try = 1;; $try++) {
-            try {
-                self::removeDirOnce($dir);
-                return;
-            } catch (\Throwable $e) {
-                if ($try >= $attempts) {
-                    throw $e;
-                }
-                clearstatcache();
-                usleep(10_000 * $try);
-            }
-        }
-    }
-
-    private static function removeDirOnce(string $dir): void
-    {
-        if (!is_dir($dir)) {
-            return;
-        }
-        $items = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        foreach ($items as $item) {
-            $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
-        }
-        rmdir($dir);
+        TempDir::remove($this->base);
     }
 
     private function serve(string $method, string $uri): ResponseInterface

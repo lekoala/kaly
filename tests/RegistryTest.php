@@ -21,6 +21,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class RegistryTest extends TestCase
 {
+    /**
+     * @param array<string>|null $log
+     */
     private function tracer(string $name, ?array &$log): MiddlewareInterface
     {
         return new class($name, $log) implements MiddlewareInterface {
@@ -110,11 +113,10 @@ class RegistryTest extends TestCase
         });
 
         $runner = new Runner(
-            static fn(ServerRequestInterface $request): ResponseInterface => new Response(
-                200,
-                [],
-                (string) $request->getAttribute(TestMiddleware::DEFAULT_ATTR),
-            ),
+            static function (ServerRequestInterface $request): ResponseInterface {
+                $value = $request->getAttribute(TestMiddleware::DEFAULT_ATTR);
+                return new Response(200, [], is_string($value) ? $value : '');
+            },
             null,
             $registry,
             Band::Incoming,

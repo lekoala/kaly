@@ -1,15 +1,16 @@
-# Static analysis for tests and demos.
+# Static analysis for tests and demos, at the same level as src (max).
 #
-# Transitional: this passes at level 5 while the suite is brought up to
-# `level: max`, which is the target everywhere (`phpstan.neon`).
-# Each entry below is deliberately-invalid input that the test asserts is
-# refused, or a fixture that must be invalid by construction: they cannot be
-# fixed without weakening the test, so they are exempted by path + identifier.
+# Kept separate from phpstan.neon on purpose: tests/_sapi_mocks.php declares
+# namespaced mocks of native functions (Kaly\Http\headers_sent, ...), so
+# analysing tests together with src would change how src resolves them.
+#
+# The exemptions below are deliberately-invalid inputs that the test asserts
+# are refused, or a fixture that must be invalid by construction: they cannot
+# be fixed without weakening the test, so they are exempted by path + identifier.
 includes:
   - phpstan.neon
 
 parameters:
-  level: 5
   ignoreErrors:
     # Deliberately invalid values (an unknown sameSite, fake middleware labels,
     # an unknown request option) asserted to be refused.
@@ -31,5 +32,7 @@ parameters:
     - identifier: function.impossibleType
       path: tests/HttpExceptionTest.php
     # Fixture for the pre-closure config format, refused on purpose.
+    - identifier: method.nonObject
+      path: tests/data/modules/LegacyModule/config.php
     - identifier: variable.undefined
       path: tests/data/modules/LegacyModule/config.php

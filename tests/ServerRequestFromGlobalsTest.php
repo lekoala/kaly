@@ -97,9 +97,14 @@ class ServerRequestFromGlobalsTest extends TestCase
         $this->assertInstanceOf(UploadedFileInterface::class, $files['avatar']);
         $this->assertSame('a.png', $files['avatar']->getClientFilename());
         $this->assertSame('content', (string) $files['avatar']->getStream());
-        $this->assertIsArray($files['docs']);
-        $this->assertCount(2, $files['docs']);
-        $this->assertSame(UPLOAD_ERR_NO_FILE, $files['docs'][1]->getError());
+        $docs = $files['docs'];
+        if (!is_array($docs)) {
+            $this->fail('docs must be an array');
+        }
+        $this->assertCount(2, $docs);
+        $second = $docs[1];
+        $this->assertInstanceOf(UploadedFileInterface::class, $second);
+        $this->assertSame(UPLOAD_ERR_NO_FILE, $second->getError());
     }
 
     public function testDefaultPortsAreNotRepeated(): void

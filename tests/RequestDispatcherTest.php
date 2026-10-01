@@ -130,7 +130,8 @@ class RequestDispatcherTest extends TestCase
         $renderer = new class implements RendererInterface {
             public function render(string $template, array $data = []): string
             {
-                return $template . ':' . ($data['title'] ?? '');
+                $title = $data['title'] ?? null;
+                return $template . ':' . (is_scalar($title) ? (string) $title : '');
             }
         };
 
@@ -200,8 +201,11 @@ class RequestDispatcherTest extends TestCase
             public function render(string $template, array $data = []): string
             {
                 $url = $data[RequestDispatcher::VAR_URL];
-                assert($url instanceof \Closure);
-                return $url('shop:product', ['slug' => 'velo']);
+                if (!$url instanceof \Closure) {
+                    return '';
+                }
+                $result = $url('shop:product', ['slug' => 'velo']);
+                return is_string($result) ? $result : '';
             }
         };
 
@@ -240,7 +244,8 @@ class RequestDispatcherTest extends TestCase
         $renderer = new class implements RendererInterface {
             public function render(string $template, array $data = []): string
             {
-                return $template . ':' . ($data['title'] ?? '');
+                $title = $data['title'] ?? null;
+                return $template . ':' . (is_scalar($title) ? (string) $title : '');
             }
         };
 
