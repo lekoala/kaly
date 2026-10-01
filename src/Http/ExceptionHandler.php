@@ -17,8 +17,8 @@ use Throwable;
  * Default exception handler, built on the PSR-17 factories of the app.
  *
  * - An HTTP exception is an expected outcome: its status, headers and public
- *   body are used as is. A generic exception is an error: it is logged and
- *   becomes a 500 (or its own 4xx/5xx code).
+ *   body are used as is. Any other exception is an error: it is logged and
+ *   becomes a 500, whatever its Exception::$code.
  * - The format follows the client: `application/problem+json` (RFC 9457) for
  *   a JSON client, HTML or plain text otherwise.
  * - In debug mode, the response explains the failure (the bound
@@ -45,8 +45,8 @@ final class ExceptionHandler implements ExceptionHandlerInterface
             $this->logger?->error($exception->getMessage(), ['exception' => $exception]);
         }
 
-        $status = $isHttp ? $exception->status() : (int) $exception->getCode();
-        if ($status < 100 || $status > 599 || !$isHttp && $status < 400) {
+        $status = $isHttp ? $exception->status() : 500;
+        if ($status < 100 || $status > 599) {
             $status = 500;
         }
         $response = $this->responseFactory->createResponse($status);

@@ -24,8 +24,9 @@ use Throwable;
  * one request -> one context -> the whole cycle -> one response
  *
  * pipeline (incoming, routing, routed, route middlewares, dispatcher)
- *   -> commit (session, cookies)
+ *   -> persist (session storage)
  *   -> outgoing
+ *   -> apply (session cookie, cookies)
  *   -> terminate hooks
  * ```
  */
@@ -53,10 +54,11 @@ final class Kernel implements RequestHandlerInterface
             $response = $this->handleException($ex, $ctx);
         }
 
-        // The state owned by the context is written back whatever the origin
-        // of the response: session and cookie changes are never lost
+        // The session storage is written back whatever the origin of the
+        // response, before the outgoing phase: the state the cycle established
+        // is never lost, even if a later step fails.
         try {
-            $response = $ctx->commit($response);
+            $ctx->persist();
         } catch (Throwable $ex) {
             $response = $this->handleException($ex, $ctx);
         }
@@ -71,6 +73,14 @@ final class Kernel implements RequestHandlerInterface
             } catch (Throwable $ex) {
                 $response = $this->outgoing->process($this->handleException($ex, $ctx), $ctx, recovering: true);
             }
+        }
+
+        // Transport is applied last, on the final response: a session or a
+        // cookie already set survives an outgoing failure that replaced it.
+        try {
+            $response = $ctx->applyToResponse($response);
+        } catch (Throwable $ex) {
+            $response = $this->handleException($ex, $ctx);
         }
 
         // The cycle is over: from here on the context exposes its response

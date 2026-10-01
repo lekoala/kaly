@@ -6,6 +6,8 @@ namespace Kaly\Tests;
 
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
+use Kaly\Core\HttpContext;
+use Kaly\Core\Middleware\OutgoingInterface;
 use Kaly\Di\Definitions;
 use Kaly\Http\Session\ArraySessionProvider;
 use Kaly\Http\Session\SessionProviderInterface;
@@ -66,5 +68,44 @@ class CommitTest extends TestCase
 
         $this->assertSame(200, $response->getStatusCode());
         $this->assertFalse($response->hasHeader('Set-Cookie'));
+    }
+
+    /**
+     * @return OutgoingInterface
+     */
+    private function failingOutgoing(): OutgoingInterface
+    {
+        return new class implements OutgoingInterface {
+            public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
+            {
+                throw new \RuntimeException('outgoing failed');
+            }
+        };
+    }
+
+    public function testCookiesSurviveAFailingOutgoing(): void
+    {
+        $this->app->middleware()->outgoing($this->failingOutgoing());
+
+        $response = $this->get('/test-module/state/cookie/');
+
+        $this->assertSame(500, $response->getStatusCode());
+        $this->assertStringContainsString(
+            'theme=dark',
+            $response->getHeaderLine('Set-Cookie'),
+            'a cookie set before an outgoing failure must reach the error response',
+        );
+    }
+
+    public function testSessionAndCookiesSurviveAFailingOutgoing(): void
+    {
+        $this->app->middleware()->outgoing($this->failingOutgoing());
+
+        $response = $this->get('/test-module/state/login/');
+
+        $this->assertSame(500, $response->getStatusCode());
+        $cookies = implode("\n", $response->getHeader('Set-Cookie'));
+        $this->assertStringContainsString('remember=yes', $cookies);
+        $this->assertStringContainsString('KALYSESSID=', $cookies);
     }
 }

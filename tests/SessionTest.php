@@ -114,7 +114,8 @@ class SessionTest extends TestCase
         $session = $provider->create($this->request());
         $session->set('user', 'AUDIT-USER-A');
 
-        $response = $provider->commit($session, $this->request(), HttpFactory::createResponse());
+        $provider->persist($session);
+        $response = $provider->applyToResponse($session, $this->request(), HttpFactory::createResponse());
         $session->destroy();
 
         $cookie = $response->getHeaderLine('Set-Cookie');
@@ -188,7 +189,8 @@ class SessionTest extends TestCase
         $this->assertFalse($session->isActive());
 
         $session->destroy();
-        $response = $provider->commit($session, $request, HttpFactory::createResponse());
+        $provider->persist($session);
+        $response = $provider->applyToResponse($session, $request, HttpFactory::createResponse());
 
         $cookie = $response->getHeaderLine('Set-Cookie');
         $this->assertStringStartsWith('KALYAUDIT=', $cookie);

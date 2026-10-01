@@ -156,7 +156,8 @@ final class Runner implements RequestHandlerInterface
 
         // We start processing at the first middleware (index 0).
         // If the band is empty, the final handler is called directly.
-        return $this->processNext($ctx->request(), 0, $ctx);
+        // The request argument is authoritative: processNext() rebinds it.
+        return $this->processNext($request, 0, $ctx);
     }
 
     /**

@@ -4,6 +4,23 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Persistence and transport are separate in the HTTP cycle
+
+- `SessionProviderInterface::commit($session, $request, $response)` is split
+  into `persist($session): void` (writes the storage back, never touches the
+  response) and `applyToResponse($session, $request, $response): ResponseInterface`
+  (applies the session `Set-Cookie`). Update custom providers.
+- `HttpContext::commit($response)` is replaced by `persist(): void` and
+  `applyToResponse($response): ResponseInterface`.
+- The kernel now persists the session before the outgoing phase and applies
+  the cookies (session cookie and `Cookies`) to the final response, after it.
+  A cookie set before an outgoing failure that replaced the response is no
+  longer lost. Rule: the session state is settled by `persist()`; cookie
+  additions remain allowed until `applyToResponse()`.
+- `ExceptionHandler` no longer reads `Exception::$code` as a status for a
+  non-HTTP exception: only an `HttpExceptionInterface` carries a status, any
+  other failure is a 500.
+
 ## The request cycle lives in Core
 
 The package boundaries now follow the layer: Http is the protocol, Router is

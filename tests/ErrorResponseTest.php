@@ -152,6 +152,16 @@ class ErrorResponseTest extends TestCase
         $this->assertSame($json, Accept::prefersJson($request));
     }
 
+    public function testANonHttpExceptionBecomes500WhateverItsCode(): void
+    {
+        $psr17 = new \Nyholm\Psr7\Factory\Psr17Factory();
+        $handler = new ExceptionHandler($psr17, $psr17);
+
+        $response = $handler->toResponse(new \RuntimeException('storage failed', 404));
+
+        $this->assertSame(500, $response->getStatusCode(), 'a stray code must never become a status');
+    }
+
     public function testAFailingConfigNamesItsModule(): void
     {
         $this->expectException(Ex::class);

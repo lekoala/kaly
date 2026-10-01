@@ -42,10 +42,20 @@ final class ArraySessionProvider implements SessionProviderInterface
         return $session;
     }
 
-    public function commit(SessionInterface $session, ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    public function persist(SessionInterface $session): void
     {
         if ($session instanceof CookieSessionInterface) {
-            return SessionCookie::commit($session, $request, $response);
+            SessionCookie::release($session);
+        }
+    }
+
+    public function applyToResponse(
+        SessionInterface $session,
+        ServerRequestInterface $request,
+        ResponseInterface $response,
+    ): ResponseInterface {
+        if ($session instanceof CookieSessionInterface) {
+            return SessionCookie::apply($session, $request, $response);
         }
         return $response;
     }

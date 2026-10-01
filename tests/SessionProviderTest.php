@@ -65,7 +65,8 @@ class SessionProviderTest extends TestCase
         $session = $provider->create($request);
         $session->set('user', 'AUDIT-USER-A');
 
-        $response = $provider->commit($session, $request, new Response());
+        $provider->persist($session);
+        $response = $provider->applyToResponse($session, $request, new Response());
 
         $this->assertStringContainsString('KALYSESSID=', $response->getHeaderLine('Set-Cookie'));
     }
@@ -77,7 +78,8 @@ class SessionProviderTest extends TestCase
         $session = $provider->create($request);
         $session->destroy();
 
-        $response = $provider->commit($session, $request, new Response());
+        $provider->persist($session);
+        $response = $provider->applyToResponse($session, $request, new Response());
 
         $cookie = $response->getHeaderLine('Set-Cookie');
         $this->assertStringStartsWith('KALYSESSID=', $cookie);
@@ -91,7 +93,8 @@ class SessionProviderTest extends TestCase
         $session = $provider->create($request);
         $session->set('user', 'AUDIT-USER-A');
 
-        $response = $provider->commit($session, $request, new Response());
+        $provider->persist($session);
+        $response = $provider->applyToResponse($session, $request, new Response());
 
         $cookie = $response->getHeaderLine('Set-Cookie');
         $this->assertStringStartsWith('KALYSESSID=', $cookie);

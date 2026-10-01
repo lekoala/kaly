@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use Kaly\Core\HttpContext;
 use Kaly\Core\Middleware\Runner;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
@@ -38,6 +39,24 @@ class RunnerTest extends TestCase
         $runner = new Runner($this->finalHandler());
         $response = $runner->handle(new ServerRequest('GET', '/'));
         $this->assertSame('final', (string) $response->getBody());
+    }
+
+    public function testHandleHonorsItsRequestEvenWithAnAttachedContext(): void
+    {
+        $ctx = new HttpContext(new ServerRequest('GET', '/'));
+        $given = (new ServerRequest('GET', '/'))
+            ->withAttribute(HttpContext::ATTRIBUTE, $ctx)
+            ->withHeader('X-Given', 'yes');
+
+        $seen = null;
+        $runner = new Runner(function (ServerRequestInterface $request) use (&$seen): ResponseInterface {
+            $seen = $request->getHeaderLine('X-Given');
+            return new Response(200);
+        });
+
+        $runner->handle($given);
+
+        $this->assertSame('yes', $seen, 'the request handed to handle() is authoritative');
     }
 
     public function testPsr15MiddlewareRunsAroundHandler(): void
