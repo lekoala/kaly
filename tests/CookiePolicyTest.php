@@ -53,7 +53,7 @@ class CookiePolicyTest extends TestCase
 
         // The policy holds a mode the Set-Cookie builder can actually emit
         $request = new BaseServerRequest('GET', '/');
-        $cookies = new Cookies($request, new CookiePolicy(sameSite: 'STRICT'));
+        $cookies = new Cookies($request, new CookiePolicy(sameSite: 'Strict'));
         $cookies->set('theme', 'dark');
         $header = $cookies->addToResponse(new Response())->getHeaderLine('Set-Cookie');
         $this->assertStringContainsString('; SameSite=Strict', $header);

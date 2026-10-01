@@ -13,6 +13,7 @@ use Kaly\Http\Session\NativePhpSession;
 use Kaly\Http\Session\NativePhpSessionProvider;
 use Kaly\Http\Session\SessionInterface;
 use Kaly\Http\Session\SessionProviderInterface;
+use LogicException;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
@@ -33,12 +34,13 @@ class SessionProviderTest extends TestCase
         return new ArraySessionProvider();
     }
 
-    public function testDefaultSessionIsNative(): void
+    public function testContextWithoutProviderRefusesToCreateASession(): void
     {
         $ctx = new HttpContext(new ServerRequest('GET', '/'));
 
-        $this->assertInstanceOf(NativePhpSession::class, $ctx->session());
-        $this->assertSame($ctx->session(), $ctx->session(), 'the context owns one instance per cycle');
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('No session provider is configured');
+        $ctx->session();
     }
 
     public function testProviderSessionIsUsedWhenGiven(): void
@@ -128,22 +130,26 @@ class SessionProviderTest extends TestCase
         $this->assertNotSame($seen[0], $seen[1], 'one session per cycle');
     }
 
-    public function testKernelWithoutProviderKeepsTheNativeDefault(): void
+    public function testKernelWithoutProviderCannotCreateASession(): void
     {
-        $seen = [];
-        $handler = new class($seen) implements RequestHandlerInterface {
-            /** @var list<SessionInterface> */
-            public array $seen;
+        $failures = [];
+        $handler = new class($failures) implements RequestHandlerInterface {
+            /** @var list<LogicException> */
+            public array $failures;
 
-            /** @param list<SessionInterface> $seen */
-            public function __construct(array &$seen)
+            /** @param list<LogicException> $failures */
+            public function __construct(array &$failures)
             {
-                $this->seen = &$seen;
+                $this->failures = &$failures;
             }
 
             public function handle(ServerRequestInterface $request): ResponseInterface
             {
-                $this->seen[] = HttpContext::from($request)->session();
+                try {
+                    HttpContext::from($request)->session();
+                } catch (LogicException $e) {
+                    $this->failures[] = $e;
+                }
                 return new Response(200);
             }
         };
@@ -152,7 +158,7 @@ class SessionProviderTest extends TestCase
 
         $kernel->handle(new ServerRequest('GET', '/'));
 
-        $this->assertCount(1, $seen);
-        $this->assertInstanceOf(NativePhpSession::class, $seen[0]);
+        $this->assertCount(1, $failures);
+        $this->assertSame('No session provider is configured', $failures[0]->getMessage());
     }
 }

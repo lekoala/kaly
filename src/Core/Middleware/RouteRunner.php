@@ -21,6 +21,8 @@ use Psr\Http\Server\RequestHandlerInterface;
  * They come from the route tables (`->middleware()` on a route or a group) and
  * from `#[Middleware]` on the controller. They behave exactly like a routed
  * middleware: resolved from the container and marked on the context.
+ *
+ * @internal Built by App as a fixed structural step, not an extension point.
  */
 final class RouteRunner implements RequestHandlerInterface
 {

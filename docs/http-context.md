@@ -164,10 +164,15 @@ response. A session or cookie jar that was never touched costs nothing.
 ... -> dispatcher -> [commit session + cookies] -> outgoing -> finalize
 ```
 
-The default session comes from `NativePhpSessionProvider`, which wraps the
+`HttpContext` does not choose a session backend. The application injects a
+provider, or the caller may impose an externally managed session with
+`useSession()`. `App` binds `NativePhpSessionProvider`, which wraps the
 process-global `$_SESSION`: fine for sequential workers, unusable for concurrent
 ones. Such runtimes bind a `SessionProviderInterface` returning request-scoped
-storage (or impose one per cycle with `useSession()`). The provider also owns
+storage (or impose one per cycle with `useSession()`). A context built without a
+provider cannot create a session: `session()` refuses to guess and throws
+"no session provider is configured". A session imposed with `useSession()` is
+never persisted unless a provider is also present. The provider also owns
 persistence: it reads the session id from the request and writes the
 `Set-Cookie` header on commit, so `SessionInterface` itself never sees PSR-7.
 Cookies need no such backend choice: they are emitted as `Set-Cookie` headers

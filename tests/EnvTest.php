@@ -107,7 +107,7 @@ class EnvTest extends TestCase
         $this->assertFalse(Env::getBool('SOME_NULL_VAL')); // default value is false
         $this->assertNull(Env::get('SOME_EMPTY_VAL'));
         $this->assertFalse(Env::getBool('SOME_EMPTY_VAL')); // default value is false
-        $this->assertIsString(Env::getString('SOME_EMPTY_VAL')); // default value is ''
+        $this->assertSame('', Env::getString('SOME_EMPTY_VAL')); // default value is ''
         $this->assertEquals(1, Env::getInt('SOME_QT'));
         $this->assertEquals(2, Env::getInt('SOME_INVALID_QT', 2));
 

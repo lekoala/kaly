@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Kaly\Core\Middleware\Runner;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
@@ -8,21 +10,21 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
-require __DIR__ . "/../vendor/autoload.php";
+require __DIR__ . '/../vendor/autoload.php';
 
 // dd() is optional and not autoloaded, see src/_functions/global.php
-require __DIR__ . "/../src/_functions/global.php";
+require __DIR__ . '/../src/_functions/global.php';
 
 // 1. A timing middleware: before/after composes naturally around handle()
 class AddTimestampMiddleware implements MiddlewareInterface
 {
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        echo "[AddTimestampMiddleware] Processing request.<br/>";
+        echo '[AddTimestampMiddleware] Processing request.<br/>';
         $request = $request->withAddedHeader('X-Received-At', (string) time());
 
         $response = $handler->handle($request); // Pass through on request
-        echo "[AddTimestampMiddleware] Adding timestamp header.<br>";
+        echo '[AddTimestampMiddleware] Adding timestamp header.<br>';
 
         $response = $response->withHeader('X-Received-At', $request->getHeaderLine('X-Received-At'));
         $response = $response->withHeader('X-Processed-At', (string) time()); // Should be exactly +1 since we sleep for 1 second
@@ -38,15 +40,15 @@ class StandardAuthMiddleware implements MiddlewareInterface
 {
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        echo "[StandardAuthMiddleware] Checking authentication.<br>";
+        echo '[StandardAuthMiddleware] Checking authentication.<br>';
         if ($request->getHeaderLine('X-Api-Key') !== '12345') {
-            echo "[StandardAuthMiddleware] <b>Auth Failed!</b> Short-circuiting.<br>";
+            echo '[StandardAuthMiddleware] <b>Auth Failed!</b> Short-circuiting.<br>';
             return new Response(401, [], 'Unauthorized');
         }
 
         $response = $handler->handle($request); // Continue to next layer
 
-        echo "[StandardAuthMiddleware] Auth check complete on response.<br>";
+        echo '[StandardAuthMiddleware] Auth check complete on response.<br>';
         return $response->withHeader('X-Auth-Status', 'OK');
     }
 }
@@ -56,11 +58,11 @@ class SimplePsr15Logger implements MiddlewareInterface
 {
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        echo "[SimplePsr15Logger] Before handle log.<br>";
+        echo '[SimplePsr15Logger] Before handle log.<br>';
 
         $response = $handler->handle($request); // Continue to next layer
 
-        echo "[SimplePsr15Logger] After handle log.<br>";
+        echo '[SimplePsr15Logger] After handle log.<br>';
         return $response;
     }
 }
@@ -70,51 +72,53 @@ class AppHandler implements MiddlewareInterface
 {
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        echo "[AppHandler] sleep 1 second.<br/>";
+        echo '[AppHandler] sleep 1 second.<br/>';
         sleep(1);
         $name = $request->getQueryParams()['name'] ?? 'User';
+        if (!is_string($name)) {
+            $name = 'User';
+        }
         // Return a response instead of calling $handler->handle($request);
         return new Response(200, [], "<h1>Welcome, {$name}</h1>");
     }
 }
+
 // --- Putting it all together (The new, clean way) ---
 
-echo "<h2>Test Case: Successful Run</h2>";
+echo '<h2>Test Case: Successful Run</h2>';
 
-$runner = (new Runner(new AppHandler()))
-    ->add(new AddTimestampMiddleware())
-    ->add(new SimplePsr15Logger())
-    ->add(new StandardAuthMiddleware());
+$runner = (new Runner(new AppHandler()))->add(new AddTimestampMiddleware())->add(new SimplePsr15Logger())->add(
+    new StandardAuthMiddleware(),
+);
 
 $request = new ServerRequest('GET', '/welcome?name=Final', ['X-Api-Key' => '12345']);
 $response = $runner->handle($request);
 
-echo "Status: " . $response->getStatusCode() . "<br>";
-echo "Headers: " . print_r($response->getHeaders(), true) . "<br>";
-echo "Body: " . $response->getBody();
+echo 'Status: ' . $response->getStatusCode() . '<br>';
+echo 'Headers: ' . print_r($response->getHeaders(), true) . '<br>';
+echo 'Body: ' . $response->getBody();
 
-echo "<h2>Test Case: Failed Run</h2>";
+echo '<h2>Test Case: Failed Run</h2>';
 
 $request = new ServerRequest('GET', '/welcome?name=Final', ['X-Api-Key' => 'invalid']);
 $response = $runner->handle($request);
 
-echo "Status: " . $response->getStatusCode() . "<br>";
-echo "Headers: " . print_r($response->getHeaders(), true) . "<br>";
-echo "Body: " . $response->getBody();
-
+echo 'Status: ' . $response->getStatusCode() . '<br>';
+echo 'Headers: ' . print_r($response->getHeaders(), true) . '<br>';
+echo 'Body: ' . $response->getBody();
 
 // Check the stack with plain PSR-15 middlewares
 
 $middleware1 = new class implements MiddlewareInterface {
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        echo "processing middleware1<br/>";
+        echo 'processing middleware1<br/>';
         // Handle the incoming request
 
         // return new Response('200', [], 'test short-circuit');
 
         // Update the request before next middleware
-        echo "update request in middleware1<br/>";
+        echo 'update request in middleware1<br/>';
         $request = $request->withAddedHeader('x-from1', 'true');
 
         // Invoke the next middleware and get response
@@ -123,7 +127,7 @@ $middleware1 = new class implements MiddlewareInterface {
         // Handle the outgoing response
 
         // Update the response before next middleware
-        echo "update response in middleware1<br/>";
+        echo 'update response in middleware1<br/>';
         $response = $response->withAddedHeader('x-from1', 'true');
 
         return $response;
@@ -133,7 +137,7 @@ $middleware1 = new class implements MiddlewareInterface {
 $middleware2 = new class implements MiddlewareInterface {
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        echo "processing middleware2<br/>";
+        echo 'processing middleware2<br/>';
 
         // Handle the incoming request
         // ...
@@ -147,12 +151,12 @@ $middleware2 = new class implements MiddlewareInterface {
 
         // This is never triggered if an exception is thrown in the final handler
         // It can read updated request and response after middleware1
-        echo "reading request in middleware2<br/>";
+        echo 'reading request in middleware2<br/>';
         if ($request->hasHeader('x-from1')) {
             $response = $response->withAddedHeader('x-req-from1', 'true');
         }
 
-        echo "reading response in middleware2<br/>";
+        echo 'reading response in middleware2<br/>';
         if ($response->hasHeader('x-from1')) {
             $response = $response->withAddedHeader('x-res-from1', 'true');
         }
@@ -166,15 +170,16 @@ class ThrowingHandler implements RequestHandlerInterface
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         echo '[ThrowingHandler] executing<br/>';
-        throw new Exception("No middlewares in the stack trace");
+        throw new Exception('No middlewares in the stack trace');
     }
 }
+
 class RegularHandler implements RequestHandlerInterface
 {
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         echo '[RegularHandler] executing<br/>';
-        return new Response(200, [], "<h1>Will show</h1>");
+        return new Response(200, [], '<h1>Will show</h1>');
     }
 }
 
@@ -186,7 +191,7 @@ $creator = new \Nyholm\Psr7Server\ServerRequestCreator(
     $psr17Factory, // ServerRequestFactory
     $psr17Factory, // UriFactory
     $psr17Factory, // UploadedFileFactory
-    $psr17Factory  // StreamFactory
+    $psr17Factory, // StreamFactory
 );
 
 $serverRequest = $creator->fromGlobals();
@@ -203,9 +208,9 @@ echo '<pre>';
 $stackResponse = $stack->handle($serverRequest);
 
 echo '<br/>';
-echo "Status: " . $stackResponse->getStatusCode() . "<br>";
-echo "Headers: " . print_r($stackResponse->getHeaders(), true) . "<br>";
-echo "Body: " . $stackResponse->getBody();
+echo 'Status: ' . $stackResponse->getStatusCode() . '<br>';
+echo 'Headers: ' . print_r($stackResponse->getHeaders(), true) . '<br>';
+echo 'Body: ' . $stackResponse->getBody();
 
 echo '<hr/>';
 

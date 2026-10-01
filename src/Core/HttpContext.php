@@ -7,7 +7,6 @@ namespace Kaly\Core;
 use Kaly\Http\Cookie\CookiePolicy;
 use Kaly\Http\Cookie\Cookies;
 use Kaly\Http\RequestUtils;
-use Kaly\Http\Session\NativePhpSessionProvider;
 use Kaly\Http\Session\SessionInterface;
 use Kaly\Http\Session\SessionProviderInterface;
 use Kaly\Router\Route;
@@ -243,10 +242,11 @@ final class HttpContext
      * is shared for the whole cycle.
      *
      * The session is created lazily and started on first access. The storage
-     * comes from the session provider given at construction (native PHP
-     * sessions by default). Concurrent runtimes bind a provider returning a
-     * request-scoped implementation instead, or impose one per cycle with
-     * useSession().
+     * comes from the session provider given at construction. The context does
+     * not choose a session backend: the application injects a provider (the
+     * native provider by default), or the caller may impose an externally
+     * managed session with useSession(). A context without a provider cannot
+     * create a session and says so.
      */
     public function session(): SessionInterface
     {
@@ -281,8 +281,8 @@ final class HttpContext
      */
     public function commit(ResponseInterface $response): ResponseInterface
     {
-        if ($this->session !== null) {
-            $response = $this->sessionProvider()->commit($this->session, $this->request, $response);
+        if ($this->session !== null && $this->sessionProvider !== null) {
+            $response = $this->sessionProvider->commit($this->session, $this->request, $response);
         }
         if ($this->cookies !== null) {
             $response = $this->cookies->addToResponse($response);
@@ -293,7 +293,7 @@ final class HttpContext
 
     private function sessionProvider(): SessionProviderInterface
     {
-        return $this->sessionProvider ??= new NativePhpSessionProvider(policy: $this->cookiePolicy());
+        return $this->sessionProvider ?? throw new LogicException('No session provider is configured');
     }
 
     private function cookiePolicy(): CookiePolicy

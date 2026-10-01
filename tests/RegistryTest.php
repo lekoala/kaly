@@ -34,7 +34,9 @@ class RegistryTest extends TestCase
 
             public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
             {
-                $this->log[] = $this->name;
+                if ($this->log !== null) {
+                    $this->log[] = $this->name;
+                }
                 return $handler->handle($request);
             }
         };

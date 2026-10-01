@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Kaly\Core\Module;
 use Kaly\Di\Definitions;
 use Sub\DemoObj;

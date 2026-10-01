@@ -59,7 +59,7 @@ class ConcurrentRequestTest extends TestCase
     }
 
     /**
-     * @return array{A: ResponseInterface, B: ResponseInterface}
+     * @return array<string, ResponseInterface>
      */
     private function interleave(ServerRequestInterface $requestA, ServerRequestInterface $requestB): array
     {

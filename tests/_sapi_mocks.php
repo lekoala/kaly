@@ -19,7 +19,7 @@ namespace Kaly\Http {
         HttpTest::$mockResponse[__FUNCTION__] = func_get_args();
     }
 
-    function ob_get_length(): int|false
+    function ob_get_length(): int
     {
         HttpTest::$mockResponse[__FUNCTION__] = func_get_args();
 

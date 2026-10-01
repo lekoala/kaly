@@ -122,7 +122,7 @@ between requests — but two requests running concurrently in the same process
 must not share it.
 
 ```text
-NativePhpSessionProvider (the default)
+NativePhpSessionProvider (App's default)
     sequential worker    ✓
     concurrent Fibers    ✗
 

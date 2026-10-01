@@ -4,7 +4,7 @@ php-version = "8.3.0"
 
 [source]
 workspace = "."
-paths = ["src", "tests"]
+paths = ["src", "tests", "demos"]
 includes = []
 excludes = []
 
@@ -53,3 +53,39 @@ strict-list-index-checks = false
 no-boolean-literal-comparison = false
 check-missing-type-hints = false
 register-super-globals = true
+
+# The graph is locked by responsibilities, not by a full dependency matrix:
+# Core composes everything, Test is a consumer-facing toolkit, and no other
+# production layer may depend on Core or on Test.
+[guard]
+mode = "perimeter"
+
+[guard.perimeter]
+
+# Kaly\Test may depend on anything; nothing restricts it below.
+[[guard.perimeter.restrictions]]
+dependency = "Kaly\\Core\\**"
+deny-from = [
+    "Kaly\\Http\\**",
+    "Kaly\\Router\\**",
+    "Kaly\\Asset\\**",
+    "Kaly\\I18n\\**",
+    "Kaly\\View\\**",
+    "Kaly\\Clock\\**",
+    "Kaly\\Log\\**",
+    "Kaly\\Util\\**",
+]
+
+[[guard.perimeter.restrictions]]
+dependency = "Kaly\\Test\\**"
+deny-from = [
+    "Kaly\\Core\\**",
+    "Kaly\\Http\\**",
+    "Kaly\\Router\\**",
+    "Kaly\\Asset\\**",
+    "Kaly\\I18n\\**",
+    "Kaly\\View\\**",
+    "Kaly\\Clock\\**",
+    "Kaly\\Log\\**",
+    "Kaly\\Util\\**",
+]

@@ -28,8 +28,8 @@ class RedirectUrisTest extends TestCase
         $request = new BaseServerRequest('GET', 'https://example.test/foo/');
 
         // No redirect means no exception
+        $this->expectNotToPerformAssertions();
         RedirectUris::ensureTrailingSlash($request, true);
-        $this->assertTrue(true);
     }
 
     public function testEnsureNoTrailingSlashRedirectsWhenPresent(): void

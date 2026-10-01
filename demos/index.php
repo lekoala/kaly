@@ -1,6 +1,8 @@
 <?php
 
-$files = glob(__DIR__ . '/*.php');
+declare(strict_types=1);
+
+$files = glob(__DIR__ . '/*.php') ?: [];
 
 foreach ($files as $f) {
     $n = basename($f);

@@ -107,7 +107,7 @@ class RequestDispatcherTest extends TestCase
         $this->assertSame('raw', (string) $response->getBody());
     }
 
-    public function testRouteAttributeIsAvailableToController(): void
+    public function testRouteIsAvailableToController(): void
     {
         $response = $this->dispatch($this->dispatcher('routeResult'));
         $body = json_decode((string) $response->getBody(), true);

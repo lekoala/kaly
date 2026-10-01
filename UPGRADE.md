@@ -79,6 +79,10 @@ No BC aliases are kept: update every usage in one pass.
   `create($request)` builds the session, `commit($session, $request, $response)`
   persists it and emits the `Set-Cookie` header. Bind your own provider for
   concurrent runtimes. `NativePhpSessionFactory` is removed.
+- `HttpContext` no longer creates a session provider implicitly. `session()`
+  throws "no session provider is configured" unless a provider was injected;
+  `App` binds `NativePhpSessionProvider` by default. A session imposed with
+  `useSession()` is only persisted when a provider is present.
 - `SessionInterface` is an applicative contract only
   (`get/set/has/remove/clear/pull/all` + `regenerateId/destroy`): no PSR-7, no
   session id, no cookie params. The transport read-model is a capability:

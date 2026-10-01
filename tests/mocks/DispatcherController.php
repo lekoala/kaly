@@ -74,9 +74,6 @@ class DispatcherController extends AbstractController
         return new View('template', ['url' => 'should be overridden']);
     }
 
-    /**
-     * @return array<string,int>
-     */
     public function jsonResponseResult(): JsonResult
     {
         return JsonResult::of(['a' => 1], 201, ['X-Test' => 'yes']);

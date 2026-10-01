@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use Kaly\Core\HttpContext;
+use Kaly\Http\Session\ArraySessionProvider;
 use Kaly\Router\Route;
+use Kaly\Tests\Mocks\DispatcherController;
 use LogicException;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
@@ -127,7 +129,7 @@ class HttpContextTest extends TestCase
     {
         $ctx = new HttpContext(new ServerRequest('GET', '/'));
 
-        $route = new Route(controller: 'Admin\Controller\IndexController', module: 'Admin');
+        $route = new Route(controller: DispatcherController::class, module: 'Admin');
         $ctx->useRoute($route);
         $ctx->useLocale('fr');
         $ctx->complete(new Response(204));
@@ -139,7 +141,7 @@ class HttpContextTest extends TestCase
 
     public function testSessionAndCookiesAreOwnedByTheContext(): void
     {
-        $ctx = new HttpContext(new ServerRequest('GET', '/'));
+        $ctx = new HttpContext(new ServerRequest('GET', '/'), new ArraySessionProvider());
 
         $session = $ctx->session();
         $cookies = $ctx->cookies();

@@ -35,7 +35,9 @@ class OutgoingRunnerTest extends TestCase
 
             public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
             {
-                $this->log[] = $this->name;
+                if ($this->log !== null) {
+                    $this->log[] = $this->name;
+                }
                 return $response->withHeader('X-Trace', $this->name);
             }
         };

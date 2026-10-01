@@ -1,23 +1,23 @@
 <?php
 
+declare(strict_types=1);
+
 namespace RoutableModule\Controller;
 
 use Kaly\Core\AbstractController;
-use Kaly\Router\RouteAttribute;
 
 class IndexController extends AbstractController
 {
-    public function index($param = 'world')
+    public function index(string $param = 'world'): string
     {
         return 'hello ' . $param;
     }
 
-    public function demo()
+    public function demo(): string
     {
         return 'hello demo';
     }
 
-    #[RouteAttribute('/hello-explicit', methods: ['GET'], name: 'demo.hello-explicit')]
     public function explicit(): string
     {
         return 'hello explicit';

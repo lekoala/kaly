@@ -8,7 +8,7 @@ class TestObjectA
 {
     protected TestObjectB $obj;
 
-    public function __construct(TestOBjectB $obj)
+    public function __construct(TestObjectB $obj)
     {
         $this->obj = $obj;
     }

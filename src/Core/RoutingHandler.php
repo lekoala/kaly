@@ -26,6 +26,8 @@ use Psr\Http\Server\RequestHandlerInterface;
  * ---------
  * DISPATCH
  * ```
+ *
+ * @internal Built by App as a fixed structural step, not an extension point.
  */
 final class RoutingHandler implements RequestHandlerInterface
 {

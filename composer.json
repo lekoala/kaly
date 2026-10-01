@@ -73,13 +73,20 @@
             "@phpunit",
             "@phpstan",
             "@mago:lint",
+            "@mago:guard",
             "@format:check"
         ],
         "phpunit": "@php -d zend.assertions=1 vendor/bin/phpunit",
         "phpunit:only": "@php -d zend.assertions=1 vendor/bin/phpunit --group only",
         "phpunit:coverage": "@php -d zend.assertions=1 vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml",
-        "phpstan": "phpstan analyse src --memory-limit=-1",
-        "mago:lint": "mago lint --minimum-report-level warning src tests",
+        "phpstan": [
+            "@phpstan:src",
+            "@phpstan:tests"
+        ],
+        "phpstan:src": "phpstan analyse src --memory-limit=-1",
+        "phpstan:tests": "phpstan analyse tests demos -c phpstan-tests.neon --memory-limit=-1",
+        "mago:lint": "mago lint --minimum-report-level warning src tests demos",
+        "mago:guard": "mago guard --minimum-report-level error",
         "mago:format": "mago fmt",
         "format:check": "mago fmt --check",
         "fmt": "@mago:format",

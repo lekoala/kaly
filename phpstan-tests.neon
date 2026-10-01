@@ -1,0 +1,35 @@
+# Static analysis for tests and demos.
+#
+# Transitional: this passes at level 5 while the suite is brought up to
+# `level: max`, which is the target everywhere (`phpstan.neon`).
+# Each entry below is deliberately-invalid input that the test asserts is
+# refused, or a fixture that must be invalid by construction: they cannot be
+# fixed without weakening the test, so they are exempted by path + identifier.
+includes:
+  - phpstan.neon
+
+parameters:
+  level: 5
+  ignoreErrors:
+    # Deliberately invalid values (an unknown sameSite, fake middleware labels,
+    # an unknown request option) asserted to be refused.
+    - identifier: argument.type
+      path: tests/CookiePolicyTest.php
+    - identifier: argument.type
+      path: tests/OutgoingRunnerTest.php
+    - identifier: argument.type
+      path: tests/RouteMiddlewareTest.php
+    - identifier: argument.type
+      path: tests/RoutesTest.php
+    - identifier: argument.type
+      path: tests/RunnerTest.php
+    - identifier: argument.type
+      path: tests/TestClientTest.php
+    # Assertions about a type that PHPStan can already prove.
+    - identifier: method.alreadyNarrowedType
+      path: tests/HttpExceptionTest.php
+    - identifier: function.impossibleType
+      path: tests/HttpExceptionTest.php
+    # Fixture for the pre-closure config format, refused on purpose.
+    - identifier: variable.undefined
+      path: tests/data/modules/LegacyModule/config.php
