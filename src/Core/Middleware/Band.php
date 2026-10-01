@@ -36,9 +36,10 @@ enum Band: string
     case Routed = 'routed';
 
     /**
-     * Runs on the response, after the whole request cycle produced one. It is
-     * executed exactly once on any response, including error responses built
-     * by the kernel: webp conversion, gzip, cache headers...
+     * Runs on the response, after the whole request cycle produced one. The
+     * phase is attempted once per response, whatever its origin and including
+     * error responses built by the kernel: webp conversion, gzip, cache
+     * headers... An `always` middleware can run again on recovery.
      */
     case Outgoing = 'outgoing';
 }

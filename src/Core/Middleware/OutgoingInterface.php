@@ -30,7 +30,9 @@ use Psr\Http\Message\ResponseInterface;
  * request cycle. If an outgoing middleware throws, the phase stops; the
  * exception is converted to a new error response, and the outgoing phase is
  * not replayed. Headers that must survive an outgoing failure belong in an
- * `always` outgoing middleware.
+ * `always` outgoing middleware. An `always` middleware is the exception to
+ * that single attempt: it also runs on that error response, and again when
+ * the final commit fails, so it must be side-effect free.
  */
 interface OutgoingInterface
 {

@@ -245,7 +245,7 @@ App
                          +- controller -> response
 
      <- exception -> response        <- kernel, whatever the origin
-     +- OUTGOING middleware          <- Response -> Response, exactly once
+     +- OUTGOING middleware          <- Response -> Response, attempted once
      |    (on failure: error response, then `always` middlewares only)
      +- commit session + cookies     <- final; a failed commit also recovers on `always`
      +- complete($response)

@@ -114,23 +114,55 @@ class CommitTest extends TestCase
 
     public function testSessionWrittenInOutgoingIsCommitted(): void
     {
-        $this->app
-            ->middleware()
-            ->outgoing(new class implements OutgoingInterface {
-                public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
-                {
-                    $ctx->session()->set('late', 'yes');
-                    return $response;
-                }
-            });
+        $provider = new class implements SessionProviderInterface {
+            private ArraySessionProvider $inner;
+            /**
+             * @var array<string,mixed>
+             */
+            public array $persisted = [];
 
-        $response = $this->get('/test-module/state/untouched/');
+            public function __construct()
+            {
+                $this->inner = new ArraySessionProvider();
+            }
+
+            public function create(ServerRequestInterface $request): SessionInterface
+            {
+                return $this->inner->create($request);
+            }
+
+            public function commit(
+                SessionInterface $session,
+                ServerRequestInterface $request,
+                ResponseInterface $response,
+            ): ResponseInterface {
+                $this->persisted = $session->all();
+                return $this->inner->commit($session, $request, $response);
+            }
+        };
+
+        $app = new App(__DIR__);
+        $app->configure(static function (Definitions $di) use ($provider): void {
+            $di->set(SessionProviderInterface::class, $provider);
+        });
+        $app->boot();
+
+        $app->middleware()->outgoing(new class implements OutgoingInterface {
+            public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
+            {
+                $ctx->session()->set('late', 'yes');
+                return $response;
+            }
+        });
+
+        $response = $app->handle(HttpFactory::createRequestFromGlobals()->withUri(new Uri('/test-module/state/untouched/')));
 
         $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame(['late' => 'yes'], $provider->persisted, 'the data written during outgoing reaches commit()');
         $this->assertStringContainsString(
             'KALYSESSID=',
             $response->getHeaderLine('Set-Cookie'),
-            'a session written during outgoing is committed after the phase',
+            'the session written during outgoing is committed after the phase',
         );
     }
 

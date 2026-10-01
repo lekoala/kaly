@@ -30,8 +30,8 @@ how to migrate.
   is removed: update custom providers.
 - If the final commit fails, the error response runs through the `always`
   outgoing middlewares, and the commit is never retried. An `always`
-  middleware can therefore run twice for one request: it must be side-effect
-  free.
+  middleware can therefore run more than once for one request: it must be
+  side-effect free.
 - `ExceptionHandler` no longer reads `Exception::$code` as a status for a
   non-HTTP exception: only an `HttpExceptionInterface` carries a status, any
   other failure is a 500.
