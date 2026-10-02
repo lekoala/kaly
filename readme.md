@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/kaly-logo-dark.svg">
+  <img src="docs/assets/brand/kaly-logo-light.svg" alt="Kaly" width="480">
+</picture>
+
 # Kaly PHP framework
 
 [![Latest Version](https://img.shields.io/packagist/v/lekoala/kaly)](https://packagist.org/packages/lekoala/kaly) [![Total Downloads](https://img.shields.io/packagist/dt/lekoala/kaly)](https://packagist.org/packages/lekoala/kaly) [![License](https://img.shields.io/packagist/l/lekoala/kaly)](https://packagist.org/packages/lekoala/kaly) [![PHP Version Require](https://img.shields.io/packagist/php-v/lekoala/kaly)](https://packagist.org/packages/lekoala/kaly)
