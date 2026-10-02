@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Typed translation values: `Kaly\I18n\TranslationKey` (id + domain),
+  `Kaly\I18n\Translatable` (`translate(LocalizedTranslator)`) and
+  `LocalizedTranslator::resolve()`.
 - Support flat dotted ids in native translation catalogs, with exact keys
   taking precedence over equivalent nested paths.
 

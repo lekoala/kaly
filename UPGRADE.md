@@ -4,6 +4,27 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Typed translation values
+
+- New `Kaly\I18n\TranslationKey` (`id()` plus `domain()`, `null` for the
+  default domain), `Kaly\I18n\Translatable`
+  (`translate(LocalizedTranslator)`) and
+  `LocalizedTranslator::resolve(string|TranslationKey|Translatable)`. A
+  string passed to `resolve()` is always a literal and never calls the
+  engine; when a value implements both interfaces, `Translatable` wins.
+- New `Kaly\I18n\TranslatableValidationException`: the typed counterpart of
+  `ValidationException`, carrying a `TranslationKey` plus parameters
+  (`translation()` and `parameters()`). `ValidationException` itself is
+  unchanged: a literal message is never translated.
+- `ExceptionHandlerInterface` now resolves to the new
+  `Kaly\Core\LocalizedExceptionHandler`, which translates an already public
+  `Translatable` HTTP error with the locale of the request and keeps
+  `getResponseBody()` otherwise. A `Translatable` that is not an HTTP
+  exception stays a 500. `Kaly\Http\ExceptionHandler` is unchanged: rebind
+  the interface to it in a `configure()` hook to keep historical bodies.
+  Translation lives in Core because the Http layer never depends on I18n
+  (see `mago.toml`).
+
 ## Explicit root module
 
 - The root module is no longer inferred from the `App` namespace: a module owns

@@ -94,7 +94,6 @@ final class App implements RequestHandlerInterface
         LoggerInterface::class => NullLogger::class,
         // Our interfaces
         DebugPageInterface::class => DebugPage::class,
-        ExceptionHandlerInterface::class => ExceptionHandler::class,
         SessionProviderInterface::class => NativePhpSessionProvider::class,
         TranslatorInterface::class => Translator::class,
         InputMapperInterface::class => InputMapper::class,
@@ -472,6 +471,13 @@ final class App implements RequestHandlerInterface
         // The default exception handler explains failures in debug mode only
         if (!array_key_exists('debug', $definitions->parametersFor(ExceptionHandler::class))) {
             $definitions->parameter(ExceptionHandler::class, 'debug', $this->debug);
+        }
+
+        // Localized public error bodies out of the box: the handler stays the
+        // historical one, translation composes around it. Rebind the
+        // interface to keep untranslated bodies.
+        if (!$definitions->has(ExceptionHandlerInterface::class)) {
+            $definitions->bind(ExceptionHandlerInterface::class, LocalizedExceptionHandler::class);
         }
 
         // The public directory is a scalar, so FileServer::class resolves out
