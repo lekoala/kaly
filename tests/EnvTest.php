@@ -305,4 +305,29 @@ class EnvTest extends TestCase
 
         Env::load($this->writeTempEnv("export KALY_EXPORTED=value\n"));
     }
+
+    public function testGetList(): void
+    {
+        $this->unsetProcessEnv('KALY_MISSING_LIST');
+        $this->assertSame(['default'], Env::getList('KALY_MISSING_LIST', ['default']));
+
+        Env::set('KALY_TEST_LIST_A', 'fr,en');
+        $this->assertSame(['fr', 'en'], Env::getList('KALY_TEST_LIST_A'));
+
+        Env::set('KALY_TEST_LIST_B', ' fr , ,en ');
+        $this->assertSame(['fr', 'en'], Env::getList('KALY_TEST_LIST_B'));
+
+        Env::set('KALY_TEST_LIST_C', 'a;b;c');
+        $this->assertSame(['a', 'b', 'c'], Env::getList('KALY_TEST_LIST_C', [], ';'));
+    }
+
+    public function testGetArrayFiltersEmptySegments(): void
+    {
+        $this->unsetProcessEnv('KALY_TEST_ARRAY');
+        Env::set('KALY_TEST_ARRAY', 'a;;b');
+        $this->assertSame(['a', 'b'], Env::getArray('KALY_TEST_ARRAY'));
+
+        Env::set('KALY_TEST_ARRAY', 'a, ,b');
+        $this->assertSame(['a', 'b'], Env::getArray('KALY_TEST_ARRAY', [], ','));
+    }
 }

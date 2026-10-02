@@ -69,4 +69,24 @@ final class Arr
         }
         return $result;
     }
+
+    /**
+     * Split a separated string into a trimmed, non-empty list.
+     *
+     * Each segment is trimmed and empty segments are dropped, so
+     * `'a,,b'` and `'a, ,b'` both give `['a', 'b']`.
+     *
+     * @return list<string>
+     */
+    public static function splitList(string $value, string $separator = ','): array
+    {
+        if ($separator === '') {
+            throw new \InvalidArgumentException('Separator must not be empty');
+        }
+        if ($value === '') {
+            return [];
+        }
+        $parts = array_map(trim(...), explode($separator, $value));
+        return array_values(array_filter($parts, static fn(string $part): bool => $part !== ''));
+    }
 }

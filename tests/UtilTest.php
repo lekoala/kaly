@@ -136,6 +136,17 @@ class UtilTest extends TestCase
         ]));
     }
 
+    public function testArrSplitList(): void
+    {
+        $this->assertSame(['fr', 'en'], Arr::splitList('fr,en'));
+        $this->assertSame(['fr', 'en'], Arr::splitList(' fr , en '));
+        $this->assertSame(['a', 'b'], Arr::splitList('a,,b'));
+        $this->assertSame(['a', 'b'], Arr::splitList('a, ,b'));
+        $this->assertSame([], Arr::splitList(''));
+        $this->assertSame([], Arr::splitList(' , '));
+        $this->assertSame(['a', 'b'], Arr::splitList('a;b', ';'));
+    }
+
     public function testHasDotSegment(): void
     {
         $this->assertTrue(Fs::hasDotSegment('.env'));

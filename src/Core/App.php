@@ -146,7 +146,7 @@ final class App implements RequestHandlerInterface
             $this->debug = Env::getBool(self::ENV_DEBUG);
         }
         if (Env::has(self::ENV_LOCALES)) {
-            $this->locales = array_values(array_filter(array_map(trim(...), explode(',', Env::getString(self::ENV_LOCALES)))));
+            $this->locales = Env::getList(self::ENV_LOCALES);
         }
         // Without APP_TIMEZONE Kaly leaves the global timezone alone:
         // php.ini or a date_default_timezone_set() done before boot survives.

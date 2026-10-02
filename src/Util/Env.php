@@ -194,6 +194,8 @@ final class Env
      * Get `array` value of an environment variable.
      * Empty or null values are converted to an empty array
      *
+     * Each segment is trimmed and empty segments are dropped.
+     *
      * @param array<mixed> $default
      * @return array<mixed>
      * @throws RuntimeException
@@ -201,13 +203,43 @@ final class Env
     public static function getArray(string $key, array $default = [], string $separator = ';'): array
     {
         $value = static::get($key) ?? $default;
-        if (is_string($value) && $separator) {
-            $value = array_map('trim', explode($separator, $value));
+        if (is_string($value)) {
+            if ($separator === '') {
+                throw new RuntimeException("Env variable `{$key}` is not an array");
+            }
+            return Arr::splitList($value, $separator);
         }
         if (!is_array($value)) {
             throw new RuntimeException("Env variable `{$key}` is not an array");
         }
         return $value;
+    }
+
+    /**
+     * Get `list<string>` value of an environment variable.
+     * Empty or null values fall back to $default
+     *
+     * Each segment is trimmed and empty segments are dropped, so
+     * `'fr, ,en'` gives `['fr', 'en']`.
+     *
+     * @param list<string> $default
+     * @return list<string>
+     * @throws RuntimeException
+     */
+    public static function getList(string $key, array $default = [], string $separator = ','): array
+    {
+        $value = static::get($key) ?? $default;
+        if (is_string($value)) {
+            if ($separator === '') {
+                throw new RuntimeException("Env variable `{$key}` is not an array");
+            }
+            return Arr::splitList($value, $separator);
+        }
+        if (!is_array($value)) {
+            throw new RuntimeException("Env variable `{$key}` is not an array");
+        }
+        /** @var list<string> $value */
+        return array_values($value);
     }
 
     /**
