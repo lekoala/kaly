@@ -4,6 +4,16 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Explicit root module
+
+- The root module is no longer inferred from the `App` namespace: a module owns
+  `/` only when it mounts it. Add `$module->mount('/')` to its `config.php`.
+  Without it, an application that used to answer on `/` now returns 404 there.
+- This is the only break in this series that fails silently: the boot succeeds
+  (a folder without `config.php`, or a module without `mount('/')`, is simply
+  not the root), and the 404 names the known modules to point at the missing
+  declaration. Two modules mounting `/` fail at boot instead.
+
 ## Frozen route table and one-shot boot
 
 - `RouteCollection::definitions()` is removed. The compiled table copies every
@@ -160,7 +170,7 @@ No BC aliases are kept: update every usage in one pass.
 - `Module` freezes after the `whenAllLoaded` second pass: mutating a module
   from `App::modules()` throws a `LogicException`.
 - `Kaly\Http\HttpContext` moves to `Kaly\Core\HttpContext` (no alias).
-- `_functions/global.php` only provides `d()`/`dd()`: `env()` and `is_cli()`
+- `Debug/functions.php` only provides `d()`/`dd()`: `env()` and `is_cli()`
   are removed (use `Kaly\Util\Env` and `php_sapi_name()`).
 
 ## Slimmer clocks
@@ -497,7 +507,7 @@ return static function (Module $module, Definitions $di): void {
 - `#[RouteAttribute]` is removed: declare the route in the module table. Scanning every
   controller of every module at boot was the only boot cost growing with the size of
   the application.
-- Paths that belong to the site root go in the default module (namespace `App`).
+- Paths that belong to the site root go in the module mounted on `/`.
 
 ### Route names are qualified by module
 

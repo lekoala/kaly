@@ -155,7 +155,7 @@ final class ConventionResolver implements ResolverInterface
         // It must be autoloadable and instantiable
         $reflection = $this->reflect($class);
         if ($reflection === false) {
-            throw new RouteNotFoundException("Route '{$path}' not found, '{$class}' doesn't exists");
+            throw new RouteNotFoundException("Route '{$path}' not found, '{$class}' doesn't exist");
         }
         if ($reflection->isAbstract()) {
             throw new RouteNotFoundException("Route '{$path}' not found, '{$class}' isn't instantiable");

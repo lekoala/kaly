@@ -39,6 +39,17 @@ PROFILER_ENDPOINT=http://profiler@buggregator:8000
 
 `d()` dumps through Symfony VarDumper's `dump()` (`var_dump()` fallback) and never stops, so it stays safe inside a worker or a Fiber. `dd()` dumps and exits. Both do nothing in production (`APP_DEBUG` disabled).
 
+Kaly registers no global function automatically: require the helpers explicitly if you want them, typically in your entry point (a name collision with another `d()`/`dd()` fails loudly, by design):
+
+```php
+require __DIR__ . '/../vendor/lekoala/kaly/src/Debug/functions.php';
+
+// or only for development
+if ($_ENV['APP_DEBUG'] ?? false) {
+    require dirname(__DIR__) . '/vendor/lekoala/kaly/src/Debug/functions.php';
+}
+```
+
 With the recipe above, `dump()` output — including the source location — is sent to Buggregator over TCP instead of polluting the HTTP response.
 
 ## Logs

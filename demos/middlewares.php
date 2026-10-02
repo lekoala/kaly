@@ -12,8 +12,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-// dd() is optional and not autoloaded, see src/_functions/global.php
-require __DIR__ . '/../src/_functions/global.php';
+// dd() is optional and not autoloaded, see src/Debug/functions.php
+require __DIR__ . '/../src/Debug/functions.php';
 
 // 1. A timing middleware: before/after composes naturally around handle()
 class AddTimestampMiddleware implements MiddlewareInterface
