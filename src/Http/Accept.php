@@ -69,7 +69,7 @@ final class Accept
                 continue;
             }
             $pieces = MediaType::splitOn($part, ';');
-            $name = strtolower(trim((string) array_shift($pieces)));
+            $name = MediaType::normalizeToken(array_shift($pieces));
             // An entry without a type/subtype separator is not a media type
             if ($name === '' || !str_contains($name, '/')) {
                 continue;
@@ -109,7 +109,7 @@ final class Accept
         $best = null;
         $bestQuality = 0.0;
         foreach ($priorityList as $candidate) {
-            $candidate = strtolower(trim($candidate));
+            $candidate = MediaType::normalizeToken($candidate);
             if ($candidate === '') {
                 continue;
             }
@@ -209,7 +209,7 @@ final class Accept
         foreach ($pieces as $piece) {
             $piece = trim($piece);
             $eq = strpos($piece, '=');
-            if ($eq === false || strtolower(trim(substr($piece, 0, $eq))) !== 'q') {
+            if ($eq === false || MediaType::normalizeToken(substr($piece, 0, $eq)) !== 'q') {
                 continue;
             }
             // `q = 0.5` and `q="0.5"` are both seen in the wild
