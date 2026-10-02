@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="kaly">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6f9f8a"/><stop offset="1" stop-color="#2c5849"/></linearGradient></defs>
+<rect width="512" height="512" rx="112" fill="url(#bg)"/>
+<g transform="translate(37.3,450.9) scale(0.56,-0.56)"><path d="M147 696V225L619 696H671L380 406L670 0H626L354 380L147 173V0H110V696Z" fill="#f3f8f4" stroke="#f3f8f4" stroke-width="40" stroke-linejoin="miter"/></g></svg>

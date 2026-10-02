@@ -5,6 +5,7 @@ url: https://lekoala.github.io
 baseurl: /kaly
 search_enabled: true
 heading_anchors: true
+logo: /assets/brand/kaly-icon-sm.svg
 aux_links:
   Kaly on GitHub:
     - https://github.com/lekoala/kaly
