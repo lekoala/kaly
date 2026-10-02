@@ -27,6 +27,10 @@ Recommendations:
 via `Fs::isInside`, requires `is_file`, and never serves executable extensions
 (`php`, `phtml`, `phar`, `php3-8`, `pht`, `inc`, `cgi`, `pl`).
 
+Dotfiles and dot-prefixed directories are refused. Only the leading
+`/.well-known/` directory is allowed; hidden segments beneath it are still
+blocked. Backslashes in served paths are rejected on every platform.
+
 Large files are streamed in chunks with `Content-Length` and `HEAD` support; no
 `Range` / `X-Sendfile` handling is provided — put a CDN or web server in front for
 heavy static traffic.

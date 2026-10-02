@@ -214,7 +214,7 @@ final class RequestDispatcher implements RequestHandlerInterface
         }
         if ($result instanceof View) {
             if ($this->renderer === null) {
-                throw new Ex('A View was returned but no renderer is configured. Bind a Kaly\View\RendererInterface implementation.');
+                throw new Ex('A View was returned but no renderer is configured: bind a Kaly\View\RendererInterface implementation');
             }
             // Each render gets its own localized translator under a reserved
             // variable, so templates never depend on shared translator state,

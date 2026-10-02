@@ -95,7 +95,13 @@ final class Assets implements AssetsInterface
     public static function assertValidPath(string $path, string $original = ''): void
     {
         $original = $original === '' ? $path : $original;
-        if ($path === '' || str_starts_with($path, '/') || str_contains($path, "\0") || Fs::hasDotSegment($path)) {
+        if (
+            $path === ''
+            || str_starts_with($path, '/')
+            || str_contains($path, '\\')
+            || str_contains($path, "\0")
+            || Fs::hasDotSegment($path)
+        ) {
             throw new InvalidArgumentException("Invalid asset path '{$original}'");
         }
     }

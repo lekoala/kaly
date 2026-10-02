@@ -125,6 +125,22 @@ class FileServerTest extends TestCase
         }
     }
 
+    public function testWellKnownDoesNotExposeHiddenFiles(): void
+    {
+        Fs::putFile($this->base . '/public/.env', 'DOTFILE-SENTINEL');
+        Fs::putFile($this->base . '/public/.well-known/.env', 'DOTFILE-SENTINEL');
+        Fs::putFile($this->base . '/public/.well-known/.git/config', 'GIT-SENTINEL');
+
+        foreach (['/.well-known/.env', '/.well-known/.git/config', '/.well-known/../.env'] as $uri) {
+            $response = $this->serve('GET', $uri);
+            try {
+                $this->assertSame(404, $response->getStatusCode(), $uri);
+            } finally {
+                $response->getBody()->close();
+            }
+        }
+    }
+
     public function testMissingFileIsDelegated(): void
     {
         $response = $this->serve('GET', '/missing.txt');

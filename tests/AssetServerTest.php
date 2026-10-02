@@ -114,6 +114,18 @@ class AssetServerTest extends TestCase
         $this->assertSame(404, $this->serve('GET', '/_assets/app/.secret')->getStatusCode());
     }
 
+    public function testBackslashCannotBypassHiddenFileProtection(): void
+    {
+        Fs::putFile($this->base . '/assets/nested/.secret', 'DOTFILE-SENTINEL');
+
+        $response = $this->serve('GET', '/_assets/app/nested%5c.secret');
+        try {
+            $this->assertSame(404, $response->getStatusCode());
+        } finally {
+            $response->getBody()->close();
+        }
+    }
+
     public function testPhpSourceIsNotServed(): void
     {
         $response = $this->serve('GET', '/_assets/app/evil.php');

@@ -97,7 +97,7 @@ middleware cannot see, and they are typed methods, not string ids:
 
 ```php
 $app = App::create(dirname(__DIR__))
-    ->configure(fn(Definitions $di) => $di->set(LoggerInterface::class, new FileLogger('app.log')))
+    ->configure(fn(Definitions $di) => $di->rebind(LoggerInterface::class, new FileLogger('app.log')))
     ->onError(function (Throwable $e, HttpContext $ctx): void {
         // report to your error tracker
         myTracker()->report($e, [

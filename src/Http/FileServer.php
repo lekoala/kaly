@@ -36,7 +36,8 @@ final class FileServer implements MiddlewareInterface
         // Hidden files and dot segments (.env, .git, ...) are never served.
         // `.well-known` is the public protocol convention (acme, webfinger)
         $path = ltrim($request->getUri()->getPath(), '/');
-        if (Fs::hasDotSegment($path) && !str_starts_with($path, '.well-known/')) {
+        $checkedPath = str_starts_with($path, '.well-known/') ? substr($path, strlen('.well-known/')) : $path;
+        if (str_contains($path, '\\') || Fs::hasDotSegment($checkedPath)) {
             return $handler->handle($request);
         }
 

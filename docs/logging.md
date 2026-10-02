@@ -13,7 +13,7 @@ In debug mode, there is a file based logger that will output in your base dir un
 It is accessible under the `App::DEBUG_LOGGER` definition in the Di container. It is safe to keep code calling the Debug logger in prod
 because it will be converted to a simple `NullLogger`. No worries!
 
-Once you bind your own `LoggerInterface`, the debug logger follows it (same instance) instead of the file: Kaly diagnostics such as the pipeline trace go wherever your logs go. An explicit `App::DEBUG_LOGGER` replacement still wins if you want them separated. Replace it with `rebind()`: `configure()` runs after the framework defaults are registered, so the id already exists:
+When a module binds its own `LoggerInterface`, the debug logger follows it (same instance) instead of the file. When replacing the logger in `configure()`, also replace `App::DEBUG_LOGGER` to send Kaly diagnostics such as the pipeline trace to it. Use `rebind()`: `configure()` runs after the framework defaults are registered, so the id already exists:
 
 ```php
 $app->configure(static function (Definitions $di) use ($logger): void {
@@ -35,7 +35,7 @@ Two kinds of exceptions reach the kernel:
   method not allowed...) is an expected outcome. It is never logged nor reported to
   `onError()`: a 404 must not wake up an error tracker;
 - any **other exception** is an error: it is logged, reported to `onError()`, and
-  becomes a `500` (or its own 4xx/5xx code).
+  becomes a `500`, regardless of its exception code.
 
 The `ExceptionHandler` then builds the response in the format the client accepts:
 
@@ -86,7 +86,7 @@ use Psr\Log\LoggerInterface;
 
 $app = App::create(dirname(__DIR__));
 $app->configure(function (Definitions $definitions) use ($app): void {
-    $definitions->set(LoggerInterface::class, new FileLogger($app->paths()->base . '/app.log'));
+    $definitions->rebind(LoggerInterface::class, new FileLogger($app->paths()->base . '/app.log'));
 });
 ```
 
