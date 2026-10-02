@@ -13,6 +13,8 @@ final class Method
     public const OPTIONS = 'OPTIONS';
     public const PATCH = 'PATCH';
     public const HEAD = 'HEAD';
+    // Classified but intentionally not routable: kept out of ALL.
+    public const TRACE = 'TRACE';
 
     public const ALL = [
         self::GET,
@@ -23,4 +25,32 @@ final class Method
         self::HEAD,
         self::OPTIONS,
     ];
+
+    /**
+     * Is the method safe, per RFC 9110: essentially read-only.
+     *
+     * Comparison is case-sensitive, per HTTP: 'get' returns false.
+     * An unknown method returns false, as its properties are not known.
+     */
+    public static function isSafe(string $method): bool
+    {
+        return match ($method) {
+            self::GET, self::HEAD, self::OPTIONS, self::TRACE => true,
+            default => false,
+        };
+    }
+
+    /**
+     * Is the method idempotent, per RFC 9110: the same intended effect
+     * after several identical calls, not necessarily the same response.
+     *
+     * Comparison is case-sensitive, per HTTP: 'get' returns false.
+     * An unknown method returns false, as its properties are not known.
+     */
+    public static function isIdempotent(string $method): bool
+    {
+        return self::isSafe($method)
+            || $method === self::PUT
+            || $method === self::DELETE;
+    }
 }
