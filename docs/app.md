@@ -350,9 +350,11 @@ business clock must stay UTC.
 
 All folders in the modules dir with a `config.php` are modules. Config files return a
 closure run during bootstrap, which configures the module and provides definitions for
-the DI container. They are discovered in a deterministic order (sorted by folder name)
-and configured by priority (lower first); an explicit priority set by the module always
-wins. Every module is routable by convention under its name.
+the DI container. Each `config.php` is the local composition root for its module's
+services and routes. Files run in a deterministic order (sorted by folder name);
+their definitions are then merged by priority (lower first). An explicit priority
+set by the module controls that merge order. Every module is routable by convention
+under its name.
 
 Registration is eager, resolution is lazy, request behaviour is route aware. See
 [Modules](modules.md).
@@ -360,8 +362,15 @@ Registration is eager, resolution is lazy, request behaviour is route aware. See
 ## The DI container
 
 All definitions provided by the module configs are merged, then the `configure()` hooks
-run, then the app defaults (PSR-17 factories, router, logger...) are registered if not
+run after the modules' `whenAllLoaded()` second pass, then the app defaults
+(PSR-17 factories, router, logger...) are registered if not
 already defined, and the definitions are locked.
+
+Keep component composition in its owning module. Use `configure()` for application
+integration and deliberate replacements, such as a different implementation in a
+test or runtime. Both contribute to the same object graph; there is no separate
+configuration subsystem. See [Modules](modules.md#configphp) for ownership and
+[DI](di.md#constructor-values) for supplying environment values and scalars.
 
 A `configure()` hook that replaces a service a module already defined must use
 `rebind()` — `set()` on an existing id throws a `DefinitionException`:

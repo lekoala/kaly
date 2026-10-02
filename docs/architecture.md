@@ -15,6 +15,20 @@ route file and no service locator at runtime: controllers receive services by
 constructor, actions receive url segments (plus one trailing input) by
 signature. See [Modules](modules.md) and [DI](di.md).
 
+The object graph is the application configuration. Each module's `config.php` is
+its local composition root: it selects implementations and supplies the values
+needed to construct them. `Env` reads deployment values, `Definitions` declares
+the graph, and the container resolves and shares the resulting objects:
+
+```text
+environment / .env -> Env -> module/config.php -> Definitions -> Container -> services
+```
+
+Services receive object dependencies and constructor values rather than querying
+a global configuration tree. A separate policy or options object belongs in this
+graph when the values have semantics of their own. Composer makes library code
+available; the application chooses how to compose it.
+
 ## Bands
 
 ```text

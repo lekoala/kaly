@@ -6,16 +6,6 @@
 
 A module is a **unit of organization of your application**, not a unit of distribution.
 
-```text
-Composer packages      classes and interfaces are available
-        |
-        v
-Definitions            the application composes them explicitly
-        |
-        v
-Modules                the application organizes its own code
-```
-
 Composer handles distribution and autoloading. `Definitions` handles composition.
 Modules structure the app. Kaly never scans installed packages for `extra` keys and
 never gives a dependency behaviour just because it was installed: a library becomes
@@ -80,6 +70,12 @@ Nothing enforces this: module dependencies are a convention, not a constraint.
 
 ## config.php
 
+`config.php` is the module's **local composition root**: the first place to look to
+understand how the module is assembled. It brings together the implementations
+chosen by the application, their dependencies, environment values, constructor
+parameters and routing declarations. Each module owns its part of the object graph;
+there is no central configuration file that must know every component.
+
 `config.php` returns a closure. It receives the module and its
 definitions; the file runs in an empty scope, so nothing leaks, and the definitions are
 locked by the framework once it returns.
@@ -89,13 +85,23 @@ locked by the framework once it returns.
 
 use Kaly\Core\Module;
 use Kaly\Di\Definitions;
+use Kaly\Util\Env;
 
 return static function (Module $module, Definitions $di): void {
     $di
         ->bind(PatientRepository::class, SqlPatientRepository::class)
-        ->set(ApiClient::class, fn(ContainerInterface $c) => new ApiClient($c->get('apiUrl')));
+        ->set(ApiClient::class, static fn() => new ApiClient(
+            endpoint: Env::getString('API_ENDPOINT'),
+            timeout: Env::getInt('API_TIMEOUT', 10),
+        ));
 };
 ```
+
+The service names above are application examples. `Env` supplies deployment values;
+the module decides how to use them. Application services receive the constructed
+dependencies through their constructors rather than reading `Env` or looking up
+configuration in the container. See [DI](di.md#constructor-values) for the equivalent
+composition using constructor parameters.
 
 The module side of the configuration is fluent:
 
@@ -127,16 +133,39 @@ $di->set(HugeClient::class, new HugeClient(...));
 $di->set(HugeClient::class, fn() => new HugeClient(...));
 ```
 
+### Values and configuration objects
+
+The object graph is the application's configuration. Keep a value in `config.php`
+when its only purpose is to construct an object. A `FooConfig` DTO, builder or loader
+is not required for every component, and Kaly provides no generic configuration
+layer between module declarations and DI.
+
+Introduce a separate object when the values have meaning together and that object
+is itself a useful dependency: a retry policy with validated limits, a cookie policy,
+or a money rounding policy. Kaly's `CookiePolicy` is one such example. These objects
+are ordinary services in the same graph; they do not need a separate registry.
+
+The rule is: **inject dependencies as objects; supply configuration values where
+those objects are constructed; introduce a configuration object when the group of
+values has semantics of its own.**
+
 ## Loading order
 
 Modules are discovered by sorted folder name, so the order is deterministic across
-filesystems. Each one gets a priority of 100, 200, 300... in that order unless it sets
+filesystems, and their `config.php` closures run in that discovery order. Each one
+gets a priority of 100, 200, 300... in that order unless it sets
 its own with `$module->priority(50)`. Definitions are then merged from the lowest
 priority to the highest. Merging is additive: two modules owning the same service
 id is a conflict that fails at boot — a later module cannot silently override an
 earlier binding. To replace a service intentionally, use `rebind()` in
 `whenAllLoaded()` (second pass below) or in an `App::configure()` hook, which run
 after every module has been merged.
+
+Priority controls merging and the second pass; it does not reorder the initial
+execution of `config.php`. Service-id conflicts always fail, regardless of priority.
+Constructor parameters and named callbacks customize services rather than owning
+them: for the same parameter or callback key, the later merged value wins. Keep
+those customizations in the owning module where possible.
 
 A second pass runs after every module has been merged, for features that depend on
 what the other modules declared:
