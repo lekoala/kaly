@@ -39,7 +39,7 @@ class UtilTest extends TestCase
             'mystring' => 'mystring',
             'Mystring' => 'mystring',
             'my-string' => 'my-string',
-            // utf 8 support
+            // Lowercasing is unicode-aware; the case boundary split stays ASCII
             'my-stringÜ' => 'my-stringü',
             'ümy-string' => 'ümy-string',
         ];
