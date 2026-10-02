@@ -128,6 +128,7 @@ final class NativePhpSession implements CookieSessionInterface
                 'use_cookies' => '0',
                 'use_only_cookies' => '1',
                 'use_trans_sid' => '0',
+                'use_strict_mode' => '1',
                 'cache_limiter' => '',
             ],
             $forward,
@@ -365,24 +366,6 @@ final class NativePhpSession implements CookieSessionInterface
         if (session_status() === PHP_SESSION_ACTIVE) {
             throw new Ex('Failed to start the session: already started by PHP');
         }
-    }
-
-    /**
-     * PSR-7 compatibility: never auto-start, never let PHP emit cookies or
-     * rewrite urls. We emit the Set-Cookie header ourselves.
-     *
-     * Process-global by nature (ini entries); called once by the provider.
-     *
-     * @link https://paul-m-jones.com/post/2016/04/12/psr-7-and-session-cookies/
-     */
-    public static function configureForPsr7(): void
-    {
-        ini_set('session.auto_start', '0');
-        ini_set('session.use_trans_sid', '0');
-        ini_set('session.use_cookies', '0');
-        ini_set('session.use_only_cookies', '1');
-        ini_set('session.use_strict_mode', '1');
-        ini_set('session.cache_limiter', '');
     }
 
     /**

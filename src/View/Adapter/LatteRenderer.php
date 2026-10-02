@@ -6,6 +6,7 @@ namespace Kaly\View\Adapter;
 
 use Kaly\View\RendererInterface;
 use Kaly\View\TemplateLocatorInterface;
+use Kaly\View\TemplatePathRegistryInterface;
 use Latte\Engine;
 
 /**
@@ -14,7 +15,7 @@ use Latte\Engine;
  * Requires latte/latte (see composer "suggest"). Kaly never abstracts Latte
  * features (filters, extensions, sandbox): configure those on the engine.
  */
-final class LatteRenderer implements RendererInterface, TemplateLocatorInterface
+final class LatteRenderer implements RendererInterface, TemplateLocatorInterface, TemplatePathRegistryInterface
 {
     public function __construct(
         private readonly Engine $engine,
@@ -36,5 +37,15 @@ final class LatteRenderer implements RendererInterface, TemplateLocatorInterface
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    public function setPath(string $namespace, string $path): void
+    {
+        $loader = $this->engine->getLoader();
+        if (!$loader instanceof LatteNamespacedLoader) {
+            $loader = new LatteNamespacedLoader($loader);
+            $this->engine->setLoader($loader);
+        }
+        $loader->setPath($namespace, $path);
     }
 }

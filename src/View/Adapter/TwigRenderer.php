@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Kaly\View\Adapter;
 
+use Kaly\Ex;
 use Kaly\View\RendererInterface;
 use Kaly\View\TemplateLocatorInterface;
+use Kaly\View\TemplatePathRegistryInterface;
 use Twig\Environment;
+use Twig\Loader\FilesystemLoader;
 
 /**
  * Bridges Twig to Kaly's renderer abstraction.
@@ -14,7 +17,7 @@ use Twig\Environment;
  * Requires twig/twig (see composer "suggest"). Kaly never abstracts Twig
  * features (extensions, filters, sandbox): configure those on the environment.
  */
-final class TwigRenderer implements RendererInterface, TemplateLocatorInterface
+final class TwigRenderer implements RendererInterface, TemplateLocatorInterface, TemplatePathRegistryInterface
 {
     public function __construct(
         private readonly Environment $twig,
@@ -31,5 +34,14 @@ final class TwigRenderer implements RendererInterface, TemplateLocatorInterface
     public function has(string $template): bool
     {
         return $this->twig->getLoader()->exists($template);
+    }
+
+    public function setPath(string $namespace, string $path): void
+    {
+        $loader = $this->twig->getLoader();
+        if (!$loader instanceof FilesystemLoader) {
+            throw new Ex('TwigRenderer registers paths on a FilesystemLoader only');
+        }
+        $loader->addPath($path, $namespace);
     }
 }

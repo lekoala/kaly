@@ -32,7 +32,7 @@ final class MediaType
             return null;
         }
         $parts = self::splitOn($header, ';');
-        $name = self::normalizeToken(array_shift($parts));
+        $name = self::normalizeName(array_shift($parts));
         if ($name === '') {
             return null;
         }
@@ -46,13 +46,13 @@ final class MediaType
             $eq = strpos($part, '=');
             if ($eq === false) {
                 // A bare parameter name: keep it, with an empty value
-                $bareName = self::normalizeToken($part);
+                $bareName = self::normalizeName($part);
                 if ($bareName !== '') {
                     $params[$bareName] = '';
                 }
                 continue;
             }
-            $key = self::normalizeToken(substr($part, 0, $eq));
+            $key = self::normalizeName(substr($part, 0, $eq));
             if ($key === '') {
                 continue;
             }
@@ -164,7 +164,7 @@ final class MediaType
      * case-insensitive comparison: lowercase, with the optional whitespace
      * around header list separators stripped.
      */
-    public static function normalizeToken(?string $value): string
+    public static function normalizeName(?string $value): string
     {
         return strtolower(trim($value ?? ''));
     }

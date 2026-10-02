@@ -32,7 +32,7 @@ class CommitTest extends TestCase
         $this->app = new App(__DIR__);
         // A request-scoped session keeps this test away from $_SESSION
         $this->app->configure(static function (Definitions $di): void {
-            $di->set(SessionProviderInterface::class, new ArraySessionProvider());
+            $di->rebind(SessionProviderInterface::class, new ArraySessionProvider());
         });
         $this->app->boot();
     }
@@ -143,7 +143,7 @@ class CommitTest extends TestCase
 
         $app = new App(__DIR__);
         $app->configure(static function (Definitions $di) use ($provider): void {
-            $di->set(SessionProviderInterface::class, $provider);
+            $di->rebind(SessionProviderInterface::class, $provider);
         });
         $app->boot();
 
@@ -170,7 +170,7 @@ class CommitTest extends TestCase
     {
         $app = new App(__DIR__);
         $app->configure(static function (Definitions $di): void {
-            $di->set(SessionProviderInterface::class, new class implements SessionProviderInterface {
+            $di->rebind(SessionProviderInterface::class, new class implements SessionProviderInterface {
                 public function create(ServerRequestInterface $request): SessionInterface
                 {
                     return new ArraySession();

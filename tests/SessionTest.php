@@ -22,7 +22,6 @@ class SessionTest extends TestCase
     {
         $this->savePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'kaly-session-' . uniqid();
         Fs::ensureDir($this->savePath);
-        NativePhpSession::configureForPsr7();
         session_save_path($this->savePath);
         session_name('KALYAUDIT');
     }
@@ -47,6 +46,28 @@ class SessionTest extends TestCase
     private function provider(array $options = []): NativePhpSessionProvider
     {
         return new NativePhpSessionProvider($options);
+    }
+
+    public function testBuildingTheProviderMutatesNoGlobalIniState(): void
+    {
+        $keys = [
+            'session.auto_start',
+            'session.use_trans_sid',
+            'session.use_cookies',
+            'session.use_only_cookies',
+            'session.use_strict_mode',
+            'session.cache_limiter',
+        ];
+        $before = [];
+        foreach ($keys as $key) {
+            $before[$key] = ini_get($key);
+        }
+
+        new NativePhpSessionProvider();
+
+        foreach ($keys as $key) {
+            $this->assertSame($before[$key], ini_get($key), "Constructing the provider must not touch {$key}");
+        }
     }
 
     public function testNextRequestWithoutCookieDoesNotReuseSession(): void

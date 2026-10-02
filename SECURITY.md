@@ -23,7 +23,7 @@ Recommendations:
 
 ## Static files
 
-`src/Middleware/Builtin/FileServer.php` only serves `GET`/`HEAD`, rejects path traversal
+`src/Http/FileServer.php` only serves `GET`/`HEAD`, rejects path traversal
 via `Fs::isInside`, requires `is_file`, and never serves executable extensions
 (`php`, `phtml`, `phar`, `php3-8`, `pht`, `inc`, `cgi`, `pl`).
 
@@ -47,3 +47,6 @@ conditions.
 
 Report suspected vulnerabilities via a private channel to the maintainer instead of
 opening a public issue. Include reproduction steps, affected version, and impact.
+
+- Preferred: GitHub Private Vulnerability Reporting on the repository
+- Fallback: thomas@lekoala.be

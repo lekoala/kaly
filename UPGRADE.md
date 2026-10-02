@@ -326,8 +326,8 @@ Behaviour fixes and the small public API changes that go with them.
   `Strict`. Read it back from `$policy->sameSite` and compare against the
   canonical spelling.
 - `RedirectException` only accepts a real redirect status (301, 302, 303, 307,
-  308). `304` is not a redirect and no longer carries a `Location` header; the
-  constant is `RedirectException::NOT_MODIFIED` if you need to name it.
+  308). `304` is not a redirect and no longer carries a `Location` header; use the
+  literal `304` if you need to name it.
 - `Kaly\Http\Exception\ForbiddenException` is added (403, empty body). Access control stays
   the application's, but the framework now has the class its own documentation
   used to reference.

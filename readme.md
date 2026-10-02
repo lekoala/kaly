@@ -57,6 +57,16 @@ Kaly\Core\App::create(dirname(__DIR__))->run();
 ```
 
 ```php
+// modules/app/config.php  ->  the module exists because of this file,
+//                             and it owns the root because it mounts '/'
+use Kaly\Core\Module;
+
+return static function (Module $module): void {
+    $module->mount('/');
+};
+```
+
+```php
 // modules/app/src/Controller/IndexController.php  ->  GET /
 namespace App\Controller;
 
@@ -69,7 +79,8 @@ final class IndexController
 }
 ```
 
-A module is any folder of `modules/` with a `config.php` (it may be empty). Any other
+A module is any folder of `modules/` with a `config.php` (it may be empty):
+without it the folder is invisible and its urls 404. Any other
 module is routable under its name (`modules/Shop` answers on `/shop/...`).
 See [UPGRADE.md](UPGRADE.md) when updating.
 

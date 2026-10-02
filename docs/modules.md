@@ -116,6 +116,7 @@ The module side of the configuration is fluent:
 | `namespace('Vendor\Thing')` | root namespace of the module classes |
 | `mount('boutique')` | url segment of the conventional routes |
 | `mount(['fr' => 'boutique', 'en' => 'shop'])` | one url segment per locale |
+| `mount('/')` | own the root: answer urls carrying no prefix (a single module) |
 | `localized()` | its urls carry the locale prefix |
 | `routes(fn(Routes $routes) => ...)` | local route table, see [Routing](routing.md) |
 | `resolver(PageResolver::class, priority: 500)` | custom resolver (pages in a database...) |
@@ -163,8 +164,9 @@ its own with `$module->priority(50)`. Definitions are then merged from the lowes
 priority to the highest. Merging is additive: two modules owning the same service
 id is a conflict that fails at boot — a later module cannot silently override an
 earlier binding. To replace a service intentionally, use `rebind()` in
-`whenAllLoaded()` (second pass below) or in an `App::configure()` hook, which run
-after every module has been merged.
+`whenAllLoaded()` (second pass below) or in an `App::configure()` hook, which runs
+last, once the modules are merged and the framework defaults registered — so
+`rebind()` works there for a module service and for a framework default alike.
 
 Priority controls merging and the second pass; it does not reorder the initial
 execution of `config.php`. Service-id conflicts always fail, regardless of priority.
@@ -206,8 +208,15 @@ fallback autoloader for that module only (`Namespace\Some\Class` →
 
 Every url belongs to exactly one module, which resolves it alone. Every module is
 mounted under its decamelized folder name, with no configuration: `modules/Admin`
-answers on `/admin/...`, `modules/routable-module` on `/routable-module/...`. The module
-whose namespace is `App` is the default one and answers without prefix.
+answers on `/admin/...`, `modules/routable-module` on `/routable-module/...`. The
+module mounted on `/` is the default one and answers without prefix, whatever its
+PHP namespace:
+
+```php
+return static function (Module $module): void {
+    $module->mount('/');   // a single module may own the root
+};
+```
 
 ```php
 return static function (Module $module): void {

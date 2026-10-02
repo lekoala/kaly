@@ -12,7 +12,7 @@ function headers_sent(): bool
     return false;
 }
 
-function header(string $string, bool $replace = true, int $http_response_code = null): void
+function header(string $string, bool $replace = true, ?int $http_response_code = null): void
 {
     HttpTest::$mockResponse[__FUNCTION__] = func_get_args();
 }

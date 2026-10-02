@@ -7,9 +7,11 @@ use App\PageResolver;
 use Kaly\Core\Module;
 use Kaly\Router\Routes;
 
-// The default module: no url prefix, route names without prefix
+// The root module: mounted on '/', it answers without url prefix and its
+// route names need no qualifier
 return static function (Module $module): void {
     $module
+        ->mount('/')
         ->localized()
         ->routes(function (Routes $routes): void {
             $routes->get(['fr' => '/a-propos', 'en' => '/about'], [ContactController::class, 'index'])->name('contact');

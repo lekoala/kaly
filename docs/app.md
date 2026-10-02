@@ -75,7 +75,7 @@ overhead per request. See [Runtime](runtime.md#worker-mode) for the entry points
 
 - configure error handling and, in debug mode, ensure the conventional directories exist;
 - discover the modules and run their `config.php`;
-- build the definitions (modules, then `configure()` hooks, then framework defaults),
+- build the definitions (modules, then framework defaults, then `configure()` hooks),
   the DI container and the injector;
 - build the router from the modules;
 - build the request kernel.
@@ -90,7 +90,7 @@ middleware cannot see, and they are typed methods, not string ids:
 
 | Hook | Receives | Runs |
 | --- | --- | --- |
-| `configure()` | `Definitions` | once, after the modules, before the framework defaults |
+| `configure()` | `Definitions` | once, after the modules and the framework defaults, before the lock |
 | `onBoot()` | `App` | once, when the app is booted |
 | `onError()` | `Throwable`, `HttpContext` | on generic errors (HTTP exceptions are expected and skipped) |
 | `onTerminate()` | `HttpContext` | at the end of every cycle, `$ctx->response()` is available |
@@ -366,10 +366,10 @@ Registration is eager, resolution is lazy, request behaviour is route aware. See
 
 ## The DI container
 
-All definitions provided by the module configs are merged, then the `configure()` hooks
-run after the modules' `whenAllLoaded()` second pass, then the app defaults
-(PSR-17 factories, router, logger...) are registered if not
-already defined, and the definitions are locked.
+All definitions provided by the module configs are merged, then the framework
+registrations and defaults (PSR-17 factories, router, logger...) are applied for
+whatever is still missing, then the `configure()` hooks run as the last explicit
+pass before the definitions are locked.
 
 Keep component composition in its owning module. Use `configure()` for application
 integration and deliberate replacements, such as a different implementation in a
@@ -377,23 +377,16 @@ test or runtime. Both contribute to the same object graph; there is no separate
 configuration subsystem. See [Modules](modules.md#configphp) for ownership and
 [DI](di.md#constructor-values) for supplying environment values and scalars.
 
-A `configure()` hook that replaces a service a module already defined must use
-`rebind()` — `set()` on an existing id throws a `DefinitionException`:
+The primitives are uniform: `set()`/`bind()` declare something new, `rebind()`
+intentionally replaces something that exists — a module service or a framework
+default alike, since everything exists by the time `configure()` runs.
+`set()` on an existing id throws a `DefinitionException`, and so does
+`rebind()` on an unknown one:
 
 ```php
-// a module config.php already set this id
+// a module config.php, or the framework defaults, already defined this id
 $app->configure(static function (Definitions $di) use ($logger): void {
     $di->rebind(App::DEBUG_LOGGER, $logger);
-});
-```
-
-For an id no module declared, use `set()`: the framework defaults are registered
-*after* the `configure()` hooks, so `rebind()` would find nothing to replace:
-
-```php
-// nothing declared it yet
-$app->configure(static function (Definitions $di) use ($logger): void {
-    $di->set(App::DEBUG_LOGGER, $logger);
 });
 ```
 

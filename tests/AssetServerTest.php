@@ -141,8 +141,8 @@ class AssetServerTest extends TestCase
     {
         $app = new App($this->base, false);
         $app->configure(function (Definitions $defs): void {
-            $defs->bind(ResponseFactoryInterface::class, Psr17Factory::class);
-            $defs->bind(StreamFactoryInterface::class, Psr17Factory::class);
+            $defs->rebind(ResponseFactoryInterface::class, Psr17Factory::class);
+            $defs->rebind(StreamFactoryInterface::class, Psr17Factory::class);
         });
         $app->boot();
         try {

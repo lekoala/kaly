@@ -8,6 +8,7 @@ use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Core\Module;
 use Kaly\Ex;
+use Kaly\Router\RouteNotFoundException;
 use Kaly\Router\Router;
 use Kaly\Router\RouterInterface;
 use Kaly\Router\Routes;
@@ -15,6 +16,7 @@ use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
+use TestModule\Controller\IndexController;
 
 /**
  * Every url belongs to one module, which resolves it alone
@@ -149,5 +151,76 @@ class HierarchicalRoutingTest extends TestCase
         $this->expectException(Ex::class);
         $this->expectExceptionMessage("Prefix '/deals' is claimed by both 'shop' and 'blog'");
         new Router([$shop, $blog]);
+    }
+
+    public function testTheRootBelongsToTheModuleMountedOnSlashWhateverItsNamespace(): void
+    {
+        $module = (new Module(__DIR__ . '/modules/TestModule'))
+            ->namespace('Site')
+            ->mount('/')
+            ->routes(static function (Routes $routes): void {
+                $routes->get('/', [IndexController::class, 'index'])->name('home');
+            });
+        // The namespace is decoupled from the files: load the handler directly
+        // (an App boot would register the module autoloader instead)
+        require_once __DIR__ . '/modules/TestModule/src/Controller/IndexController.php';
+        $router = new Router([$module]);
+
+        $this->assertSame('test-module', $router->getDefaultModule());
+
+        $route = $router->match(HttpFactory::createRequestFromGlobals()->withUri(new Uri('/')));
+        $this->assertSame(IndexController::class, $route->controller);
+        $this->assertSame('index', $route->action);
+
+        $this->assertSame('/', $router->url('home'));
+    }
+
+    public function testAMinimalRootModuleServesSlash(): void
+    {
+        // The readme quickstart shape: one config.php mounting '/', one
+        // conventional controller, no namespace magic
+        $app = App::create(__DIR__ . '/data/apps/root', false)->boot();
+
+        $response = $app->handle(HttpFactory::createRequestFromGlobals()->withUri(new Uri('/')));
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('Hello', (string) $response->getBody());
+    }
+
+    public function testTwoModulesCannotMountTheRoot(): void
+    {
+        $first = (new Module(__DIR__ . '/modules/TestModule'))->mount('/');
+        $second = (new Module(__DIR__ . '/modules/MappedModule'))->mount('/');
+
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage("Module 'mapped-module' mounts '/' but 'test-module' already owns the root");
+        new Router([$first, $second]);
+    }
+
+    public function testARootMountCannotMixWithSegments(): void
+    {
+        $module = (new Module(__DIR__ . '/modules/LangModule'))
+            ->localized()
+            ->mount(['fr' => '/', 'en' => 'lang']);
+
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage("mixes the root mount '/' with url segments");
+        new Router([$module], null, ['fr', 'en']);
+    }
+
+    public function testAMissingRootSaysWhichModulesExist(): void
+    {
+        $shop = (new Module(__DIR__ . '/data/apps/routing/modules/Shop'))
+            ->localized()
+            ->mount(['fr' => 'boutique', 'en' => 'shop']);
+        $router = new Router([$shop], null, ['fr', 'en']);
+
+        try {
+            $router->match(HttpFactory::createRequestFromGlobals()->withUri(new Uri('/fr/nope/')));
+            $this->fail('unmounted path must not resolve without a root module');
+        } catch (RouteNotFoundException $e) {
+            $this->assertStringContainsString("no module owns the root (mount('/') in a config.php)", $e->getMessage());
+            $this->assertStringContainsString("'shop' on /fr/boutique/", $e->getMessage());
+        }
     }
 }

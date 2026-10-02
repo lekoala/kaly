@@ -125,13 +125,20 @@ final class Module implements RouteScope
      * The url segment the module answers under, its decamelized name by
      * default. A localized module can have one segment per locale.
      *
-     * @param string|array<string,string> $segment 'shop', or ['fr' => 'boutique', 'en' => 'shop']
+     * Mount '/' to own the root: the module answers the urls that carry no
+     * prefix (under every locale prefix when localized). A single module
+     * may do so; it becomes the default module of the router.
+     *
+     * @param string|array<string,string> $segment 'shop', '/', or ['fr' => 'boutique', 'en' => 'shop']
      */
     public function mount(string|array $segment): self
     {
         $this->assertNotFrozen();
         $segments = is_array($segment) ? $segment : ['*' => $segment];
-        $this->mount = array_map(static fn(string $s): string => trim($s, '/'), $segments);
+        $this->mount = array_map(static function (string $s): string {
+            $trimmed = trim($s, '/');
+            return $trimmed === '' ? '/' : $trimmed;
+        }, $segments);
         return $this;
     }
 
@@ -196,7 +203,7 @@ final class Module implements RouteScope
         $this->assertNotFrozen();
         $prefixes = is_array($prefix) ? $prefix : ['*' => $prefix];
         $this->claims[] = [
-            'prefix' => array_map(static fn(string $p): string => RoutePath::join($p), $prefixes),
+            'prefix' => array_map(RoutePath::join(...), $prefixes),
             'routes' => new RoutesDeclaration($routes),
         ];
         return $this;

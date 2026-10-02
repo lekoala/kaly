@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use Kaly\Clock\SystemClock;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Core\HttpContext;
@@ -11,6 +12,8 @@ use Kaly\Di\Definitions;
 use Kaly\Http\ContentType;
 use Kaly\Http\FileServer;
 use Kaly\Http\ResponseEmitterInterface;
+use Kaly\I18n\Translator;
+use Kaly\I18n\TranslatorInterface;
 use Kaly\Router\Route;
 use Kaly\Router\Router;
 use Kaly\Router\RouterInterface;
@@ -19,6 +22,7 @@ use Kaly\Tests\Mocks\TestMiddleware;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
+use Psr\Clock\ClockInterface;
 use Psr\Http\Message\ResponseInterface;
 use TestModule\Controller\DemoController;
 use TestModule\Controller\IndexController;
@@ -57,7 +61,7 @@ class AppTest extends TestCase
 
         $app = App::create(__DIR__)
             ->configure(static function (Definitions $di) use ($emitter): void {
-                $di->set(ResponseEmitterInterface::class, $emitter);
+                $di->rebind(ResponseEmitterInterface::class, $emitter);
             })
             ->boot();
 
@@ -75,6 +79,51 @@ class AppTest extends TestCase
 
         $this->assertTrue($app->isBooted());
         $this->assertSame('foo', (string) $response->getBody());
+    }
+
+    public function testBootSucceedsAfterEarlierOutput(): void
+    {
+        // Workers, build scripts and chatty tests may print before boot:
+        // building the DI graph must touch no global PHP state.
+        $this->expectOutputString('worker log line');
+        echo 'worker log line';
+
+        $app = App::create(__DIR__)->boot();
+
+        $this->assertTrue($app->isBooted());
+    }
+
+    public function testConfigureRebindsFrameworkDefaults(): void
+    {
+        // ClockInterface is bound by the framework defaults, which are
+        // registered before the configure hooks run: rebind() finds it
+        $clock = new SystemClock('UTC');
+        $app = App::create(__DIR__)
+            ->configure(static function (Definitions $di) use ($clock): void {
+                $di->rebind(ClockInterface::class, $clock);
+            })
+            ->boot();
+
+        $this->assertSame($clock, $app->container()->get(ClockInterface::class));
+    }
+
+    public function testRebindKeepsTheParametersAndCallbacksAttachedToTheId(): void
+    {
+        $fired = 0;
+        $app = App::create(__DIR__)
+            ->configure(static function (Definitions $di) use (&$fired): void {
+                $di->parameter(TranslatorInterface::class, 'defaultLocale', 'fr');
+                $di->callback(TranslatorInterface::class, static function (TranslatorInterface $translator) use (&$fired): void {
+                    $fired++;
+                });
+                $di->rebind(TranslatorInterface::class, Translator::class);
+            })
+            ->boot();
+
+        $translator = $app->container()->get(TranslatorInterface::class);
+        $this->assertInstanceOf(Translator::class, $translator);
+        $this->assertSame('fr', $translator->getDefaultLocale());
+        $this->assertSame(1, $fired);
     }
 
     public function testContainerCannotChangeOnceBooted(): void

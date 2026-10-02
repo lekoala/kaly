@@ -203,8 +203,13 @@ final class App implements RequestHandlerInterface
     }
 
     /**
-     * Compose the container once every module contributed. Anything set here
-     * wins over the modules and over the framework defaults.
+     * Adapt the complete composition once every module contributed and the
+     * framework defaults are registered: this is the last explicit pass
+     * before the container locks. Anything set here wins over the modules
+     * and over the framework defaults.
+     *
+     * Primitives are uniform: set()/bind() declare something new,
+     * rebind() intentionally replaces something that exists.
      *
      * @param Closure(Definitions): void $configure
      */
@@ -429,14 +434,18 @@ final class App implements RequestHandlerInterface
     // #region Internals
 
     /**
-     * Modules first (by priority), then the configure hooks, then the
-     * framework defaults for whatever is still missing. Locked once built.
+     * Modules first (by priority), then the framework registrations and
+     * defaults, then the configure hooks as the last explicit pass before
+     * the lock. Locked once built.
      */
     private function buildDefinitions(): Definitions
     {
         $definitions = $this->loadModules();
 
-        $this->hooks->configure($definitions);
+        // Whatever the app (modules, configure hooks) bound explicitly wins over
+        // the framework defaults below. Capture this before they are applied:
+        // an explicit PSR-3 logger also receives the Kaly diagnostics.
+        $explicitLogger = $definitions->has(LoggerInterface::class);
 
         // Register the application itself
         $definitions->set(self::class, $this);
@@ -450,11 +459,6 @@ final class App implements RequestHandlerInterface
                 $definitions->bind($interface, $class);
             }
         }
-
-        // Whatever the app (modules, configure hooks) bound explicitly wins over
-        // the framework defaults below. Capture this before they are applied:
-        // an explicit PSR-3 logger also receives the Kaly diagnostics.
-        $explicitLogger = $definitions->has(LoggerInterface::class);
 
         // Our default implementations if none are provided
         foreach (self::DEFAULT_IMPLEMENTATIONS as $interface => $className) {
@@ -538,6 +542,12 @@ final class App implements RequestHandlerInterface
         if (!$definitions->has(LocaleResolver::class) && $this->locales !== []) {
             $definitions->set(LocaleResolver::class, new LocaleResolver($this->locales[0], $this->locales));
         }
+
+        // Last explicit pass: the application adapts the complete
+        // composition. Everything above exists by now, so rebind() replaces
+        // intentionally (a module service or a framework default alike),
+        // while set()/bind() declare something new.
+        $this->hooks->configure($definitions);
 
         return $definitions->lock();
     }

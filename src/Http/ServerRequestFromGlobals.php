@@ -68,7 +68,7 @@ final class ServerRequestFromGlobals
             ->withBody($this->streams->createStreamFromFile($body, 'r'));
 
         // PHP only parses form bodies, and only for POST
-        $mediaType = MediaType::normalizeToken(explode(';', $request->getHeaderLine('Content-Type'))[0]);
+        $mediaType = MediaType::normalizeName(explode(';', $request->getHeaderLine('Content-Type'))[0]);
         if ($method === 'POST' && in_array($mediaType, ['application/x-www-form-urlencoded', 'multipart/form-data'], true)) {
             $request = $request->withParsedBody($post ?? $_POST);
         }

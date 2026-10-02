@@ -19,6 +19,12 @@ use Psr\Http\Message\ServerRequestInterface;
  * cookie, scopes the cookie to the request (secure/domain), honors
  * remember-me, commits the storage and applies the Set-Cookie header to the
  * final response.
+ *
+ * The constructor is pure: it touches no global PHP state (no ini, no
+ * output). Everything session_start() needs (no cookies, no url rewriting,
+ * strict mode, no cache limiter) travels in the start options of each
+ * NativePhpSession, so building the DI graph can never break a boot that
+ * follows earlier output.
  */
 final class NativePhpSessionProvider implements SessionProviderInterface
 {
@@ -38,7 +44,6 @@ final class NativePhpSessionProvider implements SessionProviderInterface
     {
         $this->options = $options;
         $this->policy = $policy ?? CookiePolicy::baseline();
-        NativePhpSession::configureForPsr7();
     }
 
     public function create(ServerRequestInterface $request): SessionInterface

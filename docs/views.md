@@ -94,8 +94,9 @@ $definitions->set(RendererInterface::class, new TwigRenderer($twig));
 
 When the configured renderer implements `TemplatePathRegistryInterface`, Kaly registers each
 module `templates/` directory under the module name, so templates can be referenced as
-`@Module/template`. This is automatic with `kaly-tpl`.
-
-Latte and Twig adapters do not implement that capability: register their namespaces/loaders
-directly on the engine instead.
+`@Module/template`. This is automatic with `kaly-tpl`, Latte (`LatteRenderer` resolves
+namespaces through its loader) and Twig (`TwigRenderer` registers them on a
+`FilesystemLoader`, which is the default setup). A renderer backed by another loader
+(a Twig `ArrayLoader`, a Latte `StringLoader`) cannot register paths: use plain names
+with those.
 

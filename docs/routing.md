@@ -25,7 +25,7 @@ There is no global route file.
    locale is the default one.
 2. **Entry point.** A claimed prefix wins (the longest one first). Otherwise the first
    segment is looked up among the module mounts. Otherwise the url belongs to the
-   default module, the one whose namespace is `App`, which answers without prefix.
+   default module, the one mounted on `/`, which answers without prefix.
 3. **Module resolvers.** The module resolves what is left with its resolvers, by
    priority (lowest first, then declaration order). The first one returning a route
    wins; one returning `null` hands over to the next. Nothing else is looked at: a
@@ -44,10 +44,13 @@ return static function (Module $module): void {
     $module->mount('boutique');
     // or
     $module->mount(['fr' => 'boutique', 'en' => 'shop'])->localized();
+    // or own the root (a single module may do so)
+    $module->mount('/');
 };
 ```
 
-A segment is mounted once: two modules claiming it fail at boot. A non canonical
+A segment is mounted once: two modules claiming it fail at boot, and two modules
+mounting `/` fail at boot. A non canonical
 spelling (`/Shop/`, `/SHOP/`) redirects to `/shop/`.
 
 ## Resolvers
@@ -171,8 +174,8 @@ $module->claim(['fr' => '/actualites', 'en' => '/news'], function (Routes $route
 ```
 
 Claims are explicit on purpose, and checked at boot: two claims on the same prefix,
-or a claim inside the segment of another module, fail. The root belongs to the
-default module: declare its routes there.
+or a claim inside the segment of another module, fail. The root cannot be claimed:
+it belongs to the module mounted on `/`, declare its routes there.
 
 A claim is an **island with its own table**, not a second mount: below the claimed
 prefix the module resolves with that table only. Its custom resolvers and its

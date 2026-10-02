@@ -31,8 +31,6 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 final class Router implements RouterInterface
 {
-    public const DEFAULT_NAMESPACE = 'App';
-
     /**
      * @var array<string,RouteScope> By module id
      */
@@ -217,7 +215,17 @@ final class Router implements RouterInterface
         }
 
         if ($this->default === null) {
-            throw new RouteNotFoundException("Route '{$request->getUri()->getPath()}' not found");
+            $known = [];
+            foreach ($this->modules as $id => $module) {
+                foreach ($module->getMount() as $locale => $segment) {
+                    $where = $segment === '/' ? '/' : "/{$segment}/";
+                    $known[] = $locale === '*' ? "'{$id}' on {$where}" : "'{$id}' on /{$locale}{$where}";
+                }
+            }
+            $hint = $known === [] ? 'no module is registered' : 'known modules: ' . implode(', ', $known);
+            throw new RouteNotFoundException(
+                "Route '{$request->getUri()->getPath()}' not found: no module owns the root (mount('/') in a config.php); {$hint}",
+            );
         }
         return [$this->default, '', $segments, null];
     }
@@ -376,7 +384,7 @@ final class Router implements RouterInterface
 
     /**
      * The module that answers urls carrying no prefix, if the application
-     * declares one (the module namespaced as App).
+     * declares one (the module mounted on '/').
      */
     public function getDefaultModule(): ?string
     {
@@ -408,12 +416,23 @@ final class Router implements RouterInterface
             );
         }
 
-        if ($module->getNamespace() === self::DEFAULT_NAMESPACE) {
-            $this->default = $id;
-        } else {
-            foreach ($module->getMount() as $locale => $segment) {
+        // The root is a normal mount: the module mounted on '/' answers
+        // the urls that carry no prefix, whatever its PHP namespace.
+        // A single module may own it.
+        $mount = $module->getMount();
+        $root = array_filter($mount, static fn(string $segment): bool => $segment === '/');
+        if ($root !== [] && count($root) !== count($mount)) {
+            throw new Ex("Module '{$id}' mixes the root mount '/' with url segments: mount '/' alone or segments alone");
+        }
+        if ($root === []) {
+            foreach ($mount as $locale => $segment) {
                 $this->mount($id, $locale, $segment);
             }
+        } else {
+            if ($this->default !== null) {
+                throw new Ex("Module '{$id}' mounts '/' but '{$this->default}' already owns the root: a single module may do so");
+            }
+            $this->default = $id;
         }
 
         // Every routes() call feeds the same logical table: declarations share
@@ -507,7 +526,7 @@ final class Router implements RouterInterface
             foreach ($claim['prefix'] as $locale => $prefix) {
                 $segments = RoutePath::segments($prefix);
                 if ($segments === []) {
-                    throw new Ex("Module '{$id}' cannot claim the root: declare its routes in the default module");
+                    throw new Ex("Module '{$id}' cannot claim the root: declare its routes in the module mounted on '/'");
                 }
                 $owner = $this->takenInAnyLocale($segments[0]);
                 if ($owner !== null && $owner !== $id) {
