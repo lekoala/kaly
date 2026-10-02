@@ -315,10 +315,6 @@ final class App implements RequestHandlerInterface
 
             $this->hooks->boot($this);
 
-            if ($this->debug) {
-                $this->hooks->terminate[] = $this->logPipeline(...);
-            }
-
             // Available only once everything above succeeded
             $this->booted = true;
         } catch (Throwable $ex) {
@@ -512,9 +508,8 @@ final class App implements RequestHandlerInterface
         }
 
         // A debug logger (null logger if debug is disabled) if none is provided.
-        // When the application configured its own PSR-3 logger, the Kaly
-        // diagnostics (pipeline trace, ...) follow it instead of staying in
-        // the debug.log fallback.
+        // When the application configured its own PSR-3 logger, debug
+        // messages follow it instead of staying in the debug.log fallback.
         if (!$definitions->has(self::DEBUG_LOGGER)) {
             if ($explicitLogger) {
                 $definitions->set(self::DEBUG_LOGGER, static fn(ContainerInterface $container) => $container->get(LoggerInterface::class));
@@ -652,46 +647,6 @@ final class App implements RequestHandlerInterface
             $container->get(UploadedFileFactoryInterface::class),
             $container->get(StreamFactoryInterface::class),
         ))->create();
-    }
-
-    /**
-     * Log the effective pipeline of the cycle in debug mode.
-     *
-     * The registry is live — middlewares can be registered before or after
-     * boot — so the configured bands are read per request. Showing the
-     * executed trace next to the configuration exposes a middleware that was
-     * registered but never ran (eg: short-circuited upstream).
-     */
-    private function logPipeline(HttpContext $ctx): void
-    {
-        try {
-            $configured = $this->middleware->toArray();
-            /** @var LoggerInterface $logger */
-            $logger = $this->container()->get(self::DEBUG_LOGGER);
-            $logger->debug('pipeline status={status} configured incoming={incoming} routed={routed} outgoing={outgoing} | executed={executed}', [
-                'status' => (string) $ctx->response()->getStatusCode(),
-                'incoming' => self::middlewareNames($configured['incoming'] ?? []),
-                'routed' => self::middlewareNames($configured['routed'] ?? []),
-                'outgoing' => self::middlewareNames($configured['outgoing'] ?? []),
-                'executed' => $ctx->middlewares(),
-            ]);
-        } catch (Throwable) {
-            // The debug dump must never interfere with the cycle
-            // @mago-expect lint:no-empty-catch-clause
-        }
-    }
-
-    /**
-     * @param array<array-key, class-string|object> $entries
-     * @return list<string>
-     */
-    private static function middlewareNames(array $entries): array
-    {
-        $names = [];
-        foreach ($entries as $entry) {
-            $names[] = is_string($entry) ? $entry : $entry::class;
-        }
-        return $names;
     }
 
     /**

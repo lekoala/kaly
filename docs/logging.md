@@ -13,11 +13,30 @@ In debug mode, there is a file based logger that will output in your base dir un
 It is accessible under the `App::DEBUG_LOGGER` definition in the Di container. It is safe to keep code calling the Debug logger in prod
 because it will be converted to a simple `NullLogger`. No worries!
 
-When a module binds its own `LoggerInterface`, the debug logger follows it (same instance) instead of the file. When replacing the logger in `configure()`, also replace `App::DEBUG_LOGGER` to send Kaly diagnostics such as the pipeline trace to it. Use `rebind()`: `configure()` runs after the framework defaults are registered, so the id already exists:
+When a module binds its own `LoggerInterface`, the debug logger follows it (same instance) instead of the file. When replacing the logger in `configure()`, also replace `App::DEBUG_LOGGER` to send debug messages to it. Use `rebind()`: `configure()` runs after the framework defaults are registered, so the id already exists:
 
 ```php
 $app->configure(static function (Definitions $di) use ($logger): void {
     $di->rebind(App::DEBUG_LOGGER, $logger);
+});
+```
+
+Debug mode does not automatically log the middleware pipeline on each request.
+Executed middlewares are tracked in `HttpContext` in every mode and shown on the
+debug error page. To log them on every request, register an `onTerminate()` hook:
+
+```php
+use Kaly\Core\App;
+use Kaly\Core\HttpContext;
+use Psr\Log\LoggerInterface;
+
+/** @var LoggerInterface $logger */
+$logger = $app->container()->get(App::DEBUG_LOGGER);
+$app->onTerminate(static function (HttpContext $ctx) use ($logger): void {
+    $logger->debug('pipeline status={status} executed={executed}', [
+        'status' => $ctx->response()->getStatusCode(),
+        'executed' => $ctx->middlewares(),
+    ]);
 });
 ```
 

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Breaking: debug mode no longer logs the middleware pipeline automatically on
+  each request. Use an `onTerminate()` hook for explicit pipeline logging.
+  Middleware tracking in `HttpContext` and its display on the debug error page
+  remain available.
+
 ## 0.1.0 - 2026-10-02
 
 First tag: a small modular PSR HTTP framework (PSR-7 messages, PSR-11

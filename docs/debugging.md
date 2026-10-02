@@ -54,7 +54,7 @@ With the recipe above, `dump()` output — including the source location — is 
 
 ## Logs
 
-Bind a real PSR-3 logger (eg: Monolog with a socket handler to `LOG_SOCKET_URL`) and the Kaly diagnostics follow it automatically, including the pipeline trace. See [logging](logging.md).
+Bind a real PSR-3 logger (eg: Monolog with a socket handler to `LOG_SOCKET_URL`) to collect application errors and debug messages. Pipeline logging is opt-in through an `onTerminate()` hook. See [logging](logging.md).
 
 ## Open in your editor
 

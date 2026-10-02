@@ -177,7 +177,7 @@ class OutgoingBandTest extends TestCase
         $this->assertSame(1, $runs, 'the outgoing phase is attempted once, not replayed on its own error');
     }
 
-    public function testDebugLogRecordsTheResponseThatReallyLeaves(): void
+    public function testPipelineLoggingIsExplicitAndRecordsTheFinalResponse(): void
     {
         $logger = new class extends AbstractLogger {
             /**
@@ -208,8 +208,7 @@ class OutgoingBandTest extends TestCase
         $app->boot();
 
         $app->middleware()->outgoing(TestOutgoing::class);
-        // A finalizer changes the status after the response was produced: the
-        // log must record the status that really leaves the application.
+        // A finalizer changes the status after the response was produced.
         $app->middleware()->outgoing(always: true, middleware: static fn(
             ResponseInterface $response,
             HttpContext $ctx,
@@ -218,14 +217,19 @@ class OutgoingBandTest extends TestCase
         $request = HttpFactory::createRequestFromGlobals()->withUri(new Uri('/test-module/index/foo/'));
         $app->handle($request);
 
+        $this->assertCount(0, $logger->records, 'debug mode does not automatically log the pipeline');
+
+        $app->onTerminate(static function (HttpContext $ctx) use ($logger): void {
+            $logger->debug('pipeline status={status} executed={executed}', [
+                'status' => $ctx->response()->getStatusCode(),
+                'executed' => $ctx->middlewares(),
+            ]);
+        });
+        $app->handle($request);
+
         $this->assertCount(1, $logger->records);
         $context = $logger->records[0]['context'];
-        $this->assertSame('418', $context['status'], 'the status is a string, not an int');
-        $this->assertSame(
-            [TestOutgoing::class, \Kaly\Core\Middleware\ClosureOutgoing::class],
-            $context['outgoing'],
-            'configured outgoing middlewares are class names',
-        );
+        $this->assertSame(418, $context['status'], 'the hook records the status after outgoing finalizers');
         $executed = $context['executed'];
         if (!is_array($executed)) {
             $this->fail('executed must be an array');
