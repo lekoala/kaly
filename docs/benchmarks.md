@@ -1,3 +1,8 @@
+---
+layout: default
+title: Benchmarks
+nav_order: 21
+---
 # Benchmarks
 
 > Relative numbers only: compare two commits on the same machine
@@ -35,3 +40,4 @@ Before hierarchical routing, the boot scanned every controller of every module f
 route attributes. It now only depends on the modules and their `config.php`, never on
 the number of controllers. See [Runtime](runtime.md#no-cache-a-worker-instead) for why
 Kaly optimizes with workers rather than with a cache.
+

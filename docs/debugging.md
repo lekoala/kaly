@@ -1,3 +1,8 @@
+---
+layout: default
+title: Debugging
+nav_order: 20
+---
 # Debugging
 
 Buggregator is a good companion for local development: it aggregates dumps,
@@ -112,3 +117,4 @@ An exception thrown while booting (a failing `config.php`, an invalid route tabl
 ## Tests
 
 Automated tests keep using their own fakes (in-memory mailers, array sessions, `NullLogger`): Buggregator is a development companion, not a test harness.
+

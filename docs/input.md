@@ -1,3 +1,8 @@
+---
+layout: default
+title: Request input
+nav_order: 7
+---
 # Request input
 
 > Where the arguments of a controller action come from
@@ -229,3 +234,4 @@ public function savePost(array $data)
 // now
 public function savePost(SaveInput $input)
 ```
+

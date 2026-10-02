@@ -1,3 +1,8 @@
+---
+layout: default
+title: Runtime
+nav_order: 5
+---
 # Runtime independence
 
 Kaly is an HTTP framework, not an execution runtime.
@@ -140,3 +145,4 @@ application or of a dedicated package, not of the Kaly core.
 
 `ArraySession` is concurrency-safe but persists nothing between requests: tests
 and isolated cycles only, never a production backend.
+

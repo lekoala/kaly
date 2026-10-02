@@ -1,3 +1,8 @@
+---
+layout: default
+title: Routing
+nav_order: 6
+---
 # Routing
 
 > Every url belongs to exactly one module, which resolves it alone
@@ -277,3 +282,4 @@ bypass HTTP-level checks.
 ## Trailing slash
 
 Urls end with a slash: `/shop/cart` redirects to `/shop/cart/`.
+

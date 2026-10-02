@@ -1,3 +1,8 @@
+---
+layout: default
+title: App
+nav_order: 2
+---
 # App
 
 > Application lifecycle and request kernel
@@ -411,3 +416,4 @@ A controller must return one of:
 Returning `null` (eg: a forgotten `return`) is a programming error and throws.
 To answer with no body, return an explicit empty response instead, eg: a 204
 from the PSR-17 response factory.
+

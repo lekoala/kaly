@@ -1,3 +1,8 @@
+---
+layout: default
+title: JSON APIs
+nav_order: 11
+---
 # JSON APIs
 
 Return data, not responses. A plain `array` is rendered as a 200 JSON response;
@@ -35,3 +40,4 @@ $client->post('/api/products/', ['json' => ['name' => 'Bike']])
 Version by module, not by prefix hack: a `v2` module mounts its own segment
 with its own tables, and both versions coexist. See [Routing](routing.md) and
 [Testing](testing.md).
+

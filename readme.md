@@ -75,7 +75,9 @@ See [UPGRADE.md](UPGRADE.md) when updating.
 
 ## Documentation
 
-See [Documentation](docs/index.html). Run `composer docs` or `composer docsify`.
+- Online: [https://lekoala.github.io/kaly/](https://lekoala.github.io/kaly/)
+- Raw Markdown in [`docs/`](docs/) stays readable directly on GitHub
+- Local preview: `composer docs` (requires Ruby + Bundler, serves the Jekyll site with live reload)
 
 ## Testing
 

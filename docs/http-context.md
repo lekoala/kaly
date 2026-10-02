@@ -1,3 +1,8 @@
+---
+layout: default
+title: Http context
+nav_order: 4
+---
 # Http context
 
 PSR-7 and PSR-15 give an excellent interop protocol, but not an application model.
@@ -268,3 +273,4 @@ $response = $dispatcher->handle($ctx->request());
 ```
 
 See [middlewares](app.md#using-middlewares) for how to register into the three phases.
+

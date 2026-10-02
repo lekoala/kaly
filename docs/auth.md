@@ -1,3 +1,8 @@
+---
+layout: default
+title: Auth
+nav_order: 12
+---
 # Auth
 
 Authentication is identification (who is this?), authorization is permission
@@ -62,3 +67,4 @@ Read the actor back from the session in guards and controllers
 operate on that order?") belong to the use case or domain policy, not to the
 HTTP layer — so CLI or internal callers cannot bypass them. See
 [Http context](http-context.md).
+

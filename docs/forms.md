@@ -1,3 +1,8 @@
+---
+layout: default
+title: Forms
+nav_order: 10
+---
 # Forms
 
 A form is a `RequestInput`: a typed object mapped from the query string and the
@@ -42,3 +47,4 @@ On validation failure, re-render the `View` with the input and its errors
 (422) rather than redirecting: a redirect would lose what the user typed.
 Generate the form action with `$url('shop:checkout')` so templates never
 hardcode paths. See [Views](views.md) and [Testing](testing.md).
+

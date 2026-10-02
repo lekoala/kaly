@@ -1,3 +1,8 @@
+---
+layout: default
+title: Assets
+nav_order: 17
+---
 # Assets
 
 Kaly knows where the browser-ready assets of the application live, produces
@@ -123,3 +128,4 @@ fails.
 | `Kaly\Asset\AssetSources` | namespace => directory map shared by all three consumers |
 | `Kaly\Asset\AssetPublisher` | build-time copy + `.version` |
 | `Kaly\Asset\AssetServer` | dev serving, opt-in |
+

@@ -1,3 +1,8 @@
+---
+layout: default
+title: Serving
+nav_order: 16
+---
 # Serving locally
 
 Kaly needs no CLI and no development server of its own: plain PHP already
@@ -53,3 +58,4 @@ if ($app->isDebug()) {
 ```
 
 See [Assets](assets.md).
+

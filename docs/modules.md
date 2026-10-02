@@ -1,3 +1,8 @@
+---
+layout: default
+title: Modules
+nav_order: 3
+---
 # Modules
 
 > How an application organizes its own code
@@ -274,3 +279,4 @@ composition per route would break singletons already resolved.
 
 > **Modules are always registered, but their runtime dependencies are demand driven.
 > Route specific behaviour belongs after routing, not in module registration.**
+

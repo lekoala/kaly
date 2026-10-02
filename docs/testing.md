@@ -1,3 +1,8 @@
+---
+layout: default
+title: Testing
+nav_order: 13
+---
 # Testing
 
 `Kaly\Test\TestClient` drives the application in memory: PSR-7 request in,
@@ -40,3 +45,4 @@ Two rules draw the boundary:
   ever mirrors it.
 - `TestClient` is an **in-process HTTP client, not a browser emulator**: no
   redirect following, no history, no DOM. What would need a browser stays out.
+

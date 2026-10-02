@@ -1,3 +1,8 @@
+---
+layout: default
+title: DI
+nav_order: 1
+---
 # DI
 
 > A strict PSR-11 container
@@ -176,3 +181,4 @@ Strictness applies to configuration mistakes, not to autowiring:
 
 The component throws PSR-11 exceptions (`NotFoundExceptionInterface`,
 `ContainerExceptionInterface`) as well as a `CircularReferenceException`.
+

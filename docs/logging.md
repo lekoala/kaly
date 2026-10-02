@@ -1,3 +1,8 @@
+---
+layout: default
+title: Logging
+nav_order: 18
+---
 # Logging
 
 ## Built in loggers
@@ -116,3 +121,4 @@ if (isset($_ENV['SENTRY_DSN'])) {
     });
 }
 ```
+

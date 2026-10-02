@@ -1,3 +1,8 @@
+---
+layout: default
+title: Persistence
+nav_order: 15
+---
 # Persistence
 
 Kaly does not provide a database abstraction or ORM.
@@ -169,3 +174,4 @@ semantics. Backends differ on nested transactions and savepoints; application
 ports are best kept silent on that difference — nested `transactional()`
 should fail fast rather than simulate savepoints. A future savepoint need is
 an explicit capability, not a silent change of meaning.
+

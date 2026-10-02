@@ -1,3 +1,8 @@
+---
+layout: default
+title: Views
+nav_order: 8
+---
 # Views
 
 Kaly is renderer agnostic. The core only exposes:
@@ -93,3 +98,4 @@ module `templates/` directory under the module name, so templates can be referen
 
 Latte and Twig adapters do not implement that capability: register their namespaces/loaders
 directly on the engine instead.
+

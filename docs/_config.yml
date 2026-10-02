@@ -1,0 +1,11 @@
+remote_theme: just-the-docs/just-the-docs
+title: Kaly
+description: A small modular PSR HTTP framework with convention-based routing and first-class dependency injection
+url: https://lekoala.github.io
+baseurl: /kaly
+search_enabled: true
+heading_anchors: true
+aux_links:
+  Kaly on GitHub:
+    - https://github.com/lekoala/kaly
+footer_content: Kaly PHP framework — MIT

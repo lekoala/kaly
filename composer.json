@@ -91,10 +91,9 @@
         "format:check": "mago fmt --check",
         "fmt": "@mago:format",
         "bench": "@php benchmarks/boot.php",
-        "docsify": "docsify serve docs",
         "docs": [
             "Composer\\Config::disableProcessTimeout",
-            "php -S localhost:3000 -t docs/"
+            "bundle exec --gemfile=docs/Gemfile jekyll serve --source docs --livereload"
         ],
         "demos": [
             "Composer\\Config::disableProcessTimeout",

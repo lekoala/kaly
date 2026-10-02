@@ -1,3 +1,8 @@
+---
+layout: default
+title: Architecture
+nav_order: 14
+---
 # Architecture
 
 Kaly composes an application from modules and runs each request through fixed
@@ -68,3 +73,4 @@ Development   PHP built-in server ─► App
 Kaly owns the composition and the in-memory solicitation (`Kaly\Test`),
 neither the development server nor a CLI. See [Testing](testing.md) and
 [Serving](serving.md).
+

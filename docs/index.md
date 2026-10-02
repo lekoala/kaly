@@ -1,3 +1,8 @@
+---
+layout: home
+title: Home
+nav_order: 0
+---
 # Kaly PHP framework
 
 > A small modular PSR HTTP framework with convention-based routing and first-class dependency injection
@@ -33,3 +38,4 @@ Use the sidebar to browse the guides. Start with
 - [Mailer](mailer.md)
 - [Debugging](debugging.md)
 - [Benchmarks](benchmarks.md)
+

@@ -1,3 +1,8 @@
+---
+layout: default
+title: Mailer
+nav_order: 19
+---
 # Mailer
 
 Kaly does not provide a `MailerInterface` and has no `Kaly\Mail` namespace. This is deliberate.
@@ -90,3 +95,4 @@ MAILER_DSN=null://default
 ```
 
 Test the business logic before the Mailer layer: delivery intents, provider fakes or an outbox in automated tests, with only a few integration tests hitting the real adapter.
+
