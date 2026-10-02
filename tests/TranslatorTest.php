@@ -68,6 +68,23 @@ class TranslatorTest extends TestCase
         $this->assertEquals('öëBC', $result);
     }
 
+    public function testFlatCatalogsAndExactKeyPrecedence(): void
+    {
+        $translator = new Translator('en');
+        $translator->addToCatalog('messages', 'en', [
+            'hello.world' => 'Hello %name%',
+            'hello' => ['world' => 'Nested hello', 'other' => 'Nested other'],
+            'flat.only' => 'Flat only',
+        ]);
+        $translator->addToCatalog('messages', 'fr', ['hello.world' => 'Bonjour %name%']);
+
+        $this->assertSame('Hello Alice', $translator->translate('hello.world', ['%name%' => 'Alice']));
+        $this->assertSame('Nested other', $translator->translate('hello.other'));
+        $this->assertSame('Bonjour Alice', $translator->translate('hello.world', ['%name%' => 'Alice'], locale: 'fr_FR'));
+        $this->assertSame('Flat only', $translator->translate('flat.only', locale: 'fr'));
+        $this->assertSame('{{flat.missing}}', $translator->translate('flat.missing'));
+    }
+
     public function testLocalizedTranslatorDoesNotLeakBetweenRenders(): void
     {
         $translator = new Translator('en');

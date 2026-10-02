@@ -78,7 +78,7 @@ final class Translator implements TranslatorInterface
     }
 
     /**
-     * @param array<string,array<string,mixed>> $strings
+     * @param array<string,mixed> $strings
      */
     public function addToCatalog(string $name, string $locale, array $strings): self
     {
@@ -137,20 +137,25 @@ final class Translator implements TranslatorInterface
         }
         $catalog = $this->getCatalog($domain, $locale);
 
-        // nested ids supports à la symfony
-        $parts = explode('.', $message);
-        $index = 0;
-        $translation = $catalog;
-        do {
-            $translation = $translation[$parts[$index]] ?? '';
-            if (!is_array($translation)) {
-                break;
-            }
-            $index++;
-            if (!isset($parts[$index])) {
-                break;
-            }
-        } while (isset($translation[$parts[$index]]));
+        // Exact ids take precedence over the equivalent nested path
+        if (array_key_exists($message, $catalog)) {
+            $translation = $catalog[$message];
+        } else {
+            // Nested ids supported à la Symfony
+            $parts = explode('.', $message);
+            $index = 0;
+            $translation = $catalog;
+            do {
+                $translation = $translation[$parts[$index]] ?? '';
+                if (!is_array($translation)) {
+                    break;
+                }
+                $index++;
+                if (!isset($parts[$index])) {
+                    break;
+                }
+            } while (isset($translation[$parts[$index]]));
+        }
 
         // Not found in nested array
         if (is_array($translation)) {

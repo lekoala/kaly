@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Support flat dotted ids in native translation catalogs, with exact keys
+  taking precedence over equivalent nested paths.
+
 - Breaking: debug mode no longer logs the middleware pipeline automatically on
   each request. Use an `onTerminate()` hook for explicit pipeline logging.
   Middleware tracking in `HttpContext` and its display on the debug error page
