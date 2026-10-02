@@ -47,8 +47,7 @@ final class FileServer implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-        if (in_array($extension, PublicFilePolicy::FORBIDDEN_EXTENSIONS, true)) {
+        if (PublicFilePolicy::isForbiddenExtension(Fs::extension($filename))) {
             return $handler->handle($request);
         }
 

@@ -30,4 +30,13 @@ final class PublicFilePolicy
         'cgi',
         'pl',
     ];
+
+    /**
+     * Whether an extension must never be served or published, whatever its
+     * case.
+     */
+    public static function isForbiddenExtension(string $extension): bool
+    {
+        return in_array(strtolower($extension), self::FORBIDDEN_EXTENSIONS, true);
+    }
 }

@@ -74,6 +74,17 @@ final class Fs
     }
 
     /**
+     * The extension of a filename, without the dot (`index.php` gives `php`).
+     *
+     * The case is preserved: whether an extension is case-insensitive is a
+     * policy decision, not a filesystem one.
+     */
+    public static function extension(string $filename): string
+    {
+        return pathinfo($filename, PATHINFO_EXTENSION);
+    }
+
+    /**
      * Create the directory if needed, throwing when creation fails.
      *
      * See https://www.digitalocean.com/community/questions/proper-permissions-for-web-server-s-directory.

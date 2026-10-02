@@ -193,8 +193,8 @@ final class AssetPublisher
             if (!is_file($pathname)) {
                 continue;
             }
-            $extension = strtolower(pathinfo($pathname, PATHINFO_EXTENSION));
-            if (in_array($extension, PublicFilePolicy::FORBIDDEN_EXTENSIONS, true)) {
+            $extension = Fs::extension($pathname);
+            if (PublicFilePolicy::isForbiddenExtension($extension)) {
                 throw new RuntimeException("Asset extension '.{$extension}' is not publishable: '{$pathname}'");
             }
             $files[$relative] = $pathname;
