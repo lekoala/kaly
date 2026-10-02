@@ -16,8 +16,13 @@ class TranslatorTest extends TestCase
         $translator->addPath(__DIR__ . '/data/lang');
         $result = $translator->translate('global.test');
         $this->assertEquals('Test message', $result);
-        $result = $translator->translate('Welcome', ['name' => 'Test']);
+        $result = $translator->translate('Welcome', ['{name}' => 'Test']);
         $this->assertEquals('Welcome to this app Test', $result);
+
+        // Bare keys are replaced as is, even inside delimiters: pass exact
+        // placeholders instead, exactly like Symfony
+        $result = $translator->translate('Welcome', ['name' => 'Test']);
+        $this->assertEquals('Welcome to this app {Test}', $result);
 
         $result = $translator->translate('global.test', [], null, 'fr');
         $this->assertEquals('Message de test', $result);
@@ -27,53 +32,33 @@ class TranslatorTest extends TestCase
         $this->assertEquals('Message de test', $result);
 
         // Check that we fallback to default if not found
-        $result = $translator->translate('NotTranslated', ['str' => 'test'], null, 'fr_FR');
+        $result = $translator->translate('NotTranslated', ['{str}' => 'test'], null, 'fr_FR');
         $this->assertEquals('This is not translated for test', $result);
 
+        // A missing key returns the id itself, formatted with the parameters
         $result = $translator->translate('not_found');
-        $this->assertEquals('{{not_found}}', $result);
+        $this->assertEquals('not_found', $result);
+        $result = $translator->translate('Hello %name%', ['%name%' => 'Thomas']);
+        $this->assertEquals('Hello Thomas', $result);
+
+        // An empty id returns an empty string, like Symfony
+        $this->assertSame('', $translator->translate(''));
+
+        // Empty and zero translations are valid, null means absent
+        $this->assertSame('', $translator->translate('empty_translation'));
+        $this->assertSame('0', $translator->translate('zero_translation'));
+        $this->assertSame('null_translation', $translator->translate('null_translation'));
 
         $result = $translator->translate('Welcome', [], 'test');
         $this->assertEquals('Welcome to this domain test', $result);
     }
 
-    public function testPlural(): void
-    {
-        $translator = new Translator('en');
-        $translator->addPath(__DIR__ . '/data/lang');
-        $result = $translator->translate('apples', ['%count%' => 0]);
-        $this->assertEquals('%name% has no apples', $result);
-        $result = $translator->translate('apples', ['%count%' => 1]);
-        $this->assertEquals('%name% has one apple', $result);
-        $result = $translator->translate('apples', ['%count%' => 2]);
-        $this->assertEquals('%name% has 2 apples', $result);
-
-        $result = $translator->translate('easy_apples', ['%count%' => 1]);
-        $this->assertEquals('an apple', $result);
-        $result = $translator->translate('easy_apples', ['%count%' => 2]);
-        $this->assertEquals('2 apples', $result);
-
-        $result = $translator->translate('easy_apples_3', ['%count%' => 0]);
-        $this->assertEquals('no apples', $result);
-        $result = $translator->translate('easy_apples_3', ['%count%' => 1]);
-        $this->assertEquals('an apple', $result);
-        $result = $translator->translate('easy_apples_3', ['%count%' => 2]);
-        $this->assertEquals('2 apples', $result);
-
-        $result = $translator->translate('utf8plural', ['%count%' => 0]);
-        $this->assertEquals('öëBC', $result);
-        $result = $translator->translate('utf8plural', ['%count%' => 1]);
-        $this->assertEquals('öëBC', $result);
-        $result = $translator->translate('utf8plural', ['%count%' => 2]);
-        $this->assertEquals('öëBC', $result);
-    }
-
-    public function testFlatCatalogsAndExactKeyPrecedence(): void
+    public function testFlatAndNestedCatalogs(): void
     {
         $translator = new Translator('en');
         $translator->addToCatalog('messages', 'en', [
             'hello.world' => 'Hello %name%',
-            'hello' => ['world' => 'Nested hello', 'other' => 'Nested other'],
+            'hello' => ['other' => 'Nested other'],
             'flat.only' => 'Flat only',
         ]);
         $translator->addToCatalog('messages', 'fr', ['hello.world' => 'Bonjour %name%']);
@@ -82,7 +67,31 @@ class TranslatorTest extends TestCase
         $this->assertSame('Nested other', $translator->translate('hello.other'));
         $this->assertSame('Bonjour Alice', $translator->translate('hello.world', ['%name%' => 'Alice'], locale: 'fr_FR'));
         $this->assertSame('Flat only', $translator->translate('flat.only', locale: 'fr'));
-        $this->assertSame('{{flat.missing}}', $translator->translate('flat.missing'));
+        $this->assertSame('flat.missing', $translator->translate('flat.missing'));
+    }
+
+    public function testAmbiguousFlatAndNestedIdsAreRejected(): void
+    {
+        $translator = new Translator('en');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage("Ambiguous translation id 'hello.world' in 'added catalog'");
+        $translator->addToCatalog('messages', 'en', [
+            'hello.world' => 'Hello %name%',
+            'hello' => ['world' => 'Nested hello'],
+        ]);
+    }
+
+    public function testLaterPathsMergeKeyByKey(): void
+    {
+        $translator = new Translator('en');
+        $translator->addPath(__DIR__ . '/data/lang-overrides/first');
+        $translator->addPath(__DIR__ . '/data/lang-overrides/second');
+
+        // The second path overrides 'shared' without dropping 'first.only'
+        $this->assertSame('Second wins', $translator->translate('shared'));
+        $this->assertSame('First only', $translator->translate('first.only'));
+        $this->assertSame('Second only', $translator->translate('second.only'));
     }
 
     public function testLocalizedTranslatorDoesNotLeakBetweenRenders(): void

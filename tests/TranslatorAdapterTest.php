@@ -87,11 +87,16 @@ class TranslatorAdapterTest extends TestCase
     }
 
     /**
-     * Engine specific behaviour that the contract deliberately does not unify.
+     * A missing key returns the id itself, formatted with the parameters,
+     * whichever engine is configured.
      */
-    public function testMissingKeysAreEngineSpecific(): void
+    public function testMissingKeysReturnTheFormattedId(): void
     {
-        $this->assertSame('{{not_found}}', $this->native()->translate('not_found'));
+        $this->assertSame('not_found', $this->native()->translate('not_found'));
         $this->assertSame('not_found', $this->symfony()->translate('not_found'));
+        $this->assertSame('Hello Thomas', $this->native()->translate('Hello %name%', ['%name%' => 'Thomas']));
+        $this->assertSame('Hello Thomas', $this->symfony()->translate('Hello %name%', ['%name%' => 'Thomas']));
+        $this->assertSame('', $this->native()->translate(''));
+        $this->assertSame('', $this->symfony()->translate(''));
     }
 }

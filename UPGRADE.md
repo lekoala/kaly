@@ -4,6 +4,30 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Honest portable translation subset
+
+The native translator now matches Symfony on everything it declares portable,
+and no longer imitates what it cannot reproduce:
+
+- A missing key returns the id itself, formatted with the parameters, instead
+  of `{{id}}`. Search for `{{` in templates and tests.
+- The bare parameter shorthand is gone: parameters replace exact placeholders
+  only (`['{name}' => …]`, `['%name%' => …]`). A bare `['name' => …]` bag is
+  passed to `strtr()` as is, which also replaces inside delimiters.
+- Implicit pluralization is removed from the native translator: `%count%` is
+  an ordinary parameter and pipes pass through untouched. Use the Symfony
+  engine for pluralization and ICU messages.
+- `Translator::getBaseDomain()` and `setBaseDomain()` are removed; a null
+  domain always means the `messages` default.
+- A dotted id produced twice from different shapes in one file (flat key plus
+  equivalent nested path) now throws instead of picking one reading. Keep a
+  single shape per id.
+- Catalogs from several paths merge key by key with later paths winning; a
+  later path no longer wipes the other messages of the domain.
+- The translator file cache is removed: `getCacheDir()`, `setCacheDir()` and
+  `clearCache()` are gone, and `App::boot()` no longer configures a cache
+  directory. Catalogs are built lazily in memory; PHP files are the cache.
+
 ## Typed translation values
 
 - New `Kaly\I18n\TranslationKey` (`id()` plus `domain()`, `null` for the

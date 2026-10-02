@@ -4,17 +4,21 @@ declare(strict_types=1);
 
 namespace Kaly\I18n;
 
-use Kaly\Util\Arr;
-use Kaly\Util\Fs;
 use RuntimeException;
 
 /**
- * This basic translator supports a limited subset of symfony translator features.
- * It's php storage format is mostly similar so they are interchangeable.
+ * The portable basic translation subset: PHP catalogs, message ids, domains,
+ * explicit locales and exact parameter replacement.
+ *
+ * Advanced pluralization, ICU formatting, resource loaders and extended
+ * fallback rules belong to external engines such as Symfony Translation.
  *
  * It is a shared service: it holds catalogs and a default locale, never the
  * locale of the current request. Pass the locale explicitly, or wrap it in a
  * LocalizedTranslator built from the locale resolved for the request.
+ *
+ * Catalogs are built lazily in memory, once per domain and locale: there is
+ * no file cache, PHP files are the cache.
  */
 final class Translator implements TranslatorInterface
 {
@@ -29,8 +33,6 @@ final class Translator implements TranslatorInterface
      */
     protected array $paths = [];
     protected string $defaultLocale = 'en';
-    protected ?string $cacheDir = null;
-    protected ?string $baseDomain = null;
 
     public function __construct(string $defaultLocale = 'en')
     {
@@ -78,29 +80,24 @@ final class Translator implements TranslatorInterface
     }
 
     /**
-     * @param array<string,mixed> $strings
+     * @param array<array-key,mixed> $strings
      */
     public function addToCatalog(string $name, string $locale, array $strings): self
     {
         if (!isset($this->catalogs[$name][$locale])) {
             $this->buildCatalog($name, $locale);
         }
-        // Catalogs are string-keyed at runtime, integer keys would be appended
-        /** @var array<string,mixed> $merged */
-        $merged = Arr::mergeDistinct($this->catalogs[$name][$locale] ?? [], $strings);
-        $this->catalogs[$name][$locale] = $merged;
+        // Later additions win key by key, exactly like later paths
+        foreach (self::flatten($strings, 'added catalog') as $id => $translation) {
+            $this->catalogs[$name][$locale][$id] = $translation;
+        }
         return $this;
     }
 
     protected function buildCatalog(string $name, string $locale): void
     {
+        $merged = [];
         foreach ($this->paths as $path) {
-            if (!isset($this->catalogs[$name])) {
-                $this->catalogs[$name] = [];
-            }
-            if (!isset($this->catalogs[$name][$locale])) {
-                $this->catalogs[$name][$locale] = [];
-            }
             $file = $path . "/{$name}.{$locale}.php";
             if (!is_file($file)) {
                 continue;
@@ -109,16 +106,42 @@ final class Translator implements TranslatorInterface
             if (!is_array($result)) {
                 throw new RuntimeException("Translation file '{$file}' must return an array");
             }
-            // Translation files map message ids (strings) to translations
-            /** @var array<string,mixed> $result */
-            $this->catalogs[$name][$locale] = $result;
+            // Later paths win key by key, without dropping the other messages
+            foreach (self::flatten($result, $file) as $id => $translation) {
+                $merged[$id] = $translation;
+            }
         }
-        // Update cache file if set
-        if ($this->cacheDir) {
-            $file = $this->cacheDir . DIRECTORY_SEPARATOR . "{$name}.{$locale}.php";
-            $export = var_export($this->catalogs, true);
-            file_put_contents($file, "<?php return {$export};");
+        $this->catalogs[$name][$locale] = $merged;
+    }
+
+    /**
+     * Flatten a nested catalog to dotted ids, à la Symfony.
+     *
+     * Null values are dropped: they mean absent, like in Symfony. A dotted id
+     * produced twice from different shapes is ambiguous and rejected, so
+     * every accepted catalog has exactly one reading.
+     *
+     * @param array<array-key,mixed> $messages
+     * @return array<string,mixed>
+     */
+    protected static function flatten(array $messages, string $source, string $prefix = ''): array
+    {
+        $flat = [];
+        foreach ($messages as $key => $value) {
+            $id = $prefix === '' ? (string) $key : $prefix . '.' . $key;
+            if (is_array($value)) {
+                $nested = self::flatten($value, $source, $id);
+            } else {
+                $nested = $value === null ? [] : [$id => $value];
+            }
+            foreach ($nested as $nestedId => $nestedValue) {
+                if (array_key_exists($nestedId, $flat)) {
+                    throw new RuntimeException("Ambiguous translation id '{$nestedId}' in '{$source}'");
+                }
+                $flat[$nestedId] = $nestedValue;
+            }
         }
+        return $flat;
     }
 
     /**
@@ -126,9 +149,10 @@ final class Translator implements TranslatorInterface
      */
     public function translate(string $message, array $parameters = [], ?string $domain = null, ?string $locale = null): string
     {
-        if (!$domain) {
-            $domain = $this->baseDomain ?? self::DEFAULT_DOMAIN;
+        if ($message === '') {
+            return '';
         }
+        $domain ??= self::DEFAULT_DOMAIN;
         if (!$locale) {
             $locale = $this->defaultLocale;
         }
@@ -137,131 +161,24 @@ final class Translator implements TranslatorInterface
         }
         $catalog = $this->getCatalog($domain, $locale);
 
-        // Exact ids take precedence over the equivalent nested path
-        if (array_key_exists($message, $catalog)) {
-            $translation = $catalog[$message];
-        } else {
-            // Nested ids supported à la Symfony
-            $parts = explode('.', $message);
-            $index = 0;
-            $translation = $catalog;
-            do {
-                $translation = $translation[$parts[$index]] ?? '';
-                if (!is_array($translation)) {
-                    break;
-                }
-                $index++;
-                if (!isset($parts[$index])) {
-                    break;
-                }
-            } while (isset($translation[$parts[$index]]));
-        }
-
-        // Not found in nested array
-        if (is_array($translation)) {
-            $translation = '{{' . $message . '}}';
+        // Presence is existence, never truthiness: '' and '0' are valid
+        if (array_key_exists($message, $catalog) && (is_string($catalog[$message]) || is_scalar($catalog[$message]))) {
+            return strtr((string) $catalog[$message], $parameters);
         }
 
         // Attempt fallback to lang
         $lang = Locale::language($locale);
-        if (!$translation && $locale !== $lang) {
+        if ($locale !== $lang) {
             return $this->translate($message, $parameters, $domain, $lang);
         }
 
         // Attempt fallback in default locale
-        if (!$translation && $locale !== $this->defaultLocale && $this->defaultLocale) {
+        if ($locale !== $this->defaultLocale && $this->defaultLocale) {
             return $this->translate($message, $parameters, $domain, $this->defaultLocale);
         }
 
-        if (!is_string($translation)) {
-            $translation = is_scalar($translation) ? (string) $translation : '';
-        }
-
-        // Handling plurals in a minimalistic yet powerful fashion
-        if (isset($parameters['%count%']) && is_numeric($parameters['%count%'])) {
-            $c = intval($parameters['%count%']);
-            $translation = $this->processPlurals($translation, $c);
-        }
-
-        $translation = $this->replaceContext($translation, $parameters);
-
-        if (!$translation) {
-            $translation = '{{' . $message . '}}';
-        }
-
-        return $translation;
-    }
-
-    /**
-     * @param array<string,mixed> $replacements
-     */
-    protected function replaceContext(string $translation, array $replacements): string
-    {
-        $replace = [];
-        foreach ($replacements as $key => $val) {
-            // Keys already carrying their delimiters are used as is, so the
-            // same parameter bag works with other engines (eg: Symfony).
-            if (str_starts_with($key, '%') || str_starts_with($key, '{')) {
-                $replace[$key] = $val;
-            } else {
-                // Bare keys are the shorthand for the {} style
-                $replace['{' . $key . '}'] = $val;
-            }
-        }
-        return strtr($translation, $replace);
-    }
-
-    protected function processPlurals(string $translation, int $c): string
-    {
-        // This could be a simple convention singular|plural
-        // Or have specific rules if starts with { or ][
-        $parts = explode('|', $translation);
-        // The last one is the valid one by default
-        $translation = end($parts);
-        $partsNum = count($parts);
-        foreach ($parts as $idx => $part) {
-            $char = $part[0];
-            $matches = [];
-
-            // It can start with a denominator or it is a simple array
-            if ($char === '{') {
-                $results = preg_match('/{([0-9]*)}(.*)/u', $part, $matches);
-                // Cast to int: preg match returns string, $c is int
-                if ($results && (int) $matches[1] === $c) {
-                    $translation = $matches[2];
-                    break;
-                }
-            } elseif ($char === ']') {
-                // We don't parse these, consider it's a good one
-                $results = preg_match('/\](.*)\[(.*)/u', $part, $matches);
-                if ($results) {
-                    $translation = $matches[2];
-                    break;
-                }
-            } elseif ($partsNum === 2) {
-                // We have a simple pair of singular/plural
-                if ($c <= 1 && $idx === 0) {
-                    $translation = $part;
-                    break;
-                } elseif ($c > 1 && $idx === 1) {
-                    $translation = $part;
-                    break;
-                }
-            } elseif ($partsNum === 3) {
-                // We have a triple pair of none/singular/plural
-                if ($c === 0 && $idx === 0) {
-                    $translation = $part;
-                    break;
-                } elseif ($c === 1 && $idx === 1) {
-                    $translation = $part;
-                    break;
-                } elseif ($c > 1 && $idx === 2) {
-                    $translation = $part;
-                    break;
-                }
-            }
-        }
-        return $translation;
+        // A missing key returns the id itself, formatted with the parameters
+        return strtr($message, $parameters);
     }
 
     public function getDefaultLocale(): string
@@ -273,58 +190,5 @@ final class Translator implements TranslatorInterface
     {
         $this->defaultLocale = $defaultLocale;
         return $this;
-    }
-
-    public function getBaseDomain(): ?string
-    {
-        return $this->baseDomain;
-    }
-
-    public function setBaseDomain(string $baseDomain): self
-    {
-        $this->baseDomain = $baseDomain;
-        return $this;
-    }
-
-    public function getCacheDir(): ?string
-    {
-        return $this->cacheDir;
-    }
-
-    public function setCacheDir(string $cacheDir): self
-    {
-        $this->cacheDir = $cacheDir;
-
-        // Load data from cache
-        if (is_dir($this->cacheDir)) {
-            $files = Fs::glob($this->cacheDir . '/*.php');
-            foreach ($files as $file) {
-                $arr = require $file;
-                if (!is_array($arr)) {
-                    throw new RuntimeException('Cached translation file did not return an array');
-                }
-                // Cache files hold var_exported catalogs, merged back as plain arrays
-                /** @var array<string,array<string,array<string,mixed>>> $merged */
-                $merged = Arr::mergeDistinct($this->catalogs, $arr);
-                $this->catalogs = $merged;
-            }
-        }
-
-        return $this;
-    }
-
-    public function clearCache(): bool
-    {
-        if (!$this->cacheDir) {
-            return false;
-        }
-        if (is_dir($this->cacheDir)) {
-            $files = Fs::glob($this->cacheDir . '/*.php');
-            foreach ($files as $file) {
-                unlink($file);
-            }
-            return true;
-        }
-        return false;
     }
 }

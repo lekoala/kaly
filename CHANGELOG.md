@@ -4,9 +4,19 @@
 
 - Typed translation values: `Kaly\I18n\TranslationKey` (id + domain),
   `Kaly\I18n\Translatable` (`translate(LocalizedTranslator)`) and
-  `LocalizedTranslator::resolve()`.
-- Support flat dotted ids in native translation catalogs, with exact keys
-  taking precedence over equivalent nested paths.
+  `LocalizedTranslator::resolve()`. A string passed to `resolve()` is always
+  a literal and never calls the engine. New
+  `Kaly\I18n\TranslatableValidationException` for keyed validation errors,
+  translated by the new default `Kaly\Core\LocalizedExceptionHandler` when
+  the request has a locale. `ValidationException` and
+  `Kaly\Http\ExceptionHandler` are unchanged.
+- Breaking: the native translator now matches Symfony on the portable
+  subset. A missing key returns the id instead of `{{id}}`, parameters
+  replace exact placeholders only, implicit pluralization is removed,
+  `Translator::getBaseDomain()`/`setBaseDomain()` are removed, ambiguous
+  flat-vs-nested ids throw, and catalogs from several paths merge key by
+  key. The translator file cache is removed. `NativeVsSymfonyCompatibilityTest`
+  locks the portable contract.
 
 - Breaking: debug mode no longer logs the middleware pipeline automatically on
   each request. Use an `onTerminate()` hook for explicit pipeline logging.

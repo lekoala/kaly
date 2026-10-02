@@ -68,8 +68,8 @@ collision with its provenance.
 ```php
 $definitions
     ->bind(MailerInterface::class, SmtpMailer::class)
-    ->callback(Translator::class, static function (Translator $translator) use ($cacheDir): void {
-        $translator->setCacheDir($cacheDir);
+    ->callback(Translator::class, static function (Translator $translator): void {
+        $translator->setDefaultLocale('fr');
     });
 ```
 

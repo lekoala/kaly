@@ -524,13 +524,6 @@ final class App implements RequestHandlerInterface
             }
         }
 
-        // Enable translation cache for prod
-        if (!$this->debug) {
-            $definitions->callback(Translator::class, function (Translator $translator): void {
-                $translator->setCacheDir($this->paths->tempFor(Translator::class));
-            });
-        }
-
         // The router is made of the modules: each one resolves its own urls
         if (!$definitions->has(RouterInterface::class)) {
             $modules = $this->modules;

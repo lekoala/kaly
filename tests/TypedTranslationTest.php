@@ -231,7 +231,7 @@ class TypedTranslationTest extends TestCase
     {
         $native = $this->translator();
         $this->assertSame('typed.missing', (new LocalizedTranslator($native, 'en'))->resolve('typed.missing'));
-        $this->assertSame('{{typed.missing}}', (new LocalizedTranslator($native, 'en'))->resolve(TypedTranslationKey::Missing));
+        $this->assertSame('typed.missing', (new LocalizedTranslator($native, 'en'))->resolve(TypedTranslationKey::Missing));
 
         $engine = new SymfonyEngine('en');
         $engine->addLoader('php', new PhpFileLoader());

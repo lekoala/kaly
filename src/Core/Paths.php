@@ -58,8 +58,7 @@ final readonly class Paths
     }
 
     /**
-     * A dedicated temp folder, created if needed: tempFor(Translator::class)
-     * gives temp/translator
+     * A dedicated temp folder, created if needed
      */
     public function tempFor(string|object $name): string
     {
