@@ -40,25 +40,25 @@ final class ExceptionHandler implements ExceptionHandlerInterface
 
     public function toResponse(Throwable $exception, ?ServerRequestInterface $request = null): ResponseInterface
     {
-        $isHttp = $exception instanceof HttpExceptionInterface;
-        if (!$isHttp) {
+        $http = $exception instanceof HttpExceptionInterface ? $exception : null;
+        if ($http === null) {
             $this->logger?->error($exception->getMessage(), ['exception' => $exception]);
         }
 
-        $status = $isHttp ? $exception->status() : 500;
+        $status = $http?->status() ?? 500;
         if ($status < 100 || $status > 599) {
             $status = 500;
         }
         $response = $this->responseFactory->createResponse($status);
 
-        $headers = $isHttp ? $exception->getResponseHeaders() : [];
+        $headers = $http?->getResponseHeaders() ?? [];
         foreach ($headers as $name => $value) {
             $response = $response->withHeader($name, $value);
         }
 
         // A public body the exception chose for itself (redirect, validation
         // message, explicit html/json...). A generic exception never has one.
-        $body = $isHttp ? $exception->getResponseBody() : '';
+        $body = $http?->getResponseBody() ?? '';
 
         // The exception already decided the format
         if ($response->hasHeader('Content-Type')) {
