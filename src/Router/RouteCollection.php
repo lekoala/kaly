@@ -6,6 +6,7 @@ namespace Kaly\Router;
 
 use Kaly\Ex;
 use Kaly\Http\Input\RequestInput;
+use Kaly\Http\Method;
 use ReflectionClass;
 
 /**
@@ -234,7 +235,7 @@ final class RouteCollection
      */
     private static function normalizeMethods(array $methods): array
     {
-        return array_values(array_unique(array_map(strtoupper(...), $methods)));
+        return Method::normalizeList($methods);
     }
 
     /**
@@ -246,10 +247,7 @@ final class RouteCollection
      */
     private static function canonicalPattern(string $path, array $requirements): string
     {
-        $path = rtrim($path, '/');
-        if ($path === '') {
-            $path = '/';
-        }
+        $path = RoutePath::withoutTrailingSlash($path);
         return (string) preg_replace_callback(
             '/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/',
             static fn(array $m): string => '{' . ($requirements[$m[1]] ?? '[^/]+') . '}',

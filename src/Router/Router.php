@@ -95,7 +95,7 @@ final class Router implements RouterInterface
         RedirectUris::ensureTrailingSlash($request, $this->forceTrailingSlash);
 
         $path = $request->getUri()->getPath();
-        $all = array_values(array_filter(explode('/', trim($path, '/')), static fn(string $p): bool => $p !== ''));
+        $all = RoutePath::segments($path);
 
         [$locale, $segments] = $this->stripLocale($request, $all);
         $effective = $locale ?? $this->locales[0] ?? null;
@@ -345,8 +345,8 @@ final class Router implements RouterInterface
             $path = $path === '' && $locale === $this->locales[0] ? '' : '/' . $locale . $path;
         }
         $url = $path === '' ? '/' : $path;
-        if ($this->forceTrailingSlash && !str_ends_with($url, '/')) {
-            $url .= '/';
+        if ($this->forceTrailingSlash) {
+            $url = RoutePath::withTrailingSlash($url);
         }
         if ($query !== []) {
             $url .= '?' . http_build_query($query);
@@ -505,7 +505,7 @@ final class Router implements RouterInterface
                 $id,
             );
             foreach ($claim['prefix'] as $locale => $prefix) {
-                $segments = array_values(array_filter(explode('/', trim($prefix, '/')), static fn(string $p): bool => $p !== ''));
+                $segments = RoutePath::segments($prefix);
                 if ($segments === []) {
                     throw new Ex("Module '{$id}' cannot claim the root: declare its routes in the default module");
                 }

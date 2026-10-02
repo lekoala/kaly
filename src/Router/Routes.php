@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Router;
 
 use Kaly\Ex;
+use Kaly\Http\Method;
 
 /**
  * Collects the route declarations of a module entry point, in config.php:
@@ -100,11 +101,11 @@ final class Routes
         [$controller, $action] = self::normalizeHandler($handler);
         $definition = new RouteDefinition(
             is_array($path)
-                ? array_map(fn(string $p): string => self::joinPath($this->prefix, $p), $path)
-                : self::joinPath($this->prefix, $path),
+                ? array_map(fn(string $p): string => RoutePath::join($this->prefix, $p), $path)
+                : RoutePath::join($this->prefix, $path),
             $controller,
             $action,
-            array_values(array_unique(array_map(strtoupper(...), $methods))),
+            Method::normalizeList($methods),
             middlewares: $this->middlewares,
         );
         $this->definitions[] = $definition;
@@ -131,7 +132,7 @@ final class Routes
                 throw new Ex('Routes::group() expects a path prefix as first argument');
             }
             $declare = $callback;
-            $prefix = self::joinPath($this->prefix, $prefixOrCallback);
+            $prefix = RoutePath::join($this->prefix, $prefixOrCallback);
         }
 
         $child = new self($prefix, $this->middlewares);
@@ -147,7 +148,7 @@ final class Routes
      */
     public function prefix(string $prefix): self
     {
-        $child = new self(self::joinPath($this->prefix, $prefix), $this->middlewares);
+        $child = new self(RoutePath::join($this->prefix, $prefix), $this->middlewares);
         $child->parent = $this;
         return $child;
     }
@@ -159,7 +160,7 @@ final class Routes
      */
     public function middleware(string ...$middlewares): self
     {
-        $child = new self($this->prefix, array_values([...$this->middlewares, ...$middlewares]));
+        $child = new self($this->prefix, array_merge($this->middlewares, array_values($middlewares)));
         $child->parent = $this;
         return $child;
     }
@@ -250,11 +251,5 @@ final class Routes
             throw new Ex("Route handler '{$class}::{$action}' must be a public, non-static method, non-magic except __invoke");
         }
         return [$class, $action];
-    }
-
-    private static function joinPath(string $prefix, string $path): string
-    {
-        $joined = rtrim($prefix, '/') . '/' . ltrim($path, '/');
-        return $joined === '/' ? '/' : rtrim($joined, '/');
     }
 }

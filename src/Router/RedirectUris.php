@@ -27,10 +27,10 @@ final class RedirectUris
         $path = $uri->getPath();
         if ($force) {
             if (!str_ends_with($path, '/')) {
-                throw new RedirectException($uri->withPath($path . '/'));
+                throw new RedirectException($uri->withPath(RoutePath::withTrailingSlash($path)));
             }
         } elseif (str_ends_with($path, '/')) {
-            throw new RedirectException($uri->withPath(rtrim($path, '/')));
+            throw new RedirectException($uri->withPath(RoutePath::withoutTrailingSlash($path)));
         }
     }
 
@@ -62,10 +62,6 @@ final class RedirectUris
                 $offset = $pos + 1;
             }
         }
-        $path = rtrim($path, '/');
-        if ($forceTrailingSlash) {
-            $path .= '/';
-        }
-        return $uri->withPath($path);
+        return $uri->withPath($forceTrailingSlash ? RoutePath::withTrailingSlash($path) : RoutePath::withoutTrailingSlash($path));
     }
 }

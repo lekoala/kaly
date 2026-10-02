@@ -70,7 +70,7 @@ final class RouteDefinition
      */
     public function middleware(string ...$middlewares): self
     {
-        $this->middlewares = array_values([...$this->middlewares, ...$middlewares]);
+        $this->middlewares = array_merge($this->middlewares, array_values($middlewares));
         return $this;
     }
 

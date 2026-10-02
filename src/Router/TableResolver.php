@@ -7,6 +7,7 @@ namespace Kaly\Router;
 use Closure;
 use Kaly\Ex;
 use Kaly\Http\Exception\MethodNotAllowedException;
+use Kaly\Http\Method;
 use ReflectionNamedType;
 
 /**
@@ -76,7 +77,7 @@ final class TableResolver implements ResolverInterface
             }
 
             $definition = $entry['definition'];
-            $methods = array_map(strtoupper(...), $definition->methods);
+            $methods = Method::normalizeList($definition->methods);
             if ($methods !== [] && !in_array($method, $methods, true)) {
                 foreach ($methods as $m) {
                     $allowed[$m] = true;

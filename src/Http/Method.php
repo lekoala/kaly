@@ -27,6 +27,33 @@ final class Method
     ];
 
     /**
+     * The canonical form of an HTTP method: uppercase.
+     */
+    public static function normalize(string $method): string
+    {
+        return strtoupper($method);
+    }
+
+    /**
+     * Normalize a list of methods, dropping duplicates while keeping the
+     * first occurrence order.
+     *
+     * @param iterable<string> $methods
+     * @return list<string>
+     */
+    public static function normalizeList(iterable $methods): array
+    {
+        $normalized = [];
+        foreach ($methods as $method) {
+            $method = self::normalize($method);
+            if (!in_array($method, $normalized, true)) {
+                $normalized[] = $method;
+            }
+        }
+        return $normalized;
+    }
+
+    /**
      * Is the method safe, per RFC 9110: essentially read-only.
      *
      * Comparison is case-sensitive, per HTTP: 'get' returns false.
@@ -49,8 +76,6 @@ final class Method
      */
     public static function isIdempotent(string $method): bool
     {
-        return self::isSafe($method)
-            || $method === self::PUT
-            || $method === self::DELETE;
+        return self::isSafe($method) || $method === self::PUT || $method === self::DELETE;
     }
 }

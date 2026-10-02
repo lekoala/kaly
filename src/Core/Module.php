@@ -10,6 +10,7 @@ use InvalidArgumentException;
 use Kaly\Di\Definitions;
 use Kaly\Ex;
 use Kaly\Router\ResolverInterface;
+use Kaly\Router\RoutePath;
 use Kaly\Router\Routes;
 use Kaly\Router\RouteScope;
 use Kaly\Router\RoutesDeclaration;
@@ -195,7 +196,7 @@ final class Module implements RouteScope
         $this->assertNotFrozen();
         $prefixes = is_array($prefix) ? $prefix : ['*' => $prefix];
         $this->claims[] = [
-            'prefix' => array_map(static fn(string $p): string => '/' . trim($p, '/'), $prefixes),
+            'prefix' => array_map(static fn(string $p): string => RoutePath::join($p), $prefixes),
             'routes' => new RoutesDeclaration($routes),
         ];
         return $this;

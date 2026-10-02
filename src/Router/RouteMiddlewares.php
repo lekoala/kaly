@@ -69,7 +69,15 @@ final class RouteMiddlewares
      */
     public static function merge(array ...$lists): array
     {
-        return array_values(array_unique(array_merge(...$lists)));
+        $merged = [];
+        foreach ($lists as $list) {
+            foreach ($list as $middleware) {
+                if (!in_array($middleware, $merged, true)) {
+                    $merged[] = $middleware;
+                }
+            }
+        }
+        return $merged;
     }
 
     /**

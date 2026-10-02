@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Http\Exception;
 
+use Kaly\Http\Method;
 use Throwable;
 
 /**
@@ -22,7 +23,7 @@ class MethodNotAllowedException extends HttpException
      */
     public function __construct(array $allowedMethods = [], string $message = '', ?Throwable $previous = null)
     {
-        $this->allowedMethods = array_values(array_unique($allowedMethods));
+        $this->allowedMethods = Method::normalizeList($allowedMethods);
         $headers = $this->allowedMethods === [] ? [] : ['Allow' => implode(', ', $this->allowedMethods)];
 
         parent::__construct($message ?: 'Method not allowed', 405, $headers, $previous);
