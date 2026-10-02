@@ -25,6 +25,8 @@ The goal before 1.0 is to converge toward the smallest, clearest, most durable p
 
 ## Style
 
+- Declare class constants first, then properties, then methods, starting with
+  the constructor. Keep constructor-promoted properties in the constructor.
 - Exception messages are a single sentence, with no trailing punctuation. This
   applies to native exceptions too (`InvalidArgumentException`, `LogicException`,
   `RuntimeException`), not only to `Kaly\Ex`.

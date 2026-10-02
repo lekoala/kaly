@@ -43,6 +43,16 @@ final class RequestDispatcher implements RequestHandlerInterface
     // Reserved render variable generating asset urls
     public const VAR_ASSET = 'asset';
 
+    /**
+     * Constructor parameters carrying the current cycle, by name, to avoid
+     * reflecting on every request. The parameter name is irrelevant to
+     * callers: what matters is the type (ServerRequestInterface or
+     * HttpContext). Explicit route bindings always win.
+     *
+     * @var array<class-string,array<string,class-string>>
+     */
+    private static array $contextParams = [];
+
     public function __construct(
         protected Injector $injector,
         protected TranslatorInterface $translator,
@@ -122,16 +132,6 @@ final class RequestDispatcher implements RequestHandlerInterface
             'Controllers must return a ResponseInterface, a View, a JsonResult, an array or a string, got: ' . get_debug_type($result),
         );
     }
-
-    /**
-     * Constructor parameters carrying the current cycle, by name, to avoid
-     * reflecting on every request. The parameter name is irrelevant to
-     * callers: what matters is the type (ServerRequestInterface or
-     * HttpContext). Explicit route bindings always win.
-     *
-     * @var array<class-string,array<string,class-string>>
-     */
-    private static array $contextParams = [];
 
     /**
      * Build the named arguments for the controller constructor.
