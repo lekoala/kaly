@@ -48,16 +48,21 @@ class JsonTest extends TestCase
         Json::decodeMap('[1, 2, 3]');
     }
 
-    public function testDecodeMapRejectsNumericStringKeys(): void
+    public function testDecodeMapAcceptsNumericStringKeys(): void
     {
-        // {"0": "x"} decodes to an int-keyed PHP array — not a map.
-        $this->expectException(JsonException::class);
-        Json::decodeMap('{"0": "x"}');
+        $this->assertSame([0 => 'x', 'name' => 'y'], Json::decodeMap('{"0": "x", "name": "y"}'));
+        $this->assertSame([0 => 'x'], Json::decodeMapRelaxed("{'0': 'x'}"));
+    }
+
+    public function testDecodeContainersAcceptsLeadingWhitespace(): void
+    {
+        $this->assertSame([], Json::decodeMap(" \t\r\n{}"));
+        $this->assertSame([], Json::decodeList(" \t\r\n[]"));
     }
 
     public function testDecodeMapRejectsScalarsAndMalformedJson(): void
     {
-        foreach (['null', '"text"', '42', '{bad'] as $json) {
+        foreach (['null', '"text"', '42', '{bad', '[]'] as $json) {
             $thrown = false;
             try {
                 Json::decodeMap($json);

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add `Json::pretty()` for indented JSON with unescaped slashes and Unicode.
+
+- Breaking: `Json::decodeMap()` and `decodeMapRelaxed()` now return
+  `array<array-key, mixed>` and accept integer-string object keys, which PHP
+  converts to integer keys. Objects and lists remain distinct at the JSON boundary.
+
 - Typed translation values: `Kaly\I18n\TranslationKey` (id + domain),
   `Kaly\I18n\Translatable` (`translate(LocalizedTranslator)`) and
   `LocalizedTranslator::resolve()`. A string passed to `resolve()` is always

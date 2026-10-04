@@ -28,6 +28,11 @@ final class Json
         return json_encode($value, $flags | JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
     }
 
+    public static function pretty(mixed $value): string
+    {
+        return self::encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
     public static function decode(string $json): mixed
     {
         return json_decode($json, true, 512, JSON_THROW_ON_ERROR);
@@ -40,10 +45,9 @@ final class Json
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array<array-key, mixed>
      *
-     * A JSON object with numeric-string keys ({"0": "x"}) decodes to int
-     * keys and is rejected: it is not representable as our map shape.
+     * PHP converts integer-string object keys ({"0": "x"}) to int keys.
      */
     public static function decodeMap(string $json): array
     {
@@ -62,8 +66,8 @@ final class Json
      */
     public static function decodeRelaxed(string $text): mixed
     {
-        $shape = self::shape($text);
-        if ($shape === '[' || $shape === '{') {
+        $first = ltrim($text)[0] ?? '';
+        if ($first === '[' || $first === '{') {
             try {
                 return self::decode($text);
             } catch (JsonException) {
@@ -84,17 +88,16 @@ final class Json
      * A relaxed map for informal config: `{a: 1}` or even `a: 1, b: 'x'`.
      * An empty input is an empty config, never an error.
      *
-     * @return array<string, mixed>
+     * @return array<array-key, mixed>
      */
     public static function decodeMapRelaxed(string $text): array
     {
         $text = trim($text);
-        $shape = self::shape($text);
-        if ($shape === '') {
+        if ($text === '') {
             return [];
         }
         // Not container-shaped: the informal map, `a: 1, b: 'x'`
-        if ($shape !== '{' && $shape !== '[') {
+        if ($text[0] !== '{' && $text[0] !== '[') {
             $text = '{' . self::relax($text) . '}';
             return self::assertMap($text, self::decode($text));
         }
@@ -137,7 +140,7 @@ final class Json
     {
         // An empty JSON object decodes like an empty array, so the raw shape
         // is what tells them apart: `{"0": "x"}` is not a list either
-        if (self::shape($candidate) !== '[' || !is_array($value) || !array_is_list($value)) {
+        if (!str_starts_with(ltrim($candidate), '[') || !is_array($value) || !array_is_list($value)) {
             throw new JsonException('Expected a JSON array');
         }
 
@@ -145,31 +148,13 @@ final class Json
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array<array-key, mixed>
      */
     private static function assertMap(string $candidate, mixed $value): array
     {
-        if (self::shape($candidate) !== '{' || !is_array($value)) {
+        if (!str_starts_with(ltrim($candidate), '{') || !is_array($value)) {
             throw new JsonException('Expected a JSON object');
         }
-        foreach (array_keys($value) as $key) {
-            if (!is_string($key)) {
-                throw new JsonException('Expected a JSON object');
-            }
-        }
-
-        /** @var array<string, mixed> $value verified above */
         return $value;
-    }
-
-    /**
-     * The first meaningful character of a JSON document: `{`, `[` or anything
-     * else for a scalar. `json_decode()` erases the array/object distinction
-     * on empty containers and numeric-string keys, this keeps it.
-     */
-    private static function shape(string $json): string
-    {
-        $trimmed = ltrim($json, " \t\n\r\0\x0B");
-        return $trimmed === '' ? '' : $trimmed[0];
     }
 }
