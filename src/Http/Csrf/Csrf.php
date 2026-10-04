@@ -29,6 +29,10 @@ final class Csrf
 
     private const SECRET_BYTES = 32;
 
+    private const SECRET_LENGTH = 43;
+
+    private const MASKED_LENGTH = self::SECRET_LENGTH * 2;
+
     public function token(SessionInterface $session): string
     {
         return self::mask($this->secret($session));
@@ -38,34 +42,19 @@ final class Csrf
     {
         $secret = $session->get(self::SESSION_KEY);
 
-        if (!is_string($secret) || $secret === '') {
+        if (!is_string($secret) || strlen($secret) !== self::SECRET_LENGTH) {
             return false;
         }
 
         $raw = self::decode($token);
 
-        if ($raw === null) {
+        if ($raw === null || strlen($raw) !== self::MASKED_LENGTH) {
             return false;
         }
 
-        $expected = strlen($secret) * 2;
-
-        if ($expected === 0 || strlen($raw) !== $expected) {
-            return false;
-        }
-
-        $half = intdiv(strlen($raw), 2);
-
-        if ($half <= 0) {
-            return false;
-        }
-
+        $half = self::SECRET_LENGTH;
         $mask = substr($raw, 0, $half);
         $masked = substr($raw, $half);
-
-        if (strlen($mask) !== strlen($secret)) {
-            return false;
-        }
 
         return hash_equals($secret, $masked ^ $mask);
     }

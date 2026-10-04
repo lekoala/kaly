@@ -14,13 +14,13 @@ use Kaly\Http\Session\SessionInterface;
  * called by token(), so rendering a view without using csrf never creates
  * the session: building the wrapper touches no storage.
  */
-final readonly class CsrfView
+final class CsrfView
 {
     /**
-     * @param SessionInterface|\Closure $session The session, or a factory returning it
+     * @param SessionInterface|(\Closure(): SessionInterface) $session The session, or a factory returning it
      */
     public function __construct(
-        private Csrf $csrf,
+        private readonly Csrf $csrf,
         private SessionInterface|\Closure $session,
     ) {}
 
@@ -41,13 +41,12 @@ final readonly class CsrfView
 
     private function resolveSession(): SessionInterface
     {
-        $session = $this->session;
-
-        if ($session instanceof \Closure) {
-            $session = $session();
+        if ($this->session instanceof \Closure) {
+            $session = ($this->session)();
             assert($session instanceof SessionInterface);
+            $this->session = $session;
         }
 
-        return $session;
+        return $this->session;
     }
 }
