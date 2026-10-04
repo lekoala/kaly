@@ -12,8 +12,8 @@ use Kaly\Http\Method;
  *
  * ```php
  * $module->routes(function (Routes $routes): void {
- *     $routes->get('/patients/{id}', [PatientController::class, 'show'])
- *         ->name('patient.show')
+ *     $routes->get('/orders/{id}', [OrderController::class, 'show'])
+ *         ->name('order.show')
  *         ->where('id', '\d+');
  *     $routes->get(['fr' => '/a-propos', 'en' => '/about'], AboutController::class)->name('about');
  * });

@@ -259,7 +259,7 @@ use Kaly\Router\Middleware;
 #[Middleware(StaffOnly::class)]
 abstract class AdminController extends AbstractController {}
 
-final class PatientController extends AdminController
+final class OrderController extends AdminController
 {
     #[Middleware(AuditTrail::class)]
     public function delete(int $id): ResponseInterface

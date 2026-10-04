@@ -15,10 +15,10 @@ class RoutesTest extends TestCase
     public function testGetBuildsADefinition(): void
     {
         $routes = new Routes();
-        $routes->get('/patients/{id}', [DispatcherController::class, 'stringResult']);
+        $routes->get('/orders/{id}', [DispatcherController::class, 'stringResult']);
 
         [$definition] = $routes->definitions();
-        $this->assertSame('/patients/{id}', $definition->path);
+        $this->assertSame('/orders/{id}', $definition->path);
         $this->assertSame(DispatcherController::class, $definition->controller);
         $this->assertSame('stringResult', $definition->action);
         $this->assertSame(['GET'], $definition->methods);
@@ -48,15 +48,15 @@ class RoutesTest extends TestCase
     {
         $routes = new Routes();
         $routes
-            ->get('/patients/{id}', [DispatcherController::class, 'stringResult'])
-            ->name('patient.show')
+            ->get('/orders/{id}', [DispatcherController::class, 'stringResult'])
+            ->name('order.show')
             ->where('id', '\d+')
             ->middleware('AuthMiddleware')
             ->default('tab', 'info')
             ->priority(10);
 
         [$definition] = $routes->definitions();
-        $this->assertSame('patient.show', $definition->name);
+        $this->assertSame('order.show', $definition->name);
         $this->assertSame(['id' => '\d+'], $definition->requirements);
         $this->assertSame(['AuthMiddleware'], $definition->middlewares);
         $this->assertSame(['tab' => 'info'], $definition->defaults);
@@ -82,11 +82,11 @@ class RoutesTest extends TestCase
     {
         $routes = new Routes();
         $routes->group('/api', function (Routes $routes): void {
-            $routes->post('/patients', [DispatcherController::class, 'stringResult']);
+            $routes->post('/orders', [DispatcherController::class, 'stringResult']);
         });
 
         [$definition] = $routes->definitions();
-        $this->assertSame('/api/patients', $definition->path);
+        $this->assertSame('/api/orders', $definition->path);
         $this->assertSame(['POST'], $definition->methods);
     }
 

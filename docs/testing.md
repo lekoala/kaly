@@ -25,7 +25,7 @@ $client->get('/hello')
 `request()` is the primitive, the verbs are sugar over it:
 
 ```php
-$client->request('POST', '/patients', ['json' => [...]]);
+$client->request('POST', '/orders', ['json' => [...]]);
 $client->get('/search', ['query' => ['q' => 'kaly']]);
 $client->post('/login', ['form' => ['user' => 'ada']]);
 ```

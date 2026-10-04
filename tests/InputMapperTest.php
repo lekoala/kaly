@@ -9,8 +9,8 @@ use Kaly\Http\Input\InputMapper;
 use Kaly\Http\Input\RequestInput;
 use Kaly\Http\Input\ValidationException;
 use Kaly\Tests\Mocks\FullInput;
+use Kaly\Tests\Mocks\OrderStatus;
 use Kaly\Tests\Mocks\PaginationInput;
-use Kaly\Tests\Mocks\PatientStatus;
 use Kaly\Tests\Mocks\Priority;
 use Kaly\Tests\Mocks\SaveInput;
 use Kaly\Tests\Mocks\UnsupportedInput;
@@ -78,7 +78,7 @@ class InputMapperTest extends TestCase
         $input = $this->map(['name' => 'x', 'status' => 'archived', 'priority' => '2']);
 
         $this->assertInstanceOf(FullInput::class, $input);
-        $this->assertSame(PatientStatus::Archived, $input->status);
+        $this->assertSame(OrderStatus::Archived, $input->status);
         $this->assertSame(Priority::High, $input->priority);
     }
 

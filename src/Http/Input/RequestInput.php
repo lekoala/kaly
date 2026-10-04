@@ -19,7 +19,7 @@ namespace Kaly\Http\Input;
  * An input is a plain readonly class whose promoted constructor is the schema:
  *
  * ```php
- * final readonly class SearchPatientsInput implements RequestInput
+ * final readonly class SearchOrdersInput implements RequestInput
  * {
  *     public function __construct(
  *         public string $query,

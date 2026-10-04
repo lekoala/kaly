@@ -64,11 +64,11 @@ avoid turning `Common` into a giant `Utils`: share the domain when it is really
 common, let the workflows live in the module that owns them.
 
 ```text
-Common/Patient/Patient.php
-Common/Patient/PatientRepository.php
-Site/Appointment/PublicBookingService.php
-Admin/Appointment/AppointmentManagementService.php
-Api/Appointment/AppointmentController.php
+Common/Order/Order.php
+Common/Order/OrderRepository.php
+Site/Order/PublicOrderService.php
+Admin/Order/OrderManagementService.php
+Api/Order/OrderController.php
 ```
 
 Nothing enforces this: module dependencies are a convention, not a constraint.
@@ -94,7 +94,7 @@ use Kaly\Util\Env;
 
 return static function (Module $module, Definitions $di): void {
     $di
-        ->bind(PatientRepository::class, SqlPatientRepository::class)
+        ->bind(OrderRepository::class, SqlOrderRepository::class)
         ->set(ApiClient::class, static fn() => new ApiClient(
             endpoint: Env::getString('API_ENDPOINT'),
             timeout: Env::getInt('API_TIMEOUT', 10),
@@ -244,12 +244,12 @@ boot
  |- Admin/config.php     |
  +- Api/config.php     --+
 
-GET /api/patients
+GET /api/orders
         |
     route Api
         |
-  Api\PatientController
-        |- PatientRepository
+  Api\OrderController
+        |- OrderRepository
         +- ApiSerializer      <- the only services actually built
 
 Admin and Site services: never requested

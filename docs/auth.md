@@ -58,13 +58,13 @@ in the session — a revoked permission applies to the very next request.
 A permission opens the door of a use case; it is not the business rule:
 
 ```php
-if (!$auth->allows(Permission::AppointmentsWrite)) {
+if (!$auth->allows(Permission::OrdersWrite)) {
     throw new ForbiddenException();
 }
-// ...then the use case still checks practice, ownership and state
+// ...then the use case still checks ownership and state
 ```
 
-Object-level rules ("may this doctor edit that appointment?") belong to the
+Object-level rules ("may this clerk edit that order?") belong to the
 use case or domain policy, so CLI or internal callers cannot bypass them.
 
 ## Session login and logout

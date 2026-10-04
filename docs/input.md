@@ -20,16 +20,16 @@ return value                the response
 ```
 
 ```php
-final class PatientController extends AbstractController
+final class OrderController extends AbstractController
 {
     public function __construct(
         ServerRequestInterface $request,
-        private PatientService $patients,
+        private OrderService $orders,
     ) {
         parent::__construct($request);
     }
 
-    public function edit(int $id, EditPatientInput $input): View
+    public function edit(int $id, EditOrderInput $input): View
     {
         // $id is already a valid int coming from the url
         // $input is already typed and validated
@@ -42,7 +42,7 @@ Three consequences, and they are the point of the whole contract:
 
 - a service can never appear in an action — the dispatcher supplies every argument;
 - an action never parses, casts or trims anything;
-- reading `EditPatientInput` tells you the complete input surface of the action.
+- reading `EditOrderInput` tells you the complete input surface of the action.
 
 > **The injector constructs controllers. The dispatcher supplies action inputs.**
 
@@ -57,12 +57,12 @@ interface RequestInput
 ```
 
 ```php
-final readonly class SearchPatientsInput implements RequestInput
+final readonly class SearchOrdersInput implements RequestInput
 {
     public function __construct(
         public string $query,
         public int $page = 1,
-        public ?PatientStatus $status = null,
+        public ?OrderStatus $status = null,
     ) {}
 }
 ```
@@ -72,7 +72,7 @@ The promoted constructor **is** the schema. No attributes, no configuration:
 ```text
 query    required string
 page     optional int, default 1
-status   optional PatientStatus, default null
+status   optional OrderStatus, default null
 ```
 
 Rules, deliberately narrow:
@@ -86,12 +86,12 @@ The simple rule is worth more than the flexibility.
 
 ## Route segments are not input
 
-`/patient/edit/12/` mapping to `int $id` is the main affordance of the
+`/order/edit/12/` mapping to `int $id` is the main affordance of the
 [convention](routing.md#the-convention) and it stays. A route segment is part of the route, so a
 value that does not fit its type does not match the route:
 
 ```text
-/patient/edit/foo/   ->  404, no route
+/order/edit/foo/   ->  404, no route
 ```
 
 Route values are never merged into the input object. There is therefore no precedence
@@ -109,7 +109,7 @@ key in both             -> accepted if equivalent after coercion
 ```
 
 Accepting equivalent duplicates matters in practice: a client doing
-`PUT /patients/12/` with the whole object in the body legitimately repeats values.
+`PUT /orders/12/` with the whole object in the body legitimately repeats values.
 Contradicting values are a client bug and must be reported as one.
 
 This is explicitly **not** a silent body-overrides-query merge: contradicting
@@ -124,8 +124,8 @@ Mapping answers: *can this data be represented by this type?*
 ```text
 "42"       -> int 42                  yes
 "foo"      -> int                     no
-"active"   -> PatientStatus::Active   yes
-"nonsense" -> PatientStatus           no
+"active"   -> OrderStatus::Active   yes
+"nonsense" -> OrderStatus           no
 ```
 
 Validation answers: *is this typed value acceptable?* It belongs to the input object
@@ -175,8 +175,8 @@ The three failures are distinct and must not collapse into one:
 
 | Case | Example | Status |
 | --- | --- | --- |
-| a route segment does not fit its type | `/patient/edit/foo/` | **404** |
-| the typed input cannot be built | `/patient/edit/12/?page=foo` | **400** |
+| a route segment does not fit its type | `/order/edit/foo/` | **404** |
+| the typed input cannot be built | `/order/edit/12/?page=foo` | **400** |
 | the input is typed but refused | `?page=-4` | **422** |
 
 A 404 means *there is no such route*. A 400 means *the route exists, the data is

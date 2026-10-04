@@ -17,7 +17,7 @@ final readonly class FullInput implements RequestInput
         public float $ratio = 0.5,
         public bool $active = false,
         public array $tags = [],
-        public ?PatientStatus $status = null,
+        public ?OrderStatus $status = null,
         public ?Priority $priority = null,
     ) {}
 }
