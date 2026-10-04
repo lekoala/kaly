@@ -36,7 +36,7 @@ Every render also receives a `csrf` variable: `csrf.token()` renders the
 request token (escaped by the engine), `csrf.fieldName` and
 `csrf.headerName` name the field and the fetch header. Rendering a view
 without using `csrf.token()` never creates the session. See
-[Auth](auth.md).
+[Security](security.md).
 
 ## Choosing a renderer
 

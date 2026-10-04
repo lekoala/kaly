@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- CSP nonce: `HttpContext::csp()` shares one lazily generated nonce per
+  response between templates (reserved `csp` variable, the very same object)
+  and the applicative outgoing `Content-Security-Policy` header. Documented
+  on the new Security page, which also hosts the CSRF reference.
+
 - Remove the unused `psr/simple-cache` dependency; Kaly does not require a cache.
 - Request middleware bands now retain their ordered entries across Fiber
   suspensions, so registry changes cannot skip or repeat steps already in flight.

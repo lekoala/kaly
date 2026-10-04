@@ -49,6 +49,8 @@ final class RequestDispatcher implements RequestHandlerInterface
     public const VAR_AUTH = 'auth';
     // Reserved render variable exposing the CSRF token
     public const VAR_CSRF = 'csrf';
+    // Reserved render variable exposing the CSP nonce
+    public const VAR_CSP = 'csp';
 
     /**
      * Constructor parameters carrying the current cycle, by name, to avoid
@@ -238,6 +240,7 @@ final class RequestDispatcher implements RequestHandlerInterface
                 self::VAR_ASSET => $assets->url(...),
                 self::VAR_AUTH => new AuthView($ctx->auth()),
                 self::VAR_CSRF => new CsrfView($this->csrf ?? new Csrf(), $ctx->session(...)),
+                self::VAR_CSP => $ctx->csp(),
             ];
             return $this->createResponse($this->renderer->render($result->template, $data), ContentType::HTML, $result->status);
         }

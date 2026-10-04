@@ -27,6 +27,7 @@ Use the sidebar to browse the guides. Start with
 - [Forms](forms.md)
 - [JSON APIs](json-apis.md)
 - [Auth](auth.md)
+- [Security](security.md)
 - [Views](views.md)
 - [i18n](i18n.md)
 - [Testing](testing.md)

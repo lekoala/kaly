@@ -227,28 +227,9 @@ new BasicAccessMiddleware(username: 'stage', password: 's3cret', realm: 'Staging
 ## CSRF
 
 State-changing requests authenticated by a browser cookie need CSRF
-protection. `Kaly\Http\Csrf\Csrf` is a small session primitive — one ASCII
-secret per session, masked differently on every render — with `token()`,
-`validate()`, `refresh()` and `clear()`. `CsrfMiddleware` enforces it on
-unsafe methods, reading the `_csrf` body field first, then the
-`X-CSRF-Token` header for fetch requests. A failure is a 403
-(`InvalidCsrfTokenException`).
-
-Mount it where the topology needs it. Login forms need it too
-(login-CSRF), without requiring authentication:
-
-```php
-$module
-    ->mount('auth')
-    ->middleware(CsrfMiddleware::class);
-```
-
-Templates use the reserved `csrf` variable — the raw value, escaped by the
-engine — next to the reserved `auth` variable. See [Views](views.md):
-
-```html
-<input type="hidden" name="{{ csrf.fieldName }}" value="{{ csrf.token }}">
-```
+protection. It is documented under [Security](security.md): the `Csrf`
+session primitive, `CsrfMiddleware` (login-CSRF included, without requiring
+authentication), and the reserved `csrf` template variable next to `auth`:
 
 ```twig
 {% if auth.isAuthenticated %}
@@ -257,8 +238,7 @@ engine — next to the reserved `auth` variable. See [Views](views.md):
 ```
 
 Bearer APIs carry no automatic credential, so they mount no CSRF middleware;
-a cookie-authenticated SPA does. The middleware never guesses from a present
-`Authorization` header: the scope it is mounted on is the policy.
+a cookie-authenticated SPA does.
 
 ## Method override
 

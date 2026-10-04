@@ -7,6 +7,7 @@ namespace Kaly\Core;
 use Kaly\Auth\Authentication;
 use Kaly\Http\Cookie\CookiePolicy;
 use Kaly\Http\Cookie\Cookies;
+use Kaly\Http\Csp\Csp;
 use Kaly\Http\RequestUtils;
 use Kaly\Http\Session\SessionInterface;
 use Kaly\Http\Session\SessionProviderInterface;
@@ -50,6 +51,8 @@ final class HttpContext
     private ?Cookies $cookies = null;
 
     private ?Authentication $auth = null;
+
+    private ?Csp $csp = null;
 
     /**
      * Middlewares that actually entered the stack, in execution order.
@@ -280,6 +283,16 @@ final class HttpContext
     public function auth(): Authentication
     {
         return $this->auth ??= new Authentication();
+    }
+
+    /**
+     * The Content Security Policy nonce of this response. The context owns
+     * it, so templates and the outgoing CSP header share the same value for
+     * the whole cycle. Nothing is generated until first use.
+     */
+    public function csp(): Csp
+    {
+        return $this->csp ??= new Csp();
     }
 
     /**
