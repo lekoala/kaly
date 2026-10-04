@@ -1,114 +1,156 @@
 # Changelog
-
 ## Unreleased
 
-- Auth fixes: `PermissionSet` iteration casts numeric keys back to strings so
-  a rebuilt set sees the same strings; Bearer accepts the full b64token
-  padding (`=*`); the `AdminGuard` recipe keeps the guard stateless and takes
-  `HttpContext` at the call, since context injection only works for
-  controllers. Covered by `RequestIsolationTest`: two interleaved cycles on
-  one App keep their identity, CSRF secret and CSP nonce down to the rendered
-  template and the outgoing header.
-- Auth hardening: `authenticate()` and `login()` build permissions before
-  mutating anything, so a failure leaves the previous identity untouched;
-  `PermissionSet` is itself iterable over the granted strings, and `login()`
-  refuses an empty identifier it could never restore. Covered by `AuthTest`,
-  including Fiber isolation of request state.
-- Breaking: `CsrfMiddleware` moves from `Kaly\Http\Csrf` to
-  `Kaly\Core\Middleware` (`Http` cannot depend on `Core`); the `Auth` layer is
-  now locked out of `Core` in the architecture guard.
-- `Authorization` parsing is strict: a single header value (multiples
-  rejected, never merged), token syntax for the scheme, no control characters
-  in Basic credentials, b64token syntax for Bearer. An empty
-  `UnauthorizedException` challenge now throws. Covered by
-  `AuthorizationTest`.
-- Breaking: pure middlewares live with their domain under `*\Middleware`
-  (`Kaly\Http\Middleware\MethodOverrideMiddleware`,
-  `Kaly\Http\Middleware\FileServer`,
-  `Kaly\Http\Middleware\PreventFileAccess`,
-  `Kaly\Asset\Middleware\AssetServer`); only a middleware that requires
-  `HttpContext` or other Core lifecycle state belongs to
-  `Kaly\Core\Middleware` (like `CsrfMiddleware`). The perimeter guard already
-  forbids `Http` from depending on `Core`, so a pure middleware cannot reach
-  for the context. Update the imports. Covered by `MethodOverrideTest`,
-  `FileServerTest`, `PreventFileAccessTest` and `AssetServerTest`, including
-  the override-then-CSRF chain.
-- Breaking: the session cookie is host-only by default —
+### Added
+
+- Request authentication:
+  - `HttpContext::auth()` carries the current request identity through
+    `Kaly\Auth\Authentication`.
+  - Principals are application-defined objects; Kaly imposes no user interface
+    or role model.
+  - `Kaly\Auth\PermissionSet` provides the closed permission set
+    (`allows()` / `any()` / `all()`).
+  - `Kaly\Auth\SessionAuthentication` manages the `_auth` session reference,
+    login/logout and session id rotation.
+  - Templates observe the current identity through the reserved `auth` variable
+    (`Kaly\Auth\AuthView`).
+
+- HTTP authentication primitives:
+  - `Kaly\Http\Authorization` parses Basic and Bearer credentials.
+  - `UnauthorizedException` represents a 401 response with a mandatory
+    `WWW-Authenticate` challenge.
+  - `Kaly\Auth\Middleware\BasicAccessMiddleware` provides a simple HTTP Basic
+    gate, intended for uses such as staging protection, without establishing an
+    application identity.
+
+- CSRF protection:
+  - `Kaly\Http\Csrf\Csrf` provides one session-bound secret, masked differently
+    on every render.
+  - `Kaly\Core\Middleware\CsrfMiddleware` validates `_csrf` form values or the
+    `X-CSRF-Token` header.
+  - Invalid tokens result in `InvalidCsrfTokenException` (403).
+  - Templates receive the reserved lazy `csrf` variable through
+    `Kaly\Http\Csrf\CsrfView`; rendering a view does not create a session until
+    `csrf.token()` is actually used.
+
+- CSP nonce support:
+  - `HttpContext::csp()` owns one lazily generated nonce per request.
+  - Templates receive the exact same object through the reserved `csp` variable,
+    allowing the nonce used in markup to match an applicative outgoing
+    `Content-Security-Policy` header.
+  - CSP and CSRF guidance now lives in the Security documentation.
+
+- Opt-in HTTP method override through
+  `Kaly\Http\Middleware\MethodOverrideMiddleware`. POST requests may tunnel to
+  `PUT`, `PATCH` or `DELETE` before routing, using either the `_method` form
+  field or `X-HTTP-Method-Override`. Conflicting or invalid overrides result in
+  `InvalidMethodOverrideException` (400).
+
+- `Json::pretty()` for indented JSON with unescaped slashes and Unicode.
+
+- Typed translation values:
+  - `Kaly\I18n\TranslationKey` for an id + domain pair.
+  - `Kaly\I18n\Translatable`.
+  - `LocalizedTranslator::resolve()`.
+  - `Kaly\I18n\TranslatableValidationException`, translated by the default
+    `Kaly\Core\LocalizedExceptionHandler` when the request locale is available.
+
+### Changed
+
+- **Breaking:** `RouteScope` gains `middlewares()`. Modules declare scope-wide
+  middleware with `Module::middleware()`, and those middleware are merged ahead
+  of route/group/controller/action middleware, including for claims. External
+  `RouteScope` implementations must return their middleware list or `[]`.
+
+- **Breaking:** pure middleware classes now live under their domain's
+  `Middleware` namespace:
+  - `Kaly\Http\Middleware\MethodOverrideMiddleware`
+  - `Kaly\Http\Middleware\FileServer`
+  - `Kaly\Http\Middleware\PreventFileAccess`
+  - `Kaly\Asset\Middleware\AssetServer`
+
+  Middleware that requires `HttpContext` or other Core lifecycle state belongs
+  to `Kaly\Core\Middleware`, such as `CsrfMiddleware`.
+
+- **Breaking:** the session cookie is now host-only by default.
   `SessionCookie::deriveOptions()` no longer infers `Domain` from the request
-  host, so the cookie is not shared with subdomains unless
-  `CookiePolicy(domain: ...)` or the provider option sets it. Covered by
-  `SessionTest`, including the explicit-domain path.
-- Breaking: `BasicAccessMiddleware` refuses an empty username or password at
-  construction instead of accepting `Authorization: Basic Og==`; an empty
-  `realm` stays valid. Covered by the new `BasicAccessTest`, which also locks
-  realm quoted-string escaping. Documented that browser Basic credentials are
-  replayed automatically, so Basic-protected browser flows need CSRF.
-- CSP nonce: `HttpContext::csp()` shares one lazily generated nonce per
-  response between templates (reserved `csp` variable, the very same object)
-  and the applicative outgoing `Content-Security-Policy` header. Documented
-  on the new Security page, which also hosts the CSRF reference.
+  host. Applications that intentionally share a session across subdomains must
+  configure the domain explicitly through `CookiePolicy(domain: ...)` or the
+  session provider options.
 
-- Remove the unused `psr/simple-cache` dependency; Kaly does not require a cache.
-- Request middleware bands now retain their ordered entries across Fiber
-  suspensions, so registry changes cannot skip or repeat steps already in flight.
-- Breaking: remove unused `Runner::getRegistry()`/`getBand()` and
-  `OutgoingRunner::getRegistry()`/`add()`; configure outgoing middleware through
-  `Registry::outgoing()`. Runner recursion is now private and the internal
-  `RunNextHandler` class is removed, reusing the existing callable adapter.
+- **Breaking:** `SessionInterface::regenerateId()` must now either rotate the
+  session id successfully or throw; native sessions no longer silently ignore
+  a failed `session_regenerate_id()`.
 
-- Add `Json::pretty()` for indented JSON with unescaped slashes and Unicode.
+- **Breaking:** `BasicAccessMiddleware` rejects an empty username or password at
+  construction. An empty realm remains valid, and realm values are emitted as
+  properly escaped HTTP quoted strings.
 
-- Breaking: `Json::decodeMap()` and `decodeMapRelaxed()` now return
+- `Authorization` parsing is stricter:
+  - multiple `Authorization` header values are rejected rather than merged;
+  - authentication schemes must use valid token syntax;
+  - Basic credentials reject control characters;
+  - Bearer credentials follow the complete `b64token` grammar, including
+    optional `=` padding.
+
+- `PermissionSet` preserves granted permission strings when iterated and rebuilt,
+  including strings that PHP would otherwise coerce to integer array keys.
+
+- Authentication state changes are atomic: permissions are built before
+  `Authentication::authenticate()` or `SessionAuthentication::login()` mutate
+  existing request/session state. `login()` also rejects an empty identifier,
+  which could not later be restored.
+
+- The documented `AdminGuard` pattern is stateless: the current `HttpContext` is
+  supplied when checking access rather than constructor-injected, since request
+  context injection is reserved for controllers.
+
+- Browser flows protected by HTTP Basic are now explicitly documented as
+  CSRF-sensitive: browsers may replay Basic credentials automatically. Explicit
+  non-browser Bearer/API clients remain outside that threat model.
+
+- **Breaking:** `Json::decodeMap()` and `decodeMapRelaxed()` now return
   `array<array-key, mixed>` and accept integer-string object keys, which PHP
-  converts to integer keys. Objects and lists remain distinct at the JSON boundary.
+  converts to integer keys. JSON objects and lists remain distinct.
 
-- Typed translation values: `Kaly\I18n\TranslationKey` (id + domain),
-  `Kaly\I18n\Translatable` (`translate(LocalizedTranslator)`) and
-  `LocalizedTranslator::resolve()`. A string passed to `resolve()` is always
-  a literal and never calls the engine. New
-  `Kaly\I18n\TranslatableValidationException` for keyed validation errors,
-  translated by the new default `Kaly\Core\LocalizedExceptionHandler` when
-  the request has a locale. `ValidationException` and
-  `Kaly\Http\ExceptionHandler` are unchanged.
-- Breaking: the native translator now matches Symfony on the portable
-  subset. A missing key returns the id instead of `{{id}}`, parameters
-  replace exact placeholders only, implicit pluralization is removed,
-  `Translator::getBaseDomain()`/`setBaseDomain()` are removed, ambiguous
-  flat-vs-nested ids throw, and catalogs from several paths merge key by
-  key. The translator file cache is removed. `NativeVsSymfonyCompatibilityTest`
-  locks the portable contract.
+- **Breaking:** the native translator now matches Symfony's portable subset:
+  - missing keys return the id instead of `{{id}}`;
+  - parameter replacement matches exact placeholders only;
+  - implicit pluralization is removed;
+  - `Translator::getBaseDomain()` and `setBaseDomain()` are removed;
+  - ambiguous flat-vs-nested translation ids throw;
+  - catalogs from multiple paths merge key by key;
+  - the translator file cache is removed.
 
-- Breaking: debug mode no longer logs the middleware pipeline automatically on
-  each request. Use an `onTerminate()` hook for explicit pipeline logging.
-  Middleware tracking in `HttpContext` and its display on the debug error page
-  remain available.
+- Request middleware runners now retain their ordered entries across Fiber
+  suspensions, so registry changes cannot skip or repeat middleware already in
+  flight.
 
-- Request authentication: `HttpContext::auth()` carries the request identity
-  (`Kaly\Auth\Authentication` with any application principal plus a closed
-  `Kaly\Auth\PermissionSet`: `allows()`/`any()`/`all()`), and
-  `Kaly\Auth\SessionAuthentication` owns the session lifecycle
-  (`identifier()`/`login()`/`logout()` around the `_auth` reference, with id
-  rotation). Templates observe it through the reserved `auth` variable
-  (`Kaly\Auth\AuthView`).
-- HTTP credentials: `Kaly\Http\Authorization` parsing (Basic/Bearer),
-  `UnauthorizedException` with a mandatory `WWW-Authenticate` challenge, and
-  `Kaly\Auth\Middleware\BasicAccessMiddleware` as a staging gate that never
-  establishes an identity.
-- Breaking: `RouteScope` gains `middlewares()`, declared per module with
-  `Module::middleware()` and merged in front of the route middlewares
-  (claims included). External `RouteScope` implementations must return their
-  scope middlewares, or `[]`.
-- Breaking: `SessionInterface::regenerateId()` now throws when the rotation
-  fails instead of succeeding silently.
-- CSRF: `Kaly\Http\Csrf\Csrf` session primitive (one ASCII secret per
-  session, masked per render), `CsrfMiddleware` (body `_csrf`, then
-  `X-CSRF-Token` header), `InvalidCsrfTokenException` (403), and the reserved
-  `csrf` template variable (`Kaly\Http\Csrf\CsrfView`, lazy: rendering without
-  `csrf.token()` never creates the session).
-- Method override: opt-in `Kaly\Http\Middleware\MethodOverrideMiddleware` in
-  the incoming band tunnels POST to `PUT`/`PATCH`/`DELETE` before routing
-  (`_method` form field or `X-HTTP-Method-Override` header; conflicting or
-  unknown targets are a 400 `InvalidMethodOverrideException`).
+### Fixed
+
+- Request-scoped identity, CSRF state and CSP nonce remain isolated between
+  interleaved request cycles on the same `App`, including Fiber suspensions.
+
+- Bearer parsing now accepts valid `b64token` padding.
+
+- Rebuilding a `PermissionSet` from its iterator no longer changes numeric-looking
+  permission strings.
+
+### Removed
+
+- **Breaking:** remove unused `Runner::getRegistry()` / `getBand()` and
+  `OutgoingRunner::getRegistry()` / `add()`. Configure outgoing middleware
+  through `Registry::outgoing()` instead.
+
+- The internal `RunNextHandler` is removed; runner recursion is private and
+  reuses the existing callable adapter.
+
+- **Breaking:** debug mode no longer logs the middleware pipeline automatically
+  for every request. Middleware tracking remains available through
+  `HttpContext` and on the debug error page; applications can add explicit
+  pipeline logging through `onTerminate()`.
+
+- Remove the unused `psr/simple-cache` dependency. Kaly does not require a cache.
 
 ## 0.1.0 - 2026-10-02
 
