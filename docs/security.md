@@ -17,7 +17,9 @@ the pipeline slot, never the rule.
 State-changing requests authenticated by a browser cookie need CSRF
 protection. `Kaly\Http\Csrf\Csrf` is a small session primitive — one ASCII
 secret per session, masked differently on every render — with `token()`,
-`validate()`, `refresh()` and `clear()`. `CsrfMiddleware` enforces it on
+`validate()`, `refresh()` and `clear()`. Login and logout rotate the secret
+through `SessionAuthentication`, so a token never survives an identity
+change. `CsrfMiddleware` enforces it on
 unsafe methods, reading the `_csrf` body field first, then the
 `X-CSRF-Token` header for fetch requests. A failure is a 403
 (`InvalidCsrfTokenException`).

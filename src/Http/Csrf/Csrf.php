@@ -77,7 +77,7 @@ final class Csrf
     {
         $secret = $session->get(self::SESSION_KEY);
 
-        if (!is_string($secret) || $secret === '') {
+        if (!is_string($secret) || strlen($secret) !== self::SECRET_LENGTH) {
             $secret = self::generateSecret();
             $session->set(self::SESSION_KEY, $secret);
         }

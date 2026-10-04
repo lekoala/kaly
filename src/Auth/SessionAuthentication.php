@@ -6,6 +6,7 @@ namespace Kaly\Auth;
 
 use BackedEnum;
 use InvalidArgumentException;
+use Kaly\Http\Csrf\Csrf;
 use Kaly\Http\Session\SessionInterface;
 
 /**
@@ -50,6 +51,7 @@ final readonly class SessionAuthentication
 
         $session->regenerateId();
         $session->set($this->key, $identifier);
+        $session->remove(Csrf::SESSION_KEY);
 
         $auth->authenticate($principal, $set);
     }
@@ -57,6 +59,7 @@ final readonly class SessionAuthentication
     public function logout(SessionInterface $session, Authentication $auth): void
     {
         $session->remove($this->key);
+        $session->remove(Csrf::SESSION_KEY);
         $auth->clear();
 
         $session->regenerateId();

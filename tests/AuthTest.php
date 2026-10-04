@@ -235,6 +235,26 @@ class AuthTest extends TestCase
         $this->assertSame(['sku' => 1], $session->get('cart'));
     }
 
+    public function testLoginAndLogoutInvalidateTheCsrfSecret(): void
+    {
+        $session = new ArraySession();
+        $auth = new Authentication();
+        $sessionAuth = new SessionAuthentication();
+        $csrf = new Csrf();
+
+        $before = $csrf->token($session);
+        $this->assertTrue($csrf->validate($session, $before));
+
+        $sessionAuth->login($session, $auth, '42', new \stdClass());
+        $this->assertFalse($csrf->validate($session, $before));
+
+        $afterLogin = $csrf->token($session);
+        $this->assertTrue($csrf->validate($session, $afterLogin));
+
+        $sessionAuth->logout($session, $auth);
+        $this->assertFalse($csrf->validate($session, $afterLogin));
+    }
+
     public function testIdentifierIgnoresNonUsableValues(): void
     {
         $session = new ArraySession();

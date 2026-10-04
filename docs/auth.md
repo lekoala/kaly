@@ -90,7 +90,9 @@ $sessionAuth->logout($ctx->session(), $ctx->auth());
 
 Login regenerates the session id before writing (fixation protection);
 logout removes only the `_auth` key — flash messages, carts and wizards
-survive — then clears the identity and regenerates the id. Destroying the
+survive — then clears the identity and regenerates the id. Both transitions
+also drop the CSRF secret, so tokens issued under the previous identity stop
+validating. Destroying the
 whole session stays an explicit application choice.
 
 Restoring the user on each request is a small application middleware, because

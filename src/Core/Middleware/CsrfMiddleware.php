@@ -8,6 +8,7 @@ use Kaly\Core\HttpContext;
 use Kaly\Http\Csrf\Csrf;
 use Kaly\Http\Exception\InvalidCsrfTokenException;
 use Kaly\Http\Method;
+use Kaly\Http\RequestUtils;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -44,10 +45,10 @@ final readonly class CsrfMiddleware implements MiddlewareInterface
 
     private function tokenFrom(ServerRequestInterface $request): ?string
     {
-        $body = $request->getParsedBody();
+        $candidate = RequestUtils::getParsedBodyParam($request, Csrf::FIELD);
 
-        if (is_array($body) && isset($body[Csrf::FIELD]) && is_string($body[Csrf::FIELD]) && $body[Csrf::FIELD] !== '') {
-            return $body[Csrf::FIELD];
+        if (is_string($candidate) && $candidate !== '') {
+            return $candidate;
         }
 
         $header = trim($request->getHeaderLine(Csrf::HEADER));

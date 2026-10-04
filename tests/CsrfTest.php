@@ -77,6 +77,31 @@ class CsrfTest extends TestCase
         $this->assertFalse($csrf->validate($session, $new));
     }
 
+    public function testCorruptSecretIsReplacedOnNextToken(): void
+    {
+        $csrf = new Csrf();
+        $session = new ArraySession();
+        $session->set(Csrf::SESSION_KEY, 'short');
+
+        $token = $csrf->token($session);
+
+        $this->assertTrue($csrf->validate($session, $token));
+    }
+
+    public function testObjectBodyCarriesTheToken(): void
+    {
+        $csrf = new Csrf();
+        $session = new ArraySession();
+        $valid = $csrf->token($session);
+        $middleware = new CsrfMiddleware($csrf);
+
+        $response = $middleware->process($this->requestWithSession('POST', $session, (object) ['_csrf' => $valid]), new NextHandler());
+        $this->assertSame(200, $response->getStatusCode());
+
+        $this->expectException(InvalidCsrfTokenException::class);
+        $middleware->process($this->requestWithSession('POST', $session, (object) ['_csrf' => 'bogus'], $valid), new NextHandler());
+    }
+
     public function testSafeMethodsPassWithoutContext(): void
     {
         $handler = new NextHandler();
@@ -169,12 +194,12 @@ class CsrfTest extends TestCase
     }
 
     /**
-     * @param array<string,mixed> $body
+     * @param array<string,mixed>|object $body
      */
     private function requestWithSession(
         string $method,
         ArraySession $session,
-        array $body = [],
+        array|object $body = [],
         string $header = '',
     ): ServerRequestInterface {
         $ctx = new HttpContext(new ServerRequest($method, '/'));
