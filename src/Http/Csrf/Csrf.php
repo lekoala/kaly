@@ -6,6 +6,7 @@ namespace Kaly\Http\Csrf;
 
 use Kaly\Ex;
 use Kaly\Http\Session\SessionInterface;
+use Kaly\Util\Base64Url;
 
 /**
  * A synchronizer token bound to the session, masked on every exposure.
@@ -46,7 +47,7 @@ final class Csrf
             return false;
         }
 
-        $raw = self::decode($token);
+        $raw = Base64Url::decode($token);
 
         if ($raw === null || strlen($raw) !== self::MASKED_LENGTH) {
             return false;
@@ -86,7 +87,7 @@ final class Csrf
 
     private static function generateSecret(): string
     {
-        return self::encode(random_bytes(self::SECRET_BYTES));
+        return Base64Url::encode(random_bytes(self::SECRET_BYTES));
     }
 
     private static function mask(#[\SensitiveParameter] string $secret): string
@@ -97,33 +98,6 @@ final class Csrf
 
         $mask = random_bytes(strlen($secret));
 
-        return self::encode($mask . ($mask ^ $secret));
-    }
-
-    private static function encode(string $raw): string
-    {
-        return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
-    }
-
-    private static function decode(#[\SensitiveParameter] string $token): ?string
-    {
-        if ($token === '' || preg_match('#^[A-Za-z0-9_-]+$#', $token) !== 1) {
-            return null;
-        }
-
-        $padded = strtr($token, '-_', '+/');
-        $remainder = strlen($padded) % 4;
-
-        if ($remainder === 1) {
-            return null;
-        }
-
-        if ($remainder !== 0) {
-            $padded .= str_repeat('=', 4 - $remainder);
-        }
-
-        $decoded = base64_decode($padded, true);
-
-        return $decoded === false ? null : $decoded;
+        return Base64Url::encode($mask . ($mask ^ $secret));
     }
 }

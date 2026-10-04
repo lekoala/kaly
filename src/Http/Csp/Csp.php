@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Http\Csp;
 
+use Kaly\Util\Base64Url;
+
 /**
  * The Content Security Policy nonce of the current response.
  *
@@ -18,11 +20,6 @@ final class Csp
 
     public function nonce(): string
     {
-        return $this->nonce ??= self::base64Url(random_bytes(18));
-    }
-
-    private static function base64Url(string $raw): string
-    {
-        return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
+        return $this->nonce ??= Base64Url::encode(random_bytes(18));
     }
 }
