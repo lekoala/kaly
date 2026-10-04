@@ -4,6 +4,18 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Auth, CSRF and method override
+
+- `RouteScope` has a new mandatory `middlewares()` method, declared per module
+  with `Module::middleware(...)` and merged in front of the route middlewares.
+  An external `RouteScope` implementation without scope middlewares returns
+  `[]`; one with middlewares returns them outermost first.
+- `SessionInterface::regenerateId()` now throws when the id rotation fails
+  instead of succeeding silently. Code that called it defensively in a
+  try/catch keeps working; code that assumed it always succeeded now gets the
+  failure it was missing, typically surfacing as a 500 on login/logout when
+  the backend is unusable.
+
 ## Honest portable translation subset
 
 The native translator now matches Symfony on everything it declares portable,

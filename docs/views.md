@@ -27,6 +27,17 @@ Every render also receives an `asset` variable: `$asset('app.css')` or
 `$asset('@admin/admin.js')` generates an asset url. It is reserved too.
 See [Assets](assets.md).
 
+Every render also receives an `auth` variable: a read-only view over the
+request authentication (`isAuthenticated`, `principal()` — null when
+anonymous — and `allows()`). Mutating the authentication from a template is
+impossible by construction. See [Auth](auth.md).
+
+Every render also receives a `csrf` variable: `csrf.token()` renders the
+request token (escaped by the engine), `csrf.fieldName` and
+`csrf.headerName` name the field and the fetch header. Rendering a view
+without using `csrf.token()` never creates the session. See
+[Auth](auth.md).
+
 ## Choosing a renderer
 
 | Engine   | When                             | Adapter                             |

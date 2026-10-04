@@ -37,6 +37,33 @@
   Middleware tracking in `HttpContext` and its display on the debug error page
   remain available.
 
+- Request authentication: `HttpContext::auth()` carries the request identity
+  (`Kaly\Auth\Authentication` with any application principal plus a closed
+  `Kaly\Auth\PermissionSet`: `allows()`/`any()`/`all()`), and
+  `Kaly\Auth\SessionAuthentication` owns the session lifecycle
+  (`identifier()`/`login()`/`logout()` around the `_auth` reference, with id
+  rotation). Templates observe it through the reserved `auth` variable
+  (`Kaly\Auth\AuthView`).
+- HTTP credentials: `Kaly\Http\Authorization` parsing (Basic/Bearer),
+  `UnauthorizedException` with a mandatory `WWW-Authenticate` challenge, and
+  `Kaly\Auth\Middleware\BasicAccessMiddleware` as a staging gate that never
+  establishes an identity.
+- Breaking: `RouteScope` gains `middlewares()`, declared per module with
+  `Module::middleware()` and merged in front of the route middlewares
+  (claims included). External `RouteScope` implementations must return their
+  scope middlewares, or `[]`.
+- Breaking: `SessionInterface::regenerateId()` now throws when the rotation
+  fails instead of succeeding silently.
+- CSRF: `Kaly\Http\Csrf\Csrf` session primitive (one ASCII secret per
+  session, masked per render), `CsrfMiddleware` (body `_csrf`, then
+  `X-CSRF-Token` header), `InvalidCsrfTokenException` (403), and the reserved
+  `csrf` template variable (`Kaly\Http\Csrf\CsrfView`, lazy: rendering without
+  `csrf.token()` never creates the session).
+- Method override: opt-in `Kaly\Http\Middleware\MethodOverrideMiddleware` in
+  the incoming band tunnels POST to `PUT`/`PATCH`/`DELETE` before routing
+  (`_method` form field or `X-HTTP-Method-Override` header; conflicting or
+  unknown targets are a 400 `InvalidMethodOverrideException`).
+
 ## 0.1.0 - 2026-10-02
 
 First tag: a small modular PSR HTTP framework (PSR-7 messages, PSR-11
