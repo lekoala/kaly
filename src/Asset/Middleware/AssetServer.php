@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Asset;
+namespace Kaly\Asset\Middleware;
 
 use InvalidArgumentException;
+use Kaly\Asset\Assets;
+use Kaly\Asset\AssetSources;
 use Kaly\Http\FileResponseFactory;
 use Kaly\Http\PublicFilePolicy;
 use Kaly\Util\Fs;

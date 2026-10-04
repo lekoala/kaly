@@ -9,7 +9,7 @@ use Kaly\Core\Middleware\CsrfMiddleware;
 use Kaly\Http\Csrf\Csrf;
 use Kaly\Http\Exception\InvalidCsrfTokenException;
 use Kaly\Http\Exception\InvalidMethodOverrideException;
-use Kaly\Http\MethodOverrideMiddleware;
+use Kaly\Http\Middleware\MethodOverrideMiddleware;
 use Kaly\Http\Session\ArraySession;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;

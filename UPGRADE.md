@@ -4,6 +4,24 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Middleware namespaces
+
+Middlewares group by runtime dependence, not by pipeline role: a middleware
+independent of the Kaly runtime lives with its domain under `*\Middleware`,
+while one that requires `HttpContext` or other Core lifecycle state belongs
+to `Kaly\Core\Middleware` (the perimeter guard already forbids `Http` from
+depending on `Core`, so a pure middleware cannot reach for the context).
+
+- `Kaly\Http\MethodOverrideMiddleware` → `Kaly\Http\Middleware\MethodOverrideMiddleware`.
+- `Kaly\Http\FileServer` → `Kaly\Http\Middleware\FileServer`.
+- `Kaly\Http\PreventFileAccess` → `Kaly\Http\Middleware\PreventFileAccess`.
+- `Kaly\Asset\AssetServer` → `Kaly\Asset\Middleware\AssetServer`.
+- `Kaly\Core\Middleware\CsrfMiddleware` and
+  `Kaly\Auth\Middleware\BasicAccessMiddleware` are unchanged: the former reads
+  the session through `HttpContext`, the latter stays with its feature.
+
+Update the imports; constructors and behaviors are unchanged.
+
 ## Auth, CSRF and method override
 
 - `RouteScope` has a new mandatory `middlewares()` method, declared per module

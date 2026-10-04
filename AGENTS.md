@@ -23,6 +23,14 @@ When making a breaking change:
 
 The goal before 1.0 is to converge toward the smallest, clearest, most durable public surface possible.
 
+## Architecture
+
+- A middleware independent of the Kaly runtime lives with its domain under
+  `*\Middleware` (`Http\Middleware`, `Asset\Middleware`, `Auth\Middleware`).
+  A middleware that requires `HttpContext` or other Core lifecycle state
+  belongs to `Kaly\Core\Middleware`. Group by runtime dependence, never by
+  pipeline role.
+
 ## Style
 
 - Declare class constants first, then properties, then methods, starting with

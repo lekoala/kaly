@@ -23,7 +23,7 @@ Recommendations:
 
 ## Static files
 
-`src/Http/FileServer.php` only serves `GET`/`HEAD`, rejects path traversal
+`src/Http/Middleware/FileServer.php` only serves `GET`/`HEAD`, rejects path traversal
 via `Fs::isInside`, requires `is_file`, and never serves executable extensions
 (`php`, `phtml`, `phar`, `php3-8`, `pht`, `inc`, `cgi`, `pl`).
 

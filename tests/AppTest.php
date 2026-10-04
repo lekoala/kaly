@@ -10,7 +10,7 @@ use Kaly\Core\ErrorHandler;
 use Kaly\Core\HttpContext;
 use Kaly\Di\Definitions;
 use Kaly\Http\ContentType;
-use Kaly\Http\FileServer;
+use Kaly\Http\Middleware\FileServer;
 use Kaly\Http\ResponseEmitterInterface;
 use Kaly\I18n\Translator;
 use Kaly\I18n\TranslatorInterface;

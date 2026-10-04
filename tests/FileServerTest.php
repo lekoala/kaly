@@ -7,7 +7,7 @@ namespace Kaly\Tests;
 use Kaly\Core\App;
 use Kaly\Di\Definitions;
 use Kaly\Http\FileResponseFactory;
-use Kaly\Http\FileServer;
+use Kaly\Http\Middleware\FileServer;
 use Kaly\Test\PredefinedResponseHandler;
 use Kaly\Tests\Support\TempDir;
 use Kaly\Util\Fs;

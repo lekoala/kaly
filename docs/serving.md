@@ -48,7 +48,7 @@ unknown paths to `index.php` (nginx `try_files`, Apache `FallbackResource`).
 
 Published assets live under `public/assets/` and are served as plain static
 files. Unpublished sources (`assets/`, `modules/*/assets/`) can be served
-directly in debug mode through `Kaly\Asset\AssetServer` on
+directly in debug mode through `Kaly\Asset\Middleware\AssetServer` on
 `/_assets/*`:
 
 ```php

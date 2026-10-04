@@ -6,7 +6,7 @@ namespace Kaly\Tests;
 
 use Kaly\Core\Middleware\NullHandler;
 use Kaly\Http\Exception\NotFoundException;
-use Kaly\Http\PreventFileAccess;
+use Kaly\Http\Middleware\PreventFileAccess;
 use Kaly\Test\PredefinedResponseHandler;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Asset\AssetServer;
 use Kaly\Asset\AssetsInterface;
 use Kaly\Asset\AssetSources;
+use Kaly\Asset\Middleware\AssetServer;
 use Kaly\Core\App;
 use Kaly\Di\Definitions;
 use Kaly\Http\FileResponseFactory;

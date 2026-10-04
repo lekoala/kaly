@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Http;
+namespace Kaly\Http\Middleware;
 
 use Kaly\Http\Exception\NotFoundException;
 use Psr\Http\Message\ResponseInterface;

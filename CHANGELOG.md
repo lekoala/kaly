@@ -22,10 +22,17 @@
   in Basic credentials, b64token syntax for Bearer. An empty
   `UnauthorizedException` challenge now throws. Covered by
   `AuthorizationTest`.
-- Method override lives directly under `Kaly\Http`
-  (`Kaly\Http\MethodOverrideMiddleware`): middleware group by feature, not by
-  pipeline role. Covered by `MethodOverrideTest`, including the
-  override-then-CSRF chain.
+- Breaking: pure middlewares live with their domain under `*\Middleware`
+  (`Kaly\Http\Middleware\MethodOverrideMiddleware`,
+  `Kaly\Http\Middleware\FileServer`,
+  `Kaly\Http\Middleware\PreventFileAccess`,
+  `Kaly\Asset\Middleware\AssetServer`); only a middleware that requires
+  `HttpContext` or other Core lifecycle state belongs to
+  `Kaly\Core\Middleware` (like `CsrfMiddleware`). The perimeter guard already
+  forbids `Http` from depending on `Core`, so a pure middleware cannot reach
+  for the context. Update the imports. Covered by `MethodOverrideTest`,
+  `FileServerTest`, `PreventFileAccessTest` and `AssetServerTest`, including
+  the override-then-CSRF chain.
 - CSP nonce: `HttpContext::csp()` shares one lazily generated nonce per
   response between templates (reserved `csp` variable, the very same object)
   and the applicative outgoing `Content-Security-Policy` header. Documented

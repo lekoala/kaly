@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Http;
+namespace Kaly\Http\Middleware;
 
 use InvalidArgumentException;
+use Kaly\Http\FileResponseFactory;
+use Kaly\Http\PublicFilePolicy;
 use Kaly\Util\Fs;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
