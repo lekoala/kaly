@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Auth\Middleware;
 
+use InvalidArgumentException;
 use Kaly\Http\Authorization;
 use Kaly\Http\Exception\UnauthorizedException;
 use Psr\Http\Message\ResponseInterface;
@@ -25,7 +26,15 @@ final readonly class BasicAccessMiddleware implements MiddlewareInterface
         #[\SensitiveParameter]
         private string $password,
         private string $realm = 'Staging',
-    ) {}
+    ) {
+        if ($username === '') {
+            throw new InvalidArgumentException('Basic access username must not be empty');
+        }
+
+        if ($password === '') {
+            throw new InvalidArgumentException('Basic access password must not be empty');
+        }
+    }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {

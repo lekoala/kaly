@@ -268,11 +268,17 @@ throw new UnauthorizedException('Basic realm="Staging"');
 For staging areas, `Kaly\Auth\Middleware\BasicAccessMiddleware` is a pure
 HTTP gate: it checks Basic credentials and continues, or answers 401 with a
 challenge built from its realm. It never establishes an application identity,
-and Basic auth belongs behind HTTPS:
+refuses empty username or password at construction, and Basic auth belongs
+behind HTTPS:
 
 ```php
 new BasicAccessMiddleware(username: 'stage', password: 's3cret', realm: 'Staging')
 ```
+
+A browser replays cached Basic credentials automatically, so a Basic-protected
+UI that submits state-changing requests needs CSRF just like a
+cookie-authenticated form; an explicit API client does not. See
+[Security](security.md).
 
 ## CSRF
 

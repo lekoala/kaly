@@ -41,9 +41,51 @@ session. See [Views](views.md):
 <input type="hidden" name="{{ csrf.fieldName }}" value="{{ csrf.token }}">
 ```
 
-Bearer APIs carry no automatic credential, so they mount no CSRF middleware;
-a cookie-authenticated SPA does. The middleware never guesses from a present
+Whether CSRF applies is a question of who sends the request, not of which
+`Authorization` scheme is present. A browser replays cached Basic credentials
+inside their protection space (RFC 7617), so a Basic-protected UI sending
+`POST`/`PUT`/`DELETE` needs CSRF like any cookie-authenticated form. An
+explicit API client — curl, service-to-service — carries no ambient browser
+credential and generally does not. The middleware never guesses from a present
 `Authorization` header: the scope it is mounted on is the policy.
+
+## Caching authenticated responses
+
+A response built for an authenticated user must not be stored or replayed by
+shared caches. Kaly has no automatic rule for this — a public page can touch
+the session (flash messages) without being private — so the policy is an
+outgoing middleware:
+
+```php
+use Kaly\Core\HttpContext;
+use Psr\Http\Message\ResponseInterface;
+
+$app->middleware()->outgoing(
+    static fn(ResponseInterface $response, HttpContext $ctx): ResponseInterface =>
+        $response->withHeader('Cache-Control', 'no-store'),
+    when: static fn(ResponseInterface $response, HttpContext $ctx): bool =>
+        $ctx->auth()->isAuthenticated(),
+);
+```
+
+`no-store` alone is enough: it forbids storage by private and shared caches
+alike, so `private` is redundant. It applies to every authenticated response,
+not only HTML — an authenticated JSON payload carries just as much private
+data.
+
+Cover the logout answer explicitly. Logout clears the identity before the
+response is emitted, so `isAuthenticated()` is already `false` there, yet the
+answer still belongs to the authenticated flow. The application knows its
+logout path, so key the outgoing middleware on it:
+
+```php
+when: static fn(ResponseInterface $response, HttpContext $ctx): bool =>
+    str_ends_with($ctx->request()->getUri()->getPath(), '/logout'),
+```
+
+Cookie sessions get no implicit protection here: unlike a request carrying
+`Authorization`, HTTP does not restrict shared caches for cookie-authenticated
+traffic (RFC 9111). The header is the application's to add.
 
 ## CSP nonces
 

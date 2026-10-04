@@ -35,6 +35,10 @@ final class SessionCookie
      * Resolve the cookie options for a request: an explicit option wins, the
      * policy is the application baseline, the request fills the gaps.
      *
+     * The domain is never inferred from the request host: an omitted Domain
+     * keeps the cookie host-only instead of sharing it with subdomains.
+     * Sharing stays an explicit choice through the policy or the options.
+     *
      * @param array<string,mixed> $options
      * @return array<string,mixed>
      */
@@ -42,9 +46,6 @@ final class SessionCookie
     {
         if (!array_key_exists('secure', $options) && $policy->secure === null) {
             $options['secure'] = $request->getUri()->getScheme() === 'https';
-        }
-        if (!array_key_exists('domain', $options) && $policy->domain === null) {
-            $options['domain'] = $request->getUri()->getHost();
         }
         return $options;
     }

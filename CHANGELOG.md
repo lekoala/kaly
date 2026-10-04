@@ -33,6 +33,16 @@
   for the context. Update the imports. Covered by `MethodOverrideTest`,
   `FileServerTest`, `PreventFileAccessTest` and `AssetServerTest`, including
   the override-then-CSRF chain.
+- Breaking: the session cookie is host-only by default —
+  `SessionCookie::deriveOptions()` no longer infers `Domain` from the request
+  host, so the cookie is not shared with subdomains unless
+  `CookiePolicy(domain: ...)` or the provider option sets it. Covered by
+  `SessionTest`, including the explicit-domain path.
+- Breaking: `BasicAccessMiddleware` refuses an empty username or password at
+  construction instead of accepting `Authorization: Basic Og==`; an empty
+  `realm` stays valid. Covered by the new `BasicAccessTest`, which also locks
+  realm quoted-string escaping. Documented that browser Basic credentials are
+  replayed automatically, so Basic-protected browser flows need CSRF.
 - CSP nonce: `HttpContext::csp()` shares one lazily generated nonce per
   response between templates (reserved `csp` variable, the very same object)
   and the applicative outgoing `Content-Security-Policy` header. Documented

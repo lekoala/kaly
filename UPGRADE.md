@@ -4,6 +4,26 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Session cookie scope and Basic credentials
+
+- The session cookie is host-only by default: `SessionCookie::deriveOptions()`
+  no longer infers `Domain` from the request host, so the cookie is never
+  shared with subdomains unless configured. An application that relied on the
+  previous subdomain-wide cookie must set it explicitly, through
+  `CookiePolicy(domain: '.example.test')` or the provider `domain` option.
+  Omitting `Domain` is the OWASP-recommended default and lets a browser reject
+  the cookie on `uploads.example.test` and other sibling hosts.
+- `BasicAccessMiddleware` refuses an empty username or password at
+  construction (`InvalidArgumentException`) instead of accepting
+  `Authorization: Basic Og==`. A missing environment variable now fails at
+  boot rather than leaving the gate practically open. Pass the configured
+  credentials; an empty `realm` stays valid (it is a present but undescriptive
+  realm, not a weakness).
+
+Authenticated responses carry no automatic `Cache-Control`. Add an outgoing
+`no-store` middleware for private traffic; see [Security](docs/security.md)
+for the recipe, including the logout answer.
+
 ## Middleware namespaces
 
 Middlewares group by runtime dependence, not by pipeline role: a middleware
@@ -37,8 +57,6 @@ Update the imports; constructors and behaviors are unchanged.
   integration middleware reads the session through `HttpContext`, which the
   `Http` layer cannot depend on. Update the import; the constructor and the
   behavior are unchanged.
-- `MethodOverrideMiddleware` moved from `Kaly\Http\Middleware` to `Kaly\Http`:
-  middleware group by feature, not by pipeline role. Update the import.
 - `SessionAuthentication::login()` refuses an empty identifier instead of
   authenticating a request it could never restore. Pass a non-empty
   identifier; `identifier()` already returned `null` for one.

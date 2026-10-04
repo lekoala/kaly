@@ -142,9 +142,10 @@ class SessionTest extends TestCase
         $this->assertStringStartsWith('KALYAUDIT=', $cookie);
         $this->assertStringContainsString('; SameSite=Strict', $cookie);
         $this->assertStringContainsString('; HttpOnly', $cookie);
-        // https request, so the cookie is scoped and secured
+        // https request, so the cookie is secured — but host-only: no Domain
+        // is inferred from the request, subdomains are never included by default
         $this->assertStringContainsString('; Secure', $cookie);
-        $this->assertStringContainsString('; Domain=example.test', $cookie);
+        $this->assertStringNotContainsString('Domain=', $cookie);
     }
 
     public function testRememberMeExtendsTheCookieLifetime(): void
@@ -229,5 +230,13 @@ class SessionTest extends TestCase
 
         $this->assertTrue($params['secure']);
         $this->assertSame('example.test', $params['domain']);
+
+        // An explicit domain is still emitted: sharing with subdomains stays
+        // an explicit choice
+        $session->set('user', 'AUDIT-USER-A');
+        $response = $provider->commit($session, $this->request(), HttpFactory::createResponse());
+        $session->destroy();
+
+        $this->assertStringContainsString('; Domain=example.test', $response->getHeaderLine('Set-Cookie'));
     }
 }
