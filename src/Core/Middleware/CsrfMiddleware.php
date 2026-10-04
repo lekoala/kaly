@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kaly\Http\Csrf;
+namespace Kaly\Core\Middleware;
 
 use Kaly\Core\HttpContext;
+use Kaly\Http\Csrf\Csrf;
 use Kaly\Http\Exception\InvalidCsrfTokenException;
 use Kaly\Http\Method;
 use Psr\Http\Message\ResponseInterface;

@@ -66,6 +66,7 @@ mode = "perimeter"
 [[guard.perimeter.restrictions]]
 dependency = "Kaly\\Core\\**"
 deny-from = [
+    "Kaly\\Auth\\**",
     "Kaly\\Http\\**",
     "Kaly\\Router\\**",
     "Kaly\\Asset\\**",

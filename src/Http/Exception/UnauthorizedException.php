@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Http\Exception;
 
+use InvalidArgumentException;
+
 /**
  * The request lacks valid authentication credentials.
  *
@@ -14,6 +16,12 @@ final class UnauthorizedException extends HttpException
 {
     public function __construct(string $challenge, string $message = 'Unauthorized')
     {
+        $challenge = trim($challenge);
+
+        if ($challenge === '') {
+            throw new InvalidArgumentException('Challenge must not be empty');
+        }
+
         parent::__construct($message, 401, ['WWW-Authenticate' => $challenge]);
     }
 }

@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- Auth hardening: `authenticate()` and `login()` build permissions before
+  mutating anything, so a failure leaves the previous identity untouched;
+  `PermissionSet` is itself iterable over the granted strings, and `login()`
+  refuses an empty identifier it could never restore. Covered by `AuthTest`,
+  including Fiber isolation of request state.
+- Breaking: `CsrfMiddleware` moves from `Kaly\Http\Csrf` to
+  `Kaly\Core\Middleware` (`Http` cannot depend on `Core`); the `Auth` layer is
+  now locked out of `Core` in the architecture guard.
+- `Authorization` parsing is strict: a single header value (multiples
+  rejected, never merged), token syntax for the scheme, no control characters
+  in Basic credentials, b64token syntax for Bearer. An empty
+  `UnauthorizedException` challenge now throws. Covered by
+  `AuthorizationTest`.
+- Method override lives directly under `Kaly\Http`
+  (`Kaly\Http\MethodOverrideMiddleware`): middleware group by feature, not by
+  pipeline role. Covered by `MethodOverrideTest`, including the
+  override-then-CSRF chain.
 - CSP nonce: `HttpContext::csp()` shares one lazily generated nonce per
   response between templates (reserved `csp` variable, the very same object)
   and the applicative outgoing `Content-Security-Policy` header. Documented

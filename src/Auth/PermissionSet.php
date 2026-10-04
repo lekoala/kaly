@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Kaly\Auth;
 
+use ArrayIterator;
 use BackedEnum;
 use InvalidArgumentException;
+use IteratorAggregate;
+use Traversable;
 
 /**
  * The capabilities attached to the current identity.
@@ -13,8 +16,13 @@ use InvalidArgumentException;
  * A closed set: no mutation, no wildcard, no inheritance, no deny. A template
  * or a guard asks allows()/any()/all(), the application decides how the set
  * is built at authentication time.
+ *
+ * The set is itself iterable over the granted permission strings, so a built
+ * set can be reused wherever permissions are accepted without being rebuilt.
+ *
+ * @implements IteratorAggregate<string>
  */
-final readonly class PermissionSet
+final readonly class PermissionSet implements IteratorAggregate
 {
     /**
      * @var array<string,true>
@@ -31,6 +39,14 @@ final readonly class PermissionSet
             $granted[self::normalize($permission)] = true;
         }
         $this->permissions = $granted;
+    }
+
+    /**
+     * @return Traversable<string>
+     */
+    public function getIterator(): Traversable
+    {
+        return new ArrayIterator(array_keys($this->permissions));
     }
 
     public function allows(string|BackedEnum $permission): bool

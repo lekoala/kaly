@@ -54,12 +54,16 @@ final class Authentication
     /**
      * Establish or replace the identity of the request.
      *
-     * @param iterable<string|BackedEnum> $permissions
+     * Permissions are built before anything is replaced: a failure leaves
+     * the previous identity untouched.
+     *
+     * @param iterable<string|BackedEnum>|PermissionSet $permissions
      */
     public function authenticate(object $principal, iterable $permissions = []): void
     {
+        $set = $permissions instanceof PermissionSet ? $permissions : new PermissionSet($permissions);
         $this->principal = $principal;
-        $this->permissions = new PermissionSet($permissions);
+        $this->permissions = $set;
     }
 
     public function allows(string|BackedEnum $permission): bool

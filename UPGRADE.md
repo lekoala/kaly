@@ -15,6 +15,22 @@ how to migrate.
   try/catch keeps working; code that assumed it always succeeded now gets the
   failure it was missing, typically surfacing as a 500 on login/logout when
   the backend is unusable.
+- `CsrfMiddleware` moved from `Kaly\Http\Csrf` to `Kaly\Core\Middleware`: the
+  integration middleware reads the session through `HttpContext`, which the
+  `Http` layer cannot depend on. Update the import; the constructor and the
+  behavior are unchanged.
+- `MethodOverrideMiddleware` moved from `Kaly\Http\Middleware` to `Kaly\Http`:
+  middleware group by feature, not by pipeline role. Update the import.
+- `SessionAuthentication::login()` refuses an empty identifier instead of
+  authenticating a request it could never restore. Pass a non-empty
+  identifier; `identifier()` already returned `null` for one.
+- `Authorization::from()` returns `null` for multiple header values instead of
+  merging them, and `basic()`/`bearer()` return `null` for syntactically
+  invalid credentials (control characters, non-b64token Bearer). Code that
+  validated those shapes itself keeps working; code that relied on the merged
+  value must read a single header.
+- `UnauthorizedException` rejects an empty challenge instead of emitting an
+  empty `WWW-Authenticate` header. Always pass a real challenge.
 
 ## Honest portable translation subset
 

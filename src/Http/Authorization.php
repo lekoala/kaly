@@ -9,9 +9,11 @@ use Psr\Http\Message\ServerRequestInterface;
 /**
  * The parsed Authorization header of a request.
  *
- * Pure HTTP: the scheme is case-insensitive, Basic credentials are decoded
- * strictly with the username split on the first colon, Bearer stays an opaque
- * token. Validation of the credentials belongs to the application.
+ * Pure HTTP: a single header value (multiples are rejected, never merged),
+ * a case-insensitive scheme in token syntax, Basic credentials decoded
+ * strictly with the username split on the first colon and no control
+ * characters, Bearer as an opaque token in b64token syntax. Validation of
+ * the credentials themselves belongs to the application.
  */
 final readonly class Authorization
 {
@@ -22,13 +24,20 @@ final readonly class Authorization
 
     public static function from(ServerRequestInterface $request): ?self
     {
-        $header = trim($request->getHeaderLine('Authorization'));
+        $values = $request->getHeader('Authorization');
+
+        if (count($values) !== 1) {
+            return null;
+        }
+
+        $header = trim($values[0]);
 
         if ($header === '') {
             return null;
         }
 
         $space = strpos($header, ' ');
+
         if ($space === false) {
             return null;
         }
@@ -36,7 +45,7 @@ final readonly class Authorization
         $scheme = strtolower(trim(substr($header, 0, $space)));
         $credentials = trim(substr($header, $space + 1));
 
-        if ($scheme === '' || $credentials === '') {
+        if ($scheme === '' || $credentials === '' || !self::isToken($scheme)) {
             return null;
         }
 
@@ -64,7 +73,7 @@ final readonly class Authorization
 
         $decoded = base64_decode($this->credentials, true);
 
-        if ($decoded === false) {
+        if ($decoded === false || preg_match('/[\x00-\x1F\x7F]/', $decoded) === 1) {
             return null;
         }
 
@@ -86,6 +95,15 @@ final readonly class Authorization
             return null;
         }
 
+        if (preg_match('#^[A-Za-z0-9\-._~+/]+={0,2}$#', $this->credentials) !== 1) {
+            return null;
+        }
+
         return $this->credentials;
+    }
+
+    private static function isToken(string $value): bool
+    {
+        return preg_match('/^[!#$%&\'*+\-.^_`|~0-9A-Za-z]+$/', $value) === 1;
     }
 }

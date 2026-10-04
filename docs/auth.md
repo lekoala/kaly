@@ -142,6 +142,56 @@ if (!$ctx->auth()->allows(Permission::AdminAccess)) {
 Kaly ships no `RequireAuthenticated`: eight lines of application middleware
 express redirect-vs-401 better than any configuration.
 
+## Access policy recipe
+
+Three layers, three owners:
+
+```text
+Authentication      = who is here + capabilities
+Application guard   = HTTP access policy
+Use case / domain   = business rule on the resource
+```
+
+`Authentication` stays a state-and-reading primitive: it never decides what
+an anonymous request deserves. That policy lives in an application guard,
+where "what if anonymous?" has exactly one answer per app — a web app
+redirects, an API throws a Bearer 401, another app may answer otherwise:
+
+```php
+final class AdminGuard
+{
+    public function __construct(
+        private HttpContext $ctx,
+    ) {}
+
+    public function check(): void
+    {
+        $auth = $this->ctx->auth();
+
+        if (!$auth->isAuthenticated()) {
+            throw new RedirectException(
+                $this->ctx->url('admin:login'),
+            );
+        }
+
+        if (!$auth->allows(Permission::AdminAccess)) {
+            throw new ForbiddenException();
+        }
+    }
+}
+```
+
+The middleware then stays almost declarative:
+
+```php
+$this->guard->check();
+
+return $handler->handle($request);
+```
+
+Kaly will not grow `denyAccessUnlessGranted()` and family: the guard you can
+read is the whole abstraction.
+
 A login controller validates credentials through the application, then
 delegates the lifecycle and redirects (303):
 

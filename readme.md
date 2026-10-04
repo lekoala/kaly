@@ -19,7 +19,10 @@ Kaly is an opinionated but lightweight application framework built on PHP standa
 - **Multilingual support:** built-in locale detection.
 - **Renderer agnostic:** Latte (recommended), [kaly-tpl](https://github.com/lekoala/kaly-tpl) (lightweight native PHP) or Twig, through tiny adapters.
 - **No database, no ORM, no forms:** Kaly stays a small HTTP framework.
-- **No auth/CSRF/rate-limit bundled:** provide your own PSR-15 middleware.
+- **Auth and browser security bundled:** request identity with permissions,
+  session login, CSRF, CSP nonces and method override (see
+  [docs/auth.md](docs/auth.md) and [docs/security.md](docs/security.md)).
+- **No rate-limit bundled:** provide your own PSR-15 middleware.
 
 ## Stability
 
