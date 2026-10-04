@@ -16,6 +16,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use RuntimeException;
 
 /**
  * WorkerTest proves sequential isolation (A finishes, then B, then C).
@@ -224,6 +225,57 @@ class ConcurrentRequestTest extends TestCase
 
         $this->assertSame('fr', (string) $responses['A']->getBody());
         $this->assertSame('hello', (string) $responses['B']->getBody());
+    }
+
+    public function testFailedCycleDoesNotAffectConcurrentOrLaterRequests(): void
+    {
+        $this->app
+            ->middleware()
+            ->routed(new class implements MiddlewareInterface {
+                public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+                {
+                    $ctx = HttpContext::from($request);
+                    $label = $request->getHeaderLine('X-Probe');
+                    $ctx->useSession(new ArraySession());
+                    $ctx->session()->set('owner', $label);
+                    $ctx->cookies()->set('request', $label);
+                    if (Fiber::getCurrent() !== null) {
+                        Fiber::suspend();
+                    }
+                    if ($label === 'A') {
+                        throw new RuntimeException('Failed request A');
+                    }
+                    return $handler->handle($request);
+                }
+            });
+        $this->app->onError(static function (): void {
+            throw new RuntimeException('Failed error hook');
+        });
+        $contexts = [];
+        $this->app->onTerminate(static function (HttpContext $ctx) use (&$contexts): void {
+            $contexts[$ctx->request()->getHeaderLine('X-Probe')] = $ctx;
+        });
+
+        $responses = $this->interleave($this->requestA(), $this->requestB());
+        $later = $this->app->handle($this->requestB()->withHeader('X-Probe', 'C'));
+
+        $this->assertSame(500, $responses['A']->getStatusCode());
+        $this->assertSame(200, $responses['B']->getStatusCode());
+        $this->assertSame('hello', (string) $responses['B']->getBody());
+        $this->assertSame(200, $later->getStatusCode());
+        $this->assertSame('hello', (string) $later->getBody());
+        foreach (['A', 'B', 'C'] as $label) {
+            $ctx = $contexts[$label];
+            $this->assertSame($label, $ctx->session()->get('owner'));
+            $cookies = $ctx->response()->getHeaderLine('Set-Cookie');
+            $this->assertStringContainsString('request=' . $label . ';', $cookies);
+            foreach (array_diff(['A', 'B', 'C'], [$label]) as $other) {
+                $this->assertStringNotContainsString('request=' . $other . ';', $cookies);
+            }
+            $this->assertCount($label === 'A' ? 1 : 0, $ctx->callbackErrors());
+        }
+        $this->assertNotSame($contexts['A'], $contexts['B']);
+        $this->assertNotSame($contexts['B'], $contexts['C']);
     }
 
     public function testCookiesStayIsolatedAcrossFibers(): void

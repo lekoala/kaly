@@ -60,24 +60,6 @@ final class OutgoingRunner
         $this->registry = $registry ?? new Registry();
     }
 
-    public function getRegistry(): Registry
-    {
-        return $this->registry;
-    }
-
-    /**
-     * Register an outgoing middleware in the shared configuration
-     *
-     * @param class-string|OutgoingInterface $middleware
-     * @param Closure|null $when Receives the current response, the context and the container; returning false skips the middleware
-     */
-    public function add(string|OutgoingInterface|Closure $middleware, int $priority = 0, ?Closure $when = null, bool $always = false): self
-    {
-        $this->registry->outgoing($middleware, $priority, $when, $always);
-
-        return $this;
-    }
-
     /**
      * @param class-string|MiddlewareInterface|OutgoingInterface $middleware
      */

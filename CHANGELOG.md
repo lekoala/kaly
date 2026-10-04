@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Remove the unused `psr/simple-cache` dependency; Kaly does not require a cache.
+- Request middleware bands now retain their ordered entries across Fiber
+  suspensions, so registry changes cannot skip or repeat steps already in flight.
+- Breaking: remove unused `Runner::getRegistry()`/`getBand()` and
+  `OutgoingRunner::getRegistry()`/`add()`; configure outgoing middleware through
+  `Registry::outgoing()`. Runner recursion is now private and the internal
+  `RunNextHandler` class is removed, reusing the existing callable adapter.
+
 - Add `Json::pretty()` for indented JSON with unescaped slashes and Unicode.
 
 - Breaking: `Json::decodeMap()` and `decodeMapRelaxed()` now return

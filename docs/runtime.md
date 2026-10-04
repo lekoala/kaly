@@ -39,6 +39,13 @@ interleaved cycles on one booted app, each keeps its route, locale, cookies,
 session, middleware trace and response — through the same shared middleware
 instance).
 
+Each request band snapshots its ordered middleware entries when entered. A
+registry change affects later band entries, including later requests, but cannot
+change the remaining steps of a band already running or suspended in a Fiber.
+Configure middleware before serving requests so the whole application pipeline
+stays consistent across cycles. Conditions still evaluate against the current
+request context at each step.
+
 ## No cache, a worker instead
 
 A persistent cache of routes, modules or definitions is a second source of truth:

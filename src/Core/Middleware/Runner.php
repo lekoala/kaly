@@ -47,16 +47,6 @@ final class Runner implements RequestHandlerInterface
         $this->registry = $registry ?? new Registry();
     }
 
-    public function getRegistry(): Registry
-    {
-        return $this->registry;
-    }
-
-    public function getBand(): Band
-    {
-        return $this->band;
-    }
-
     /**
      * Register a request middleware in the band of this runner.
      *
@@ -157,21 +147,21 @@ final class Runner implements RequestHandlerInterface
         // We start processing at the first middleware (index 0).
         // If the band is empty, the final handler is called directly.
         // The request argument is authoritative: processNext() rebinds it.
-        return $this->processNext($request, 0, $ctx);
+        return $this->processNext($request, 0, $this->registry->band($this->band), $ctx);
     }
 
     /**
      * This is the core recursive method.
      * It processes the middleware at the given index.
+     *
+     * @param list<Entry> $entries Snapshot for this band execution, kept across suspensions
      */
-    public function processNext(ServerRequestInterface $request, int $index, ?HttpContext $ctx = null): ResponseInterface
+    private function processNext(ServerRequestInterface $request, int $index, array $entries, HttpContext $ctx): ResponseInterface
     {
         // Always reattach our context: a third party middleware is free to
         // hand over a brand new request object, the cycle must survive it.
-        $ctx ??= HttpContext::tryFrom($request) ?? new HttpContext($request);
         $request = $ctx->bind($request);
 
-        $entries = $this->registry->band($this->band);
         $count = count($entries);
 
         // Walk past the entries whose condition is false. A skipped middleware
@@ -194,7 +184,9 @@ final class Runner implements RequestHandlerInterface
         // PSR-15 middleware: the nested model. The next handler represents
         // the rest of the band: before/after, local state, catch and finally
         // all compose naturally around $handler->handle().
-        $nextHandler = new RunNextHandler($this, $index + 1, $ctx);
+        $nextHandler = new CallableToHandlerAdapter(
+            fn(ServerRequestInterface $nextRequest): ResponseInterface => $this->processNext($nextRequest, $index + 1, $entries, $ctx),
+        );
         return $middleware->process($request, $nextHandler);
     }
 }

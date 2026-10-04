@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use Fiber;
 use Kaly\Core\HttpContext;
 use Kaly\Core\Middleware\Band;
 use Kaly\Core\Middleware\OutgoingInterface;
@@ -21,6 +22,34 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class RegistryTest extends TestCase
 {
+    public function testRunningBandKeepsItsEntriesAcrossRegistryChanges(): void
+    {
+        $log = [];
+        $registry = new Registry();
+        $registry->incoming(new class implements MiddlewareInterface {
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+            {
+                Fiber::suspend();
+                return $handler->handle($request);
+            }
+        });
+        $registry->incoming($this->tracer('original', $log));
+        $runner = new Runner(static fn(): ResponseInterface => new Response(200), null, $registry);
+        $fiber = new Fiber(static fn(): ResponseInterface => $runner->handle(new ServerRequest('GET', '/first')));
+        $fiber->start();
+
+        $registry->clear(Band::Incoming)->incoming($this->tracer('replacement', $log));
+        $next = $runner->handle(new ServerRequest('GET', '/next'));
+        $fiber->resume();
+
+        $this->assertTrue($fiber->isTerminated());
+        $this->assertSame(['replacement', 'original'], $log);
+        $this->assertSame(200, $next->getStatusCode());
+        $first = $fiber->getReturn();
+        assert($first instanceof ResponseInterface);
+        $this->assertSame(200, $first->getStatusCode());
+    }
+
     /**
      * @param array<string>|null $log
      */
