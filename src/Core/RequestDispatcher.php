@@ -10,6 +10,8 @@ use Kaly\Auth\AuthView;
 use Kaly\Di\Injector;
 use Kaly\Ex;
 use Kaly\Http\ContentType;
+use Kaly\Http\Csrf\Csrf;
+use Kaly\Http\Csrf\CsrfView;
 use Kaly\Http\Input\InputMapperInterface;
 use Kaly\Http\Input\RequestInput;
 use Kaly\Http\JsonResult;
@@ -45,6 +47,8 @@ final class RequestDispatcher implements RequestHandlerInterface
     public const VAR_ASSET = 'asset';
     // Reserved render variable observing the request authentication
     public const VAR_AUTH = 'auth';
+    // Reserved render variable exposing the CSRF token
+    public const VAR_CSRF = 'csrf';
 
     /**
      * Constructor parameters carrying the current cycle, by name, to avoid
@@ -64,10 +68,12 @@ final class RequestDispatcher implements RequestHandlerInterface
         protected ?RendererInterface $renderer = null,
         protected ?InputMapperInterface $inputMapper = null,
         protected ?AssetsInterface $assets = null,
+        protected ?Csrf $csrf = null,
     ) {
         // `asset` always exists, like `url` and `i18n`: without an explicit
         // binding the call itself explains what is missing.
         $this->assets ??= new NullAssets();
+        $this->csrf ??= new Csrf();
     }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -231,6 +237,7 @@ final class RequestDispatcher implements RequestHandlerInterface
                 self::VAR_URL => $ctx->url(...),
                 self::VAR_ASSET => $assets->url(...),
                 self::VAR_AUTH => new AuthView($ctx->auth()),
+                self::VAR_CSRF => new CsrfView($this->csrf ?? new Csrf(), $ctx->session(...)),
             ];
             return $this->createResponse($this->renderer->render($result->template, $data), ContentType::HTML, $result->status);
         }
