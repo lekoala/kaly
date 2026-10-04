@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Auth fixes: `PermissionSet` iteration casts numeric keys back to strings so
+  a rebuilt set sees the same strings; Bearer accepts the full b64token
+  padding (`=*`); the `AdminGuard` recipe keeps the guard stateless and takes
+  `HttpContext` at the call, since context injection only works for
+  controllers. Covered by `RequestIsolationTest`: two interleaved cycles on
+  one App keep their identity, CSRF secret and CSP nonce down to the rendered
+  template and the outgoing header.
 - Auth hardening: `authenticate()` and `login()` build permissions before
   mutating anything, so a failure leaves the previous identity untouched;
   `PermissionSet` is itself iterable over the granted strings, and `login()`

@@ -128,6 +128,14 @@ class AuthTest extends TestCase
         $this->assertSame(['b.read', 'b.write'], [...$set]);
     }
 
+    public function testNumericPermissionsSurviveIteration(): void
+    {
+        $set = new PermissionSet(new PermissionSet(['42']));
+
+        $this->assertTrue($set->allows('42'));
+        $this->assertSame(['42'], [...$set]);
+    }
+
     public function testLoginStoresIdentifierAndAuthenticates(): void
     {
         $session = new ArraySession();

@@ -160,17 +160,13 @@ redirects, an API throws a Bearer 401, another app may answer otherwise:
 ```php
 final class AdminGuard
 {
-    public function __construct(
-        private HttpContext $ctx,
-    ) {}
-
-    public function check(): void
+    public function check(HttpContext $ctx): void
     {
-        $auth = $this->ctx->auth();
+        $auth = $ctx->auth();
 
         if (!$auth->isAuthenticated()) {
             throw new RedirectException(
-                $this->ctx->url('admin:login'),
+                $ctx->url('admin:login'),
             );
         }
 
@@ -181,10 +177,12 @@ final class AdminGuard
 }
 ```
 
-The middleware then stays almost declarative:
+The guard stays stateless — the request context is special to controllers
+and must never be captured in a shared service, where it would go stale
+across requests. The middleware then stays almost declarative:
 
 ```php
-$this->guard->check();
+$this->guard->check(HttpContext::from($request));
 
 return $handler->handle($request);
 ```

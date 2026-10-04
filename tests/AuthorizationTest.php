@@ -89,6 +89,11 @@ class AuthorizationTest extends TestCase
 
         $this->assertNull(Authorization::from($this->request('Bearer not a token!'))?->bearer());
         $this->assertNull(Authorization::from($this->request('Bearer ***'))?->bearer());
+
+        $padded = Authorization::from($this->request('Bearer abc==='));
+
+        $this->assertNotNull($padded);
+        $this->assertSame('abc===', $padded->bearer());
     }
 
     public function testUnknownSchemeKeepsTheObject(): void

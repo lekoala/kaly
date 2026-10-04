@@ -46,7 +46,9 @@ final readonly class PermissionSet implements IteratorAggregate
      */
     public function getIterator(): Traversable
     {
-        return new ArrayIterator(array_keys($this->permissions));
+        // PHP casts numeric strings to int keys: cast back so a rebuilt
+        // set sees the same strings it was given.
+        return new ArrayIterator(array_map('strval', array_keys($this->permissions)));
     }
 
     public function allows(string|BackedEnum $permission): bool

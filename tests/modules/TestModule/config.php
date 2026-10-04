@@ -17,6 +17,7 @@ use Kaly\View\RendererInterface;
 use TestModule\Controller\AliasController;
 use TestModule\Controller\GuardedController;
 use TestModule\Controller\ShopController;
+use TestModule\Controller\WhoamiController;
 
 $value_is_not_leaked = 'test';
 
@@ -43,6 +44,7 @@ return static function (Module $module, Definitions $di): void {
         $routes->post('/alias/save', [AliasController::class, 'savePost'])->name('alias.save');
         $routes->get('/alias/priority', [AliasController::class, 'priority'])->name('alias.priority-low');
         $routes->get('/alias/priority', [AliasController::class, 'priority'])->name('alias.priority-high')->priority(100);
+        $routes->get('/whoami', [WhoamiController::class, 'index'])->name('whoami');
 
         // Route middlewares are enforced by the framework
         $routes

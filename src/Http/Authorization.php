@@ -95,7 +95,7 @@ final readonly class Authorization
             return null;
         }
 
-        if (preg_match('#^[A-Za-z0-9\-._~+/]+={0,2}$#', $this->credentials) !== 1) {
+        if (preg_match('#^[A-Za-z0-9\-._~+/]+=*$#', $this->credentials) !== 1) {
             return null;
         }
 
