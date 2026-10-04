@@ -10,6 +10,7 @@ use InvalidArgumentException;
 use Kaly\Di\Definitions;
 use Kaly\Ex;
 use Kaly\Router\ResolverInterface;
+use Kaly\Router\RouteMiddlewares;
 use Kaly\Router\RoutePath;
 use Kaly\Router\Routes;
 use Kaly\Router\RouteScope;
@@ -74,6 +75,10 @@ final class Module implements RouteScope
      * @var list<array{prefix:array<string,string>,routes:RoutesDeclaration}>
      */
     private array $claims = [];
+    /**
+     * @var list<class-string>
+     */
+    private array $middlewares = [];
     private Definitions $definitions;
     /**
      * @var list<Closure(Definitions): void>
@@ -220,6 +225,22 @@ final class Module implements RouteScope
     }
 
     /**
+     * Run these middlewares around every route resolved by this module,
+     * including its claims: outermost first, each middleware once.
+     *
+     * @param class-string ...$middlewares
+     */
+    public function middleware(string ...$middlewares): self
+    {
+        $this->assertNotFrozen();
+        $this->middlewares = RouteMiddlewares::merge(
+            $this->middlewares,
+            RouteMiddlewares::normalize(array_values($middlewares), "module '{$this->name}'"),
+        );
+        return $this;
+    }
+
+    /**
      * Adapt to the other modules: the callback receives the merged definitions
      * of every module, once they are all loaded.
      *
@@ -301,6 +322,14 @@ final class Module implements RouteScope
     public function claims(): array
     {
         return $this->claims;
+    }
+
+    /**
+     * @return list<class-string>
+     */
+    public function middlewares(): array
+    {
+        return $this->middlewares;
     }
 
     /**

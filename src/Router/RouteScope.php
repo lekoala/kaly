@@ -56,4 +56,12 @@ interface RouteScope
      * @return list<array{prefix:array<string,string>,routes:RoutesDeclaration}>
      */
     public function claims(): array;
+
+    /**
+     * The middlewares every route resolved by this scope carries, outermost
+     * first. A scope without middleware returns an empty list.
+     *
+     * @return list<class-string>
+     */
+    public function middlewares(): array;
 }

@@ -6,6 +6,7 @@ namespace Kaly\Core;
 
 use Kaly\Asset\AssetsInterface;
 use Kaly\Asset\NullAssets;
+use Kaly\Auth\AuthView;
 use Kaly\Di\Injector;
 use Kaly\Ex;
 use Kaly\Http\ContentType;
@@ -42,6 +43,8 @@ final class RequestDispatcher implements RequestHandlerInterface
     public const VAR_URL = 'url';
     // Reserved render variable generating asset urls
     public const VAR_ASSET = 'asset';
+    // Reserved render variable observing the request authentication
+    public const VAR_AUTH = 'auth';
 
     /**
      * Constructor parameters carrying the current cycle, by name, to avoid
@@ -227,6 +230,7 @@ final class RequestDispatcher implements RequestHandlerInterface
                 self::VAR_I18N => new LocalizedTranslator($this->translator, $ctx->locale()),
                 self::VAR_URL => $ctx->url(...),
                 self::VAR_ASSET => $assets->url(...),
+                self::VAR_AUTH => new AuthView($ctx->auth()),
             ];
             return $this->createResponse($this->renderer->render($result->template, $data), ContentType::HTML, $result->status);
         }

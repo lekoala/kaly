@@ -174,6 +174,11 @@ final class Router implements RouterInterface
                 continue;
             }
             if ($route !== null) {
+                $scopeMiddlewares = $this->modules[$id]->middlewares();
+                if ($scopeMiddlewares !== []) {
+                    return $route->withMiddlewares(RouteMiddlewares::merge($scopeMiddlewares, $route->middlewares));
+                }
+
                 return $route;
             }
         }

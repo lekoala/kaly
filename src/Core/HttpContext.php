@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Core;
 
+use Kaly\Auth\Authentication;
 use Kaly\Http\Cookie\CookiePolicy;
 use Kaly\Http\Cookie\Cookies;
 use Kaly\Http\RequestUtils;
@@ -47,6 +48,8 @@ final class HttpContext
     private ?SessionInterface $session = null;
 
     private ?Cookies $cookies = null;
+
+    private ?Authentication $auth = null;
 
     /**
      * Middlewares that actually entered the stack, in execution order.
@@ -268,6 +271,15 @@ final class HttpContext
     public function cookies(): Cookies
     {
         return $this->cookies ??= new Cookies($this->request, $this->cookiePolicy());
+    }
+
+    /**
+     * The identity established for this request. The context owns it, so the
+     * same instance is shared for the whole cycle.
+     */
+    public function auth(): Authentication
+    {
+        return $this->auth ??= new Authentication();
     }
 
     /**

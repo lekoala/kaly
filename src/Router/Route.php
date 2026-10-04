@@ -37,6 +37,24 @@ final readonly class Route
     ) {}
 
     /**
+     * @param list<class-string> $middlewares
+     */
+    public function withMiddlewares(array $middlewares): self
+    {
+        return new self(
+            controller: $this->controller,
+            action: $this->action,
+            params: $this->params,
+            bindings: $this->bindings,
+            name: $this->name,
+            middlewares: $middlewares,
+            inputClass: $this->inputClass,
+            locale: $this->locale,
+            module: $this->module,
+        );
+    }
+
+    /**
      * The module namespace of a controller: what comes before its
      * `\Controller\` part (Shop\Controller\CartController gives Shop).
      */

@@ -185,12 +185,14 @@ final class NativePhpSession implements CookieSessionInterface
     {
         $this->ensureStarted();
         try {
-            if (session_regenerate_id(true)) {
-                $this->sessionId = session_id() ?: null;
-            }
+            $rotated = session_regenerate_id(true);
         } catch (Throwable $e) {
             throw new Ex('Failed to regenerate session id', 0, $e);
         }
+        if (!$rotated) {
+            throw new Ex('Failed to regenerate session id');
+        }
+        $this->sessionId = session_id() ?: null;
     }
 
     public function destroy(): void
