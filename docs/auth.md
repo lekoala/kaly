@@ -227,6 +227,12 @@ public function post(LoginInput $input): never
 }
 ```
 
+When the password is only the first step, the login branches into a
+pending challenge instead of calling `login()` right away: the session
+stays anonymous until every requirement is satisfied. That flow —
+including the anonymous-session, cleanup, anti-replay and enrollment
+rules — lives under [Second factors](two-factor.md).
+
 ## Module middleware
 
 Identification and protection compose through the module topology. A module
