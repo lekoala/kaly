@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use ArrayObject;
+use DateTime;
+use DateTimeImmutable;
+use DateTimeInterface;
 use Kaly\Util\Types;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 
 class TypesTest extends TestCase
 {
@@ -51,5 +56,30 @@ class TypesTest extends TestCase
         $this->assertSame([], Types::mapOrEmpty(['0' => 'x']));
         $this->assertSame([], Types::mapOrEmpty('foo'));
         $this->assertSame([], Types::mapOrEmpty(null));
+    }
+
+    public function testInstancesOfFiltersAndReindexesWithoutChangingObjects(): void
+    {
+        $first = new stdClass();
+        $subclass = new class extends stdClass {};
+        $this->assertSame(
+            [$first, $subclass, $first],
+            Types::instancesOf([null, $first, 'stdClass', new ArrayObject(), $subclass, 42, $first], stdClass::class),
+        );
+    }
+
+    public function testInstancesOfAcceptsInterfaces(): void
+    {
+        $mutable = new DateTime('2026-01-01');
+        $immutable = new DateTimeImmutable('2026-01-02');
+        $this->assertSame([$mutable, $immutable], Types::instancesOf([$mutable, false, $immutable], DateTimeInterface::class));
+    }
+
+    public function testInstancesOfReturnsEmptyForNonListsOrNoMatches(): void
+    {
+        $object = new stdClass();
+        foreach ([null, 'value', $object, new ArrayObject([$object]), ['item' => $object], [1 => $object], [], [false, 42]] as $value) {
+            $this->assertSame([], Types::instancesOf($value, stdClass::class));
+        }
     }
 }

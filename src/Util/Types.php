@@ -36,6 +36,25 @@ final class Types
         return is_array($value) && array_is_list($value) ? $value : [];
     }
 
+    /**
+     * Keep instances of a class or interface from a list, preserving order.
+     * Non-list inputs return an empty list; matching subclasses are accepted.
+     *
+     * @template T of object
+     * @param class-string<T> $type
+     * @return list<T>
+     */
+    public static function instancesOf(mixed $value, string $type): array
+    {
+        $result = [];
+        foreach (self::listOrEmpty($value) as $item) {
+            if ($item instanceof $type) {
+                $result[] = $item;
+            }
+        }
+        return $result;
+    }
+
     /** @return array<string, mixed> */
     public static function mapOrEmpty(mixed $value): array
     {

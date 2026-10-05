@@ -3,6 +3,10 @@
 
 ### Added
 
+- `Types::instancesOf($value, $type)` narrows a mixed list to instances of a
+  class or interface, including subclasses, preserving object identity and
+  order while reindexing. Non-list inputs return an empty list.
+
 - Application error views through `Kaly\Core\ErrorViewInterface`, rendered by
   `ViewResponder` with the same request helpers as controller views. Bind the
   interface to select templates for production HTML errors; returning `null`
