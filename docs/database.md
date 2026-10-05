@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Persistence
-nav_order: 17
+nav_order: 18
 ---
 # Persistence
 
@@ -166,6 +166,10 @@ Application:    application ports only, no Doctrine / Cycle / PDO
 Infrastructure: implements ports with any backend (PDO, DBAL, ORM, Cycle)
 Controller:     no EntityManager / Connection / PDO
 ```
+
+These are the [application structure](application-structure.md) rules applied to
+persistence: the domain and application layers see ports, the infrastructure layer
+sees the backend.
 
 ## Non-goals
 

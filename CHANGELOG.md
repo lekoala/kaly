@@ -64,6 +64,10 @@
     `Kaly\Core\LocalizedExceptionHandler` when the request locale is
     available.
 
+- Documentation: [Building a Kaly application](docs/application-structure.md)
+  describes the recommended module layout, a Mago Guard profile for the layer
+  boundaries, the three integration seams, and the domain-error to HTTP mapping.
+
 ### Changed
 
 - **Breaking:** validation is structured. `ValidatableInput::validate()` takes

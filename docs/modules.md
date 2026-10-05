@@ -71,7 +71,9 @@ Admin/Order/OrderManagementService.php
 Api/Order/OrderController.php
 ```
 
-Nothing enforces this: module dependencies are a convention, not a constraint.
+Nothing enforces this by default: module dependencies are a convention, not a
+constraint. When an application wants the boundaries checked, [Building a Kaly
+application](application-structure.md) provides a Mago Guard profile.
 
 ## config.php
 
