@@ -12,6 +12,9 @@ use Kaly\Http\Accept;
 use Kaly\Http\ExceptionHandler;
 use Kaly\Tests\Support\HttpFactory;
 use Kaly\Util\Json;
+use Kaly\Validation\HasValidationResult;
+use Kaly\Validation\ValidationResult;
+use Kaly\Validation\Validator;
 use Nyholm\Psr7\ServerRequest;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -168,6 +171,27 @@ class ErrorResponseTest extends TestCase
         $response = $handler->toResponse(new \RuntimeException('storage failed', 404));
 
         $this->assertSame(500, $response->getStatusCode(), 'a stray code must never become a status');
+    }
+
+    public function testANonHttpResultCarrierLeaksNothing(): void
+    {
+        $psr17 = new \Nyholm\Psr7\Factory\Psr17Factory();
+        $handler = new ExceptionHandler($psr17, $psr17);
+        $failure = new class('internal state') extends \RuntimeException implements HasValidationResult {
+            public function validation(): ValidationResult
+            {
+                $validator = new Validator();
+                $validator->notBlank('secret', '');
+                return $validator->result();
+            }
+        };
+
+        $request = new ServerRequest('GET', '/', ['Accept' => 'application/json']);
+        $response = $handler->toResponse($failure, $request);
+
+        $this->assertSame(500, $response->getStatusCode());
+        $problem = Json::decodeMap((string) $response->getBody());
+        $this->assertSame(['type' => 'about:blank', 'title' => 'Internal Server Error', 'status' => 500], $problem);
     }
 
     public function testAFailingConfigNamesItsModule(): void

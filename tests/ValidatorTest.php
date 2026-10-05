@@ -83,7 +83,12 @@ class ValidatorTest extends TestCase
         $this->assertCount(1, $result->for('low'));
         $this->assertCount(1, $result->for('high'));
         $this->assertSame('between', $result->for('low')[0]->code);
+        $this->assertSame('between', $result->for('low')[0]->messageId);
+        // One-sided bounds get their own message id so each catalog entry only
+        // uses the placeholders it receives; the machine code stays between
+        $this->assertSame('between_min', $result->for('at_least')[0]->messageId);
         $this->assertSame(['%min%' => 2], $result->for('at_least')[0]->parameters);
+        $this->assertSame('between_max', $result->for('at_most')[0]->messageId);
         $this->assertSame(['%max%' => 2], $result->for('at_most')[0]->parameters);
     }
 
@@ -114,6 +119,20 @@ class ValidatorTest extends TestCase
         $this->assertSame('count_min', $validator->result()->for('few')[0]->code);
         $this->assertSame('count_max', $validator->result()->for('many')[0]->code);
         $this->assertSame([], $validator->result()->for('ok'));
+    }
+
+    public function testLengthCountsUtf8CodePointsWhateverTheInternalEncoding(): void
+    {
+        $previous = mb_internal_encoding();
+        mb_internal_encoding('ISO-8859-1');
+        try {
+            $validator = new Validator();
+            $validator->length('x', 'é', max: 1);
+
+            $this->assertTrue($validator->result()->isValid());
+        } finally {
+            mb_internal_encoding($previous);
+        }
     }
 
     public function testNullIsIgnoredAndBelongsToTheType(): void

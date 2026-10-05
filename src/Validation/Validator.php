@@ -60,7 +60,7 @@ final class Validator
             return $this;
         }
         $this->guardBounds($min, $max);
-        $length = mb_strlen($value);
+        $length = mb_strlen($value, 'UTF-8');
         if ($min !== null && $max !== null) {
             if ($length < $min || $length > $max) {
                 $this->add(new Violation(
@@ -112,10 +112,10 @@ final class Validator
             return $this;
         }
         if ($min !== null && $value < $min) {
-            $this->add(new Violation($field, 'between', 'between', "This value must be at least {$min}", ['%min%' => $min]));
+            $this->add(new Violation($field, 'between', 'between_min', "This value must be at least {$min}", ['%min%' => $min]));
         }
         if ($max !== null && $value > $max) {
-            $this->add(new Violation($field, 'between', 'between', "This value must be at most {$max}", ['%max%' => $max]));
+            $this->add(new Violation($field, 'between', 'between_max', "This value must be at most {$max}", ['%max%' => $max]));
         }
         return $this;
     }

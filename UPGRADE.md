@@ -28,9 +28,9 @@ how to migrate.
   internals now accumulate violations instead of throwing `InputException`.
 - `InputException` (400) and `ValidationException` (422) are built from a
   `ValidationResult` and expose it through `HasValidationResult`; their public
-  body is the first violation message. `withValidation()` rebuilds either one
-  with a translated result. Both constructors changed: pass a result instead of
-  a string.
+  body is the first violation message. Only these HTTP failures expose their
+  errors: any other exception carrying a result stays a silent 500. Both
+  constructors changed: pass a result instead of a string.
 - JSON errors are a list: `problem+json` carries
   `errors: [{field, code, message}]` (`field: null` for global errors) with no
   `detail` when errors exist. `messageId`, `domain` and `parameters` are never

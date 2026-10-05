@@ -102,8 +102,12 @@ final class ExceptionHandler implements ExceptionHandlerInterface
             'status' => $response->getStatusCode(),
         ];
         // Structured validation errors replace the free-form detail: a single
-        // detail could never say which error it summarizes.
-        $errors = $exception instanceof HasValidationResult ? $exception->validation()->violations() : [];
+        // detail could never say which error it summarizes. Only an HTTP
+        // failure exposes them: anything else is a 500 that leaks nothing.
+        $errors =
+            $exception instanceof HttpExceptionInterface && $exception instanceof HasValidationResult
+                ? $exception->validation()->violations()
+                : [];
         if ($errors !== []) {
             $problem['errors'] = array_map(static fn(Violation $violation): array => [
                 'field' => $violation->field,
