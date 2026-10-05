@@ -293,81 +293,77 @@ are expected outcomes.
 
 ## Custom HTML error pages
 
-An application 404 belongs to error handling, never to routing. Returning a catch-all
-`View` from a resolver or a dedicated `404Controller` fights the router, which is
-supposed to fail with `RouteNotFoundException` when nothing knows the url.
+An application 404 belongs to error handling. Let routing fail normally instead
+of adding a catch-all route, `FallbackResolver` or dedicated `404Controller`.
 
-`Kaly\Http\ExceptionHandlerInterface` is the boundary `Throwable -> ResponseInterface`:
-decorate it, let the Kaly handler decide the status, headers and body, then swap only
-the HTML body for a rendered template.
+Bind `Kaly\Core\ErrorViewInterface` to select production error templates:
 
 ```php
 namespace App\Http;
 
-use Kaly\Http\Accept;
-use Kaly\Http\ExceptionHandlerInterface;
-use Kaly\View\RendererInterface;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\StreamFactoryInterface;
+use Kaly\Core\ErrorViewInterface;
+use Kaly\Core\HttpContext;
+use Kaly\View\View;
 use Throwable;
 
-final class ErrorPageHandler implements ExceptionHandlerInterface
+final class SiteErrorView implements ErrorViewInterface
 {
-    public function __construct(
-        private readonly ExceptionHandlerInterface $next,
-        private readonly RendererInterface $renderer,
-        private readonly StreamFactoryInterface $streams,
-    ) {
-    }
-
-    public function toResponse(Throwable $exception, ?ServerRequestInterface $request = null): ResponseInterface
+    public function view(Throwable $exception, HttpContext $ctx, int $status): ?View
     {
-        $response = $this->next->toResponse($exception, $request);
-
-        // JSON clients keep the problem document; redirects and other
-        // non-error responses (3xx) keep their empty body.
-        if ($request === null || $response->getStatusCode() < 400 || Accept::prefersJson($request)) {
-            return $response;
-        }
-
-        $html = $this->renderer->render('@app/errors/' . $response->getStatusCode(), [
-            'status' => $response->getStatusCode(),
-        ]);
-
-        return $response
-            ->withHeader('Content-Type', 'text/html; charset=utf-8')
-            ->withBody($this->streams->createStream($html));
+        return match ($status) {
+            404 => View::of('@app/errors/404', ['status' => $status]),
+            500 => View::of('@app/errors/500', ['status' => $status]),
+            default => null,
+        };
     }
 }
 ```
 
-Bind it as a decorator, wiring the inner handler explicitly (an autowired
-`ExceptionHandlerInterface` would resolve to the decorator itself):
+Register it in module configuration or application configuration:
 
 ```php
-use App\Http\ErrorPageHandler;
-use Kaly\Core\LocalizedExceptionHandler;
+use App\Http\SiteErrorView;
+use Kaly\Core\ErrorViewInterface;
 use Kaly\Di\Definitions;
-use Kaly\Http\ExceptionHandlerInterface;
-use Kaly\View\RendererInterface;
-use Psr\Container\ContainerInterface;
-use Psr\Http\Message\StreamFactoryInterface;
 
-$app->configure(function (Definitions $di): void {
-    $di->set(ErrorPageHandler::class, static fn (ContainerInterface $c): ErrorPageHandler => new ErrorPageHandler(
-        $c->get(LocalizedExceptionHandler::class),
-        $c->get(RendererInterface::class),
-        $c->get(StreamFactoryInterface::class),
-    ));
-    $di->rebind(ExceptionHandlerInterface::class, ErrorPageHandler::class);
+$app->configure(static function (Definitions $di): void {
+    $di->bind(ErrorViewInterface::class, SiteErrorView::class);
 });
 ```
 
-Wrap `Kaly\Core\LocalizedExceptionHandler` to keep translated bodies, or
-`Kaly\Http\ExceptionHandler` to drop them. Render the locale from the request to keep
-error pages translated: the decorator runs after routing, so a locale is already
-resolved when there is one.
+`null` keeps Kaly's standard error response. The view's status cannot change the
+error status; Kaly preserves the exception's status and headers. There is no
+implicit error-template naming convention: the application chooses its module,
+templates and renderer.
+
+Error views pass through `Kaly\Core\ViewResponder`, just like controller views.
+They receive `i18n`, `url`, `asset`, `auth`, `csrf` and `csp`, bound to the current
+request. With kaly-tpl 0.2 these helpers also reach layouts and partials. Reading
+authentication or the CSRF field name does not create a session; requesting a CSRF
+token can create one, as in an ordinary view.
+
+A routing failure may occur before a locale is established. In that case, Kaly
+uses `LocaleResolver` to negotiate from the request locale attribute,
+`Accept-Language`, then the application default. An unmatched `/en/...` URL
+prefix alone does not establish the locale. An already established locale is
+preserved.
+
+The error view is a production fallback. These responses take precedence:
+
+1. An HTTP exception with an explicit `Content-Type`.
+2. A JSON client's `application/problem+json` document.
+3. An HTTP exception's non-empty public body.
+4. The debug page or debug text.
+
+If selecting or rendering an error view throws, Kaly logs that failure and
+returns the original error's standard response, without trying another error
+view. Templates should show a public message rather than the raw exception.
+
+For an HTTP-only integration without Kaly runtime state, bind
+`Kaly\Http\ErrorPageInterface` to supply an HTML string or `null` instead.
+The Core bridge is installed automatically when an error view is bound and no
+explicit error-page implementation exists. Keep broader error conversion, such
+as domain-to-HTTP mapping, at `ExceptionHandlerInterface`.
 
 ## Summary
 

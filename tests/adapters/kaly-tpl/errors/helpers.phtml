@@ -1,0 +1,1 @@
+auth:<?= $auth->isAuthenticated() ? 'user' : 'anonymous' ?>|csrf:<?= $v->e($csrf->fieldName()) ?>|csp:<?= $csp->nonce() !== '' ? 'yes' : 'no' ?>|asset:<?= $asset('app.css') !== '' ? 'yes' : 'no' ?>|url:<?= $url('test-module:alias.hello') !== '' ? 'yes' : 'no' ?>

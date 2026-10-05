@@ -3,6 +3,15 @@
 
 ### Added
 
+- Application error views through `Kaly\Core\ErrorViewInterface`, rendered by
+  `ViewResponder` with the same request helpers as controller views. Bind the
+  interface to select templates for production HTML errors; returning `null`
+  retains the standard response. Explicit bodies/formats, JSON and debug take
+  precedence. Status and headers are preserved; rendering failures are logged
+  and fall back without recursive error rendering.
+- `Kaly\Http\ErrorPageInterface` provides the runtime-independent HTML fallback
+  used by `ExceptionHandler`; Core bridges error views to it automatically.
+
 - A consumer-facing `kaly` agent skill in `skills/kaly/`, with focused
   references for application structure, HTTP/routing, DI/runtime,
   views/i18n and auth/security. Included in Composer packages; activation
@@ -81,6 +90,12 @@
   can take it by constructor instead of a hand-built path.
 
 ### Changed
+
+- **Breaking:** `RequestDispatcher` now receives `ViewResponder` instead of
+  translator, renderer, assets and CSRF dependencies. Update manual construction;
+  normal application autowiring needs no changes. Before routing has established
+  a locale, error views use `LocaleResolver` negotiation; an unmatched URL prefix
+  alone does not establish a locale.
 
 - **Breaking:** `KalyTplRenderer` requires kaly-tpl 0.2 and shares the reserved
   `i18n`, `url`, `asset`, `auth`, `csrf` and `csp` helpers across layouts and

@@ -9,6 +9,7 @@ use Kaly\Core\ErrorHandler;
 use Kaly\Core\HttpContext;
 use Kaly\Core\RequestDispatcher;
 use Kaly\Core\RoutingHandler;
+use Kaly\Core\ViewResponder;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Di\Injector;
@@ -144,7 +145,12 @@ class RequestInputTest extends TestCase
         };
 
         $factory = new Psr17Factory();
-        $dispatcher = new RequestDispatcher(new Injector(new Container(new Definitions())), new Translator('en'), $factory, $factory);
+        $dispatcher = new RequestDispatcher(
+            new Injector(new Container(new Definitions())),
+            new ViewResponder(new Translator('en'), $factory, $factory),
+            $factory,
+            $factory,
+        );
         $handler = new RoutingHandler($router, new LocaleResolver('en', ['en']), $dispatcher);
 
         $request = $factory->createServerRequest('GET', '/');

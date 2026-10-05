@@ -110,8 +110,19 @@ resolver merely to render an HTML page.
 
 Routing should still fail normally.
 
-Customize application error rendering through `ExceptionHandlerInterface` or a
-decorator around the configured exception handler.
+For production HTML error pages, bind `Kaly\Core\ErrorViewInterface` and return
+a `Kaly\View\View`, or `null` to keep the standard response. Kaly's
+`ViewResponder` supplies the same reserved helpers as a controller view and
+preserves the original error status and headers. Explicit HTTP bodies/formats,
+JSON clients and debug pages take precedence. A failing error template is
+logged and falls back to the standard response without recursive rendering.
+
+If routing failed before resolving a locale, `LocaleResolver` negotiates from
+the request attribute, Accept-Language and application default; an unmatched
+locale-prefixed URL alone does not set the locale.
+
+Use `Kaly\Http\ExceptionHandlerInterface` or a decorator for broader error
+conversion, such as mapping domain failures to HTTP errors.
 
 Preserve:
 
@@ -129,6 +140,11 @@ Production static files should normally be served by the web server or CDN.
 
 Kaly's file-serving facilities are useful for development and controlled file
 responses.
+
+`FileResponseFactory` uses `ContentType::forFile()` for deterministic web MIME
+types, including CSS and JavaScript on Windows. `Fs::contentType()` remains a
+generic fileinfo-based filesystem helper; keep HTTP MIME policy in the HTTP
+layer rather than changing that helper.
 
 For private downloads:
 

@@ -12,8 +12,11 @@ Kaly is renderer agnostic. The core only exposes:
 - `Kaly\View\RendererInterface` — `render(string $template, array $data = []): string`;
 - optional capabilities `TemplateLocatorInterface` (`has()`) and `TemplatePathRegistryInterface` (`setPath()`).
 
-Controllers return a `View`; the dispatcher renders it through the configured
-`RendererInterface`. An `array` is returned as JSON (200), a
+Controllers return a `View`; the dispatcher delegates to `Kaly\Core\ViewResponder`,
+which renders it through the configured `RendererInterface`. The same responder
+renders application error views selected by `Kaly\Core\ErrorViewInterface` (see
+[application error pages](application-structure.md#custom-html-error-pages)).
+An `array` is returned as JSON (200), a
 `Kaly\Http\JsonResult::of($data, 201)` as JSON with its status code and headers,
 a `string` as HTML. If no renderer is configured, returning a `View` throws.
 

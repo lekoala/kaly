@@ -38,6 +38,7 @@ final class ExceptionHandler implements ExceptionHandlerInterface
         protected ?LoggerInterface $logger = null,
         protected bool $debug = false,
         protected ?DebugPageInterface $debugPage = null,
+        protected ?ErrorPageInterface $errorPage = null,
     ) {}
 
     public function toResponse(Throwable $exception, ?ServerRequestInterface $request = null): ResponseInterface
@@ -85,6 +86,17 @@ final class ExceptionHandler implements ExceptionHandlerInterface
                 $response->withHeader('Content-Type', 'text/plain; charset=utf-8'),
                 $exception->getMessage() . "\n\n" . $exception->getTraceAsString(),
             );
+        }
+
+        if ($request !== null && $this->errorPage !== null) {
+            try {
+                $html = $this->errorPage->html($exception, $request, $status);
+                if ($html !== null) {
+                    return $this->withBody($response->withHeader('Content-Type', ContentType::HTML . '; charset=utf-8'), $html);
+                }
+            } catch (Throwable $failure) {
+                $this->logger?->error($failure->getMessage(), ['exception' => $failure]);
+            }
         }
 
         $public = $status === 500 ? 'Server error' : $response->getReasonPhrase();

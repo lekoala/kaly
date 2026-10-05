@@ -20,6 +20,7 @@ use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Http\Cookie\CookiePolicy;
 use Kaly\Http\DebugPageInterface;
+use Kaly\Http\ErrorPageInterface;
 use Kaly\Http\ExceptionHandler;
 use Kaly\Http\ExceptionHandlerInterface;
 use Kaly\Http\Input\InputMapper;
@@ -548,6 +549,10 @@ final class App implements RequestHandlerInterface
         // intentionally (a module service or a framework default alike),
         // while set()/bind() declare something new.
         $this->hooks->configure($definitions);
+
+        if ($definitions->has(ErrorViewInterface::class) && !$definitions->has(ErrorPageInterface::class)) {
+            $definitions->bind(ErrorPageInterface::class, ViewErrorPage::class);
+        }
 
         return $definitions->lock();
     }

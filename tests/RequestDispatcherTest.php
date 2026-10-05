@@ -7,6 +7,7 @@ namespace Kaly\Tests;
 use Kaly\Core\HttpContext;
 use Kaly\Core\RequestDispatcher;
 use Kaly\Core\RoutingHandler;
+use Kaly\Core\ViewResponder;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Di\Injector;
@@ -64,7 +65,7 @@ class RequestDispatcherTest extends TestCase
 
         $translator = (new Translator('en'))->addPath(__DIR__ . '/data/lang');
 
-        $dispatcher = new RequestDispatcher($injector, $translator, $factory, $factory, $renderer);
+        $dispatcher = new RequestDispatcher($injector, new ViewResponder($translator, $factory, $factory, $renderer), $factory, $factory);
 
         // The dispatcher only runs behind the routing step
         return new RoutingHandler($router, $localeResolver ?? new LocaleResolver('en', ['en', 'fr']), $dispatcher);

@@ -7,6 +7,7 @@ namespace Kaly\Tests;
 use Kaly\Core\HttpContext;
 use Kaly\Core\RequestDispatcher;
 use Kaly\Core\RoutingHandler;
+use Kaly\Core\ViewResponder;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Di\Injector;
@@ -74,10 +75,9 @@ class CspTest extends TestCase
         $factory = new Psr17Factory();
         $dispatcher = new RequestDispatcher(
             new Injector(new Container(new Definitions())),
-            (new Translator('en'))->addPath(__DIR__ . '/data/lang'),
+            new ViewResponder((new Translator('en'))->addPath(__DIR__ . '/data/lang'), $factory, $factory, $renderer),
             $factory,
             $factory,
-            $renderer,
         );
         $routing = new RoutingHandler($router, new LocaleResolver('en', ['en']), $dispatcher);
 

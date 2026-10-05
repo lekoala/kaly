@@ -4,6 +4,20 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Controller and error views share a responder
+
+- `RequestDispatcher` takes `(Injector, ViewResponder, ResponseFactoryInterface,
+  StreamFactoryInterface, ?InputMapperInterface)`; move its former translator,
+  renderer, assets and CSRF arguments to `ViewResponder`. Application autowiring
+  handles this automatically.
+- Bind `Kaly\Core\ErrorViewInterface` to choose production error templates instead
+  of catch-all routes or a response-body decorator. Return a `View` or `null`.
+  Kaly preserves the error status and headers and supplies all reserved helpers.
+  JSON, debug and explicitly supplied HTTP bodies/formats retain precedence.
+- Before routing resolves a locale, error views negotiate with `LocaleResolver`
+  (request attribute, Accept-Language, default). An unmatched locale-prefixed URL
+  does not by itself establish the error page's locale.
+
 ## kaly-tpl 0.2 and reserved render variables
 
 - Update `lekoala/kaly-tpl` to `^0.2` when using `KalyTplRenderer`.

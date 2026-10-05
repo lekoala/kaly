@@ -4,23 +4,14 @@ declare(strict_types=1);
 
 namespace Kaly\Core;
 
-use Kaly\Asset\AssetsInterface;
-use Kaly\Asset\NullAssets;
-use Kaly\Auth\AuthView;
 use Kaly\Di\Injector;
 use Kaly\Ex;
 use Kaly\Http\ContentType;
-use Kaly\Http\Csrf\Csrf;
-use Kaly\Http\Csrf\CsrfView;
 use Kaly\Http\Input\InputMapperInterface;
 use Kaly\Http\Input\RequestInput;
 use Kaly\Http\JsonResult;
-use Kaly\I18n\LocalizedTranslator;
-use Kaly\I18n\TranslatorInterface;
 use Kaly\Router\Route;
 use Kaly\Util\Json;
-use Kaly\View\RendererInterface;
-use Kaly\View\RenderVariables;
 use Kaly\View\View;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -52,19 +43,11 @@ final class RequestDispatcher implements RequestHandlerInterface
 
     public function __construct(
         protected Injector $injector,
-        protected TranslatorInterface $translator,
+        protected ViewResponder $views,
         protected ResponseFactoryInterface $responseFactory,
         protected StreamFactoryInterface $streamFactory,
-        protected ?RendererInterface $renderer = null,
         protected ?InputMapperInterface $inputMapper = null,
-        protected ?AssetsInterface $assets = null,
-        protected ?Csrf $csrf = null,
-    ) {
-        // `asset` always exists, like `url` and `i18n`: without an explicit
-        // binding the call itself explains what is missing.
-        $this->assets ??= new NullAssets();
-        $this->csrf ??= new Csrf();
-    }
+    ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
@@ -212,25 +195,7 @@ final class RequestDispatcher implements RequestHandlerInterface
             return $this->createResponse(Json::encode($result->data), ContentType::JSON, $result->status, $result->headers);
         }
         if ($result instanceof View) {
-            if ($this->renderer === null) {
-                throw new Ex('A View was returned but no renderer is configured: bind a Kaly\View\RendererInterface implementation');
-            }
-            // Each render gets its own localized translator under a reserved
-            // variable, so templates never depend on shared translator state,
-            // and url + asset generators bound to the request locale.
-            // The constructor guarantees $this->assets is set.
-            $assets = $this->assets;
-            assert($assets !== null);
-            $data = [
-                ...$result->data,
-                RenderVariables::I18N => new LocalizedTranslator($this->translator, $ctx->locale()),
-                RenderVariables::URL => $ctx->url(...),
-                RenderVariables::ASSET => $assets->url(...),
-                RenderVariables::AUTH => new AuthView($ctx->auth()),
-                RenderVariables::CSRF => new CsrfView($this->csrf ?? new Csrf(), $ctx->session(...)),
-                RenderVariables::CSP => $ctx->csp(),
-            ];
-            return $this->createResponse($this->renderer->render($result->template, $data), ContentType::HTML, $result->status);
+            return $this->views->respond($result, $ctx);
         }
         if (is_array($result)) {
             return $this->createResponse(Json::encode($result), ContentType::JSON);

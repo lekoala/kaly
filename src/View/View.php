@@ -7,7 +7,7 @@ namespace Kaly\View;
 /**
  * An explicit controller result: render a template with the given data.
  *
- * The dispatcher turns it into an HTML response using the configured
+ * ViewResponder turns it into an HTML response using the configured
  * RendererInterface. This keeps template rendering out of the router and out
  * of the controller return type magic.
  */
