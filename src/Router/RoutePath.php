@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
+use Kaly\Util\Arr;
+
 /**
  * Path helpers for Kaly routing semantics.
  *
@@ -23,7 +25,7 @@ final class RoutePath
      */
     public static function segments(string $path): array
     {
-        return array_values(array_filter(explode('/', $path), static fn(string $segment): bool => $segment !== ''));
+        return Arr::filterList(explode('/', $path), static fn(string $segment): bool => $segment !== '');
     }
 
     /**

@@ -87,6 +87,22 @@ final class Arr
             return [];
         }
         $parts = array_map(trim(...), explode($separator, $value));
-        return array_values(array_filter($parts, static fn(string $part): bool => $part !== ''));
+        return self::filterList($parts, static fn(string $part): bool => $part !== '');
+    }
+
+    /**
+     * Filter a list, keeping it a list.
+     *
+     * Unlike array_filter, keys are never preserved: the result is always
+     * reindexed, so it still serializes as a JSON array instead of an object.
+     *
+     * @template T
+     * @param list<T> $list
+     * @param callable(T): bool $predicate
+     * @return list<T>
+     */
+    public static function filterList(array $list, callable $predicate): array
+    {
+        return array_values(array_filter($list, $predicate));
     }
 }

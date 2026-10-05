@@ -136,6 +136,16 @@ class UtilTest extends TestCase
         ]));
     }
 
+    public function testArrFilterListReindexesAsList(): void
+    {
+        // A raw array_filter would keep keys 1 and 3 here
+        $this->assertSame(
+            ['b', 'd'],
+            Arr::filterList(['a', 'b', 'c', 'd'], static fn(string $value): bool => $value === 'b' || $value === 'd'),
+        );
+        $this->assertSame([], Arr::filterList([], static fn(mixed $value): bool => true));
+    }
+
     public function testArrSplitList(): void
     {
         $this->assertSame(['fr', 'en'], Arr::splitList('fr,en'));

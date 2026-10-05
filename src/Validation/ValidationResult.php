@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Validation;
 
+use Kaly\Util\Arr;
+
 /**
  * The collected outcome of validation, usable without HTTP.
  *
@@ -37,7 +39,7 @@ final readonly class ValidationResult
      */
     public function for(?string $field): array
     {
-        return array_values(array_filter($this->violations, static fn(Violation $violation): bool => $violation->field === $field));
+        return Arr::filterList($this->violations, static fn(Violation $violation): bool => $violation->field === $field);
     }
 
     public function with(Violation ...$violations): self
