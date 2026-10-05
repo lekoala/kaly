@@ -3,6 +3,11 @@
 
 ### Added
 
+- A consumer-facing `kaly` agent skill in `skills/kaly/`, with focused
+  references for application structure, HTTP/routing, DI/runtime,
+  views/i18n and auth/security. Included in Composer packages; activation
+  instructions are in `README.md`.
+
 - Request authentication:
   - `HttpContext::auth()` carries the current request identity through
     `Kaly\Auth\Authentication`.

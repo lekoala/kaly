@@ -55,6 +55,33 @@ provided for Latte, kaly-tpl and Twig.
 composer require lekoala/kaly nyholm/psr7
 ```
 
+## Agent skill for applications
+
+Kaly ships the [`kaly` skill](skills/kaly/SKILL.md) and its five references in
+`vendor/lekoala/kaly/skills/kaly/`. It guides agents working on applications
+that consume Kaly. The bundle is included in Composer packages; installation
+does not change the application's agent configuration.
+
+For Codex, copy the entire folder into the application's `.agents/skills/`
+directory, a [supported local skill location](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills).
+Run from the application root on macOS/Linux:
+
+```bash
+mkdir -p .agents/skills
+cp -R vendor/lekoala/kaly/skills/kaly .agents/skills/
+```
+
+Or in PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force .agents/skills | Out-Null
+Copy-Item -Recurse vendor/lekoala/kaly/skills/kaly .agents/skills/
+```
+
+Invoke it explicitly with `$kaly`, or let Codex select it for relevant tasks.
+For other agents, expose the same folder using their skill installation mechanism.
+Refresh the copied bundle after upgrading Kaly, including its `references/` folder.
+
 ## Quick start
 
 ```php

@@ -1,5 +1,7 @@
 * text=auto eol=lf
 
+# skills/ is part of the distributed package for consuming applications
+
 # Not part of the distributed package
 /.github export-ignore
 /benchmarks export-ignore
