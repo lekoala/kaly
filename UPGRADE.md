@@ -27,9 +27,10 @@ how to migrate.
   `mapResult(...)->require()`. The query/body conflict no longer throws: it
   keeps the query value and becomes a `conflicting_values` violation, even for
   a key the input ignores — duplicates compare as text (arrays element by
-  element, keys and order kept), never silently. The protected
-  `collect()`/`coerce()`/`to*()` internals now accumulate violations instead
-  of throwing `InputException`.
+  element, keys and order kept), never silently. The private
+  `merged()`/`coerce()`/`to*()` internals accumulate violations instead of
+  throwing `InputException`; customize the mapping through
+  `InputMapperInterface`, not by extending the `final` mapper.
 - `InputException` (400) and `ValidationException` (422) are built from a
   `ValidationResult` and expose it through `HasValidationResult`; their public
   body is the first violation message. Only these HTTP failures expose their

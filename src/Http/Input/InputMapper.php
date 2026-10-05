@@ -102,7 +102,7 @@ final class InputMapper implements InputMapperInterface
      *
      * @return array{0: array<string,mixed>, 1: list<Violation>}
      */
-    protected function merged(ServerRequestInterface $request): array
+    private function merged(ServerRequestInterface $request): array
     {
         $data = [];
         foreach ($request->getQueryParams() as $key => $value) {
@@ -144,7 +144,7 @@ final class InputMapper implements InputMapperInterface
      * kept as is, scalar leaves compare as text since the query string has no
      * types, and anything else compares strictly.
      */
-    protected function equivalent(mixed $a, mixed $b): bool
+    private function equivalent(mixed $a, mixed $b): bool
     {
         return $this->comparable($a) === $this->comparable($b);
     }
@@ -169,7 +169,7 @@ final class InputMapper implements InputMapperInterface
      *
      * @return array{0: mixed, 1: ?Violation}
      */
-    protected function coerce(ReflectionParameter $parameter, mixed $value): array
+    private function coerce(ReflectionParameter $parameter, mixed $value): array
     {
         $name = $parameter->getName();
         $type = $parameter->getType();
@@ -212,7 +212,7 @@ final class InputMapper implements InputMapperInterface
     /**
      * @return array{0: mixed, 1: ?Violation}
      */
-    protected function toString(ReflectionParameter $parameter, mixed $value): array
+    private function toString(ReflectionParameter $parameter, mixed $value): array
     {
         if (!is_scalar($value)) {
             return [null, $this->invalid($parameter, 'type_string', 'This value must be a string')];
@@ -223,7 +223,7 @@ final class InputMapper implements InputMapperInterface
     /**
      * @return array{0: mixed, 1: ?Violation}
      */
-    protected function toInt(ReflectionParameter $parameter, mixed $value): array
+    private function toInt(ReflectionParameter $parameter, mixed $value): array
     {
         $coerced = Cast::intOrNull($value);
         if ($coerced === null) {
@@ -235,7 +235,7 @@ final class InputMapper implements InputMapperInterface
     /**
      * @return array{0: mixed, 1: ?Violation}
      */
-    protected function toFloat(ReflectionParameter $parameter, mixed $value): array
+    private function toFloat(ReflectionParameter $parameter, mixed $value): array
     {
         $coerced = Cast::floatOrNull($value);
         if ($coerced === null) {
@@ -247,7 +247,7 @@ final class InputMapper implements InputMapperInterface
     /**
      * @return array{0: mixed, 1: ?Violation}
      */
-    protected function toBool(ReflectionParameter $parameter, mixed $value): array
+    private function toBool(ReflectionParameter $parameter, mixed $value): array
     {
         $coerced = Cast::boolOrNull($value);
         if ($coerced === null) {
@@ -259,7 +259,7 @@ final class InputMapper implements InputMapperInterface
     /**
      * @return array{0: mixed, 1: ?Violation}
      */
-    protected function toArray(ReflectionParameter $parameter, mixed $value): array
+    private function toArray(ReflectionParameter $parameter, mixed $value): array
     {
         // Only a real array: use ?tag[]=a&tag[]=b, never a separator convention
         if (!is_array($value)) {
@@ -272,7 +272,7 @@ final class InputMapper implements InputMapperInterface
      * @param class-string<BackedEnum> $enum
      * @return array{0: mixed, 1: ?Violation}
      */
-    protected function toEnum(ReflectionParameter $parameter, string $enum, mixed $value): array
+    private function toEnum(ReflectionParameter $parameter, string $enum, mixed $value): array
     {
         if ($value instanceof $enum) {
             // $enum holds a backed enum class-string, so $value is one of its cases
@@ -301,13 +301,13 @@ final class InputMapper implements InputMapperInterface
         return [$case, null];
     }
 
-    protected function isType(ReflectionParameter $parameter, string $name): bool
+    private function isType(ReflectionParameter $parameter, string $name): bool
     {
         $type = $parameter->getType();
         return $type instanceof ReflectionNamedType && $type->getName() === $name;
     }
 
-    protected function invalid(ReflectionParameter $parameter, string $code, string $fallback): Violation
+    private function invalid(ReflectionParameter $parameter, string $code, string $fallback): Violation
     {
         return new Violation($parameter->getName(), $code, $code, $fallback, domain: 'input');
     }
@@ -316,7 +316,7 @@ final class InputMapper implements InputMapperInterface
      * An input property the mapper cannot build is a programming error, not a
      * bad request: it would fail for every single client.
      */
-    protected function unsupported(ReflectionParameter $parameter): LogicException
+    private function unsupported(ReflectionParameter $parameter): LogicException
     {
         $class = $parameter->getDeclaringClass();
         return new LogicException(sprintf(

@@ -42,10 +42,7 @@ abstract class ValidationResultException extends HttpException implements HasVal
 
     private static function firstMessage(ValidationResult $validation): string
     {
-        $violations = $validation->violations();
-        if ($violations === []) {
-            return '';
-        }
-        return $violations[0]->fallback;
+        // Never empty: the constructor throws on an empty result first
+        return $validation->violations()[0]->fallback;
     }
 }
