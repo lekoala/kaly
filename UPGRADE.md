@@ -4,6 +4,17 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## kaly-tpl 0.2 and reserved render variables
+
+- Update `lekoala/kaly-tpl` to `^0.2` when using `KalyTplRenderer`.
+- The adapter shares `i18n`, `url`, `asset`, `auth`, `csrf` and `csp` across the
+  page, layouts, includes and `each()` templates for the current render. Remove
+  these names from explicit layout/partial data and engine globals: they now
+  collide with shared data. Continue passing page-specific values explicitly.
+- Replace `RequestDispatcher::VAR_I18N`, `VAR_URL`, `VAR_ASSET`, `VAR_AUTH`,
+  `VAR_CSRF` and `VAR_CSP` with `Kaly\View\RenderVariables::I18N`, `URL`,
+  `ASSET`, `AUTH`, `CSRF` and `CSP`, respectively.
+
 ## Structured validation replaces stringly errors
 
 - New `Kaly\Validation`: `Violation` (`field`, `code`, `messageId`, `fallback`,

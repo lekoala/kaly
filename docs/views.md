@@ -38,13 +38,18 @@ request token (escaped by the engine), `csrf.fieldName` and
 without using `csrf.token()` never creates the session. See
 [Security](security.md).
 
-These capabilities are injected into the top-level render only. An engine that
-isolates scopes — as kaly-tpl does — does not hand a layout or a partial the locals of
-the template that calls it, so pass what the layout needs explicitly:
+The reserved names are defined by `Kaly\View\RenderVariables`. With kaly-tpl 0.2,
+the adapter forwards `i18n`, `url`, `asset`, `auth`, `csrf` and `csp` as per-render
+shared data: they are available in the page, layouts, includes and `each()` templates.
+Page data stays local to the root template; pass any page values needed by a layout
+or partial explicitly:
 
 ```php
-$v->layout('layout', ['i18n' => $i18n, 'url' => $url]);
+$v->layout('layout', ['title' => $title]);
 ```
+
+Do not pass the reserved helpers again through layout or partial data, or configure
+them as engine globals: kaly-tpl rejects names that collide with shared data.
 
 Layout and template inheritance stay the engine's business: `RendererInterface` is
 deliberately limited to `render(string $template, array $data)`. Twig, Latte and
@@ -84,7 +89,7 @@ $definitions->set(RendererInterface::class, new LatteRenderer($latte));
 ### kaly-tpl (lightweight native PHP)
 
 ```bash
-composer require lekoala/kaly-tpl
+composer require lekoala/kaly-tpl:^0.2
 ```
 
 ```php

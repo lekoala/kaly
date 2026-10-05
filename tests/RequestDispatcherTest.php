@@ -18,7 +18,10 @@ use Kaly\I18n\Translator;
 use Kaly\Router\Route;
 use Kaly\Router\RouterInterface;
 use Kaly\Tests\Mocks\DispatcherController;
+use Kaly\Tpl\ViewEngine;
+use Kaly\View\Adapter\KalyTplRenderer;
 use Kaly\View\RendererInterface;
+use Kaly\View\RenderVariables;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\TestCase;
@@ -145,7 +148,7 @@ class RequestDispatcherTest extends TestCase
         $renderer = new class implements RendererInterface {
             public function render(string $template, array $data = []): string
             {
-                $i18n = $data[RequestDispatcher::VAR_I18N];
+                $i18n = $data[RenderVariables::I18N];
                 assert($i18n instanceof LocalizedTranslator);
                 return $i18n->locale() . ':' . $i18n->translate('global.test');
             }
@@ -164,7 +167,7 @@ class RequestDispatcherTest extends TestCase
         $renderer = new class implements RendererInterface {
             public function render(string $template, array $data = []): string
             {
-                $i18n = $data[RequestDispatcher::VAR_I18N];
+                $i18n = $data[RenderVariables::I18N];
                 assert($i18n instanceof LocalizedTranslator);
                 return $i18n->locale();
             }
@@ -187,7 +190,7 @@ class RequestDispatcherTest extends TestCase
         $renderer = new class implements RendererInterface {
             public function render(string $template, array $data = []): string
             {
-                return get_debug_type($data[RequestDispatcher::VAR_I18N]);
+                return get_debug_type($data[RenderVariables::I18N]);
             }
         };
 
@@ -200,7 +203,7 @@ class RequestDispatcherTest extends TestCase
         $renderer = new class implements RendererInterface {
             public function render(string $template, array $data = []): string
             {
-                $url = $data[RequestDispatcher::VAR_URL];
+                $url = $data[RenderVariables::URL];
                 if (!$url instanceof \Closure) {
                     return '';
                 }
@@ -222,7 +225,7 @@ class RequestDispatcherTest extends TestCase
         $renderer = new class implements RendererInterface {
             public function render(string $template, array $data = []): string
             {
-                return get_debug_type($data[RequestDispatcher::VAR_URL]);
+                return get_debug_type($data[RenderVariables::URL]);
             }
         };
 
@@ -252,6 +255,16 @@ class RequestDispatcherTest extends TestCase
         $response = $this->dispatch($this->dispatcher('viewResultWithStatus', $renderer));
         $this->assertSame(404, $response->getStatusCode());
         $this->assertSame('template:Test', (string) $response->getBody());
+    }
+
+    public function testKalyTplRendererSharesCapabilitiesAcrossPartialsAndLayouts(): void
+    {
+        $renderer = new KalyTplRenderer(new ViewEngine(__DIR__ . '/adapters/kaly-tpl/scope'));
+
+        $response = $this->dispatch($this->dispatcher('tplScopeResult', $renderer), 'fr');
+
+        // i18n and url reach the partial and the layout, while secretPageLocal stays page-local
+        $this->assertSame('fr|nav:Message de test:fr:home:ok|page:foo', (string) $response->getBody());
     }
 
     public function testRedirectHelperRedirectsToTheNamedRoute(): void

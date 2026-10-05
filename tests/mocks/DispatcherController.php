@@ -62,6 +62,12 @@ class DispatcherController extends AbstractController
         return ['locale' => $this->ctx()->locale()];
     }
 
+    public function tplScopeResult(): View
+    {
+        // i18n/url are not passed: they are framework capabilities shared by the render
+        return new View('page', ['secretPageLocal' => 'foo']);
+    }
+
     public function viewResultWithI18n(): View
     {
         // i18n is reserved: the dispatcher always overrides it

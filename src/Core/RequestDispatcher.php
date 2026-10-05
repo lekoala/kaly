@@ -20,6 +20,7 @@ use Kaly\I18n\TranslatorInterface;
 use Kaly\Router\Route;
 use Kaly\Util\Json;
 use Kaly\View\RendererInterface;
+use Kaly\View\RenderVariables;
 use Kaly\View\View;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -39,19 +40,6 @@ use ReflectionNamedType;
  */
 final class RequestDispatcher implements RequestHandlerInterface
 {
-    // Reserved render variable holding the translator bound to the request locale
-    public const VAR_I18N = 'i18n';
-    // Reserved render variable generating urls for the request locale
-    public const VAR_URL = 'url';
-    // Reserved render variable generating asset urls
-    public const VAR_ASSET = 'asset';
-    // Reserved render variable observing the request authentication
-    public const VAR_AUTH = 'auth';
-    // Reserved render variable exposing the CSRF token
-    public const VAR_CSRF = 'csrf';
-    // Reserved render variable exposing the CSP nonce
-    public const VAR_CSP = 'csp';
-
     /**
      * Constructor parameters carrying the current cycle, by name, to avoid
      * reflecting on every request. The parameter name is irrelevant to
@@ -235,12 +223,12 @@ final class RequestDispatcher implements RequestHandlerInterface
             assert($assets !== null);
             $data = [
                 ...$result->data,
-                self::VAR_I18N => new LocalizedTranslator($this->translator, $ctx->locale()),
-                self::VAR_URL => $ctx->url(...),
-                self::VAR_ASSET => $assets->url(...),
-                self::VAR_AUTH => new AuthView($ctx->auth()),
-                self::VAR_CSRF => new CsrfView($this->csrf ?? new Csrf(), $ctx->session(...)),
-                self::VAR_CSP => $ctx->csp(),
+                RenderVariables::I18N => new LocalizedTranslator($this->translator, $ctx->locale()),
+                RenderVariables::URL => $ctx->url(...),
+                RenderVariables::ASSET => $assets->url(...),
+                RenderVariables::AUTH => new AuthView($ctx->auth()),
+                RenderVariables::CSRF => new CsrfView($this->csrf ?? new Csrf(), $ctx->session(...)),
+                RenderVariables::CSP => $ctx->csp(),
             ];
             return $this->createResponse($this->renderer->render($result->template, $data), ContentType::HTML, $result->status);
         }

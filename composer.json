@@ -36,7 +36,7 @@
         "carthage-software/mago": "^1.50",
         "composer/ca-bundle": "^1.5",
         "latte/latte": "^3.0",
-        "lekoala/kaly-tpl": "^0.1",
+        "lekoala/kaly-tpl": "^0.2",
         "nyholm/psr7": "^1.8",
         "nyholm/psr7-server": "^1.1",
         "phpstan/phpstan": "^2.2",

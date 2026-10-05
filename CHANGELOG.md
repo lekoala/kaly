@@ -77,6 +77,13 @@
 
 ### Changed
 
+- **Breaking:** `KalyTplRenderer` requires kaly-tpl 0.2 and shares the reserved
+  `i18n`, `url`, `asset`, `auth`, `csrf` and `csp` helpers across layouts and
+  partials for each render. Remove explicit forwarding of these helpers from
+  templates and engine globals to avoid shared-data collisions.
+  `RequestDispatcher::VAR_*` constants are replaced by
+  `Kaly\View\RenderVariables` constants; see `UPGRADE.md`.
+
 - **Breaking:** validation is structured. `ValidatableInput::validate()` takes
   a `Validator` and collects violations, request input constructors never
   validate, `InputMapper::mapResult()` accumulates mapping errors into a typed
