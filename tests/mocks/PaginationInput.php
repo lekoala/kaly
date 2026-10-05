@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Tests\Mocks;
 
 use Kaly\Http\Input\ValidatableInput;
-use Kaly\Http\Input\ValidationException;
+use Kaly\Validation\Validator;
 
 final readonly class PaginationInput implements ValidatableInput
 {
@@ -13,10 +13,8 @@ final readonly class PaginationInput implements ValidatableInput
         public int $page = 1,
     ) {}
 
-    public function validate(): void
+    public function validate(Validator $validator): void
     {
-        if ($this->page < 1) {
-            throw new ValidationException('page must be >= 1');
-        }
+        $validator->between('page', $this->page, min: 1);
     }
 }

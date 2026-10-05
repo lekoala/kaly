@@ -6,6 +6,9 @@ namespace Kaly\Http\Input;
 
 use BackedEnum;
 use Kaly\Util\Cast;
+use Kaly\Validation\ValidationResult;
+use Kaly\Validation\Validator;
+use Kaly\Validation\Violation;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
@@ -18,7 +21,8 @@ use ReflectionParameter;
  *
  * The promoted constructor of the input is the schema: there is nothing to
  * configure and no attribute to add. Mapping only answers "can this data be
- * represented by this type?" - the business rules belong to the input itself.
+ * represented by this type?" - the business rules belong to the input itself
+ * through ValidatableInput.
  *
  * @see docs/input.md
  */
@@ -31,7 +35,20 @@ final class InputMapper implements InputMapperInterface
      */
     public function map(ServerRequestInterface $request, string $class): RequestInput
     {
-        $data = $this->collect($request);
+        $input = $this->mapResult($request, $class)->require();
+        if (!$input instanceof $class) {
+            throw new LogicException("Mapped input must be an instance of {$class}");
+        }
+        return $input;
+    }
+
+    /**
+     * @template T of RequestInput
+     * @param class-string<T> $class
+     */
+    public function mapResult(ServerRequestInterface $request, string $class): InputResult
+    {
+        [$data, $violations] = $this->merged($request);
 
         $arguments = [];
         $constructor = (new ReflectionClass($class))->getConstructor();
@@ -51,51 +68,76 @@ final class InputMapper implements InputMapperInterface
                     $arguments[$name] = null;
                     continue;
                 }
-                throw new InputException("'{$name}' is required");
+                $violations[] = new Violation($name, 'required', 'required', 'This value is required', domain: 'input');
+                continue;
             }
 
-            $arguments[$name] = $this->coerce($parameter, $data[$name]);
+            $coerced = $this->coerce($parameter, $data[$name]);
+            if ($coerced[1] !== null) {
+                $violations[] = $coerced[1];
+                continue;
+            }
+            $arguments[$name] = $coerced[0];
+        }
+
+        // Without a DTO there is nothing to validate: mapping errors alone
+        // decide the 400.
+        if ($violations !== []) {
+            return new InputResult($data, null, new ValidationResult($violations));
         }
 
         $input = new $class(...$arguments);
 
         if ($input instanceof ValidatableInput) {
-            $input->validate();
+            $validator = new Validator();
+            $input->validate($validator);
+            return new InputResult($data, $input, $validator->result());
         }
 
-        return $input;
+        return new InputResult($data, $input, new ValidationResult());
     }
 
     /**
      * The query string and the body are merged without a hidden winner: a key
-     * sent in both is fine as long as both carry the same value.
+     * sent in both is fine as long as both carry the same value. A conflict
+     * keeps the query value and becomes a violation instead of stopping the
+     * whole mapping.
      *
-     * @return array<string,mixed>
+     * @return array{0: array<string,mixed>, 1: list<Violation>}
      */
-    protected function collect(ServerRequestInterface $request): array
+    protected function merged(ServerRequestInterface $request): array
     {
         $data = [];
         foreach ($request->getQueryParams() as $key => $value) {
             $data[(string) $key] = $value;
         }
 
+        $violations = [];
+
         $body = $request->getParsedBody();
         if (is_object($body)) {
             $body = get_object_vars($body);
         }
         if (!is_array($body)) {
-            return $data;
+            return [$data, $violations];
         }
 
         foreach ($body as $key => $value) {
             $key = (string) $key;
             if (array_key_exists($key, $data) && !$this->equivalent($data[$key], $value)) {
-                throw new InputException("'{$key}' was sent in the query and in the body with different values");
+                $violations[] = new Violation(
+                    $key,
+                    'conflicting_values',
+                    'conflicting_values',
+                    'This value was provided more than once with different values',
+                    domain: 'input',
+                );
+                continue;
             }
             $data[$key] = $value;
         }
 
-        return $data;
+        return [$data, $violations];
     }
 
     /**
@@ -113,36 +155,42 @@ final class InputMapper implements InputMapperInterface
         return $a === $b;
     }
 
-    protected function coerce(ReflectionParameter $parameter, mixed $value): mixed
+    /**
+     * Coerces one field, accumulating a violation instead of throwing.
+     *
+     * @return array{0: mixed, 1: ?Violation}
+     */
+    protected function coerce(ReflectionParameter $parameter, mixed $value): array
     {
+        $name = $parameter->getName();
         $type = $parameter->getType();
 
         if ($type === null) {
-            return $value;
+            return [$value, null];
         }
         if (!$type instanceof ReflectionNamedType) {
             throw $this->unsupported($parameter);
         }
         if ($value === null) {
             if (!$type->allowsNull()) {
-                throw new InputException("'{$parameter->getName()}' cannot be null");
+                return [null, new Violation($name, 'null_not_allowed', 'null_not_allowed', 'This value cannot be null', domain: 'input')];
             }
-            return null;
+            return [null, null];
         }
 
-        $name = $type->getName();
+        $typeName = $type->getName();
 
         if (!$type->isBuiltin()) {
-            if (is_a($name, BackedEnum::class, true)) {
-                // is_a() just proved $name is a backed enum class-string
-                /** @var class-string<BackedEnum> $name */
-                return $this->toEnum($parameter, $name, $value);
+            if (is_a($typeName, BackedEnum::class, true)) {
+                // is_a() just proved $typeName is a backed enum class-string
+                /** @var class-string<BackedEnum> $typeName */
+                return $this->toEnum($parameter, $typeName, $value);
             }
             throw $this->unsupported($parameter);
         }
 
-        return match ($name) {
-            'mixed' => $value,
+        return match ($typeName) {
+            'mixed' => [$value, null],
             'string' => $this->toString($parameter, $value),
             'int' => $this->toInt($parameter, $value),
             'float' => $this->toFloat($parameter, $value),
@@ -152,65 +200,96 @@ final class InputMapper implements InputMapperInterface
         };
     }
 
-    protected function toString(ReflectionParameter $parameter, mixed $value): string
+    /**
+     * @return array{0: mixed, 1: ?Violation}
+     */
+    protected function toString(ReflectionParameter $parameter, mixed $value): array
     {
         if (!is_scalar($value)) {
-            throw $this->invalid($parameter, 'a string', $value);
+            return [null, $this->invalid($parameter, 'type_string', 'This value must be a string')];
         }
-        return (string) $value;
-    }
-
-    protected function toInt(ReflectionParameter $parameter, mixed $value): int
-    {
-        return Cast::intOrNull($value) ?? throw $this->invalid($parameter, 'an integer', $value);
-    }
-
-    protected function toFloat(ReflectionParameter $parameter, mixed $value): float
-    {
-        return Cast::floatOrNull($value) ?? throw $this->invalid($parameter, 'a number', $value);
-    }
-
-    protected function toBool(ReflectionParameter $parameter, mixed $value): bool
-    {
-        return Cast::boolOrNull($value) ?? throw $this->invalid($parameter, 'a boolean', $value);
+        return [(string) $value, null];
     }
 
     /**
-     * @return array<mixed>
+     * @return array{0: mixed, 1: ?Violation}
+     */
+    protected function toInt(ReflectionParameter $parameter, mixed $value): array
+    {
+        $coerced = Cast::intOrNull($value);
+        if ($coerced === null) {
+            return [null, $this->invalid($parameter, 'type_int', 'This value must be an integer')];
+        }
+        return [$coerced, null];
+    }
+
+    /**
+     * @return array{0: mixed, 1: ?Violation}
+     */
+    protected function toFloat(ReflectionParameter $parameter, mixed $value): array
+    {
+        $coerced = Cast::floatOrNull($value);
+        if ($coerced === null) {
+            return [null, $this->invalid($parameter, 'type_float', 'This value must be a number')];
+        }
+        return [$coerced, null];
+    }
+
+    /**
+     * @return array{0: mixed, 1: ?Violation}
+     */
+    protected function toBool(ReflectionParameter $parameter, mixed $value): array
+    {
+        $coerced = Cast::boolOrNull($value);
+        if ($coerced === null) {
+            return [null, $this->invalid($parameter, 'type_bool', 'This value must be a boolean')];
+        }
+        return [$coerced, null];
+    }
+
+    /**
+     * @return array{0: mixed, 1: ?Violation}
      */
     protected function toArray(ReflectionParameter $parameter, mixed $value): array
     {
         // Only a real array: use ?tag[]=a&tag[]=b, never a separator convention
         if (!is_array($value)) {
-            throw $this->invalid($parameter, 'an array', $value);
+            return [null, $this->invalid($parameter, 'type_array', 'This value must be an array')];
         }
-        return $value;
+        return [$value, null];
     }
 
     /**
      * @param class-string<BackedEnum> $enum
+     * @return array{0: mixed, 1: ?Violation}
      */
-    protected function toEnum(ReflectionParameter $parameter, string $enum, mixed $value): BackedEnum
+    protected function toEnum(ReflectionParameter $parameter, string $enum, mixed $value): array
     {
         if ($value instanceof $enum) {
             // $enum holds a backed enum class-string, so $value is one of its cases
             /** @var BackedEnum $value */
-            return $value;
+            return [$value, null];
         }
         if (!is_scalar($value)) {
-            throw $this->invalid($parameter, $enum, $value);
+            return [null, new Violation($parameter->getName(), 'enum', 'enum', 'This value is not a valid choice', domain: 'input')];
         }
 
         // A backed enum is either int or string backed, never both
         $backing = (new ReflectionEnum($enum))->getBackingType();
-        $scalar =
-            $backing instanceof ReflectionNamedType && $backing->getName() === 'int' ? $this->toInt($parameter, $value) : (string) $value;
+        if ($backing instanceof ReflectionNamedType && $backing->getName() === 'int') {
+            $scalar = Cast::intOrNull($value);
+            if ($scalar === null) {
+                return [null, $this->invalid($parameter, 'type_int', 'This value must be an integer')];
+            }
+        } else {
+            $scalar = (string) $value;
+        }
 
         $case = $enum::tryFrom($scalar);
         if ($case === null) {
-            throw $this->invalid($parameter, $enum, $value);
+            return [null, new Violation($parameter->getName(), 'enum', 'enum', 'This value is not a valid choice', domain: 'input')];
         }
-        return $case;
+        return [$case, null];
     }
 
     protected function isType(ReflectionParameter $parameter, string $name): bool
@@ -219,9 +298,9 @@ final class InputMapper implements InputMapperInterface
         return $type instanceof ReflectionNamedType && $type->getName() === $name;
     }
 
-    protected function invalid(ReflectionParameter $parameter, string $expected, mixed $value): InputException
+    protected function invalid(ReflectionParameter $parameter, string $code, string $fallback): Violation
     {
-        return new InputException(sprintf("'%s' must be %s, got %s", $parameter->getName(), $expected, get_debug_type($value)));
+        return new Violation($parameter->getName(), $code, $code, $fallback, domain: 'input');
     }
 
     /**

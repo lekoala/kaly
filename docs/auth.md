@@ -204,7 +204,15 @@ public function post(LoginInput $input): never
     $user = $this->users->findByEmail($input->email);
 
     if ($user === null || !password_verify($input->password, $user->passwordHash)) {
-        throw new ValidationException('Invalid credentials');
+        $validator = new Validator();
+        $validator->add(new Violation(
+            field: null,
+            code: 'invalid_credentials',
+            messageId: 'invalid_credentials',
+            fallback: 'Invalid credentials',
+            domain: 'auth',
+        ));
+        throw new ValidationException($validator->result());
     }
 
     $this->sessionAuth->login(

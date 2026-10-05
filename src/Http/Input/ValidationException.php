@@ -5,18 +5,43 @@ declare(strict_types=1);
 namespace Kaly\Http\Input;
 
 use Kaly\Http\Exception\HttpException;
+use Kaly\Validation\HasValidationResult;
+use Kaly\Validation\ValidationResult;
 use Throwable;
 
 /**
  * The request was well formed but its values are not acceptable.
  *
- * Thrown from the constructor of a `RequestInput`, or from its `validate()`
- * when it implements `ValidatableInput`.
+ * Thrown when the built input is refused by its `ValidatableInput` rules.
+ * Request inputs never validate in their constructor: user-facing constraints
+ * belong exclusively to `validate()`.
  */
-class ValidationException extends HttpException
+class ValidationException extends HttpException implements HasValidationResult
 {
-    public function __construct(string $message = '', int $code = 422, ?Throwable $previous = null)
+    public function __construct(ValidationResult $validation, ?Throwable $previous = null)
     {
-        parent::__construct($message, $code, [], $previous);
+        parent::__construct(self::firstMessage($validation), 422, [], $previous);
+        $this->validation = $validation;
+    }
+
+    public function validation(): ValidationResult
+    {
+        return $this->validation;
+    }
+
+    public function getResponseBody(): string
+    {
+        return self::firstMessage($this->validation);
+    }
+
+    private ValidationResult $validation;
+
+    private static function firstMessage(ValidationResult $validation): string
+    {
+        $violations = $validation->violations();
+        if ($violations === []) {
+            return '';
+        }
+        return $violations[0]->fallback;
     }
 }

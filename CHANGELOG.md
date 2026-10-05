@@ -52,10 +52,26 @@
   - `Kaly\I18n\TranslationKey` for an id + domain pair.
   - `Kaly\I18n\Translatable`.
   - `LocalizedTranslator::resolve()`.
-  - `Kaly\I18n\TranslatableValidationException`, translated by the default
-    `Kaly\Core\LocalizedExceptionHandler` when the request locale is available.
+
+- Structured validation:
+  - `Kaly\Validation` with `Violation`, `ValidationResult`, `Validator`
+    (`notBlank`, `email`, `length`/`minLength`/`maxLength`, `between`,
+    `oneOf`, `matches`, `count`, `add`) and `HasValidationResult`.
+  - `Kaly\Http\Input\InputResult` from `InputMapper::mapResult()`: submitted
+    values, the DTO when it could be built, and the collected result.
+  - `problem+json` carries an `errors: [{field, code, message}]` list for
+    input (400) and validation (422) failures, translated per violation by
+    `Kaly\Core\LocalizedExceptionHandler` when the request locale is
+    available.
 
 ### Changed
+
+- **Breaking:** validation is structured. `ValidatableInput::validate()` takes
+  a `Validator` and collects violations, request input constructors never
+  validate, `InputMapper::mapResult()` accumulates mapping errors into an
+  `InputResult`, and `InputException`/`ValidationException` are built from a
+  `ValidationResult` with an `errors` list in `problem+json`.
+  `Kaly\I18n\TranslatableValidationException` is removed; see `UPGRADE.md`.
 
 - **Breaking:** `RouteScope` gains `middlewares()`. Modules declare scope-wide
   middleware with `Module::middleware()`, and those middleware are merged ahead

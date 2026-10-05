@@ -23,4 +23,13 @@ interface InputMapperInterface
      * @throws ValidationException When the input is well typed but refused
      */
     public function map(ServerRequestInterface $request, string $class): RequestInput;
+
+    /**
+     * The non-throwing variant: a form re-renders the submitted values with
+     * their violations instead of catching an exception.
+     *
+     * @template T of RequestInput
+     * @param class-string<T> $class
+     */
+    public function mapResult(ServerRequestInterface $request, string $class): InputResult;
 }

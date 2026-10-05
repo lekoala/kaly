@@ -15,12 +15,14 @@ use Kaly\Http\Input\ValidationException;
 use Kaly\I18n\Adapter\SymfonyTranslator;
 use Kaly\I18n\LocalizedTranslator;
 use Kaly\I18n\Translatable;
-use Kaly\I18n\TranslatableValidationException;
 use Kaly\I18n\TranslationKey;
 use Kaly\I18n\Translator;
 use Kaly\I18n\TranslatorInterface;
 use Kaly\Tests\Support\HttpFactory;
 use Kaly\Util\Json;
+use Kaly\Validation\ValidationResult;
+use Kaly\Validation\Validator;
+use Kaly\Validation\Violation;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
 use Nyholm\Psr7\Uri;
@@ -84,10 +86,26 @@ class TypedTranslationTest extends TestCase
             'global.test' => 'Testbericht',
             'validation.required' => 'Veld %field% is verplicht',
         ]);
-        $translator->addToCatalog('validation', 'en', ['required' => 'Field %field% is required']);
-        $translator->addToCatalog('validation', 'fr', ['required' => 'Le champ %field% est requis']);
-        $translator->addToCatalog('validation', 'nl', ['required' => 'Veld %field% is verplicht']);
+        $translator->addToCatalog('validation', 'en', [
+            'required' => 'Field %field% is required',
+            'email' => 'This email address is not valid',
+        ]);
+        $translator->addToCatalog('validation', 'fr', [
+            'required' => 'Le champ %field% est requis',
+            'email' => 'Cette adresse e-mail n’est pas valide',
+        ]);
+        $translator->addToCatalog('validation', 'nl', [
+            'required' => 'Veld %field% is verplicht',
+            'email' => 'Dit e-mailadres is niet geldig',
+        ]);
         return $translator;
+    }
+
+    private function emailException(): ValidationException
+    {
+        $validator = new Validator();
+        $validator->email('email', 'not-an-email');
+        return new ValidationException($validator->result());
     }
 
     public function testResolveLeavesStringsLiteralWithoutCallingTheEngine(): void
@@ -153,41 +171,14 @@ class TypedTranslationTest extends TestCase
         $this->assertSame([], $spy->calls);
     }
 
-    public function testLiteralValidationExceptionIsUntouched(): void
+    public function testViolationWithoutTranslationUsesItsFallback(): void
     {
-        $exception = new ValidationException('Custom validation failed');
+        $violation = new Violation('email', 'email', 'email', 'This value is not a valid email address');
 
-        // A literal is not Translatable: the localized handler keeps its body
-        // unchanged, see testHandlerKeepsLiteralValidationErrorsUntouched.
-        $this->assertSame('Custom validation failed', $exception->getMessage());
-        $this->assertSame('Custom validation failed', $exception->getResponseBody());
-    }
-
-    public function testKeyedValidationExceptionPropagatesIdDomainAndParameters(): void
-    {
-        $translator = $this->translator();
-        $exception = new TranslatableValidationException(TypedTranslationKey::Required, parameters: ['%field%' => 'email']);
-
-        $this->assertSame(TypedTranslationKey::Required, $exception->translation());
-        $this->assertSame(['%field%' => 'email'], $exception->parameters());
-        // getMessage stays diagnosable without i18n: the raw id
-        $this->assertSame('validation.required', $exception->getMessage());
-
-        $this->assertSame('Le champ email est requis', $exception->translate(new LocalizedTranslator($translator, 'fr')));
-        $this->assertSame('Veld email is verplicht', (new LocalizedTranslator($translator, 'nl'))->resolve($exception));
-    }
-
-    public function testSameExceptionResolvedInTwoLocalesDoesNotLeak(): void
-    {
-        $translator = $this->translator();
-        $exception = new TranslatableValidationException(TypedTranslationKey::Hello);
-
-        $fr = new LocalizedTranslator($translator, 'fr');
-        $nl = new LocalizedTranslator($translator, 'nl');
-
-        $this->assertSame('Message de test', $fr->resolve($exception));
-        $this->assertSame('Testbericht', $nl->resolve($exception));
-        $this->assertSame('Message de test', $fr->resolve($exception));
+        $this->assertSame('email', $violation->code);
+        $this->assertSame('email', $violation->messageId);
+        $this->assertSame('validation', $violation->domain);
+        $this->assertSame('This value is not a valid email address', $this->emailException()->getResponseBody());
     }
 
     public function testResolvePropagatesNonNullDomain(): void
@@ -197,17 +188,6 @@ class TypedTranslationTest extends TestCase
 
         $this->assertSame('translated:required', $i18n->resolve(TypedTranslationKey::Namespaced));
         $this->assertSame([['required', [], 'validation', 'fr']], $spy->calls);
-    }
-
-    public function testKeyedValidationExceptionPropagatesItsDomain(): void
-    {
-        $spy = new SpyTranslator();
-        $i18n = new LocalizedTranslator($spy, 'fr');
-        $exception = new TranslatableValidationException(TypedTranslationKey::Namespaced, parameters: ['%field%' => 'email']);
-
-        $this->assertSame('translated:required', $exception->translate($i18n));
-        $this->assertSame([['required', ['%field%' => 'email'], 'validation', 'fr']], $spy->calls);
-        $this->assertSame('Le champ email est requis', $exception->translate(new LocalizedTranslator($this->translator(), 'fr')));
     }
 
     public function testTypedKeysAreCompleteAcrossCatalogs(): void
@@ -257,61 +237,86 @@ class TypedTranslationTest extends TestCase
         return new LocalizedExceptionHandler(new ExceptionHandler($psr17, $psr17), $this->translator());
     }
 
-    public function testHandlerTranslatesPublicValidationErrors(): void
+    public function testHandlerTranslatesEachViolationWithoutLosingItsStructure(): void
     {
-        $exception = new TranslatableValidationException(TypedTranslationKey::Required, parameters: ['%field%' => 'email']);
+        $validator = new Validator();
+        $validator->email('email', 'not-an-email');
+        $validator->add(new Violation('name', 'custom_code', 'untranslated.key', 'Fallback text', domain: 'app'));
+        $exception = new ValidationException($validator->result());
 
-        $fr = $this->handler()->toResponse($exception, $this->localizedRequest('fr'));
-        $this->assertSame(422, $fr->getStatusCode());
-        $this->assertSame('Le champ email est requis', (string) $fr->getBody());
+        $response = $this->handler()->toResponse($exception, $this->localizedRequest('fr'));
 
-        $nl = $this->handler()->toResponse($exception, $this->localizedRequest('nl'));
-        $this->assertSame('Veld email is verplicht', (string) $nl->getBody());
+        $this->assertSame(422, $response->getStatusCode());
+        // The first message stays the plain-text body for non-JSON clients
+        $this->assertSame('Cette adresse e-mail n’est pas valide', (string) $response->getBody());
     }
 
     public function testHandlerFallsBackWithoutAResolvedLocale(): void
     {
-        $exception = new TranslatableValidationException(TypedTranslationKey::Required, parameters: ['%field%' => 'email']);
+        $response = $this->handler()->toResponse($this->emailException(), new ServerRequest('GET', '/'));
 
-        $response = $this->handler()->toResponse($exception, new ServerRequest('GET', '/'));
-        $this->assertSame('validation.required', (string) $response->getBody());
-    }
-
-    public function testHandlerKeepsLiteralValidationErrorsUntouched(): void
-    {
-        $response = $this->handler()->toResponse(new ValidationException('This is invalid'), $this->localizedRequest('fr'));
         $this->assertSame(422, $response->getStatusCode());
-        $this->assertSame('This is invalid', (string) $response->getBody());
+        $this->assertSame('This value is not a valid email address', (string) $response->getBody());
     }
 
     public function testHandlerProducesLocalizedProblemJson(): void
     {
-        $exception = new TranslatableValidationException(TypedTranslationKey::Required, parameters: ['%field%' => 'email']);
+        $validator = new Validator();
+        $validator->email('email', 'not-an-email');
+        $validator->add(new Violation(null, 'invalid_period', 'invalid_period', 'The selected period is not valid', domain: 'booking'));
         $request = $this->localizedRequest('fr')->withHeader('Accept', 'application/json');
 
-        $response = $this->handler()->toResponse($exception, $request);
+        $response = $this->handler()->toResponse(new ValidationException($validator->result()), $request);
 
         $this->assertSame(422, $response->getStatusCode());
         $this->assertSame(ExceptionHandler::PROBLEM_JSON, $response->getHeaderLine('Content-Type'));
         $problem = Json::decodeMap((string) $response->getBody());
-        $this->assertSame('Le champ email est requis', $problem['detail']);
         $this->assertSame(422, $problem['status']);
+        $this->assertArrayNotHasKey('detail', $problem);
         $this->assertArrayNotHasKey('exception', $problem);
+        $this->assertSame(
+            [
+                ['field' => 'email', 'code' => 'email', 'message' => 'Cette adresse e-mail n’est pas valide'],
+                // No booking catalog: the fallback is used, the structure is kept
+                ['field' => null, 'code' => 'invalid_period', 'message' => 'The selected period is not valid'],
+            ],
+            $problem['errors'],
+        );
+    }
+
+    public function testHandlerKeepsFallbacksUntouchedWithoutALocale(): void
+    {
+        $psr17 = new Psr17Factory();
+        $handler = new ExceptionHandler($psr17, $psr17);
+        $request = new ServerRequest('GET', '/', ['Accept' => 'application/json']);
+
+        $problem = Json::decodeMap((string) $handler->toResponse($this->emailException(), $request)->getBody());
+
+        $this->assertSame(
+            [
+                ['field' => 'email', 'code' => 'email', 'message' => 'This value is not a valid email address'],
+            ],
+            $problem['errors'],
+        );
     }
 
     public function testDebugProblemJsonKeepsTheOriginalExceptionInTheChain(): void
     {
         $psr17 = new Psr17Factory();
         $handler = new LocalizedExceptionHandler(new ExceptionHandler($psr17, $psr17, debug: true), $this->translator());
-        $exception = new TranslatableValidationException(TypedTranslationKey::Required, parameters: ['%field%' => 'email']);
         $request = $this->localizedRequest('fr')->withHeader('Accept', 'application/problem+json');
 
-        $problem = Json::decodeMap((string) $handler->toResponse($exception, $request)->getBody());
+        $problem = Json::decodeMap((string) $handler->toResponse($this->emailException(), $request)->getBody());
 
-        $this->assertSame('Le champ email est requis', $problem['detail']);
+        $errors = $problem['errors'] ?? null;
+        $this->assertIsArray($errors);
+        $this->assertCount(1, $errors);
+        $row = $errors[0];
+        $this->assertIsArray($row);
+        $this->assertSame('Cette adresse e-mail n’est pas valide', $row['message']);
         $this->assertIsArray($problem['exception']);
         $classes = array_column($problem['exception'], 'class');
-        $this->assertContains(TranslatableValidationException::class, $classes);
+        $this->assertContains(ValidationException::class, $classes);
     }
 
     public function testTranslatableAloneNeverBecomesPublic(): void
@@ -339,7 +344,7 @@ class TypedTranslationTest extends TestCase
 
         $response = $this->get($app, '/test-module/index/validation/');
         $this->assertSame(422, $response->getStatusCode());
-        $this->assertSame('This is invalid', (string) $response->getBody());
+        $this->assertSame('This value must not be blank', (string) $response->getBody());
 
         $this->assertInstanceOf(LocalizedExceptionHandler::class, $app->container()->get(ExceptionHandlerInterface::class));
     }
@@ -353,14 +358,26 @@ class TypedTranslationTest extends TestCase
 
         $response = $this->get($app, '/test-module/index/validation/');
         $this->assertSame(422, $response->getStatusCode());
-        $this->assertSame('This is invalid', (string) $response->getBody());
+        $this->assertSame('This value must not be blank', (string) $response->getBody());
         $this->assertInstanceOf(ExceptionHandler::class, $app->container()->get(ExceptionHandlerInterface::class));
         $this->assertNotInstanceOf(LocalizedExceptionHandler::class, $app->container()->get(ExceptionHandlerInterface::class));
 
-        // A keyed error also falls back to its raw id without the decorator
+        // A violation also falls back to its fallback without the decorator
         $psr17 = new Psr17Factory();
         $historical = new ExceptionHandler($psr17, $psr17);
-        $typed = new TranslatableValidationException(TypedTranslationKey::Required, parameters: ['%field%' => 'email']);
-        $this->assertSame('validation.required', (string) $historical->toResponse($typed, $this->localizedRequest('fr'))->getBody());
+        $this->assertSame(
+            'This value is not a valid email address',
+            (string) $historical->toResponse($this->emailException(), $this->localizedRequest('fr'))->getBody(),
+        );
+    }
+
+    public function testRebuiltExceptionsKeepTheChain(): void
+    {
+        $exception = $this->emailException();
+        $rebuilt = new ValidationException(new ValidationResult(), $exception);
+
+        $this->assertInstanceOf(ValidationException::class, $rebuilt);
+        $this->assertTrue($rebuilt->validation()->isValid());
+        $this->assertSame($exception, $rebuilt->getPrevious());
     }
 }

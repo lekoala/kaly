@@ -4,6 +4,44 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Structured validation replaces stringly errors
+
+- New `Kaly\Validation`: `Violation` (`field`, `code`, `messageId`, `fallback`,
+  `parameters`, `domain`), `ValidationResult` (`isValid()`, `violations()`,
+  `for()`), `Validator` (`notBlank`, `email`, `length`/`minLength`/`maxLength`,
+  `between`, `oneOf`, `matches`, `count`, plus `add()` for application rules)
+  and `HasValidationResult`. Every rule ignores `null` (nullability belongs to
+  the PHP type); a misconfigured rule (invalid pattern, `min > max`) throws
+  `InvalidArgumentException`.
+- `ValidatableInput::validate()` now takes the validator
+  (`validate(Validator $validator): void`) and collects violations instead of
+  throwing. Constructors of request inputs never validate: move every
+  user-facing check from the constructor (or from a value object built by the
+  mapper) into `validate()`. The mapper does not convert constructor failures
+  into user errors.
+- `InputMapper::mapResult()` is the non-throwing path: it accumulates mapping
+  violations (400 catalog, domain `input`) and returns an `InputResult` with
+  the submitted `values()`, the DTO when it could be built, and the
+  `validation()`. `map()` is now `mapResult(...)->require()`. The query/body
+  conflict no longer throws: it keeps the query value and becomes a
+  `conflicting_values` violation. The protected `collect()`/`coerce()`/`to*()`
+  internals now accumulate violations instead of throwing `InputException`.
+- `InputException` (400) and `ValidationException` (422) are built from a
+  `ValidationResult` and expose it through `HasValidationResult`; their public
+  body is the first violation message. `withValidation()` rebuilds either one
+  with a translated result. Both constructors changed: pass a result instead of
+  a string.
+- JSON errors are a list: `problem+json` carries
+  `errors: [{field, code, message}]` (`field: null` for global errors) with no
+  `detail` when errors exist. `messageId`, `domain` and `parameters` are never
+  exposed. `LocalizedExceptionHandler` translates each violation with the
+  request locale, falling back to the violation fallback when the catalog has
+  nothing; without a locale the fallbacks are used as is.
+- `Kaly\I18n\TranslatableValidationException` is removed without an alias: a
+  single global or field violation (possibly with an application domain)
+  replaces the typed-exception channel. The generic `Translatable` path for
+  other HTTP errors is unchanged.
+
 ## Session cookie scope and Basic credentials
 
 - The session cookie is host-only by default: `SessionCookie::deriveOptions()`

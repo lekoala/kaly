@@ -14,6 +14,8 @@ use Kaly\Http\Exception\RedirectException;
 use Kaly\Http\Input\InputException;
 use Kaly\Http\Input\ValidationException;
 use Kaly\Router\RouteNotFoundException;
+use Kaly\Validation\ValidationResult;
+use Kaly\Validation\Validator;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -21,6 +23,13 @@ use PHPUnit\Framework\TestCase;
  */
 class HttpExceptionTest extends TestCase
 {
+    private function invalidInput(): ValidationException
+    {
+        $validator = new Validator();
+        $validator->notBlank('name', '');
+        return new ValidationException($validator->result());
+    }
+
     public function testEveryHttpFailureSharesTheBase(): void
     {
         $exceptions = [
@@ -28,8 +37,8 @@ class HttpExceptionTest extends TestCase
             new RouteNotFoundException(),
             new ForbiddenException(),
             new MethodNotAllowedException(['GET']),
-            new InputException('bad'),
-            new ValidationException('invalid'),
+            new InputException(new ValidationResult()),
+            $this->invalidInput(),
             new RedirectException('/x'),
         ];
 
@@ -46,8 +55,8 @@ class HttpExceptionTest extends TestCase
         $this->assertSame(404, (new NotFoundException())->status());
         $this->assertSame(403, (new ForbiddenException())->status());
         $this->assertSame(405, (new MethodNotAllowedException())->status());
-        $this->assertSame(400, (new InputException('x'))->status());
-        $this->assertSame(422, (new ValidationException('x'))->status());
+        $this->assertSame(400, (new InputException(new ValidationResult()))->status());
+        $this->assertSame(422, $this->invalidInput()->status());
         $this->assertSame(307, (new RedirectException('/x'))->status());
     }
 
@@ -67,8 +76,8 @@ class HttpExceptionTest extends TestCase
         $this->assertSame('', (new ForbiddenException())->getResponseBody());
         $this->assertSame('', (new MethodNotAllowedException(['GET']))->getResponseBody());
 
-        $this->assertSame('bad', (new InputException('bad'))->getResponseBody());
-        $this->assertSame('invalid', (new ValidationException('invalid'))->getResponseBody());
+        $this->assertSame('', (new InputException(new ValidationResult()))->getResponseBody());
+        $this->assertSame('This value must not be blank', $this->invalidInput()->getResponseBody());
     }
 
     public function testHeadersArePartOfTheException(): void
@@ -95,8 +104,8 @@ class HttpExceptionTest extends TestCase
     {
         // They are genuinely different failures (400 vs 422) but a handler
         // that wants "the request was refused" catches the family
-        $this->assertInstanceOf(HttpException::class, new ValidationException('x'));
-        $this->assertNotInstanceOf(InputException::class, new ValidationException('x'));
-        $this->assertNotInstanceOf(ValidationException::class, new InputException('x'));
+        $this->assertInstanceOf(HttpException::class, $this->invalidInput());
+        $this->assertNotInstanceOf(InputException::class, $this->invalidInput());
+        $this->assertNotInstanceOf(ValidationException::class, new InputException(new ValidationResult()));
     }
 }

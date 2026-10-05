@@ -6,6 +6,8 @@ namespace Kaly\Http;
 
 use Kaly\Http\Exception\HttpExceptionInterface;
 use Kaly\Util\Json;
+use Kaly\Validation\HasValidationResult;
+use Kaly\Validation\Violation;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -99,11 +101,22 @@ final class ExceptionHandler implements ExceptionHandlerInterface
             'title' => $response->getReasonPhrase(),
             'status' => $response->getStatusCode(),
         ];
-        if ($body !== '') {
+        // Structured validation errors replace the free-form detail: a single
+        // detail could never say which error it summarizes.
+        $errors = $exception instanceof HasValidationResult ? $exception->validation()->violations() : [];
+        if ($errors !== []) {
+            $problem['errors'] = array_map(static fn(Violation $violation): array => [
+                'field' => $violation->field,
+                'code' => $violation->code,
+                'message' => $violation->fallback,
+            ], $errors);
+        } elseif ($body !== '') {
             $problem['detail'] = $body;
         }
         if ($this->debug) {
-            $problem['detail'] ??= $exception->getMessage();
+            if ($errors === []) {
+                $problem['detail'] ??= $exception->getMessage();
+            }
             $problem['exception'] = [];
             for ($ex = $exception; $ex !== null; $ex = $ex->getPrevious()) {
                 $problem['exception'][] = [

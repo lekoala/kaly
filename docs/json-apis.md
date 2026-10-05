@@ -25,7 +25,9 @@ Errors follow the client: a JSON client gets `application/problem+json`
 (RFC 9457), an HTML client gets a page. HTTP exceptions (`NotFoundException`,
 `ValidationException` → 422, `MethodNotAllowedException` → 405 with `Allow`)
 are expected outcomes with a public body; anything else is logged and becomes
-a 500 that leaks nothing.
+a 500 that leaks nothing. Input and validation failures carry an `errors` list
+of `{field, code, message}` entries instead of a free-form `detail`, with
+`field: null` for global errors.
 
 ```php
 $client->get('/api/products/7/')

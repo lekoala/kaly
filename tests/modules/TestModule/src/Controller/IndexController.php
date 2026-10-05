@@ -9,6 +9,7 @@ use Kaly\Core\AbstractController;
 use Kaly\Http\Exception\RedirectException;
 use Kaly\Http\Input\ValidationException;
 use Kaly\Tests\Mocks\SaveInput;
+use Kaly\Validation\Validator;
 use Kaly\View\View;
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
@@ -126,6 +127,8 @@ class IndexController extends AbstractController
 
     public function validation(): never
     {
-        throw new ValidationException('This is invalid');
+        $validator = new Validator();
+        $validator->notBlank('name', '');
+        throw new ValidationException($validator->result());
     }
 }

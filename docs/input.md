@@ -129,31 +129,36 @@ Mapping answers: *can this data be represented by this type?*
 ```
 
 Validation answers: *is this typed value acceptable?* It belongs to the input object
-itself — its constructor, or an optional contract:
+itself through an optional contract:
 
 ```php
-interface ValidatableInput
+use Kaly\Validation\Validator;
+
+interface ValidatableInput extends RequestInput
 {
-    public function validate(): void;
+    public function validate(Validator $validator): void;
 }
 ```
 
 ```php
-final readonly class PaginationInput implements RequestInput
+final readonly class PaginationInput implements ValidatableInput
 {
     public function __construct(
         public int $page = 1,
         public int $limit = 20,
-    ) {
-        if ($page < 1) {
-            throw new ValidationException('page must be >= 1');
-        }
-        if ($limit < 1 || $limit > 100) {
-            throw new ValidationException('limit must be between 1 and 100');
-        }
+    ) {}
+
+    public function validate(Validator $v): void
+    {
+        $v->between('page', $this->page, min: 1);
+        $v->between('limit', $this->limit, 1, 100);
     }
 }
 ```
+
+The constructor of a request input never validates: it only receives values its
+types can already represent. Every user-facing constraint lives in `validate()`,
+so a form can always be rebuilt from the submitted values — even invalid ones.
 
 Value objects encode both at once and are the recommended way to share an invariant:
 
@@ -169,6 +174,66 @@ final readonly class Email
 }
 ```
 
+## Validation collects violations
+
+`Kaly\Validation\Validator` checks already typed values and collects one
+`Violation` per refused value instead of stopping at the first:
+
+```php
+$v->notBlank('name', $this->name);
+$v->length('name', $this->name, max: 120);
+$v->email('email', $this->email);
+$v->between('age', $this->age, 18, 120);
+$v->oneOf('status', $this->status, ['active', 'archived']);
+$v->matches('code', $this->code, '/^[A-Z]+-\d+$/');
+$v->count('tags', $this->tags, max: 5);
+```
+
+Rules are deliberately small: the PHP type is the schema, the validator only
+refuses values the type alone accepts. Every rule ignores `null` because
+nullability belongs to the type. A misconfigured rule (an invalid pattern,
+`min > max`) is a programming error and throws `InvalidArgumentException`.
+
+Application rules use `add()` with an explicit violation:
+
+```php
+use Kaly\Validation\Violation;
+
+$v->add(new Violation(
+    field: 'end',
+    code: 'end_before_start',
+    messageId: 'end_before_start',
+    fallback: 'End must not be before start',
+    domain: 'booking',
+));
+```
+
+A violation carries a stable machine `code` for API consumers, a `messageId`
+plus `domain` resolved through i18n at render time, and a `fallback` that is
+always displayable. `field: null` is a global error.
+
+## Mapping and validation both accumulate
+
+`InputMapper::mapResult()` never throws for client errors: it returns an
+`InputResult` with the submitted values, the DTO when it could be built, and
+the collected result. Mapping errors (a 400) and refused values (a 422) never
+mix — without a DTO there is nothing to validate:
+
+```php
+$result = $mapper->mapResult($request, RegisterInput::class);
+
+if (!$result->isValid()) {
+    return new View('register', ['values' => $result->values(), 'errors' => $result->validation()], status: $result->status());
+}
+
+$input = $result->input();
+```
+
+`InputMapper::map()` — the path the dispatcher uses for action arguments —
+is the throwing counterpart: `mapResult(...)->require()`. A JSON API keeps
+declaring the input and gets a `problem+json` list of `{field, code, message}`
+errors on failure.
+
 ## Status codes
 
 The three failures are distinct and must not collapse into one:
@@ -183,7 +248,8 @@ A 404 means *there is no such route*. A 400 means *the route exists, the data is
 unusable*. A 422 means *the data is well formed and still unacceptable*.
 
 `Kaly\Http\Input\InputException` carries the 400, `Kaly\Http\Input\ValidationException` the 422.
-Both are `HttpExceptionInterface`, so the kernel turns them into responses on its own.
+Both expose their `ValidationResult` through `Kaly\Validation\HasValidationResult`,
+so the kernel turns them into responses on its own.
 
 ## Supported conversions
 

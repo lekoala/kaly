@@ -6,6 +6,7 @@ namespace Kaly\Tests;
 
 use Kaly\Http\Input\InputException;
 use Kaly\Http\Input\InputMapper;
+use Kaly\Http\Input\InputResult;
 use Kaly\Http\Input\RequestInput;
 use Kaly\Http\Input\ValidationException;
 use Kaly\Tests\Mocks\FullInput;
@@ -14,6 +15,8 @@ use Kaly\Tests\Mocks\PaginationInput;
 use Kaly\Tests\Mocks\Priority;
 use Kaly\Tests\Mocks\SaveInput;
 use Kaly\Tests\Mocks\UnsupportedInput;
+use Kaly\Validation\ValidationResult;
+use Kaly\Validation\Validator;
 use LogicException;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\TestCase;
@@ -27,11 +30,21 @@ class InputMapperTest extends TestCase
      */
     private function map(array $query, ?array $body = null, string $class = FullInput::class): RequestInput
     {
+        return $this->mapResult($query, $body, $class)->require();
+    }
+
+    /**
+     * @param array<string,mixed> $query
+     * @param array<string,mixed>|null $body
+     * @param class-string<RequestInput> $class
+     */
+    private function mapResult(array $query, ?array $body = null, string $class = FullInput::class): InputResult
+    {
         $request = (new ServerRequest('GET', '/'))->withQueryParams($query);
         if ($body !== null) {
             $request = $request->withParsedBody($body);
         }
-        return (new InputMapper())->map($request, $class);
+        return (new InputMapper())->mapResult($request, $class);
     }
 
     public function testEveryScalarIsCoercedFromStrings(): void
@@ -84,9 +97,16 @@ class InputMapperTest extends TestCase
 
     public function testAnUnknownEnumCaseIsABadRequest(): void
     {
-        $this->expectException(InputException::class);
-        $this->expectExceptionMessage("'status' must be");
-        $this->map(['name' => 'x', 'status' => 'nonsense']);
+        try {
+            $this->map(['name' => 'x', 'status' => 'nonsense']);
+            $this->fail('mapping should have failed');
+        } catch (InputException $exception) {
+            $this->assertSame(400, $exception->status());
+            $violations = $exception->validation()->violations();
+            $this->assertCount(1, $violations);
+            $this->assertSame('status', $violations[0]->field);
+            $this->assertSame('enum', $violations[0]->code);
+        }
     }
 
     public function testArraysComeFromRepeatedKeys(): void
@@ -99,29 +119,74 @@ class InputMapperTest extends TestCase
 
     public function testAScalarIsNotAnArray(): void
     {
-        $this->expectException(InputException::class);
-        $this->expectExceptionMessage("'tags' must be an array");
-        $this->map(['name' => 'x', 'tags' => 'a,b']);
+        try {
+            $this->map(['name' => 'x', 'tags' => 'a,b']);
+            $this->fail('mapping should have failed');
+        } catch (InputException $exception) {
+            $violations = $exception->validation()->violations();
+            $this->assertCount(1, $violations);
+            $this->assertSame('tags', $violations[0]->field);
+            $this->assertSame('type_array', $violations[0]->code);
+        }
     }
 
     public function testAnUncoercibleValueIsABadRequest(): void
     {
-        $this->expectException(InputException::class);
-        $this->expectExceptionMessage("'page' must be an integer");
-        $this->map(['name' => 'x', 'page' => 'abc']);
+        try {
+            $this->map(['name' => 'x', 'page' => 'abc']);
+            $this->fail('mapping should have failed');
+        } catch (InputException $exception) {
+            $violations = $exception->validation()->violations();
+            $this->assertCount(1, $violations);
+            $this->assertSame('page', $violations[0]->field);
+            $this->assertSame('type_int', $violations[0]->code);
+        }
     }
 
     public function testAFloatIsNotAnInteger(): void
     {
-        $this->expectException(InputException::class);
-        $this->map(['name' => 'x', 'page' => '1.5']);
+        try {
+            $this->map(['name' => 'x', 'page' => '1.5']);
+            $this->fail('mapping should have failed');
+        } catch (InputException $exception) {
+            $this->assertSame('type_int', $exception->validation()->violations()[0]->code);
+        }
     }
 
     public function testARequiredPropertyIsABadRequest(): void
     {
-        $this->expectException(InputException::class);
-        $this->expectExceptionMessage("'name' is required");
-        $this->map([]);
+        try {
+            $this->map([]);
+            $this->fail('mapping should have failed');
+        } catch (InputException $exception) {
+            $violations = $exception->validation()->violations();
+            $this->assertCount(1, $violations);
+            $this->assertSame('name', $violations[0]->field);
+            $this->assertSame('required', $violations[0]->code);
+            $this->assertSame('input', $violations[0]->domain);
+        }
+    }
+
+    public function testMappingErrorsAccumulateInsteadOfStoppingAtTheFirst(): void
+    {
+        $result = $this->mapResult(['page' => 'abc', 'ratio' => 'nonsense']);
+
+        $this->assertFalse($result->isValid());
+        $this->assertNull($result->input());
+        $this->assertSame(400, $result->status());
+
+        $fields = array_map(static fn($violation) => $violation->field, $result->validation()->violations());
+        $this->assertContains('name', $fields);
+        $this->assertContains('page', $fields);
+        $this->assertContains('ratio', $fields);
+    }
+
+    public function testValuesKeepTheSubmittedDataBeforeCoercion(): void
+    {
+        $result = $this->mapResult(['name' => 'x', 'page' => 'abc']);
+
+        $this->assertSame(['name' => 'x', 'page' => 'abc'], $result->values());
+        $this->assertNull($result->input());
     }
 
     public function testTheBodyCompletesTheQuery(): void
@@ -144,27 +209,74 @@ class InputMapperTest extends TestCase
 
     public function testContradictingValuesAreABadRequest(): void
     {
-        $this->expectException(InputException::class);
-        $this->expectExceptionMessage("'page' was sent in the query and in the body with different values");
-        $this->map(['name' => 'x', 'page' => '2'], ['page' => '15']);
+        $result = $this->mapResult(['name' => 'x', 'page' => '2'], ['page' => '15']);
+
+        $this->assertFalse($result->isValid());
+        $this->assertSame(400, $result->status());
+        // The query value is kept for re-rendering
+        $this->assertSame('2', $result->values()['page']);
+
+        $violations = $result->validation()->violations();
+        $this->assertCount(1, $violations);
+        $this->assertSame('page', $violations[0]->field);
+        $this->assertSame('conflicting_values', $violations[0]->code);
     }
 
     public function testValidationRunsAfterMapping(): void
     {
-        $input = $this->map(['page' => '2'], null, PaginationInput::class);
-        $this->assertInstanceOf(PaginationInput::class, $input);
-        $this->assertSame(2, $input->page);
+        $result = $this->mapResult(['page' => '2'], null, PaginationInput::class);
+        $this->assertTrue($result->isValid());
+        $this->assertNull($result->status());
+        $this->assertInstanceOf(PaginationInput::class, $result->input());
 
         // Well typed, still refused: that is a 422, not a 400
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('page must be >= 1');
-        $this->map(['page' => '-4'], null, PaginationInput::class);
+        $result = $this->mapResult(['page' => '-4'], null, PaginationInput::class);
+        $this->assertFalse($result->isValid());
+        $this->assertSame(422, $result->status());
+        $this->assertInstanceOf(PaginationInput::class, $result->input());
+
+        $violations = $result->validation()->violations();
+        $this->assertCount(1, $violations);
+        $this->assertSame('page', $violations[0]->field);
+        $this->assertSame('between', $violations[0]->code);
     }
 
-    public function testValidationExceptionIsUnprocessable(): void
+    public function testRequireThrowsTheDocumentedStatus(): void
     {
-        $this->assertSame(422, (new ValidationException('nope'))->status());
-        $this->assertSame(400, (new InputException('nope'))->status());
+        try {
+            $this->map(['page' => '-4'], null, PaginationInput::class);
+            $this->fail('mapping should have failed');
+        } catch (ValidationException $exception) {
+            $this->assertSame(422, $exception->status());
+        }
+
+        try {
+            $this->map([]);
+            $this->fail('mapping should have failed');
+        } catch (InputException $exception) {
+            $this->assertSame(400, $exception->status());
+        }
+    }
+
+    public function testValidationIsSkippedWhenMappingFails(): void
+    {
+        // page is not an integer so no DTO exists: the between rule never runs
+        $result = $this->mapResult(['page' => 'abc'], null, PaginationInput::class);
+
+        $this->assertNull($result->input());
+        $this->assertSame(400, $result->status());
+        $this->assertSame(['type_int'], array_map(static fn($violation) => $violation->code, $result->validation()->violations()));
+    }
+
+    public function testExceptionsExposeTheFirstMessageAsTheirBody(): void
+    {
+        $validator = new Validator();
+        $validator->notBlank('name', '');
+
+        $this->assertSame('This value must not be blank', (new ValidationException($validator->result()))->getResponseBody());
+        $this->assertSame(422, (new ValidationException(new ValidationResult()))->status());
+        $this->assertSame('', (new ValidationException(new ValidationResult()))->getResponseBody());
+        $this->assertSame(400, (new InputException(new ValidationResult()))->status());
     }
 
     public function testAnUnsupportedPropertyTypeIsAProgrammingError(): void

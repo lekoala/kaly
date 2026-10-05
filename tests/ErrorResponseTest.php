@@ -112,13 +112,21 @@ class ErrorResponseTest extends TestCase
 
         $response = $this->get($app, '/test-module/index/validation/');
         $this->assertSame(422, $response->getStatusCode());
-        $this->assertSame('This is invalid', (string) $response->getBody());
+        $this->assertSame('This value must not be blank', (string) $response->getBody());
 
         $response = $this->get($app, '/test-module/index/validation/', 'application/json');
         $this->assertSame(ExceptionHandler::PROBLEM_JSON, $response->getHeaderLine('Content-Type'));
         $problem = Json::decodeMap((string) $response->getBody());
-        $this->assertSame('This is invalid', $problem['detail']);
         $this->assertSame(422, $problem['status']);
+        $this->assertArrayNotHasKey('detail', $problem);
+        $this->assertSame(
+            [[
+                'field' => 'name',
+                'code' => 'not_blank',
+                'message' => 'This value must not be blank',
+            ]],
+            $problem['errors'],
+        );
     }
 
     /**
