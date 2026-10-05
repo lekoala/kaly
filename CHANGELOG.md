@@ -86,12 +86,26 @@
   construction. An empty realm remains valid, and realm values are emitted as
   properly escaped HTTP quoted strings.
 
+- **Breaking:** `BasicAccessMiddleware` rejects a realm containing characters that
+  cannot appear in an HTTP header. A realm that would previously have produced an
+  invalid `WWW-Authenticate` header now fails at construction. An empty realm and
+  a realm containing HTAB remain valid.
+
+- **Breaking:** `BasicAccessMiddleware` compares the username and the password on
+  every request instead of short-circuiting, so a valid username is no longer
+  distinguishable from an invalid one by response time.
+
 - `Authorization` parsing is stricter:
   - multiple `Authorization` header values are rejected rather than merged;
   - authentication schemes must use valid token syntax;
   - Basic credentials reject control characters;
   - Bearer credentials follow the complete `b64token` grammar, including
     optional `=` padding.
+
+- **Breaking:** `PermissionSet` rejects the empty permission, in a set as well as
+  in `allows()` / `any()` / `all()`. An empty string, or a string-backed enum
+  whose value is empty, throws `InvalidArgumentException` instead of granting a
+  permission that matches nothing in particular and `''` in particular.
 
 - `PermissionSet` preserves granted permission strings when iterated and rebuilt,
   including strings that PHP would otherwise coerce to integer array keys.

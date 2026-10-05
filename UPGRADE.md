@@ -67,6 +67,14 @@ Update the imports; constructors and behaviors are unchanged.
   value must read a single header.
 - `UnauthorizedException` rejects an empty challenge instead of emitting an
   empty `WWW-Authenticate` header. Always pass a real challenge.
+- `BasicAccessMiddleware` now refuses a realm containing characters that cannot
+  appear in an HTTP header, at construction instead of when the 401 response is
+  built. An empty realm and a realm containing HTAB remain valid.
+- `PermissionSet` rejects an empty permission, both when a set is built and when
+  `allows()` / `any()` / `all()` is asked about one — an empty permission used
+  to be granted and to match. An empty string, or a string-backed enum whose
+  value is empty, now throws `InvalidArgumentException`. Pass a real permission
+  name.
 
 ## Honest portable translation subset
 

@@ -68,17 +68,34 @@ class BasicAccessTest extends TestCase
         }
     }
 
-    public function testRealmWithHeaderBreakIsRefusedByThePsr7Response(): void
+    public function testRealmWithControlCharactersIsRefusedAtConstruction(): void
     {
-        $middleware = new BasicAccessMiddleware('stage', 's3cret', "a\r\nB: evil");
+        try {
+            new BasicAccessMiddleware('stage', 's3cret', "a\r\nB: evil");
+            $this->fail('A realm carrying a header break should have thrown');
+        } catch (InvalidArgumentException $e) {
+            $this->assertSame('Basic access realm contains invalid characters', $e->getMessage());
+        }
+    }
+
+    public function testTabAndEmptyRealmsStayValid(): void
+    {
+        $empty = new BasicAccessMiddleware('stage', 's3cret', '');
 
         try {
-            $middleware->process(new ServerRequest('GET', '/'), $this->next());
+            $empty->process(new ServerRequest('GET', '/'), $this->next());
             $this->fail('Missing credentials should have challenged');
         } catch (UnauthorizedException $e) {
-            $challenge = $e->getResponseHeaders()['WWW-Authenticate'];
-            $this->expectException(InvalidArgumentException::class);
-            (new Response())->withHeader('WWW-Authenticate', $challenge);
+            $this->assertSame('Basic realm=""', $e->getResponseHeaders()['WWW-Authenticate']);
+        }
+
+        $tabbed = new BasicAccessMiddleware('stage', 's3cret', "a\tb");
+
+        try {
+            $tabbed->process(new ServerRequest('GET', '/'), $this->next());
+            $this->fail('Missing credentials should have challenged');
+        } catch (UnauthorizedException $e) {
+            $this->assertSame("Basic realm=\"a\tb\"", $e->getResponseHeaders()['WWW-Authenticate']);
         }
     }
 

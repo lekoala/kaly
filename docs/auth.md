@@ -53,7 +53,10 @@ $auth->authenticate($user, [Permission::AdminAccess, 'users.read']);
 `Kaly\Auth\PermissionSet` is intentionally closed: `allows()`, `any()`,
 `all()`. No roles, wildcards, inheritance or denies. Permissions accept
 strings or string-backed enums and are reloaded on every request, never stored
-in the session — a revoked permission applies to the very next request.
+in the session — a revoked permission applies to the very next request. An
+empty permission is refused wherever it appears, when the set is built as well
+as when it is asked about: `''` names nothing, so it is a caller bug rather
+than a permission.
 
 A permission opens the door of a use case; it is not the business rule:
 
@@ -88,12 +91,12 @@ $id = $sessionAuth->identifier($ctx->session()); // ?string
 $sessionAuth->logout($ctx->session(), $ctx->auth());
 ```
 
-Login regenerates the session id before writing (fixation protection);
-logout removes only the `_auth` key — flash messages, carts and wizards
-survive — then clears the identity and regenerates the id. Both transitions
-also drop the CSRF secret, so tokens issued under the previous identity stop
-validating. Destroying the
-whole session stays an explicit application choice.
+Login regenerates the session id before writing (fixation protection).
+Logout removes the authentication reference and the CSRF secret, while
+preserving unrelated session data such as flash messages, carts and wizards;
+it then clears the identity and regenerates the id. Because both transitions
+drop the secret, a token issued under the previous identity stops validating.
+Destroying the whole session stays an explicit application choice.
 
 Restoring the user on each request is a small application middleware, because
 only the application can load its users:
@@ -237,7 +240,7 @@ the login page lives outside the guarded scope instead of being carved out
 of it:
 
 ```text
-Public/Auth scope:  Csrf
+Public/Auth scope:  ResolveUser → Csrf
                     ├── GET  /login
                     └── POST /login
 
@@ -245,8 +248,9 @@ Admin scope:        ResolveUser → Csrf → RequireAdmin
                     └── /admin/*
 ```
 
-The topology tells the security story. See [Modules](modules.md) and
-[Routing](routing.md).
+The login page resolves the identity like any public page — the header can
+still show who is connected — but asks for no permission. The topology tells
+the security story. See [Modules](modules.md) and [Routing](routing.md).
 
 ## HTTP credentials
 
@@ -268,8 +272,12 @@ throw new UnauthorizedException('Basic realm="Staging"');
 For staging areas, `Kaly\Auth\Middleware\BasicAccessMiddleware` is a pure
 HTTP gate: it checks Basic credentials and continues, or answers 401 with a
 challenge built from its realm. It never establishes an application identity,
-refuses empty username or password at construction, and Basic auth belongs
-behind HTTPS:
+and it refuses at construction what could never produce a valid request or a
+valid header: an empty username, an empty password, or a realm carrying
+characters that cannot appear in an HTTP header. Both credentials are compared
+on every request, so a valid username is not distinguishable from an invalid
+one by response time. An empty realm and a realm containing HTAB stay valid.
+Basic auth belongs behind HTTPS:
 
 ```php
 new BasicAccessMiddleware(username: 'stage', password: 's3cret', realm: 'Staging')

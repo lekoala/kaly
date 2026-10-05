@@ -34,13 +34,25 @@ final readonly class BasicAccessMiddleware implements MiddlewareInterface
         if ($password === '') {
             throw new InvalidArgumentException('Basic access password must not be empty');
         }
+
+        // The realm is quoted into a challenge header, so refuse it at the
+        // source rather than letting the PSR-7 layer reject it later. HTAB and
+        // an empty realm stay valid.
+        if (preg_match('/[\x00-\x08\x0A-\x1F\x7F]/', $realm) === 1) {
+            throw new InvalidArgumentException('Basic access realm contains invalid characters');
+        }
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $basic = Authorization::from($request)?->basic();
 
-        if ($basic !== null && hash_equals($this->username, $basic['username']) && hash_equals($this->password, $basic['password'])) {
+        // Both comparisons always run: folding them into one && would make the
+        // answer to "is this username valid?" observable in the response time.
+        $userMatches = hash_equals($this->username, $basic['username'] ?? '');
+        $passwordMatches = hash_equals($this->password, $basic['password'] ?? '');
+
+        if ($basic !== null && $userMatches && $passwordMatches) {
             return $handler->handle($request);
         }
 

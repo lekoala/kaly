@@ -121,6 +121,34 @@ class AuthTest extends TestCase
         new PermissionSet([IntPermission::Write]);
     }
 
+    public function testPermissionSetRejectsAnEmptyPermission(): void
+    {
+        try {
+            new PermissionSet(['a.read', '']);
+            $this->fail('An empty permission should have thrown');
+        } catch (InvalidArgumentException $e) {
+            $this->assertSame('Permission must not be empty', $e->getMessage());
+        }
+    }
+
+    public function testAnEmptyPermissionIsRefusedWhenAskedForToo(): void
+    {
+        $set = new PermissionSet(['a.read']);
+
+        $this->expectException(InvalidArgumentException::class);
+        $set->allows('');
+    }
+
+    public function testPermissionSetRejectsAnEnumWithoutAValue(): void
+    {
+        try {
+            new PermissionSet([EmptyPermission::None]);
+            $this->fail('An enum carrying an empty value should have thrown');
+        } catch (InvalidArgumentException $e) {
+            $this->assertSame('Permission must not be empty', $e->getMessage());
+        }
+    }
+
     public function testPermissionSetIsIterable(): void
     {
         $set = new PermissionSet(['b.read', 'b.write', 'b.read']);
@@ -313,6 +341,11 @@ class AuthTest extends TestCase
 enum IntPermission: int
 {
     case Write = 1;
+}
+
+enum EmptyPermission: string
+{
+    case None = '';
 }
 
 class RecordingSession implements SessionInterface

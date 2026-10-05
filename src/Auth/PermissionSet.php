@@ -85,9 +85,18 @@ final readonly class PermissionSet implements IteratorAggregate
                 throw new InvalidArgumentException('Permission enums must be string-backed');
             }
 
-            return $permission->value;
+            $value = $permission->value;
+        } else {
+            $value = $permission;
         }
 
-        return $permission;
+        // An empty permission carries no meaning in the model, so it is refused
+        // everywhere rather than becoming a permission that always matches.
+        // Deliberately not trimmed: normalization is not Kaly's business.
+        if ($value === '') {
+            throw new InvalidArgumentException('Permission must not be empty');
+        }
+
+        return $value;
     }
 }

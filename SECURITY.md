@@ -41,11 +41,24 @@ application access check: it only accepts already-authorized storage paths
 `Content-Disposition` with no injectable bytes. The forbidden-extensions
 policy belongs to the public `FileServer`, not to the primitive.
 
+## Auth, CSRF and CSP
+
+Kaly provides the browser-facing primitives: request identity with a closed
+permission set (`Kaly\Auth\Authentication`, `PermissionSet`), the session
+login/logout lifecycle (`Kaly\Auth\SessionAuthentication`), HTTP `Authorization`
+parsing, CSRF (`Kaly\Http\Csrf\Csrf`, `Kaly\Core\Middleware\CsrfMiddleware`),
+CSP nonces and the method override middleware. See
+[docs/auth.md](docs/auth.md) and [docs/security.md](docs/security.md).
+
+Access policy is never bundled: Kaly establishes an identity and ships the
+pipeline slot, but whether an anonymous request is redirected or answered 401
+stays an application guard. Password hashing, remember-me, JWT, OAuth and OIDC
+are out of scope and converge on the same `Authentication`.
+
 ## Not provided
 
-Kaly ships no auth, CSRF, or rate-limit middleware. Provide your own PSR-15
-implementations in the `incoming` / `routed` bands and scope them with `HttpContext`
-conditions.
+Kaly ships no rate-limit middleware. Provide your own PSR-15 implementation in the
+`incoming` / `routed` bands and scope it with `HttpContext` conditions.
 
 ## Reporting
 

@@ -16,6 +16,12 @@ use Kaly\Http\Session\SessionInterface;
  * never the principal itself: the application reloads the current object on
  * every request. Depends on the session and the authentication only, never
  * on the whole HTTP context.
+ *
+ * Dropping the CSRF secret is a deliberate coupling, not an oversight: a
+ * session-bound secret must not survive an identity change, Kaly owns both
+ * concepts, so Kaly guarantees the invariant. Do not move it behind an
+ * injected callback or a configuration flag — an omitted callback would let a
+ * token cross an identity change silently.
  */
 final readonly class SessionAuthentication
 {
