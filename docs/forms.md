@@ -66,8 +66,8 @@ final class ShopController extends AbstractController
             ], status: $result->status());
         }
 
+        // require() returns CheckoutInput: the result carries the DTO type
         $input = $result->require();
-        assert($input instanceof CheckoutInput);
 
         $order = $this->orders->place($input->email, $input->quantity);
         $this->redirectToRoute('shop:confirmation', ['id' => $order->id]);

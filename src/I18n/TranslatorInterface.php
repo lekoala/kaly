@@ -22,6 +22,10 @@ interface TranslatorInterface
     /**
      * Translate a message id.
      *
+     * When no translation is available, implementations must return the
+     * message id itself with the supplied parameters applied: callers rely on
+     * this to detect a missing translation and fall back to their own text.
+     *
      * @param array<string,mixed> $parameters
      * @param string|null $domain Null means the default domain of the implementation
      * @param string|null $locale Null means the default locale of the implementation

@@ -86,8 +86,10 @@ class ValidatorTest extends TestCase
         $this->assertSame('between', $result->for('low')[0]->messageId);
         // One-sided bounds get their own message id so each catalog entry only
         // uses the placeholders it receives; the machine code stays between
+        $this->assertSame('between_min', $result->for('at_least')[0]->code);
         $this->assertSame('between_min', $result->for('at_least')[0]->messageId);
         $this->assertSame(['%min%' => 2], $result->for('at_least')[0]->parameters);
+        $this->assertSame('between_max', $result->for('at_most')[0]->code);
         $this->assertSame('between_max', $result->for('at_most')[0]->messageId);
         $this->assertSame(['%max%' => 2], $result->for('at_most')[0]->parameters);
     }
@@ -187,6 +189,65 @@ class ValidatorTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         (new Validator())->between('x', 1, 10, 5);
+    }
+
+    public function testAMisconfiguredRuleThrowsEvenWithoutAValue(): void
+    {
+        // Length with no bounds
+        try {
+            (new Validator())->length('x', null);
+            $this->fail('length should have failed');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame('At least one bound must be set', $exception->getMessage());
+        }
+
+        // Length with an inverted range
+        try {
+            (new Validator())->length('x', null, 10, 5);
+            $this->fail('length should have failed');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame('The minimum must not be greater than the maximum', $exception->getMessage());
+        }
+
+        // Between with no bounds
+        try {
+            (new Validator())->between('x', null);
+            $this->fail('between should have failed');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame('At least one bound must be set', $exception->getMessage());
+        }
+
+        // Between with an inverted range
+        try {
+            (new Validator())->between('x', null, 10, 5);
+            $this->fail('between should have failed');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame('The minimum must not be greater than the maximum', $exception->getMessage());
+        }
+
+        // Count with no bounds
+        try {
+            (new Validator())->count('x', null);
+            $this->fail('count should have failed');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame('At least one bound must be set', $exception->getMessage());
+        }
+
+        // Count with an inverted range
+        try {
+            (new Validator())->count('x', null, 5, 2);
+            $this->fail('count should have failed');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame('The minimum must not be greater than the maximum', $exception->getMessage());
+        }
+
+        // Invalid pattern
+        try {
+            (new Validator())->matches('x', null, 'not-a-pattern');
+            $this->fail('matches should have failed');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame('Invalid regular expression', $exception->getMessage());
+        }
     }
 
     public function testAnInvertedCountRangeIsAProgrammingError(): void

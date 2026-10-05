@@ -104,11 +104,15 @@ The remaining two sources are merged, without a hidden winner:
 ```text
 key only in the query   -> the query value
 key only in the body    -> the body value
-key in both             -> accepted if equivalent after coercion
+key in both             -> accepted if textually equivalent
                            400 if they contradict each other
 ```
 
-Accepting equivalent duplicates matters in practice: a client doing
+Duplicates compare as text because the query string has no types (`'2'` and
+`2` are the same repetition, arrays element by element); keys and order are
+never normalized. This applies before the DTO schema is even considered: query
+and body may not tell two stories about the same key, even one the input
+ignores. Accepting equivalent duplicates matters in practice: a client doing
 `PUT /orders/12/` with the whole object in the body legitimately repeats values.
 Contradicting values are a client bug and must be reported as one.
 
@@ -226,7 +230,7 @@ if (!$result->isValid()) {
     return new View('register', ['values' => $result->values(), 'errors' => $result->validation()], status: $result->status());
 }
 
-$input = $result->input();
+$input = $result->require(); // RegisterInput, no instanceof needed
 ```
 
 `InputMapper::map()` — the path the dispatcher uses for action arguments —

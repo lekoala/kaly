@@ -35,16 +35,13 @@ final class InputMapper implements InputMapperInterface
      */
     public function map(ServerRequestInterface $request, string $class): RequestInput
     {
-        $input = $this->mapResult($request, $class)->require();
-        if (!$input instanceof $class) {
-            throw new LogicException("Mapped input must be an instance of {$class}");
-        }
-        return $input;
+        return $this->mapResult($request, $class)->require();
     }
 
     /**
      * @template T of RequestInput
      * @param class-string<T> $class
+     * @return InputResult<T>
      */
     public function mapResult(ServerRequestInterface $request, string $class): InputResult
     {
@@ -82,19 +79,19 @@ final class InputMapper implements InputMapperInterface
 
         // Without a DTO there is nothing to validate: mapping errors alone
         // decide the 400.
-        if ($violations !== []) {
-            return new InputResult($data, null, new ValidationResult($violations));
-        }
-
-        $input = new $class(...$arguments);
+        $input = $violations !== [] ? null : new $class(...$arguments);
 
         if ($input instanceof ValidatableInput) {
             $validator = new Validator();
             $input->validate($validator);
-            return new InputResult($data, $input, $validator->result());
+            $validation = $validator->result();
+        } elseif ($violations !== []) {
+            $validation = new ValidationResult($violations);
+        } else {
+            $validation = new ValidationResult();
         }
 
-        return new InputResult($data, $input, new ValidationResult());
+        return new InputResult($data, $input, $validation);
     }
 
     /**
@@ -142,17 +139,29 @@ final class InputMapper implements InputMapperInterface
 
     /**
      * A client repeating a value is fine, a client contradicting itself is not.
-     * Scalars are compared as text since the query string has no types.
+     *
+     * Only values are normalized, never the structure: keys and order are
+     * kept as is, scalar leaves compare as text since the query string has no
+     * types, and anything else compares strictly.
      */
     protected function equivalent(mixed $a, mixed $b): bool
     {
-        if (is_scalar($a) && is_scalar($b)) {
-            return (string) $a === (string) $b;
+        return $this->comparable($a) === $this->comparable($b);
+    }
+
+    private function comparable(mixed $value): mixed
+    {
+        if (is_scalar($value)) {
+            return (string) $value;
         }
-        if (is_array($a) && is_array($b)) {
-            return $a === $b;
+        if (is_array($value)) {
+            $normalized = [];
+            foreach ($value as $key => $item) {
+                $normalized[$key] = $this->comparable($item);
+            }
+            return $normalized;
         }
-        return $a === $b;
+        return $value;
     }
 
     /**

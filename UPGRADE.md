@@ -22,15 +22,28 @@ how to migrate.
 - `InputMapper::mapResult()` is the non-throwing path: it accumulates mapping
   violations (400 catalog, domain `input`) and returns an `InputResult` with
   the submitted `values()`, the DTO when it could be built, and the
-  `validation()`. `map()` is now `mapResult(...)->require()`. The query/body
-  conflict no longer throws: it keeps the query value and becomes a
-  `conflicting_values` violation. The protected `collect()`/`coerce()`/`to*()`
-  internals now accumulate violations instead of throwing `InputException`.
+  `validation()`. The result carries the DTO type (`InputResult<T>`), so
+  `require()` needs no `instanceof` afterwards. `map()` is now
+  `mapResult(...)->require()`. The query/body conflict no longer throws: it
+  keeps the query value and becomes a `conflicting_values` violation, even for
+  a key the input ignores — duplicates compare as text (arrays element by
+  element, keys and order kept), never silently. The protected
+  `collect()`/`coerce()`/`to*()` internals now accumulate violations instead
+  of throwing `InputException`.
 - `InputException` (400) and `ValidationException` (422) are built from a
   `ValidationResult` and expose it through `HasValidationResult`; their public
   body is the first violation message. Only these HTTP failures expose their
   errors: any other exception carrying a result stays a silent 500. Both
-  constructors changed: pass a result instead of a string.
+  classes are `final` so the localized handler always rebuilds the exact type
+  with its status and headers, and both share the `internal`
+  `ValidationResultException` base (catch `HasValidationResult` instead).
+  Failing with an empty result throws `LogicException`: an empty result is
+  valid, turning it into an exception is not. Both constructors changed: pass
+  a result instead of a string.
+- A misconfigured `Validator` rule (missing bounds, `min > max`, invalid
+  pattern) throws even when the checked value is `null`: the failure no longer
+  waits for the first filled submission. One-sided `between()` violations carry
+  the `between_min` / `between_max` codes (the range case stays `between`).
 - JSON errors are a list: `problem+json` carries
   `errors: [{field, code, message}]` (`field: null` for global errors) with no
   `detail` when errors exist. `messageId`, `domain` and `parameters` are never

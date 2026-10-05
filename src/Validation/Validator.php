@@ -56,10 +56,11 @@ final class Validator
 
     public function length(string $field, ?string $value, ?int $min = null, ?int $max = null): self
     {
+        // A misconfigured rule throws even when there is nothing to check
+        $this->guardBounds($min, $max);
         if ($value === null) {
             return $this;
         }
-        $this->guardBounds($min, $max);
         $length = mb_strlen($value, 'UTF-8');
         if ($min !== null && $max !== null) {
             if ($length < $min || $length > $max) {
@@ -98,10 +99,11 @@ final class Validator
 
     public function between(string $field, int|float|null $value, int|float|null $min = null, int|float|null $max = null): self
     {
+        // A misconfigured rule throws even when there is nothing to check
+        $this->guardBounds($min, $max);
         if ($value === null) {
             return $this;
         }
-        $this->guardBounds($min, $max);
         if ($min !== null && $max !== null) {
             if ($value < $min || $value > $max) {
                 $this->add(new Violation($field, 'between', 'between', "This value must be between {$min} and {$max}", [
@@ -112,10 +114,10 @@ final class Validator
             return $this;
         }
         if ($min !== null && $value < $min) {
-            $this->add(new Violation($field, 'between', 'between_min', "This value must be at least {$min}", ['%min%' => $min]));
+            $this->add(new Violation($field, 'between_min', 'between_min', "This value must be at least {$min}", ['%min%' => $min]));
         }
         if ($max !== null && $value > $max) {
-            $this->add(new Violation($field, 'between', 'between_max', "This value must be at most {$max}", ['%max%' => $max]));
+            $this->add(new Violation($field, 'between_max', 'between_max', "This value must be at most {$max}", ['%max%' => $max]));
         }
         return $this;
     }
@@ -136,11 +138,12 @@ final class Validator
 
     public function matches(string $field, ?string $value, string $pattern): self
     {
-        if ($value === null) {
-            return $this;
-        }
+        // A misconfigured rule throws even when there is nothing to check
         if (@preg_match($pattern, '') === false) {
             throw new InvalidArgumentException('Invalid regular expression');
+        }
+        if ($value === null) {
+            return $this;
         }
         if (preg_match($pattern, $value) !== 1) {
             $this->add(new Violation($field, 'pattern', 'pattern', 'This value has an invalid format'));
@@ -153,10 +156,11 @@ final class Validator
      */
     public function count(string $field, ?array $value, ?int $min = null, ?int $max = null): self
     {
+        // A misconfigured rule throws even when there is nothing to check
+        $this->guardBounds($min, $max);
         if ($value === null) {
             return $this;
         }
-        $this->guardBounds($min, $max);
         $size = count($value);
         if ($min !== null && $max !== null) {
             if ($size < $min || $size > $max) {

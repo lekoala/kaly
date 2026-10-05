@@ -68,9 +68,13 @@
 
 - **Breaking:** validation is structured. `ValidatableInput::validate()` takes
   a `Validator` and collects violations, request input constructors never
-  validate, `InputMapper::mapResult()` accumulates mapping errors into an
-  `InputResult`, and `InputException`/`ValidationException` are built from a
-  `ValidationResult` with an `errors` list in `problem+json`.
+  validate, `InputMapper::mapResult()` accumulates mapping errors into a typed
+  `InputResult<T>`, and the `final` `InputException`/`ValidationException`
+  (sharing the `internal` `ValidationResultException` base) are built from a
+  `ValidationResult` with an `errors` list in `problem+json`. An empty result
+  can no longer become an exception (`LogicException`). Misconfigured rules
+  throw even for `null` values, and one-sided `between()` violations use the
+  `between_min` / `between_max` codes.
   `Kaly\I18n\TranslatableValidationException` is removed; see `UPGRADE.md`.
 
 - **Breaking:** `RouteScope` gains `middlewares()`. Modules declare scope-wide

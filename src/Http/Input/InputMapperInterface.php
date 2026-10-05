@@ -30,6 +30,7 @@ interface InputMapperInterface
      *
      * @template T of RequestInput
      * @param class-string<T> $class
+     * @return InputResult<T>
      */
     public function mapResult(ServerRequestInterface $request, string $class): InputResult;
 }

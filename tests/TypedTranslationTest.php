@@ -20,7 +20,6 @@ use Kaly\I18n\Translator;
 use Kaly\I18n\TranslatorInterface;
 use Kaly\Tests\Support\HttpFactory;
 use Kaly\Util\Json;
-use Kaly\Validation\ValidationResult;
 use Kaly\Validation\Validator;
 use Kaly\Validation\Violation;
 use Nyholm\Psr7\Factory\Psr17Factory;
@@ -374,10 +373,10 @@ class TypedTranslationTest extends TestCase
     public function testRebuiltExceptionsKeepTheChain(): void
     {
         $exception = $this->emailException();
-        $rebuilt = new ValidationException(new ValidationResult(), $exception);
+        $rebuilt = new ValidationException($exception->validation(), $exception);
 
         $this->assertInstanceOf(ValidationException::class, $rebuilt);
-        $this->assertTrue($rebuilt->validation()->isValid());
+        $this->assertFalse($rebuilt->validation()->isValid());
         $this->assertSame($exception, $rebuilt->getPrevious());
     }
 }

@@ -34,9 +34,11 @@ class InputMapperTest extends TestCase
     }
 
     /**
+     * @template T of RequestInput
      * @param array<string,mixed> $query
      * @param array<string,mixed>|null $body
-     * @param class-string<RequestInput> $class
+     * @param class-string<T> $class
+     * @return InputResult<T>
      */
     private function mapResult(array $query, ?array $body = null, string $class = FullInput::class): InputResult
     {
@@ -207,6 +209,24 @@ class InputMapperTest extends TestCase
         $this->assertSame(2, $input->page);
     }
 
+    public function testArraysCompareElementWiseAcrossEncodings(): void
+    {
+        // The query string has no types: ['1'] and [1] are the same repetition
+        $input = $this->map(['name' => 'x', 'tags' => ['1', '2']], ['tags' => [1, 2]]);
+
+        $this->assertInstanceOf(FullInput::class, $input);
+        $this->assertSame([1, 2], $input->tags);
+    }
+
+    public function testReorderedArraysContradictEachOther(): void
+    {
+        // Keys and order are kept: only values are normalized, never structure
+        $result = $this->mapResult(['name' => 'x', 'tags' => ['a', 'b']], ['tags' => [1 => 'b', 0 => 'a']]);
+
+        $this->assertFalse($result->isValid());
+        $this->assertSame('conflicting_values', $result->validation()->violations()[0]->code);
+    }
+
     public function testContradictingValuesAreABadRequest(): void
     {
         $result = $this->mapResult(['name' => 'x', 'page' => '2'], ['page' => '15']);
@@ -238,7 +258,7 @@ class InputMapperTest extends TestCase
         $violations = $result->validation()->violations();
         $this->assertCount(1, $violations);
         $this->assertSame('page', $violations[0]->field);
-        $this->assertSame('between', $violations[0]->code);
+        $this->assertSame('between_min', $violations[0]->code);
     }
 
     public function testRequireThrowsTheDocumentedStatus(): void
@@ -274,9 +294,26 @@ class InputMapperTest extends TestCase
         $validator->notBlank('name', '');
 
         $this->assertSame('This value must not be blank', (new ValidationException($validator->result()))->getResponseBody());
-        $this->assertSame(422, (new ValidationException(new ValidationResult()))->status());
-        $this->assertSame('', (new ValidationException(new ValidationResult()))->getResponseBody());
-        $this->assertSame(400, (new InputException(new ValidationResult()))->status());
+        $this->assertSame('This value must not be blank', (new InputException($validator->result()))->getResponseBody());
+        $this->assertSame(422, (new ValidationException($validator->result()))->status());
+        $this->assertSame(400, (new InputException($validator->result()))->status());
+    }
+
+    public function testAnEmptyResultCannotBecomeAnException(): void
+    {
+        try {
+            new ValidationException(new ValidationResult());
+            $this->fail('an empty result should have failed');
+        } catch (LogicException $exception) {
+            $this->assertSame('Validation result must contain at least one violation', $exception->getMessage());
+        }
+
+        try {
+            new InputException(new ValidationResult());
+            $this->fail('an empty result should have failed');
+        } catch (LogicException $exception) {
+            $this->assertSame('Validation result must contain at least one violation', $exception->getMessage());
+        }
     }
 
     public function testAnUnsupportedPropertyTypeIsAProgrammingError(): void

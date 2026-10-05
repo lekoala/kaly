@@ -14,11 +14,14 @@ use Kaly\Validation\ValidationResult;
  * be represented by its type; business rules run afterwards through
  * ValidatableInput. Mapping errors are a 400, refused values a 422, success
  * carries no status.
+ *
+ * @template T of RequestInput
  */
 final readonly class InputResult
 {
     /**
      * @param array<string,mixed> $values
+     * @param T|null $input
      */
     public function __construct(
         private array $values,
@@ -34,6 +37,9 @@ final readonly class InputResult
         return $this->values;
     }
 
+    /**
+     * @return T|null
+     */
     public function input(): ?RequestInput
     {
         return $this->input;
@@ -60,6 +66,9 @@ final readonly class InputResult
         return null;
     }
 
+    /**
+     * @return T
+     */
     public function require(): RequestInput
     {
         if ($this->input === null) {
