@@ -38,6 +38,19 @@ request token (escaped by the engine), `csrf.fieldName` and
 without using `csrf.token()` never creates the session. See
 [Security](security.md).
 
+These capabilities are injected into the top-level render only. An engine that
+isolates scopes — as kaly-tpl does — does not hand a layout or a partial the locals of
+the template that calls it, so pass what the layout needs explicitly:
+
+```php
+$v->layout('layout', ['i18n' => $i18n, 'url' => $url]);
+```
+
+Layout and template inheritance stay the engine's business: `RendererInterface` is
+deliberately limited to `render(string $template, array $data)`. Twig, Latte and
+kaly-tpl each have their own composition mechanism, and the contract must not embed
+one engine's feature. A controller chooses the view; the template chooses its layout.
+
 ## Choosing a renderer
 
 | Engine   | When                             | Adapter                             |

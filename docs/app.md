@@ -154,6 +154,20 @@ middlewares run by ascending priority, then by registration order. There is no
 `before()` / `after()` / `requires()` dependency graph to reason about — if a
 middleware needs the route, it belongs in the routed band.
 
+The two bundled middlewares illustrate the rule: `FileServer` must run *before*
+`PreventFileAccess`, since the latter rejects any dotted path (`/app.css`) with a
+`404`. Registration order alone would not be enough, because both sit in the incoming
+band: give `FileServer` a lower priority.
+
+```php
+use Kaly\Http\Middleware\FileServer;
+use Kaly\Http\Middleware\PreventFileAccess;
+
+$app->middleware()
+    ->incoming(FileServer::class, priority: -100)
+    ->incoming(PreventFileAccess::class);
+```
+
 Conditions are expressed on the [HttpContext](http-context.md), so a routed condition
 can read state that has already been established:
 

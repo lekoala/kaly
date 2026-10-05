@@ -291,6 +291,84 @@ Wrap `Kaly\Core\LocalizedExceptionHandler` to keep translated public bodies, or
 default is right for a real bug, and mapping is only needed for the domain errors that
 are expected outcomes.
 
+## Custom HTML error pages
+
+An application 404 belongs to error handling, never to routing. Returning a catch-all
+`View` from a resolver or a dedicated `404Controller` fights the router, which is
+supposed to fail with `RouteNotFoundException` when nothing knows the url.
+
+`Kaly\Http\ExceptionHandlerInterface` is the boundary `Throwable -> ResponseInterface`:
+decorate it, let the Kaly handler decide the status, headers and body, then swap only
+the HTML body for a rendered template.
+
+```php
+namespace App\Http;
+
+use Kaly\Http\Accept;
+use Kaly\Http\ExceptionHandlerInterface;
+use Kaly\View\RendererInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+use Throwable;
+
+final class ErrorPageHandler implements ExceptionHandlerInterface
+{
+    public function __construct(
+        private readonly ExceptionHandlerInterface $next,
+        private readonly RendererInterface $renderer,
+        private readonly StreamFactoryInterface $streams,
+    ) {
+    }
+
+    public function toResponse(Throwable $exception, ?ServerRequestInterface $request = null): ResponseInterface
+    {
+        $response = $this->next->toResponse($exception, $request);
+
+        // JSON clients keep the problem document; redirects and other
+        // non-error responses (3xx) keep their empty body.
+        if ($request === null || $response->getStatusCode() < 400 || Accept::prefersJson($request)) {
+            return $response;
+        }
+
+        $html = $this->renderer->render('@app/errors/' . $response->getStatusCode(), [
+            'status' => $response->getStatusCode(),
+        ]);
+
+        return $response
+            ->withHeader('Content-Type', 'text/html; charset=utf-8')
+            ->withBody($this->streams->createStream($html));
+    }
+}
+```
+
+Bind it as a decorator, wiring the inner handler explicitly (an autowired
+`ExceptionHandlerInterface` would resolve to the decorator itself):
+
+```php
+use App\Http\ErrorPageHandler;
+use Kaly\Core\LocalizedExceptionHandler;
+use Kaly\Di\Definitions;
+use Kaly\Http\ExceptionHandlerInterface;
+use Kaly\View\RendererInterface;
+use Psr\Container\ContainerInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+
+$app->configure(function (Definitions $di): void {
+    $di->set(ErrorPageHandler::class, static fn (ContainerInterface $c): ErrorPageHandler => new ErrorPageHandler(
+        $c->get(LocalizedExceptionHandler::class),
+        $c->get(RendererInterface::class),
+        $c->get(StreamFactoryInterface::class),
+    ));
+    $di->rebind(ExceptionHandlerInterface::class, ErrorPageHandler::class);
+});
+```
+
+Wrap `Kaly\Core\LocalizedExceptionHandler` to keep translated bodies, or
+`Kaly\Http\ExceptionHandler` to drop them. Render the locale from the request to keep
+error pages translated: the decorator runs after routing, so a locale is already
+resolved when there is one.
+
 ## Summary
 
 ```text

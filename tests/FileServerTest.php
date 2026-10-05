@@ -31,6 +31,8 @@ class FileServerTest extends TestCase
         Fs::ensureDir($this->base . '/modules');
         Fs::putFile($this->base . '/private-note', 'AUDIT-PRIVATE-SENTINEL');
         Fs::putFile($this->base . '/public/asset.txt', 'hello static');
+        Fs::putFile($this->base . '/public/app.css', 'body{margin:0}');
+        Fs::putFile($this->base . '/public/app.js', 'console.log(1)');
         Fs::putFile($this->base . '/public/sample.php', '<?php /* AUDIT-SOURCE-SENTINEL */');
 
         $psr17 = new Psr17Factory();
@@ -59,6 +61,19 @@ class FileServerTest extends TestCase
             // The body holds an open file handle: release it before tearDown
             // removes the directory (Windows refuses unlink on open files)
             $response->getBody()->close();
+        }
+    }
+
+    public function testCssAndJsGetDeterministicContentType(): void
+    {
+        foreach (['/app.css' => 'text/css', '/app.js' => 'application/javascript'] as $uri => $type) {
+            $response = $this->serve('GET', (string) $uri);
+            try {
+                $this->assertSame(200, $response->getStatusCode(), (string) $uri);
+                $this->assertSame($type, $response->getHeaderLine('Content-Type'), (string) $uri);
+            } finally {
+                $response->getBody()->close();
+            }
         }
     }
 

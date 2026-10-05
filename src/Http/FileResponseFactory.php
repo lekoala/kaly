@@ -6,7 +6,6 @@ namespace Kaly\Http;
 
 use InvalidArgumentException;
 use Kaly\Http\Exception\ForbiddenException;
-use Kaly\Util\Fs;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
@@ -64,7 +63,7 @@ final class FileResponseFactory
 
         $response = $this->responses
             ->createResponse(200)
-            ->withHeader('Content-Type', Fs::contentType($filename))
+            ->withHeader('Content-Type', ContentType::forFile($filename))
             ->withHeader('Content-Length', (string) $size);
 
         $disposition = $this->contentDisposition($filename, $downloadName, $attachment);

@@ -445,6 +445,12 @@ final class App implements RequestHandlerInterface
         // Register the application itself
         $definitions->set(self::class, $this);
 
+        // Infrastructure services (repositories reading resources/, ...) take
+        // the Paths object by constructor instead of a hand-built file path.
+        if (!$definitions->has(Paths::class)) {
+            $definitions->set(Paths::class, $this->paths);
+        }
+
         // Modules can register middlewares through the container
         $definitions->set(Registry::class, $this->middleware);
 

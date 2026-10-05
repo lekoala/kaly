@@ -68,6 +68,13 @@
   describes the recommended module layout, a Mago Guard profile for the layer
   boundaries, the three integration seams, and the domain-error to HTTP mapping.
 
+- `Kaly\Http\ContentType::forFile()` resolves the Content-Type of a served file
+  deterministically for web extensions (`.css`, `.js`, ...), falling back to
+  fileinfo for the rest.
+
+- `Kaly\Core\Paths` is registered in the container, so infrastructure services
+  can take it by constructor instead of a hand-built path.
+
 ### Changed
 
 - **Breaking:** validation is structured. `ValidatableInput::validate()` takes
@@ -165,6 +172,13 @@
   flight.
 
 ### Fixed
+
+- Static files are served with a correct Content-Type on every platform: CSS
+  and JS no longer fall back to `text/plain` when fileinfo does (notably on
+  Windows).
+
+- The demo registers `FileServer` before `PreventFileAccess`, so `/app.css` is
+  served instead of being rejected by the routing guard.
 
 - Request-scoped identity, CSRF state and CSP nonce remain isolated between
   interleaved request cycles on the same `App`, including Fiber suspensions.

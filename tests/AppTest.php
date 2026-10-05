@@ -8,6 +8,7 @@ use Kaly\Clock\SystemClock;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Core\HttpContext;
+use Kaly\Core\Paths;
 use Kaly\Di\Definitions;
 use Kaly\Http\ContentType;
 use Kaly\Http\Middleware\FileServer;
@@ -45,6 +46,13 @@ class AppTest extends TestCase
         $app = App::create(__DIR__)->boot();
 
         $this->assertSame($app, $app->container()->get(App::class));
+    }
+
+    public function testPathsIsRegisteredInTheContainer(): void
+    {
+        $app = App::create(__DIR__)->boot();
+
+        $this->assertSame($app->paths(), $app->container()->get(Paths::class));
     }
 
     public function testTheResponseEmitterIsSwappable(): void

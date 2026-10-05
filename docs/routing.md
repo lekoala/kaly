@@ -286,3 +286,47 @@ bypass HTTP-level checks.
 
 Urls end with a slash: `/shop/cart` redirects to `/shop/cart/`.
 
+## Migrating an existing site
+
+Kaly owns its canonical url scheme: trailing slashes, lowercase locale prefixes and the
+default-locale prefix removal are enforced with redirects, not made optional. When
+porting a site whose public urls must be preserved for search engines, keep canonical
+routing and declare the old urls explicitly instead of weakening it. An incoming
+middleware (running before routing) throws a `RedirectException` for a legacy path:
+
+```php
+use Kaly\Http\Exception\RedirectException;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+final class LegacyRedirect implements MiddlewareInterface
+{
+    /** @param array<string, string> $map */
+    public function __construct(private readonly array $map)
+    {
+    }
+
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        $path = $request->getUri()->getPath();
+        if (isset($this->map[$path])) {
+            throw new RedirectException($this->map[$path], RedirectException::MOVED_PERMANENTLY_REDIRECT);
+        }
+
+        return $handler->handle($request);
+    }
+}
+
+$app->middleware()->incoming(new LegacyRedirect([
+    '/ancien-chemin' => '/nouveau-chemin/',
+    '/fr/tarifs' => '/tarifs/',
+]));
+```
+
+A `301` is a permanent move, so the canonical url is the one indexed; prefer a
+temporary `302` while the mapping is still being validated.
+
+
+
