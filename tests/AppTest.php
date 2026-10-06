@@ -596,7 +596,7 @@ class AppTest extends TestCase
 
         $request = $request->withUri(new Uri('/test-module/demo/func/he/llo/'));
         try {
-            $response = $app->handle($request);
+            $app->handle($request);
         } catch (\Exception $e) {
             $this->assertStringContainsString(
                 "Too many parameters for action 'func' on 'TestModule\Controller\DemoController'",

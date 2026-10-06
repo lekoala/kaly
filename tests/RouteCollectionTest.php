@@ -169,6 +169,7 @@ class RouteCollectionTest extends TestCase
         $rows = $collection->toArray();
         $rows[] = $rows[0];
 
+        $this->assertCount(2, $rows);
         $this->assertSame(1, $collection->count());
         $this->assertCount(1, $collection->entries());
         $this->assertCount(1, $collection->toArray());

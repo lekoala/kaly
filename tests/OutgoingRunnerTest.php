@@ -157,7 +157,7 @@ class OutgoingRunnerTest extends TestCase
         $registry = new Registry();
         $registry->outgoing(new TestOutgoing());
 
-        $response = (new OutgoingRunner(null, $registry))->process(new Response(200), $ctx);
+        (new OutgoingRunner(null, $registry))->process(new Response(200), $ctx);
 
         $this->assertSame([TestOutgoing::class], $ctx->middlewares());
         $this->assertTrue($ctx->hasMiddleware(TestOutgoing::class));

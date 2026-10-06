@@ -45,7 +45,7 @@ final class RoutingHandler implements RequestHandlerInterface
         // standalone handler binds a bare context instead, so downstream
         // stages recover the same cycle through from().
         $ctx = HttpContext::tryFrom($request) ?? new HttpContext($request);
-        $request = $ctx->bind($request);
+        $ctx->bind($request);
 
         $ctx->useRouter($this->router);
         $route = $this->router->match($ctx->request());

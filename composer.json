@@ -39,7 +39,7 @@
         "lekoala/kaly-tpl": "^0.2",
         "nyholm/psr7": "^1.8",
         "nyholm/psr7-server": "^1.1",
-        "phpstan/phpstan": "^2.2",
+        "phpstan/phpstan": "^2.3",
         "phpunit/phpunit": "^12",
         "symfony/translation": "^7.1",
         "symfony/var-dumper": "^7.1",
