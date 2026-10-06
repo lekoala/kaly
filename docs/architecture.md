@@ -87,6 +87,49 @@ reflection. Explicit routing takes ownership of an action: once a controller
 action appears in a route table, convention routing neither resolves nor
 generates a url for it. See [Routing](routing.md).
 
+### Attribute collection
+
+Attributes can also be useful as input for build-time or offline tooling.
+
+For example, [`composer-attribute-collector`](https://github.com/olvlvl/composer-attribute-collector)
+discovers attribute targets while Composer generates the autoloader and
+exposes the collected metadata later without runtime scanning. Changing an
+attribute requires regenerating the autoloader to refresh the collected view:
+that is precisely why application correctness should never depend on such a
+collection. It would introduce another cache that must always remain
+synchronized with the application.
+
+This is a good fit for documentation generation, audits, translation-key
+collection, static inventories, diagnostics or other derived metadata. For
+instance, translation metadata could be collected into a used/missing-keys
+report without the translator ever depending on that collection to serve a
+request. Likewise, an `AuditTrail` attribute feeding an inspection tool or an
+optional instrumentation fits well; an audit trail that is legally mandatory
+for the operation to count as performed is an application invariant and
+belongs in the explicit flow.
+
+A useful distinction is:
+
+- **collect metadata from attributes** to derive secondary artifacts or reports;
+- do not **build the application's essential runtime graph** from attributes.
+
+```text
+PHP source
+   │
+   ├── explicit runtime graph
+   │     routes / DI / permissions / transactions
+   │
+   └── attributes
+         ↓
+      collection
+         ↓
+      docs / OpenAPI / i18n inventory / audits / diagnostics
+```
+
+Stale collected data may make a derived report incorrect — that is expected
+and fixed by regenerating. What must never happen is application traffic
+depending on that synchronization to stay correct.
+
 ## Runtime vs tests vs development
 
 ```text
