@@ -64,8 +64,10 @@ See [Http context](http-context.md) and [Runtime](runtime.md).
 
 ## PHP attributes
 
-Attributes are appropriate for metadata and optional cross-cutting behavior.
-They should not carry application correctness.
+In Kaly, attributes may describe and enrich the application; explicit
+declarations define its exposure, dependencies and invariants. The essential
+graph stays visible, centralized and verifiable instead of scattered through
+reflection metadata.
 
 Removing an attribute may remove documentation, diagnostics, observability or
 tooling. It should not invalidate a business rule, authorization rule, or
@@ -75,9 +77,11 @@ application invariant. The review question is:
 
 If yes, the behavior belongs in explicit PHP: a route declaration, a container
 definition, a method call, an interface or a type. An omitted attribute must
-never silently open what it was meant to protect: forgetting
-`SensitiveParameter` degrades a stack trace, while forgetting an access-policy
-attribute opens the action. Caching is a fitting attribute when it stays an
+never silently open what it was meant to protect: forgetting an access-policy
+attribute opens the action. `SensitiveParameter` reduces the exposure of
+arguments in traces, but it is not a complete confidentiality guarantee: where
+confidentiality is an invariant, it also requires an explicit logging and
+error-handling policy. Caching is a fitting attribute when it stays an
 optimization; an audit that becomes legally or functionally mandatory is no
 longer mere observability and should not depend on an attribute alone.
 
@@ -94,10 +98,10 @@ Attributes can also be useful as input for build-time or offline tooling.
 For example, [`composer-attribute-collector`](https://github.com/olvlvl/composer-attribute-collector)
 discovers attribute targets while Composer generates the autoloader and
 exposes the collected metadata later without runtime scanning. Changing an
-attribute requires regenerating the autoloader to refresh the collected view:
-that is precisely why application correctness should never depend on such a
-collection. It would introduce another cache that must always remain
-synchronized with the application.
+attribute requires regenerating the autoloader to refresh the collected view.
+Kaly keeps its load-bearing declarations explicit and centralized instead, so
+the essential graph never depends on such a synchronization: generated
+collections stay derived artifacts.
 
 This is a good fit for documentation generation, audits, translation-key
 collection, static inventories, diagnostics or other derived metadata. For

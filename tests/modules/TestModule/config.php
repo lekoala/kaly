@@ -16,6 +16,7 @@ use Kaly\Tpl\ViewEngine;
 use Kaly\View\Adapter\KalyTplRenderer;
 use Kaly\View\RendererInterface;
 use TestModule\Controller\AliasController;
+use TestModule\Controller\MixedController;
 use TestModule\Controller\ShopController;
 use TestModule\Controller\WhoamiController;
 
@@ -45,6 +46,8 @@ return static function (Module $module, Definitions $di): void {
         $routes->get('/alias/priority', [AliasController::class, 'priority'])->name('alias.priority-low');
         $routes->get('/alias/priority', [AliasController::class, 'priority'])->name('alias.priority-high')->priority(100);
         $routes->get('/whoami', [WhoamiController::class, 'index'])->name('whoami');
+        // Only buyPost is explicitly routed: buy stays conventional
+        $routes->post('/purchase', [MixedController::class, 'buyPost'])->name('mixed.purchase');
 
         // Route middlewares are enforced by the framework
         $routes

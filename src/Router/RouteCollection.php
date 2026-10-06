@@ -85,6 +85,32 @@ final class RouteCollection
     }
 
     /**
+     * Canonical identity of a controller action: PHP resolves classes and
+     * methods case-insensitively, so ownership compares lowercase.
+     *
+     * @param class-string $controller
+     */
+    public static function canonicalTarget(string $controller, string $action): string
+    {
+        return strtolower(ltrim($controller, '\\')) . '::' . strtolower($action);
+    }
+
+    /**
+     * Actions targeted by explicit declarations, for ownership checks.
+     * Unlike toArray(), behavior depends on it.
+     *
+     * @return array<string,list<string|null>> Canonical action => route names (null when unnamed)
+     */
+    public function targetedActions(): array
+    {
+        $targeted = [];
+        foreach ($this->definitions as $definition) {
+            $targeted[self::canonicalTarget($definition->controller, $definition->action)][] = $definition->name;
+        }
+        return $targeted;
+    }
+
+    /**
      * @return list<RouteEntry>
      * @internal Matcher access only: the entries carry the private, mutable
      * `RouteDefinition` copies, so callers must never mutate them or hand them

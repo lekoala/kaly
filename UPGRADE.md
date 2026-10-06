@@ -33,7 +33,9 @@ claims and convention); give an action with its own policy an explicit route.
 - Explicit routing takes ownership of an action: once a controller action
   appears in a route table, convention routing neither resolves (404 on the
   conventional url, whatever the HTTP method) nor generates
-  (`Router::urlFor()` throws and points at the route name) for it. This closes
+  (`Router::urlFor()` throws and points at the route name) for it. Ownership
+  is case-insensitive and refuses the conventional url outright, without
+  falling back to another action. This closes
   the double exposure where a protected table url stayed reachable through an
   unprotected conventional one. Custom resolvers claim nothing automatically: a
   dynamic resolver changing reachability or policy belongs in a module without

@@ -284,6 +284,9 @@ convention. An action with its own policy deserves an explicit route.
 **Explicit routing takes ownership of an action.** Once a controller action
 appears in a route table, convention routing neither resolves nor generates a
 url for it — a protected table url can never leak through a conventional one.
+Ownership compares the canonical action identity, whatever letter case the
+declaration used, and a refused conventional url is never reinterpreted
+through another action or the index fallback.
 `urlFor()` on an owned action fails and points at the route name instead of
 guessing which explicit route was meant. Custom resolvers claim nothing
 automatically: a dynamic resolver that changes the reachability or the policy

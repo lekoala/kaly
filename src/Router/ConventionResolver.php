@@ -66,7 +66,7 @@ final class ConventionResolver implements ResolverInterface
         $controller = $this->findController($m, $request->module);
         $reflection = $this->reflect($controller);
         assert($reflection instanceof ReflectionClass);
-        $action = $this->findAction($m, $reflection);
+        $action = $this->findAction($m, $reflection, $request->ownedActions);
         $params = $this->collectParameters($m, $reflection, $action);
 
         $route = $request->route($controller, $action, $params, inputClass: $m->inputClass);
@@ -163,9 +163,14 @@ final class ConventionResolver implements ResolverInterface
 
     /**
      * Find a matching action based on the next remaining segment
+     *
+     * An explicitly routed candidate is refused outright: the path is never
+     * reinterpreted through a sibling action or the index fallback.
+     *
      * @param ReflectionClass<object> $refl
+     * @param array<string,true> $owned Canonical actions explicit routing owns
      */
-    private function findAction(ConventionMatch $m, ReflectionClass $refl): string
+    private function findAction(ConventionMatch $m, ReflectionClass $refl, array $owned): string
     {
         $method = $m->request->getMethod();
         $class = $refl->getName();
@@ -183,6 +188,10 @@ final class ConventionResolver implements ResolverInterface
             $methodSuffix = RestActionNaming::methodSuffix($method);
             $testActionWithMethod = $testAction . $methodSuffix;
 
+            if ($this->isOwnedAction($refl, $testActionWithMethod, $owned) || $this->isOwnedAction($refl, $testAction, $owned)) {
+                throw new RouteNotFoundException("Action '{$testAction}' of '{$class}' is explicitly routed and has no conventional url");
+            }
+
             // Don't allow controller/index to be called directly because it would create duplicated urls
             // This only applies if no other parameters is passed in the url
             if ($testAction === self::DEFAULT_ACTION && count($m->parts) === 1) {
@@ -192,30 +201,30 @@ final class ConventionResolver implements ResolverInterface
             // A url naming an action suffixed by another HTTP verb must not
             // run for this request (eg: GET /index/change-post/ is a 405).
             $verbSuffix = RestActionNaming::verbSuffix($testAction);
-            if ($verbSuffix !== null && $this->isRoutableAction($refl, $testAction) && $verbSuffix !== $methodSuffix) {
+            if ($verbSuffix !== null && $this->isRoutableAction($refl, $testAction, $owned) && $verbSuffix !== $methodSuffix) {
                 $baseAction = RestActionNaming::stripVerbSuffix($testAction);
                 throw new MethodNotAllowedException(
-                    $this->findAllowedMethods($refl, $baseAction),
+                    $this->findAllowedMethods($refl, $baseAction, $owned),
                     "Method {$method} is not allowed for action '{$baseAction}'",
                 );
             }
 
-            if ($this->isRoutableAction($refl, $testActionWithMethod)) {
+            if ($this->isRoutableAction($refl, $testActionWithMethod, $owned)) {
                 array_shift($m->parts);
                 $action = $testActionWithMethod;
-            } elseif ($this->isRoutableAction($refl, $testAction)) {
+            } elseif ($this->isRoutableAction($refl, $testAction, $owned)) {
                 array_shift($m->parts);
                 $action = $testAction;
             } else {
                 // The action may exist for other HTTP verbs only
-                $allowed = $this->findAllowedMethods($refl, $testAction);
+                $allowed = $this->findAllowedMethods($refl, $testAction, $owned);
                 if ($allowed !== []) {
                     throw new MethodNotAllowedException($allowed, "Method {$method} is not allowed for action '{$testAction}'");
                 }
             }
         }
 
-        if (!$this->isRoutableAction($refl, $action)) {
+        if (!$this->isRoutableAction($refl, $action, $owned)) {
             throw new RouteNotFoundException("Controller '{$class}' does not have an action '{$action}'");
         }
 
@@ -224,13 +233,37 @@ final class ConventionResolver implements ResolverInterface
 
     /**
      * Can this method be reached through routing? The rule is shared with
-     * declared routes: public, non-static, non-magic except __invoke.
+     * declared routes: public, non-static, non-magic except __invoke, and
+     * never an action explicit routing owns.
      *
      * @param ReflectionClass<object> $refl
+     * @param array<string,true> $owned Canonical actions explicit routing owns
      */
-    private function isRoutableAction(ReflectionClass $refl, string $action): bool
+    private function isRoutableAction(ReflectionClass $refl, string $action, array $owned): bool
     {
-        return $action !== '' && $refl->hasMethod($action) && ActionSignature::isAdmissible($refl->getMethod($action));
+        return (
+            !$this->isOwnedAction($refl, $action, $owned)
+            && $action !== ''
+            && $refl->hasMethod($action)
+            && ActionSignature::isAdmissible($refl->getMethod($action))
+        );
+    }
+
+    /**
+     * Whether this method exists as a routable action but explicit routing
+     * owns it, whatever the letter case it was declared with.
+     *
+     * @param ReflectionClass<object> $refl
+     * @param array<string,true> $owned Canonical actions explicit routing owns
+     */
+    private function isOwnedAction(ReflectionClass $refl, string $action, array $owned): bool
+    {
+        return (
+            $action !== ''
+            && $refl->hasMethod($action)
+            && ActionSignature::isAdmissible($refl->getMethod($action))
+            && isset($owned[RouteCollection::canonicalTarget($refl->getName(), $action)])
+        );
     }
 
     /**
@@ -238,16 +271,17 @@ final class ConventionResolver implements ResolverInterface
      * action suffix convention.
      *
      * @param ReflectionClass<object> $refl
+     * @param array<string,true> $owned Canonical actions explicit routing owns
      * @return list<string>
      */
-    private function findAllowedMethods(ReflectionClass $refl, string $baseAction): array
+    private function findAllowedMethods(ReflectionClass $refl, string $baseAction, array $owned): array
     {
         if ($baseAction === '') {
             return [];
         }
         $allowed = [];
         foreach (self::HTTP_METHODS as $httpMethod) {
-            if ($this->isRoutableAction($refl, $baseAction . RestActionNaming::methodSuffix($httpMethod))) {
+            if ($this->isRoutableAction($refl, $baseAction . RestActionNaming::methodSuffix($httpMethod), $owned)) {
                 $allowed[] = $httpMethod;
             }
         }

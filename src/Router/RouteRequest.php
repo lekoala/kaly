@@ -22,6 +22,7 @@ final readonly class RouteRequest
      * @param list<string> $segments The path segments left to resolve
      * @param string $prefix The consumed part of the path (locale and entry point)
      * @param string $module The module namespace
+     * @param array<string,true> $ownedActions Canonical controller actions owned by explicit routing, ignored by the convention
      */
     public function __construct(
         public ServerRequestInterface $request,
@@ -29,7 +30,19 @@ final readonly class RouteRequest
         public string $prefix,
         public string $module,
         public ?string $locale = null,
+        public array $ownedActions = [],
     ) {}
+
+    /**
+     * The same request with the actions explicit routing owns: only set when
+     * the convention actually runs, so tables stay uncompiled otherwise.
+     *
+     * @param array<string,true> $ownedActions
+     */
+    public function withOwnedActions(array $ownedActions): self
+    {
+        return new self($this->request, $this->segments, $this->prefix, $this->module, $this->locale, $ownedActions);
+    }
 
     /**
      * The path left to resolve, always starting with a slash

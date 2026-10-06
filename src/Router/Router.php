@@ -175,23 +175,21 @@ final class Router implements RouterInterface
             if (is_string($resolver)) {
                 $resolver = $this->resolveService($resolver);
             }
+            $candidate = $request;
+            if ($resolver instanceof ConventionResolver) {
+                // The convention ignores owned actions without reinterpreting
+                // them. Tables stay uncompiled until the convention actually
+                // runs: a custom resolver answering first costs nothing.
+                $candidate = $request->withOwnedActions($this->ownedActions($id));
+            }
             try {
-                $route = $resolver->resolve($request);
+                $route = $resolver->resolve($candidate);
             } catch (RouteNotFoundException $miss) {
                 // "Not mine, and here is why": the next resolver gets its chance
                 $reasons[] = $resolver::class . ': ' . $miss->getMessage();
                 continue;
             }
             if ($route !== null) {
-                if (
-                    $resolver instanceof ConventionResolver
-                    && isset($this->ownedActions($id)[$route->controller . '::' . $route->action])
-                ) {
-                    // Explicit routing owns the action: the conventional url
-                    // stays closed, whatever policy the table declares
-                    $reasons[] = ConventionResolver::class . ": '{$route->controller}::{$route->action}' is explicitly routed";
-                    continue;
-                }
                 $scopeMiddlewares = $this->modules[$id]->middlewares();
                 if ($scopeMiddlewares !== []) {
                     return $route->withMiddlewares(Routes::mergeMiddlewares($scopeMiddlewares, $route->middlewares));
@@ -317,7 +315,7 @@ final class Router implements RouterInterface
                 "Module '{$id}' has no conventional urls: generate '{$controller}::{$action}' by its route name",
             );
         }
-        if (isset($this->ownedActions($id)[$controller . '::' . $action])) {
+        if (isset($this->ownedActions($id)[RouteCollection::canonicalTarget($controller, $action)])) {
             // Explicit routing owns the action: urlFor() takes action
             // arguments while url() takes route placeholders, so Kaly never
             // guesses which explicit route was meant
@@ -413,7 +411,7 @@ final class Router implements RouterInterface
      * action appearing in its route table or in one of its claims. The
      * convention neither resolves nor generates a url for them.
      *
-     * @return array<string,true> `Controller::action` => true
+     * @return array<string,true> Canonical `controller::action` => true
      */
     private function ownedActions(string $id): array
     {
@@ -429,8 +427,8 @@ final class Router implements RouterInterface
                 }
             }
             foreach ($tables as $table) {
-                foreach ($table->collection()->toArray() as $entry) {
-                    $owned[$entry['controller'] . '::' . $entry['action']] = true;
+                foreach ($table->collection()->targetedActions() as $target => $names) {
+                    $owned[$target] = true;
                 }
             }
             $this->ownedActions[$id] = $owned;
@@ -441,10 +439,12 @@ final class Router implements RouterInterface
     /**
      * Qualified names of the explicit routes targeting an action.
      *
+     * @param class-string $controller
      * @return list<string>
      */
     private function namedRoutesFor(string $id, string $controller, string $action): array
     {
+        $target = RouteCollection::canonicalTarget($controller, $action);
         $names = [];
         $tables = [];
         if (isset($this->tables[$id])) {
@@ -456,9 +456,9 @@ final class Router implements RouterInterface
             }
         }
         foreach ($tables as $table) {
-            foreach ($table->collection()->toArray() as $entry) {
-                if ($entry['controller'] === $controller && $entry['action'] === $action && $entry['name'] !== null) {
-                    $names[] = $id . ':' . $entry['name'];
+            foreach ($table->collection()->targetedActions()[$target] ?? [] as $name) {
+                if ($name !== null) {
+                    $names[] = $id . ':' . $name;
                 }
             }
         }
