@@ -10,7 +10,6 @@ use InvalidArgumentException;
 use Kaly\Di\Definitions;
 use Kaly\Ex;
 use Kaly\Router\ResolverInterface;
-use Kaly\Router\RouteMiddlewares;
 use Kaly\Router\RoutePath;
 use Kaly\Router\Routes;
 use Kaly\Router\RouteScope;
@@ -233,9 +232,9 @@ final class Module implements RouteScope
     public function middleware(string ...$middlewares): self
     {
         $this->assertNotFrozen();
-        $this->middlewares = RouteMiddlewares::merge(
+        $this->middlewares = Routes::mergeMiddlewares(
             $this->middlewares,
-            RouteMiddlewares::normalize(array_values($middlewares), "module '{$this->name}'"),
+            Routes::normalizeMiddlewares(array_values($middlewares), "module '{$this->name}'"),
         );
         return $this;
     }

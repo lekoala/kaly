@@ -130,8 +130,8 @@ incoming -> routing -> routed -> route middlewares -> dispatcher -> (kernel) -> 
   matches the route and resolves the locale.
 - **routed** runs with a route already known: auth, authorization, CSRF, per route
   rate limits...
-- **route middlewares** are the ones declared on a route, a group or a controller
-  (`#[Middleware]`), see [Routing](routing.md).
+- **route middlewares** are the ones declared on a route, a group or a module,
+  see [Routing](routing.md).
 - **outgoing** runs *on the response*, once the whole cycle produced one, whatever its
   origin (happy path, short-circuit, kernel-built error): webp conversion, compression,
   cache headers...

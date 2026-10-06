@@ -36,8 +36,13 @@ Use when the route must already be known:
 
 ### Route middleware
 
-Use route/controller middleware for behavior attached to a particular route or
-controller family.
+Use route/group/module middleware for behavior attached to a particular route
+or module area. HTTP policy belongs to routing: an action with its own policy
+deserves an explicit route.
+
+Explicit routing takes ownership of an action: once a controller action
+appears in a route table, convention routing neither resolves nor generates a
+URL for it. Custom resolvers claim nothing automatically.
 
 ### Outgoing middleware
 

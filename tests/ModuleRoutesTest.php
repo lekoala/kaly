@@ -14,6 +14,8 @@ use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use TestModule\Controller\AliasController;
+use TestModule\Controller\DemoController;
+use TestModule\Controller\WhoamiController;
 
 /**
  * The local route table and the claims of a module, declared in its config.php
@@ -77,7 +79,8 @@ class ModuleRoutesTest extends TestCase
 
     public function testTheTableComesBeforeTheConvention(): void
     {
-        // Both the table and the convention know this action
+        // Both urls are table routes; the convention no longer exposes
+        // AliasController::hello at all since the table owns it
         $this->assertSame('alias-hello', (string) $this->request('/test-module/legacy/hello/')->getBody());
         $this->assertSame('alias-hello', (string) $this->request('/test-module/alias/hello/')->getBody());
         // And the convention still answers what the table does not declare
@@ -134,8 +137,45 @@ class ModuleRoutesTest extends TestCase
         $this->router()->url('alias.hello');
     }
 
-    public function testConventionalUrlsIgnoreTheRouteTable(): void
+    public function testAnExplicitlyRoutedActionHasNoConventionalUrl(): void
     {
-        $this->assertSame('/test-module/alias/hello/', $this->router()->urlFor([AliasController::class, 'hello']));
+        // ShopController::health is declared in the table and in claims: its
+        // conventional urls stay closed, whatever the HTTP method
+        $this->assertSame(404, $this->request('/test-module/shop/health/')->getStatusCode());
+        $this->assertSame(404, $this->request('/test-module/shop/health/', 'POST')->getStatusCode());
+        // Claim-owned actions are owned too
+        $this->assertSame(404, $this->request('/test-module/shop/show/books/')->getStatusCode());
+    }
+
+    public function testUrlForAnExplicitlyRoutedActionSuggestsItsRouteName(): void
+    {
+        try {
+            $this->router()->urlFor([WhoamiController::class, 'index']);
+            $this->fail('urlFor() must fail for an explicitly routed action');
+        } catch (RouteGenerationException $e) {
+            $this->assertSame(
+                "'TestModule\\Controller\\WhoamiController::index' is explicitly routed and has no conventional url: use route 'test-module:whoami'",
+                $e->getMessage(),
+            );
+        }
+    }
+
+    public function testUrlForAnActionWithSeveralExplicitRoutesNamesNoneOfThem(): void
+    {
+        try {
+            $this->router()->urlFor([AliasController::class, 'hello']);
+            $this->fail('urlFor() must fail for an explicitly routed action');
+        } catch (RouteGenerationException $e) {
+            $this->assertSame(
+                "'TestModule\\Controller\\AliasController::hello' is explicitly routed by multiple routes; generate one by name",
+                $e->getMessage(),
+            );
+        }
+    }
+
+    public function testConventionalUrlsIgnoreNothing(): void
+    {
+        // The convention still generates what the tables do not own
+        $this->assertSame('/test-module/demo/method/', $this->router()->urlFor([DemoController::class, 'methodGet']));
     }
 }

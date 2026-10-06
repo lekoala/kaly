@@ -13,8 +13,7 @@ use Kaly\Router\RouteDefinition;
 use Kaly\Tests\Mocks\DenyMiddleware;
 use Kaly\Tests\Mocks\TestObject;
 use Kaly\Tests\Mocks\TraceClassMiddleware;
-use Kaly\Tests\Mocks\TraceMethodMiddleware;
-use Kaly\Tests\Mocks\TraceParentMiddleware;
+use Kaly\Tests\Mocks\TraceGroupMiddleware;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
@@ -52,20 +51,20 @@ class RouteMiddlewareTest extends TestCase
         $this->assertSame('denied', (string) $response->getBody());
     }
 
-    public function testRouteMiddlewaresRunOutermostFirstAndOnce(): void
+    public function testRouteAndGroupMiddlewaresMergeOutermostFirstAndOnce(): void
     {
+        $ctx = null;
+        $this->app->onTerminate(static function (HttpContext $c) use (&$ctx): void {
+            $ctx = $c;
+        });
+
+        // The route repeats the group middleware: it still runs once, at its
+        // outermost place, before the route-level middleware
         $response = $this->get('/test-module/guarded/trace/');
 
         $this->assertSame(200, $response->getStatusCode());
-        // group, then parent class, then class, then method; the parent
-        // middleware repeated on the method keeps its outermost place
-        $this->assertSame('group,parent,class,method', (string) $response->getBody());
-    }
-
-    public function testControllerAttributesApplyToConventionRoutes(): void
-    {
-        $this->assertSame('parent,class,method', (string) $this->get('/test-module/guarded/')->getBody());
-        $this->assertSame('parent,class', (string) $this->get('/test-module/guarded/open/')->getBody());
+        $this->assertInstanceOf(HttpContext::class, $ctx);
+        $this->assertSame([TraceGroupMiddleware::class, TraceClassMiddleware::class], $ctx->route()->middlewares);
     }
 
     public function testRouteMiddlewaresAreTracedOnTheContext(): void
@@ -75,14 +74,11 @@ class RouteMiddlewareTest extends TestCase
             $ctx = $c;
         });
 
-        $this->get('/test-module/guarded/');
+        $this->get('/test-module/guarded/trace/');
 
         $this->assertInstanceOf(HttpContext::class, $ctx);
-        $this->assertSame(
-            [TraceParentMiddleware::class, TraceClassMiddleware::class, TraceMethodMiddleware::class],
-            $ctx->route()->middlewares,
-        );
-        $this->assertTrue($ctx->hasMiddleware(TraceMethodMiddleware::class));
+        $this->assertTrue($ctx->hasMiddleware(TraceGroupMiddleware::class));
+        $this->assertTrue($ctx->hasMiddleware(TraceClassMiddleware::class));
     }
 
     public function testAnUnknownMiddlewareFailsAtBoot(): void

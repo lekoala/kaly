@@ -55,10 +55,7 @@ final class RouteCollection
             $reflection = new ReflectionClass($definition->controller);
             // Resolved and validated when the table is compiled: a declared
             // middleware that cannot run fails here, never silently
-            $middlewares = RouteMiddlewares::merge(
-                RouteMiddlewares::normalize($definition->middlewares, "route '" . $definition->pathFor(null) . "'"),
-                RouteMiddlewares::ofAction($definition->controller, $definition->action),
-            );
+            $middlewares = Routes::normalizeMiddlewares($definition->middlewares, "route '" . $definition->pathFor(null) . "'");
             $inputClass = self::trailingInputClass($reflection, $definition->action);
             $paramNames = null;
             foreach ($definition->paths() as $locale => $path) {

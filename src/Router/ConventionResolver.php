@@ -69,13 +69,7 @@ final class ConventionResolver implements ResolverInterface
         $action = $this->findAction($m, $reflection);
         $params = $this->collectParameters($m, $reflection, $action);
 
-        $route = $request->route(
-            $controller,
-            $action,
-            $params,
-            inputClass: $m->inputClass,
-            middlewares: RouteMiddlewares::ofAction($controller, $action),
-        );
+        $route = $request->route($controller, $action, $params, inputClass: $m->inputClass);
         return $route;
     }
 

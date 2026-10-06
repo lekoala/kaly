@@ -95,6 +95,19 @@
 
 ### Changed
 
+- **Breaking:** `Kaly\Router\Middleware` (`#[Middleware]`) is removed. HTTP
+  policy belongs to routing: declare middlewares with `->middleware()` on a
+  route, a group or a module (`$module->middleware(...)`) instead of
+   attributes on controllers. `Kaly\Router\RouteMiddlewares` is removed;
+  explicit middleware merging and validation moved to `Routes`.
+  Replace controller attributes with route declarations; an action with its
+  own policy deserves an explicit route.
+- **Breaking:** explicit routing takes ownership of an action. Once a
+  controller action appears in a route table, convention routing neither
+  resolves nor generates a url for it (404 on the conventional path,
+  `urlFor()` fails and points at the route name). Custom resolvers claim
+  nothing automatically. See `UPGRADE.md`.
+
 - **Breaking:** `RequestDispatcher` now receives `ViewResponder` instead of
   translator, renderer, assets and CSRF dependencies. Update manual construction;
   normal application autowiring needs no changes. Before routing has established

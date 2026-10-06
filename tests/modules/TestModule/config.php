@@ -10,12 +10,12 @@ use Kaly\Router\Routes;
 use Kaly\Tests\Mocks\DenyMiddleware;
 use Kaly\Tests\Mocks\TestInterface;
 use Kaly\Tests\Mocks\TestObject;
+use Kaly\Tests\Mocks\TraceClassMiddleware;
 use Kaly\Tests\Mocks\TraceGroupMiddleware;
 use Kaly\Tpl\ViewEngine;
 use Kaly\View\Adapter\KalyTplRenderer;
 use Kaly\View\RendererInterface;
 use TestModule\Controller\AliasController;
-use TestModule\Controller\GuardedController;
 use TestModule\Controller\ShopController;
 use TestModule\Controller\WhoamiController;
 
@@ -57,7 +57,10 @@ return static function (Module $module, Definitions $di): void {
             ->prefix('/guarded')
             ->middleware(TraceGroupMiddleware::class)
             ->group(function (Routes $routes): void {
-                $routes->get('/trace', [GuardedController::class, 'index'])->name('guarded.trace');
+                $routes->get('/trace', [ShopController::class, 'health'])->name('guarded.trace')->middleware(
+                    TraceClassMiddleware::class,
+                    TraceGroupMiddleware::class,
+                );
             });
     });
 

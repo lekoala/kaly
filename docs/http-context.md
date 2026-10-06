@@ -244,7 +244,7 @@ App
                     |
                     +- auth / authorization / CSRF / route rate limit
                     |
-                    +- ROUTE middlewares (route table, #[Middleware])
+                     +- ROUTE middlewares (route table, module)
                     |
                     +- RequestDispatcher
                          +- controller -> response

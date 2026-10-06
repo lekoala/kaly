@@ -52,6 +52,15 @@ final class Router implements RouterInterface
     private array $tables = [];
 
     /**
+     * Actions owned by explicit routing, by module id: once a controller
+     * action appears in a route table, the convention neither resolves nor
+     * generates a url for it. Custom resolvers claim nothing automatically.
+     *
+     * @var array<string,array<string,true>> By module id, `Controller::action` => true
+     */
+    private array $ownedActions = [];
+
+    /**
      * @var array<string,array<string,string>> Locale ('*' for any) => segment => module id
      */
     private array $mounts = [];
@@ -174,9 +183,18 @@ final class Router implements RouterInterface
                 continue;
             }
             if ($route !== null) {
+                if (
+                    $resolver instanceof ConventionResolver
+                    && isset($this->ownedActions($id)[$route->controller . '::' . $route->action])
+                ) {
+                    // Explicit routing owns the action: the conventional url
+                    // stays closed, whatever policy the table declares
+                    $reasons[] = ConventionResolver::class . ": '{$route->controller}::{$route->action}' is explicitly routed";
+                    continue;
+                }
                 $scopeMiddlewares = $this->modules[$id]->middlewares();
                 if ($scopeMiddlewares !== []) {
-                    return $route->withMiddlewares(RouteMiddlewares::merge($scopeMiddlewares, $route->middlewares));
+                    return $route->withMiddlewares(Routes::mergeMiddlewares($scopeMiddlewares, $route->middlewares));
                 }
 
                 return $route;
@@ -299,6 +317,25 @@ final class Router implements RouterInterface
                 "Module '{$id}' has no conventional urls: generate '{$controller}::{$action}' by its route name",
             );
         }
+        if (isset($this->ownedActions($id)[$controller . '::' . $action])) {
+            // Explicit routing owns the action: urlFor() takes action
+            // arguments while url() takes route placeholders, so Kaly never
+            // guesses which explicit route was meant
+            $names = $this->namedRoutesFor($id, $controller, $action);
+            if (count($names) === 1) {
+                throw new RouteGenerationException(
+                    "'{$controller}::{$action}' is explicitly routed and has no conventional url: use route '{$names[0]}'",
+                );
+            }
+            if ($names !== []) {
+                throw new RouteGenerationException(
+                    "'{$controller}::{$action}' is explicitly routed by multiple routes; generate one by name",
+                );
+            }
+            throw new RouteGenerationException(
+                "'{$controller}::{$action}' is explicitly routed and has no conventional url: generate it by its route name",
+            );
+        }
         $locale = $this->localeFor($locale);
         $path = $this->convention->path($controller, $action, array_values($params));
 
@@ -370,6 +407,63 @@ final class Router implements RouterInterface
     // #endregion
 
     // #region Introspection
+
+    /**
+     * Actions owned by the explicit routing of a module: every controller
+     * action appearing in its route table or in one of its claims. The
+     * convention neither resolves nor generates a url for them.
+     *
+     * @return array<string,true> `Controller::action` => true
+     */
+    private function ownedActions(string $id): array
+    {
+        if (!isset($this->ownedActions[$id])) {
+            $owned = [];
+            $tables = [];
+            if (isset($this->tables[$id])) {
+                $tables[] = $this->tables[$id];
+            }
+            foreach ($this->claims as $claim) {
+                if ($claim['id'] === $id) {
+                    $tables[] = $claim['table'];
+                }
+            }
+            foreach ($tables as $table) {
+                foreach ($table->collection()->toArray() as $entry) {
+                    $owned[$entry['controller'] . '::' . $entry['action']] = true;
+                }
+            }
+            $this->ownedActions[$id] = $owned;
+        }
+        return $this->ownedActions[$id];
+    }
+
+    /**
+     * Qualified names of the explicit routes targeting an action.
+     *
+     * @return list<string>
+     */
+    private function namedRoutesFor(string $id, string $controller, string $action): array
+    {
+        $names = [];
+        $tables = [];
+        if (isset($this->tables[$id])) {
+            $tables[] = $this->tables[$id];
+        }
+        foreach ($this->claims as $claim) {
+            if ($claim['id'] === $id) {
+                $tables[] = $claim['table'];
+            }
+        }
+        foreach ($tables as $table) {
+            foreach ($table->collection()->toArray() as $entry) {
+                if ($entry['controller'] === $controller && $entry['action'] === $action && $entry['name'] !== null) {
+                    $names[] = $id . ':' . $entry['name'];
+                }
+            }
+        }
+        return array_values(array_unique($names));
+    }
 
     /**
      * @return list<string>

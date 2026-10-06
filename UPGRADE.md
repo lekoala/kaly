@@ -4,6 +4,46 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Route middleware is explicit and tables own their actions
+
+- `#[Kaly\Router\Middleware]` on controllers and actions is removed, with the
+  reflection, class-lineage order, deduplication cache and `RouteMiddlewares`
+  class behind it. HTTP policy belongs to routing: a route exposes a controller
+  **and** declares the middlewares required to reach it.
+- Before (attribute on the controller):
+
+```php
+#[Middleware(StaffOnly::class)]
+abstract class AdminController extends AbstractController {}
+```
+
+After (policy on the routes):
+
+```php
+$routes
+    ->prefix('/admin')
+    ->middleware(StaffOnly::class)
+    ->group(function (Routes $routes): void {
+        $routes->get('/orders', [OrderController::class, 'index']);
+    });
+```
+
+Use `$module->middleware(...)` for a policy covering a whole area (tables,
+claims and convention); give an action with its own policy an explicit route.
+- Explicit routing takes ownership of an action: once a controller action
+  appears in a route table, convention routing neither resolves (404 on the
+  conventional url, whatever the HTTP method) nor generates
+  (`Router::urlFor()` throws and points at the route name) for it. This closes
+  the double exposure where a protected table url stayed reachable through an
+  unprotected conventional one. Custom resolvers claim nothing automatically: a
+  dynamic resolver changing reachability or policy belongs in a module without
+  convention routing, or relies on module-level middleware.
+- Attributes remain appropriate for metadata and optional cross-cutting
+  behavior, never for application correctness: removing an attribute may remove
+  documentation, diagnostics, observability or tooling, but must not invalidate
+  a business rule, authorization rule, or application invariant. See
+  [Architecture](docs/architecture.md).
+
 ## Controller and error views share a responder
 
 - `RequestDispatcher` takes `(Injector, ViewResponder, ResponseFactoryInterface,

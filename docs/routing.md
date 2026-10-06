@@ -133,6 +133,9 @@ The last resolver of every module maps `controller/action/params`:
 - One canonical url per action: `/index/`, `/cart/index/` and camelized spellings
   redirect. `/index/index/param/` is allowed.
 - Public methods only; magic methods other than `__invoke` are never exposed.
+- The convention never exposes an action owned by explicit routing: once an
+  action appears in a route table, only its explicit urls answer (see
+  [Route middlewares](#route-middlewares)).
 
 ### A custom resolver
 
@@ -220,7 +223,9 @@ $router->urlFor([CartController::class, 'add'], [42]);    // conventional url: /
 
 Without a locale, urls are generated for the default locale. Generating an url
 for a locale the route (or the module mount) has no variant for fails instead
-of producing an url no route would match.
+of producing an url no route would match. `urlFor()` on an action owned by
+explicit routing fails the same way and points at the route name, instead of
+producing a conventional url no route answers.
 
 Within a request, the context generates for the request locale — no need to
 pass it around:
@@ -242,33 +247,48 @@ Templates get the same generator as `$url`, alongside the `$i18n` translator
 
 ## Route middlewares
 
-A route, a group or a controller may carry middlewares. The framework runs them right
+A route, a group or a module may carry middlewares. The framework runs them right
 before the controller, at the end of the routed band:
 
 ```text
 incoming -> routing -> routed -> [route middlewares] -> dispatcher
 ```
 
-`#[Middleware]` declares them on the controller itself. It applies however the action
-is reached (table, convention or custom resolver), and a class attribute covers every
-subclass, so a base controller can protect a whole area:
-
 ```php
-use Kaly\Router\Middleware;
-
-#[Middleware(StaffOnly::class)]
-abstract class AdminController extends AbstractController {}
-
-final class OrderController extends AdminController
-{
-    #[Middleware(AuditTrail::class)]
-    public function delete(int $id): ResponseInterface
-}
+$routes
+    ->prefix('/admin')
+    ->middleware(StaffOnly::class)
+    ->group(function (Routes $routes): void {
+        $routes->get('/orders', [OrderController::class, 'index']);
+        $routes->delete('/orders/{id}', [OrderController::class, 'delete'])
+            ->middleware(AuditTrail::class);
+    });
 ```
 
-- **Order is outermost first**: table groups and route, then parent classes, the
-  class, then the method. A middleware declared at several levels runs once, at its
-  outermost place.
+- **Order is outermost first**: module, then table groups and route. A middleware
+  declared at several levels runs once, at its outermost place.
+- **A declared middleware always runs, or fails loudly.** An unknown class, or a
+  class that is not a PSR-15 middleware, throws when the table is
+  compiled (on its first use, at match or generation time; at first match for
+  the convention). An ignored auth middleware would be
+  an open door.
+- The effective list is `$ctx->route()->middlewares`, and each one that entered is
+  traced on the context like any other middleware.
+
+HTTP policy belongs to routing: a route exposes a controller **and** declares
+the middlewares required to reach it. A policy that belongs to one route lives
+on that route; a policy for a whole area lives on the module
+(`$module->middleware(...)`), which covers its tables, its claims and its
+convention. An action with its own policy deserves an explicit route.
+
+**Explicit routing takes ownership of an action.** Once a controller action
+appears in a route table, convention routing neither resolves nor generates a
+url for it — a protected table url can never leak through a conventional one.
+`urlFor()` on an owned action fails and points at the route name instead of
+guessing which explicit route was meant. Custom resolvers claim nothing
+automatically: a dynamic resolver that changes the reachability or the policy
+of controller actions belongs in a module without convention routing, or relies
+on module-level middleware.
 - **A declared middleware always runs, or fails loudly.** An unknown class, or a
   class that is not a PSR-15 middleware, throws when the table is
   compiled (on its first use, at match or generation time; at first match for

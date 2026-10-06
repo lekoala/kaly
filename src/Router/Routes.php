@@ -6,6 +6,7 @@ namespace Kaly\Router;
 
 use Kaly\Ex;
 use Kaly\Http\Method;
+use Psr\Http\Server\MiddlewareInterface;
 
 /**
  * Collects the route declarations of a module entry point, in config.php:
@@ -251,5 +252,48 @@ final class Routes
             throw new Ex("Route handler '{$class}::{$action}' must be a public, non-static method, non-magic except __invoke");
         }
         return [$class, $action];
+    }
+
+    /**
+     * Merges explicit middleware declarations, keeping the first occurrence
+     * of each middleware so that the same guard declared at two levels runs
+     * once, at its outermost position.
+     *
+     * @param list<class-string> ...$lists
+     * @return list<class-string>
+     */
+    public static function mergeMiddlewares(array ...$lists): array
+    {
+        $merged = [];
+        foreach ($lists as $list) {
+            foreach ($list as $middleware) {
+                if (!in_array($middleware, $merged, true)) {
+                    $merged[] = $middleware;
+                }
+            }
+        }
+        return $merged;
+    }
+
+    /**
+     * Validates explicit middleware declarations: a declared middleware
+     * always runs or fails loudly, never silently ignored.
+     *
+     * @param list<string> $middlewares
+     * @return list<class-string>
+     */
+    public static function normalizeMiddlewares(array $middlewares, string $declaredOn): array
+    {
+        $valid = [];
+        foreach ($middlewares as $middleware) {
+            if (!class_exists($middleware)) {
+                throw new Ex("Middleware '{$middleware}' declared on '{$declaredOn}' does not exist");
+            }
+            if (!is_a($middleware, MiddlewareInterface::class, true)) {
+                throw new Ex("Middleware '{$middleware}' declared on '{$declaredOn}' is not a PSR-15 request middleware");
+            }
+            $valid[] = $middleware;
+        }
+        return self::mergeMiddlewares($valid);
     }
 }

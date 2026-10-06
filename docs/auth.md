@@ -247,8 +247,8 @@ return static function (Module $module): void {
 };
 ```
 
-Scope middlewares merge in front of the route, group, controller and action
-middlewares (each runs once), and they cover the module claims as well —
+Scope middlewares merge in front of the route and group middlewares
+(each runs once), and they cover the module claims and convention as well —
 a custom resolver cannot forget the guard. There is no `except()` mechanism:
 the login page lives outside the guarded scope instead of being carved out
 of it:
