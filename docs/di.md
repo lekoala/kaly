@@ -138,6 +138,35 @@ Keep these reads in the composition root. Introduce a policy or options object o
 when it is a meaningful dependency, as described in
 [Modules](modules.md#values-and-configuration-objects).
 
+## Stateful services and request lifetime
+
+Shared services must be re-entrant: in a worker the container outlives the
+request, so a service kept between cycles must never carry request state. Keep
+request state in `HttpContext`, action locals, or a value passed along — never
+in a shared singleton.
+
+A stateful resource (an entity manager, a unit of work, a transaction) belongs
+to the operation, not to the request. Inject a shared factory and open a fresh
+resource per operation:
+
+```php
+$entityManagerFactory->with(function (EntityManager $em) use ($order): void {
+    $em->transactional(static function () use ($em, $order): void {
+        // ...
+    });
+});
+```
+
+After a failed transaction, throw the resource away and open a clean one —
+even inside the same request. The owner opens, the owner closes: Kaly never
+flushes or closes resources automatically at the end of a response.
+
+Do not register a transient factory with `Definitions::set()` and expect a new
+instance per resolution: factories are shared, `set()` caches its result.
+There is deliberately no request-scope container: until a second real use case
+proves that one instance per HTTP cycle is needed, the per-operation factory
+above is the whole pattern.
+
 ## Injector
 
 `Injector::make()` creates a class and `Injector::invoke()` calls a callable,

@@ -59,3 +59,11 @@ if ($app->isDebug()) {
 
 See [Assets](assets.md).
 
+## Who serves what
+
+- `AssetServer` serves asset *sources* in development (`/_assets/*`).
+- `FileServer` (and the plain-PHP `router.php` above) expose `public/`.
+- Application routes stay ordinary routes: a controller can answer
+  `/sitemap.xml` or `/robots.txt` like any other path — no new public server
+  in Asset is needed for those.
+

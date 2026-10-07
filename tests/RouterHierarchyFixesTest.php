@@ -15,6 +15,7 @@ use Kaly\Router\RouteGenerationException;
 use Kaly\Router\Router;
 use Kaly\Router\RouteRequest;
 use Kaly\Router\Routes;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Mocks\RouteHandlerFixture;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
@@ -53,7 +54,7 @@ class RouterHierarchyFixesTest extends TestCase
             ->routes(function (Routes $routes): void {
                 $routes->post('/same', RouteHandlerFixture::class);
             });
-        $router = new Router([$module]);
+        $router = new Router([$module], null, [], TrailingSlash::Add);
 
         $this->assertSame(RouteHandlerFixture::class, $this->match($router, '/shop/same/', 'GET')->controller);
         $this->assertSame(RouteHandlerFixture::class, $this->match($router, '/shop/same/', 'POST')->controller);
@@ -83,7 +84,7 @@ class RouterHierarchyFixesTest extends TestCase
             });
 
         // The table wins /shared, the custom resolver is never consulted
-        $route = $this->match(new Router([$after]), '/shop/shared/');
+        $route = $this->match(new Router([$after], null, [], TrailingSlash::Add), '/shop/shared/');
         $this->assertSame(RouteHandlerFixture::class, $route->controller);
 
         // The mirror order: declared before, it goes first
@@ -99,7 +100,7 @@ class RouterHierarchyFixesTest extends TestCase
                 $routes->get('/shared', RouteHandlerFixture::class);
             });
 
-        $route = $this->match(new Router([$before]), '/shop/shared/');
+        $route = $this->match(new Router([$before], null, [], TrailingSlash::Add), '/shop/shared/');
         $this->assertSame(AliasController::class, $route->controller);
     }
 
@@ -117,16 +118,21 @@ class RouterHierarchyFixesTest extends TestCase
                 }
             }, priority: -10);
 
-        $route = $this->match(new Router([$module]), '/shop/shared/');
+        $route = $this->match(new Router([$module], null, [], TrailingSlash::Add), '/shop/shared/');
         $this->assertSame(AliasController::class, $route->controller);
     }
 
     public function testReplaceSegmentOnlyTouchesTheFirstOccurrence(): void
     {
-        $uri = RedirectUris::replaceSegment(new BaseServerRequest('GET', 'https://example.test/fr/shop/fr/'), 'fr', '', true);
+        $uri = RedirectUris::replaceSegment(new BaseServerRequest('GET', 'https://example.test/fr/shop/fr/'), 'fr', '', TrailingSlash::Add);
         $this->assertSame('/shop/fr/', $uri->getPath());
 
-        $uri = RedirectUris::replaceSegment(new BaseServerRequest('GET', 'https://example.test/Shop/product/Shop/'), 'Shop', 'shop', true);
+        $uri = RedirectUris::replaceSegment(
+            new BaseServerRequest('GET', 'https://example.test/Shop/product/Shop/'),
+            'Shop',
+            'shop',
+            TrailingSlash::Add,
+        );
         $this->assertSame('/shop/product/Shop/', $uri->getPath());
     }
 
@@ -139,7 +145,7 @@ class RouterHierarchyFixesTest extends TestCase
             ->routes(function (Routes $routes): void {
                 $routes->get(['fr' => '/a-propos'], RouteHandlerFixture::class)->name('about');
             });
-        $router = new Router([$module], null, ['fr', 'en']);
+        $router = new Router([$module], null, ['fr', 'en'], TrailingSlash::Add, true);
 
         $this->assertSame('/fr/boutique/a-propos/', $router->url('mapped-module:about'));
 
@@ -157,7 +163,7 @@ class RouterHierarchyFixesTest extends TestCase
             ->routes(function (Routes $routes): void {
                 $routes->get('/item', RouteHandlerFixture::class)->name('item');
             });
-        $router = new Router([$module], null, ['fr', 'en']);
+        $router = new Router([$module], null, ['fr', 'en'], TrailingSlash::Add, true);
 
         $this->assertSame('/fr/boutique/item/', $router->url('mapped-module:item'));
 
@@ -176,7 +182,7 @@ class RouterHierarchyFixesTest extends TestCase
             ->routes(function (Routes $routes): void {
                 $routes->get('/second', RouteHandlerFixture::class)->name('same');
             });
-        $router = new Router([$module]);
+        $router = new Router([$module], null, [], TrailingSlash::Add);
 
         // Both calls feed one table: the duplicate fails when it compiles
         $this->expectException(Ex::class);
@@ -194,7 +200,7 @@ class RouterHierarchyFixesTest extends TestCase
             ->claim('/extra', function (Routes $routes): void {
                 $routes->get('/second', RouteHandlerFixture::class)->name('same');
             });
-        $router = new Router([$module]);
+        $router = new Router([$module], null, [], TrailingSlash::Add);
 
         $this->expectException(RouteGenerationException::class);
         $this->expectExceptionMessage("Duplicate route name 'mapped-module:same'");
@@ -210,7 +216,7 @@ class RouterHierarchyFixesTest extends TestCase
             ->routes(function (Routes $routes): void {
                 $routes->get('/produit/{id}', [RouteHandlerFixture::class, 'show'])->where('id', '\d+')->name('product');
             });
-        $router = new Router([$module], null, ['fr']);
+        $router = new Router([$module], null, ['fr'], TrailingSlash::Add, true);
 
         // The documented canonical url keeps working
         $route = $this->match($router, '/fr/boutique/produit/7/');
@@ -233,7 +239,7 @@ class RouterHierarchyFixesTest extends TestCase
             ->routes(function (Routes $routes): void {
                 $routes->get('/item', RouteHandlerFixture::class);
             });
-        $router = new Router([$module], null, ['fr', 'en']);
+        $router = new Router([$module], null, ['fr', 'en'], TrailingSlash::Add, true);
 
         try {
             $this->match($router, '/FR/shop/item/');
@@ -253,7 +259,7 @@ class RouterHierarchyFixesTest extends TestCase
             $routes->get('/alias/priority', [AliasController::class, 'priority']);
         });
         // The convention stays enabled: it would run hello() for any method
-        $router = new Router([$module]);
+        $router = new Router([$module], null, [], TrailingSlash::Add);
 
         // Both calls feed one table
         $this->assertSame(AliasController::class, $this->match($router, '/test-module/alias/hello/')->controller);
@@ -274,7 +280,7 @@ class RouterHierarchyFixesTest extends TestCase
 
         $this->expectException(Ex::class);
         $this->expectExceptionMessage('is not localized');
-        new Router([$module], null, ['fr', 'en']);
+        new Router([$module], null, ['fr', 'en'], TrailingSlash::Add, true);
     }
 
     public function testClaimPerLocaleWithoutLocalizedFailsAtBoot(): void
@@ -288,7 +294,7 @@ class RouterHierarchyFixesTest extends TestCase
 
         $this->expectException(Ex::class);
         $this->expectExceptionMessage('is not localized');
-        new Router([$module], null, ['fr', 'en']);
+        new Router([$module], null, ['fr', 'en'], TrailingSlash::Add, true);
     }
 
     public function testLocalizedWithoutAppLocalesFailsAtBoot(): void
@@ -299,7 +305,7 @@ class RouterHierarchyFixesTest extends TestCase
 
         $this->expectException(Ex::class);
         $this->expectExceptionMessage('declares no locales');
-        new Router([$module], null, []);
+        new Router([$module], null, [], TrailingSlash::Add);
     }
 
     public function testPathsPerLocaleWithoutLocalizedFailAtCompileTime(): void
@@ -313,14 +319,21 @@ class RouterHierarchyFixesTest extends TestCase
                     ->where('id', '\d+')
                     ->name('item');
             });
-        // Building the router is fine: the table compiles on first use
-        $router = new Router([$module], null, ['fr', 'en']);
 
+        // With prefixes enabled, per-locale paths without localized() are incoherent
+        $router = new Router([$module], null, ['fr', 'en'], TrailingSlash::Add, true);
         try {
             $router->url('mapped-module:item', ['id' => 7], 'en');
             $this->fail('An incoherent locale declaration was expected to fail');
         } catch (Ex $e) {
             $this->assertStringContainsString('is not localized', $e->getMessage());
         }
+
+        // Without prefixes, fully distinct paths are legitimate and matched by path
+        $router = new Router([$module], null, ['fr', 'en'], TrailingSlash::Add, false);
+        $this->assertSame('/shop/article/7/', $router->url('mapped-module:item', ['id' => 7], 'fr'));
+        $this->assertSame('/shop/post/7/', $router->url('mapped-module:item', ['id' => 7], 'en'));
+        $this->assertSame('fr', $this->match($router, '/shop/article/7/')->locale);
+        $this->assertSame('en', $this->match($router, '/shop/post/7/')->locale);
     }
 }

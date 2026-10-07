@@ -7,6 +7,7 @@ namespace Kaly\Tests;
 use InvalidArgumentException;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
+use Kaly\Router\TrailingSlash;
 use Kaly\Test\TestClient;
 use Kaly\Test\TestResponse;
 use Nyholm\Psr7\Response;
@@ -24,7 +25,7 @@ class TestClientTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->client = TestClient::for(App::create(__DIR__)->boot());
+        $this->client = TestClient::for(App::create(__DIR__)->routing(TrailingSlash::Add, true)->boot());
     }
 
     protected function tearDown(): void
@@ -66,9 +67,9 @@ class TestClientTest extends TestCase
     public function testUnknownOptionFails(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Unknown request options: cookies');
+        $this->expectExceptionMessage('Unknown request options: history');
 
-        $this->client->get('/', ['cookies' => ['a' => 'b']]);
+        $this->client->get('/', ['history' => true]);
     }
 
     public function testASingleBodyOptionIsAllowed(): void

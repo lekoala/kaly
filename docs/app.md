@@ -139,7 +139,7 @@ incoming -> routing -> routed -> route middlewares -> dispatcher -> (kernel) -> 
 ```php
 $app = App::create(dirname(__DIR__));
 // Example middleware names — ship your own PSR-15 implementations,
-// Kaly only bundles FileServer and PreventFileAccess.
+// Kaly only bundles FileServer and PreventSensitivePathAccess.
 $app->middleware()
     ->incoming(TrustedProxy::class)
     ->incoming(RequestId::class)
@@ -155,17 +155,18 @@ middlewares run by ascending priority, then by registration order. There is no
 middleware needs the route, it belongs in the routed band.
 
 The two bundled middlewares illustrate the rule: `FileServer` must run *before*
-`PreventFileAccess`, since the latter rejects any dotted path (`/app.css`) with a
-`404`. Registration order alone would not be enough, because both sit in the incoming
-band: give `FileServer` a lower priority.
+`PreventSensitivePathAccess`, since the latter rejects sensitive paths (`.env`,
+`.git`, executable source files) with a `404`. Dotted application routes such as
+`/sitemap.xml` or `/robots.txt` pass through. Registration order alone would not
+be enough, because both sit in the incoming band: give `FileServer` a lower priority.
 
 ```php
 use Kaly\Http\Middleware\FileServer;
-use Kaly\Http\Middleware\PreventFileAccess;
+use Kaly\Http\Middleware\PreventSensitivePathAccess;
 
 $app->middleware()
     ->incoming(FileServer::class, priority: -100)
-    ->incoming(PreventFileAccess::class);
+    ->incoming(PreventSensitivePathAccess::class);
 ```
 
 Conditions are expressed on the [HttpContext](http-context.md), so a routed condition

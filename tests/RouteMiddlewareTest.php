@@ -10,6 +10,7 @@ use Kaly\Core\HttpContext;
 use Kaly\Ex;
 use Kaly\Router\RouteCollection;
 use Kaly\Router\RouteDefinition;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Mocks\DenyMiddleware;
 use Kaly\Tests\Mocks\TestObject;
 use Kaly\Tests\Mocks\TraceClassMiddleware;
@@ -29,7 +30,7 @@ class RouteMiddlewareTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->app = new App(__DIR__);
+        $this->app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $this->app->boot();
     }
 

@@ -19,13 +19,21 @@ final class RedirectUris
     /**
      * Enforce the trailing slash policy, redirecting when the path disagrees.
      *
+     * `/` is a fixed point: it never redirects. `Preserve` never redirects.
+     *
      * @throws RedirectException
      */
-    public static function ensureTrailingSlash(ServerRequestInterface $request, bool $force): void
+    public static function ensureTrailingSlash(ServerRequestInterface $request, TrailingSlash $policy): void
     {
+        if ($policy === TrailingSlash::Preserve) {
+            return;
+        }
         $uri = $request->getUri();
         $path = $uri->getPath();
-        if ($force) {
+        if ($path === '/') {
+            return;
+        }
+        if ($policy === TrailingSlash::Add) {
             if (!str_ends_with($path, '/')) {
                 throw new RedirectException($uri->withPath(RoutePath::withTrailingSlash($path)));
             }
@@ -40,12 +48,14 @@ final class RedirectUris
      * Only the first whole-segment occurrence is replaced: removing the
      * leading locale of `/fr/shop/fr/` gives `/shop/fr/`, and canonicalizing
      * `/Shop/product/Shop/` gives `/shop/product/Shop/`.
+     *
+     * `Preserve` keeps the trailing slash state untouched.
      */
     public static function replaceSegment(
         ServerRequestInterface $request,
         string $remove,
         string $replace = '',
-        bool $forceTrailingSlash = true,
+        TrailingSlash $trailingSlash = TrailingSlash::Preserve,
     ): UriInterface {
         $uri = $request->getUri();
         $path = $uri->getPath();
@@ -62,6 +72,10 @@ final class RedirectUris
                 $offset = $pos + 1;
             }
         }
-        return $uri->withPath($forceTrailingSlash ? RoutePath::withTrailingSlash($path) : RoutePath::withoutTrailingSlash($path));
+        return $uri->withPath(match ($trailingSlash) {
+            TrailingSlash::Add => RoutePath::withTrailingSlash($path),
+            TrailingSlash::Remove => RoutePath::withoutTrailingSlash($path),
+            TrailingSlash::Preserve => $path === '' ? '/' : $path,
+        });
     }
 }

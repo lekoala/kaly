@@ -9,6 +9,7 @@ use Kaly\Core\ErrorHandler;
 use Kaly\Core\HttpContext;
 use Kaly\Core\Middleware\OutgoingInterface;
 use Kaly\Di\Definitions;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Mocks\TestOutgoing;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Response;
@@ -29,7 +30,7 @@ class OutgoingBandTest extends TestCase
 
     private function app(): App
     {
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
         return $app;
     }
@@ -200,7 +201,7 @@ class OutgoingBandTest extends TestCase
             }
         };
 
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->debug(true);
         $app->configure(static function (Definitions $definitions) use ($logger): void {
             $definitions->rebind(App::DEBUG_LOGGER, $logger);

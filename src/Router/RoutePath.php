@@ -30,7 +30,8 @@ final class RoutePath
 
     /**
      * Join route path parts with single slashes and a leading slash, without a
-     * trailing slash except for the root path.
+     * trailing slash except for the root path — unless the last part carries
+     * one, which is preserved so explicit declarations keep their spelling.
      */
     public static function join(string ...$parts): string
     {
@@ -40,7 +41,12 @@ final class RoutePath
                 $segments[] = $segment;
             }
         }
-        return '/' . implode('/', $segments);
+        $path = '/' . implode('/', $segments);
+        $last = end($parts);
+        if ($last !== false && $path !== '/' && str_ends_with($last, '/')) {
+            $path .= '/';
+        }
+        return $path;
     }
 
     /**

@@ -54,6 +54,12 @@ $v->layout('layout', ['title' => $title]);
 Do not pass the reserved helpers again through layout or partial data, or configure
 them as engine globals: kaly-tpl rejects names that collide with shared data.
 
+With Twig, `include ... only` drops the parent context on purpose: pass the
+helpers the partial needs explicitly, eg
+`{{ include('partials/nav.html.twig', {i18n: i18n, url: url}, with_context = false) }}`.
+Never install per-request globals on the shared Twig environment to work around
+this: a global mutated for one request leaks into the next one in a worker.
+
 Layout and template inheritance stay the engine's business: `RendererInterface` is
 deliberately limited to `render(string $template, array $data)`. Twig, Latte and
 kaly-tpl each have their own composition mechanism, and the contract must not embed

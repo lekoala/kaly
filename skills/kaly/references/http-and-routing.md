@@ -69,9 +69,9 @@ Inside one middleware band, lower priorities run first.
 
 Priority is ascending, then registration order.
 
-For example, when both public files and file-like route rejection are enabled,
+For example, when both public files and sensitive-path rejection are enabled,
 the file server must get a chance to serve an existing file before
-`PreventFileAccess` rejects unmatched file paths.
+`PreventSensitivePathAccess` rejects sensitive paths.
 
 Do not assume that a larger priority means "earlier".
 
@@ -94,17 +94,26 @@ than falling through and reinterpreting the URL elsewhere.
 
 ## Canonical URLs
 
-Kaly deliberately canonicalizes URLs.
+Kaly canonicalizes only what the application configures via
+`App::routing(TrailingSlash, localePrefixes)` (defaults: `Preserve`, no
+prefixes).
 
 Depending on the configured route/module this includes behavior such as:
 
-- trailing slashes;
+- trailing slashes (`Add`/`Remove`; `Preserve` never redirects);
 - canonical controller/action spelling;
-- lowercase locale prefixes;
-- locale-prefix rules;
-- default-locale home normalization.
+- lowercase locale prefixes (prefix strategy only);
+- locale-prefix rules (prefix strategy only);
+- default-locale home normalization (prefix strategy only).
 
-Do not weaken canonical routing merely to preserve an old site's URL scheme.
+`APP_LOCALES` describes i18n, never a URL topology. `localized()` means a
+module participates in locale-prefix routing; translated route paths without
+prefixes match by path instead. A `/{locale}/...` topology of the
+application's own design reads the placeholder through the explicit
+`RouteLocale` middleware, never through implicit consumption.
+
+Do not weaken the configured canonicalization merely to preserve an old
+site's URL scheme.
 
 When migrating an existing site, keep historical URLs with explicit redirects.
 

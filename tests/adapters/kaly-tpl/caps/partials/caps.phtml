@@ -1,0 +1,1 @@
+caps:<?= $v->e($i18n->translate('global.test')) ?>:<?= $v->e($url('home')) ?>:<?= $v->e($asset('app.css')) ?>:<?= $auth->isAuthenticated() ? 'yes' : 'no' ?>:<?= strlen($csrf->token()) > 0 ? 'csrf' : 'no-csrf' ?>:<?= isset($pageLocal) ? 'leak' : 'ok' ?>

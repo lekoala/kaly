@@ -52,7 +52,7 @@ final class ConventionResolver implements ResolverInterface
     private static array $reflections = [];
 
     public function __construct(
-        private bool $forceTrailingSlash = true,
+        private TrailingSlash $trailingSlash = TrailingSlash::Preserve,
     ) {}
 
     /**
@@ -118,7 +118,7 @@ final class ConventionResolver implements ResolverInterface
 
     private function redirect(ConventionMatch $m, string $remove, string $replace = ''): RedirectException
     {
-        return new RedirectException(RedirectUris::replaceSegment($m->request, $remove, $replace, $this->forceTrailingSlash));
+        return new RedirectException(RedirectUris::replaceSegment($m->request, $remove, $replace, $this->trailingSlash));
     }
 
     /**

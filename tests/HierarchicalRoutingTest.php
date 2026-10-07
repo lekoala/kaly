@@ -12,6 +12,7 @@ use Kaly\Router\RouteNotFoundException;
 use Kaly\Router\Router;
 use Kaly\Router\RouterInterface;
 use Kaly\Router\Routes;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
@@ -30,6 +31,7 @@ class HierarchicalRoutingTest extends TestCase
     {
         $this->app = App::create(__DIR__ . '/data/apps/routing', false)
             ->locales(['fr', 'en'])
+            ->routing(TrailingSlash::Add, true)
             ->boot();
     }
 
@@ -205,7 +207,7 @@ class HierarchicalRoutingTest extends TestCase
 
         $this->expectException(Ex::class);
         $this->expectExceptionMessage("mixes the root mount '/' with url segments");
-        new Router([$module], null, ['fr', 'en']);
+        new Router([$module], null, ['fr', 'en'], TrailingSlash::Add, true);
     }
 
     public function testAMissingRootSaysWhichModulesExist(): void
@@ -213,7 +215,7 @@ class HierarchicalRoutingTest extends TestCase
         $shop = (new Module(__DIR__ . '/data/apps/routing/modules/Shop'))
             ->localized()
             ->mount(['fr' => 'boutique', 'en' => 'shop']);
-        $router = new Router([$shop], null, ['fr', 'en']);
+        $router = new Router([$shop], null, ['fr', 'en'], TrailingSlash::Add, true);
 
         try {
             $router->match(HttpFactory::createRequestFromGlobals()->withUri(new Uri('/fr/nope/')));

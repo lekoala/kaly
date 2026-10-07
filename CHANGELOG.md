@@ -3,6 +3,29 @@
 
 ### Added
 
+- `App::routing(TrailingSlash $trailingSlash = TrailingSlash::Preserve, bool $localePrefixes = false)`.
+  `Kaly\Router\TrailingSlash` (`Add`, `Remove`, `Preserve`) replaces the
+  trailing-slash booleans in `Router`, `ConventionResolver` and
+  `RedirectUris`; `/` never redirects and `Preserve` keeps the declared
+  spelling on generation.
+- `Kaly\Core\Middleware\RouteLocale` projects a `{locale}` route placeholder
+  onto the request locale: supported values apply, unsupported ones are a 404,
+  incoherent declarations throw `Kaly\Ex`.
+- `Kaly\Http\HttpPath` (fail-closed URI inspection, never canonicalizing) and
+  `Kaly\Http\SensitivePathPolicy` backing the renamed
+  `Kaly\Http\Middleware\PreventSensitivePathAccess`.
+- `TestClient` keeps response cookies sufficient for session testing plus
+  `followRedirect()`, bounded `maxRedirects`, explicit `cookies` and
+  `clearCookies()`; `Kaly\Test\MemorySessionProvider` persists sessions across
+  cycles in tests. Cookie attributes (domain, path, secure, expiry) stay out
+  of scope by design.
+- Recipes under `docs/recipes/`: Doctrine (per-operation factory), Cycle,
+  Symfony Translator, console and cron. Stateful resources stay per operation
+  with explicit transactions and closing; no request-scope container is added.
+- Render capability guarantees: the six `RenderVariables::SHARED` helpers
+  reach kaly-tpl partials and layouts and stay isolated across concurrent
+  renders; Twig `include ... only` usage is documented.
+
 - Strict web date parsing through `Kaly\Util\Dates`: `isDate()` / `isTime()` /
   `isInstant()` validators plus throwing (`date()`, `instant()`, `at()`) and
   nullable (`tryDate()`, `tryInstant()`, `tryAt()`) factories returning
@@ -114,6 +137,22 @@
   can take it by constructor instead of a hand-built path.
 
 ### Changed
+
+- **Breaking:** the default routing policy is `Preserve` without locale
+  prefixes: no slash redirect unless configured, and `APP_LOCALES` alone never
+  consumes a url segment. Use `routing(TrailingSlash::Add, true)` to keep the
+  previous urls; see `UPGRADE.md`.
+- **Breaking:** `PreventFileAccess` is renamed to
+  `Kaly\Http\Middleware\PreventSensitivePathAccess` and no longer rejects
+  dotted application routes (`/sitemap.xml`, `/robots.txt`); sensitive paths
+  are rejected fail-closed instead. Update `incoming()` registrations.
+- **Breaking:** `localized()` means participation in locale-prefix routing and
+  requires `routing(localePrefixes: true)`; route tables with one path per
+  locale are allowed without it when their paths distinguish the languages.
+  `TableResolver` reports the matched entry locale without prefixes, and
+  `RoutePath::join()` preserves a declared trailing slash.
+- `Remove` never redirects `/`, and a mount named after a locale is allowed
+  when prefixes are disabled.
 
 - **Breaking:** `Kaly\Router\Middleware` (`#[Middleware]`) is removed. HTTP
   policy belongs to routing: declare middlewares with `->middleware()` on a
@@ -241,7 +280,7 @@
   and JS no longer fall back to `text/plain` when fileinfo does (notably on
   Windows).
 
-- The demo registers `FileServer` before `PreventFileAccess`, so `/app.css` is
+- The demo registers `FileServer` before `PreventSensitivePathAccess`, so `/app.css` is
   served instead of being rejected by the routing guard.
 
 - Request-scoped identity, CSRF state and CSP nonce remain isolated between

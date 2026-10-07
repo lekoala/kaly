@@ -78,6 +78,11 @@ locale carried by the route still wins over it:
 $ctx->useLocale('fr');
 ```
 
+For an application-designed `/{locale}/...` topology, the explicit
+`RouteLocale` middleware (Core, routed band) projects the validated route
+parameter onto the context instead of repeating `$ctx->useLocale($locale)` in
+every controller — see [Routing](routing.md#locales).
+
 ## Getting it
 
 The context travels as the one and only kaly request attribute, so third party PSR-15

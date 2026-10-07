@@ -7,22 +7,36 @@ nav_order: 7
 
 > Every url belongs to exactly one module, which resolves it alone
 
-To know how `/fr/boutique/...` behaves, open `modules/Shop/config.php`: that is where
+To know how `/boutique/...` behaves, open `modules/Shop/config.php`: that is where
 the module declares its mount, its routes, its resolvers and whether it is localized.
 There is no global route file.
+
+`APP_LOCALES` describes the i18n languages, never a url topology. Url prefixes
+and the trailing-slash policy are configured explicitly, before boot:
+
+```php
+use Kaly\Router\TrailingSlash;
+
+$app->routing(TrailingSlash::Preserve, localePrefixes: false);
+```
+
+The defaults are `Preserve` (no slash redirect) and no locale prefixes: the
+framework canonicalizes nothing the application did not ask for. To restore
+the pre-0.2 urls, use `routing(TrailingSlash::Add, true)`.
 
 ## How a url is resolved
 
 ```text
-/fr/boutique/panier/ajouter/42
- │    │         └── resolved by the Shop module, and the Shop module only
- │    └── entry point: claim (longest prefix) > mount > default module
- └── locale, when the application declares locales
+/shop/cart/add/42
+ �         ��� resolved by the Shop module, and the Shop module only
+ ��� entry point: claim (longest prefix) > mount > default module
 ```
 
-1. **Locale.** When the application declares locales (`APP_LOCALES=fr,en` or
-   `$app->locales(['fr', 'en'])`), a leading locale segment is consumed. The first
-   locale is the default one.
+1. **Locale prefix (opt-in).** With `routing(localePrefixes: true)`, a leading
+   locale segment is consumed for modules declaring `localized()`. The first
+   locale is the default one. Without prefixes, every segment belongs to
+   routes, mounts and claims — including a segment that happens to look like
+   a locale.
 2. **Entry point.** A claimed prefix wins (the longest one first). Otherwise the first
    segment is looked up among the module mounts. Otherwise the url belongs to the
    default module, the one mounted on `/`, which answers without prefix.
@@ -37,12 +51,13 @@ whatever the size of the application.
 ## Mounts
 
 Every module is mounted under its decamelized folder name (`modules/Shop` answers on
-`/shop/...`). A module chooses its segment, one per locale if it wants:
+`/shop/...`). A module chooses its segment; with locale prefixes enabled, one
+per locale if it wants:
 
 ```php
 return static function (Module $module): void {
     $module->mount('boutique');
-    // or
+    // or, with routing(localePrefixes: true):
     $module->mount(['fr' => 'boutique', 'en' => 'shop'])->localized();
     // or own the root (a single module may do so)
     $module->mount('/');
@@ -189,7 +204,13 @@ does not own.
 
 ## Locales
 
-The locales belong to the application, the locale prefix to the module:
+The locales belong to the application, the locale prefix to an explicit router
+strategy: `localized()` means the module participates in locale-prefix
+routing, which additionally requires `routing(localePrefixes: true)`. A
+`localized()` module with prefixes disabled (or without declared locales)
+fails at boot.
+
+With prefixes enabled:
 
 ```php
 $module->localized();   // its urls carry the locale: /fr/boutique/, /en/shop/
@@ -199,7 +220,7 @@ $module->localized();   // its urls carry the locale: /fr/boutique/, /en/shop/
   (the home page `/` is the exception). This holds with a single application
   locale too.
 - A module that is not localized refuses it: `/fr/api/` redirects to `/api/`.
-- Locales stay coherent: a mount, a claim prefix or route paths per locale
+- Locales stay coherent: with prefixes enabled, a mount, a claim prefix or route paths per locale
   require `localized()`, and `localized()` requires the application to declare
   locales. Anything else fails at boot (mounts, prefixes) or when the table
   compiles (paths).
@@ -207,6 +228,35 @@ $module->localized();   // its urls carry the locale: /fr/boutique/, /en/shop/
 - The locale prefix is lowercase: `/FR/boutique/` redirects to `/fr/boutique/`.
 - The locale of the route wins over the one of a middleware and over the
   `Accept-Language` negotiation (see [i18n](i18n.md)).
+
+Without prefixes, translated paths stay usable wherever their full paths
+distinguish the languages — no prefix is consumed or added:
+
+```text
+/medecins/    (fr)
+/artsen/      (nl)
+```
+
+Each variant matches by path and reports its locale in `Route::locale`;
+generation stays symmetric with matching. This is distinct from `localized()`:
+translated paths describe routes that exist in several languages, while
+`localized()` opts into the prefix strategy.
+
+An application that designs its own `/{locale}/...` topology keeps prefixes
+disabled and reads the placeholder with the explicit `RouteLocale` middleware
+(Core, routed band), which projects the parameter onto the request locale
+before the controller — a supported value applies, an unsupported one is a
+404:
+
+```php
+use Kaly\Core\Middleware\RouteLocale;
+
+$routes->get('/{locale}/consultations', [ConsultController::class, 'list'])
+    ->middleware(RouteLocale::class);
+```
+
+The placeholder stays an ordinary action argument; `{locale}` is never
+reserved globally.
 
 ## Generating urls
 
@@ -220,6 +270,10 @@ $router->url('shop:product', ['slug' => 'velo', 'ref' => 'home']); // extra para
 
 $router->urlFor([CartController::class, 'add'], [42]);    // conventional url: /fr/boutique/cart/add/42/
 ```
+
+(Examples above with `routing(TrailingSlash::Add, localePrefixes: true)`; with
+`Preserve` the same urls generate without a trailing slash, and without
+prefixes no locale segment is added.)
 
 Without a locale, urls are generated for the default locale. Generating an url
 for a locale the route (or the module mount) has no variant for fails instead
@@ -307,15 +361,28 @@ bypass HTTP-level checks.
 
 ## Trailing slash
 
-Urls end with a slash: `/shop/cart` redirects to `/shop/cart/`.
+The policy is explicit, via `Kaly\Router\TrailingSlash`:
+
+- `Add`: urls end with a slash, other spellings redirect (query string kept).
+- `Remove`: urls carry no trailing slash, other spellings redirect. `/` never
+  redirects.
+- `Preserve` (default): both spellings match, nothing redirects; generation
+  keeps the declared spelling (conventions generate without a slash, except
+  the root). `Preserve` never declares `/foo` and `/foo/` as two different
+  resources: such a collision fails when the table compiles.
+
+There is no file-like exception: with `Add`, an application route declared as
+`/sitemap.xml` canonicalizes to `/sitemap.xml/`, like any other route.
 
 ## Migrating an existing site
 
-Kaly owns its canonical url scheme: trailing slashes, lowercase locale prefixes and the
-default-locale prefix removal are enforced with redirects, not made optional. When
-porting a site whose public urls must be preserved for search engines, keep canonical
-routing and declare the old urls explicitly instead of weakening it. An incoming
-middleware (running before routing) throws a `RedirectException` for a legacy path:
+Kaly canonicalizes only what the application configures (`App::routing()`):
+trailing slashes, lowercase locale prefixes and the default-locale prefix
+removal redirect when their policy is enabled, never otherwise. When
+porting a site whose public urls must be preserved for search engines, pick
+the policy closest to the legacy scheme and declare the remaining old urls
+explicitly. An incoming middleware (running before routing) throws a
+`RedirectException` for a legacy path:
 
 ```php
 use Kaly\Http\Exception\RedirectException;

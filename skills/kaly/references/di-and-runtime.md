@@ -20,6 +20,10 @@ Controllers are created per request and may receive `ServerRequestInterface` or
 
 Do not assume arbitrary services receive request-context injection.
 
+A stateful resource (entity manager, unit of work) belongs to the operation,
+not the request: inject a shared factory and open a fresh resource per
+`with()` call, closing it explicitly. There is no request-scope container.
+
 Use the module `config.php` or `App::configure()` to bind services explicitly
 when autowiring cannot determine them.
 

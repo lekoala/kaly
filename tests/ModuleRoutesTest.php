@@ -9,6 +9,7 @@ use Kaly\Core\ErrorHandler;
 use Kaly\Router\Route;
 use Kaly\Router\RouteGenerationException;
 use Kaly\Router\RouterInterface;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
@@ -27,7 +28,7 @@ class ModuleRoutesTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->app = App::create(__DIR__)->boot();
+        $this->app = App::create(__DIR__)->routing(TrailingSlash::Add, true)->boot();
     }
 
     protected function tearDown(): void

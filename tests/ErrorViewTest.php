@@ -14,6 +14,7 @@ use Kaly\Http\ErrorPageInterface;
 use Kaly\Http\Exception\HttpException;
 use Kaly\Http\Exception\NotFoundException;
 use Kaly\Http\ExceptionHandler;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tpl\ViewEngine;
 use Kaly\View\Adapter\KalyTplRenderer;
 use Kaly\View\RendererInterface;
@@ -158,6 +159,7 @@ final class ErrorViewTest extends TestCase
     private function app(ErrorViewInterface $view, bool $debug = false): App
     {
         return App::create(__DIR__)
+            ->routing(TrailingSlash::Add, true)
             ->debug($debug)
             ->configure(static function (Definitions $di) use ($view): void {
                 $di->set(ErrorViewInterface::class, $view);

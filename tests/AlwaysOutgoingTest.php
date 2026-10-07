@@ -7,6 +7,7 @@ namespace Kaly\Tests;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Core\HttpContext;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
@@ -25,7 +26,7 @@ class AlwaysOutgoingTest extends TestCase
 
     private function app(): App
     {
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
         return $app;
     }

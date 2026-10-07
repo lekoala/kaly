@@ -6,6 +6,7 @@ namespace Kaly\Tests;
 
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
+use Kaly\Router\TrailingSlash;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -68,7 +69,7 @@ class SapiWorkerTest extends TestCase
 
     public function testRunServesManyRequestsFromTheGlobalsOfEachCycle(): void
     {
-        $app = App::create(__DIR__)->boot();
+        $app = App::create(__DIR__)->routing(TrailingSlash::Add, true)->boot();
 
         $this->assertSame('q=one;theme=dark;', $this->cycle($app, '/test-module/state/echo/', ['q' => 'one'], ['theme' => 'dark']));
         // The previous query and cookie must not survive
@@ -79,7 +80,7 @@ class SapiWorkerTest extends TestCase
 
     public function testAFailingCycleDoesNotStopTheWorker(): void
     {
-        $app = App::create(__DIR__)->debug(false)->boot();
+        $app = App::create(__DIR__)->debug(false)->routing(TrailingSlash::Add, true)->boot();
 
         $this->assertSame('Server error', $this->cycle($app, '/test-module/index/middlewareexception/'));
         $this->assertSame('hello', $this->cycle($app, '/test-module/'));

@@ -8,6 +8,7 @@ use Kaly\Core\HttpContext;
 use Kaly\Router\Route;
 use Kaly\Router\Router;
 use Kaly\Router\Routes;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Mocks\RouteHandlerFixture;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
@@ -33,7 +34,7 @@ class ContextualUrlsTest extends TestCase
                     ->where('id', '\d+')
                     ->name('item');
             });
-        return new Router([$module], null, ['fr', 'en']);
+        return new Router([$module], null, ['fr', 'en'], TrailingSlash::Add, true);
     }
 
     private function ctx(string $locale): HttpContext

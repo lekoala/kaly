@@ -6,6 +6,7 @@ namespace Kaly\Test;
 
 use Kaly\Core\App;
 use LogicException;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
@@ -15,13 +16,34 @@ use Psr\Http\Server\RequestHandlerInterface;
  * An in-process HTTP client for functional tests, not a browser emulator.
  *
  * It exercises exactly the boundary Kaly defines — PSR-7 request in,
- * PSR-7 response out — with no socket, no server and no browser state:
- * no redirect following, no history, no DOM.
+ * PSR-7 response out — with no socket, no server and no DOM. On top of that
+ * narrow boundary it keeps just enough client state to test a Kaly
+ * application: response cookies sufficient for session testing, and explicit
+ * redirect following.
+ *
+ * The cookie store is intentionally not a full HTTP cookie jar (RFC 6265):
+ * names and values persist across requests, attributes (domain, path, secure,
+ * expiry) are neither enforced nor stored. Documented limits, not missing
+ * features.
  *
  * Kaly\Test is provided by Kaly but is not part of the production runtime.
  */
 final class TestClient
 {
+    private const REDIRECT_STATUSES = [301, 302, 303, 307, 308];
+
+    /**
+     * @var array<string,string> Response cookies, by name
+     */
+    private array $cookies = [];
+
+    private ?TestResponse $lastResponse = null;
+
+    /**
+     * @var array{method:string,uri:string,headers:array<string,string>,body:?string,streamBody:bool}|null
+     */
+    private ?array $lastRequest = null;
+
     private function __construct(
         private RequestHandlerInterface $handler,
         private ServerRequestFactoryInterface $requests,
@@ -47,14 +69,16 @@ final class TestClient
     /**
      * Send a request and get the response with fluent assertions.
      *
-     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface} $options
+     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
      *   Closed vocabulary: headers to send, query params merged into the uri,
      *   one of json (encoded, JSON content type), form (urlencoded body, parsed
-     *   body set as a server would) or a raw body.
+     *   body set as a server would) or a raw body; cookies explicitly sent
+     *   (winning over the stored ones); maxRedirects automatically followed
+     *   redirects, 0 by default.
      */
     public function request(string $method, string $uri, array $options = []): TestResponse
     {
-        $unknown = array_diff(array_keys($options), ['headers', 'query', 'form', 'json', 'body']);
+        $unknown = array_diff(array_keys($options), ['headers', 'query', 'form', 'json', 'body', 'cookies', 'maxRedirects']);
         if ($unknown !== []) {
             throw new \InvalidArgumentException('Unknown request options: ' . implode(', ', $unknown));
         }
@@ -62,36 +86,58 @@ final class TestClient
         if (count($bodies) > 1) {
             throw new \InvalidArgumentException('Only one of json, form or body may be given, got: ' . implode(', ', $bodies));
         }
+        $maxRedirects = $options['maxRedirects'] ?? 0;
+        if (!is_int($maxRedirects) || $maxRedirects < 0) {
+            throw new \InvalidArgumentException('maxRedirects must be an integer >= 0');
+        }
+        unset($options['maxRedirects']);
 
-        $request = $this->requests->createServerRequest($method, $uri);
-        foreach ($options['headers'] ?? [] as $name => $value) {
-            $request = $request->withHeader($name, $value);
-        }
-        if (!empty($options['query'] ?? [])) {
-            $current = [];
-            parse_str($request->getUri()->getQuery(), $current);
-            $merged = array_merge($current, $options['query']);
-            $request = $request->withUri($request->getUri()->withQuery(http_build_query($merged)))->withQueryParams($merged);
-        }
-        if (array_key_exists('json', $options)) {
-            $request = $request
-                ->withHeader('Content-Type', 'application/json')
-                ->withBody($this->streams->createStream((string) json_encode($options['json'])));
-        } elseif (array_key_exists('form', $options)) {
-            $request = $request
-                ->withHeader('Content-Type', 'application/x-www-form-urlencoded')
-                ->withParsedBody($options['form'])
-                ->withBody($this->streams->createStream(http_build_query($options['form'])));
-        } elseif (array_key_exists('body', $options)) {
-            $body = $options['body'];
-            $request = $request->withBody($body instanceof StreamInterface ? $body : $this->streams->createStream($body));
-        }
+        $response = $this->send($method, $uri, $options);
 
-        return new TestResponse($this->handler->handle($request));
+        $hops = 0;
+        while ($maxRedirects > 0 && $this->isRedirect($response->response())) {
+            if (++$hops > $maxRedirects) {
+                throw new LogicException("Too many redirects (over {$maxRedirects})");
+            }
+            $response = $this->hop($response->response());
+        }
+        return $response;
     }
 
     /**
-     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface} $options
+     * Follow the Location of the last response, once.
+     *
+     * 303 (and 301/302 on POST) become GET; 307/308 replay the method and the
+     * body. Cross-origin locations are refused: this client drives one app.
+     */
+    public function followRedirect(): TestResponse
+    {
+        if ($this->lastResponse === null) {
+            throw new LogicException('No response to follow: send a request first');
+        }
+        return $this->hop($this->lastResponse->response());
+    }
+
+    /**
+     * Forget every stored cookie.
+     */
+    public function clearCookies(): void
+    {
+        $this->cookies = [];
+    }
+
+    /**
+     * The stored response cookies, by name.
+     *
+     * @return array<string,string>
+     */
+    public function cookies(): array
+    {
+        return $this->cookies;
+    }
+
+    /**
+     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
      */
     public function get(string $uri, array $options = []): TestResponse
     {
@@ -99,7 +145,7 @@ final class TestClient
     }
 
     /**
-     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface} $options
+     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
      */
     public function post(string $uri, array $options = []): TestResponse
     {
@@ -107,7 +153,7 @@ final class TestClient
     }
 
     /**
-     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface} $options
+     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
      */
     public function put(string $uri, array $options = []): TestResponse
     {
@@ -115,7 +161,7 @@ final class TestClient
     }
 
     /**
-     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface} $options
+     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
      */
     public function patch(string $uri, array $options = []): TestResponse
     {
@@ -123,10 +169,162 @@ final class TestClient
     }
 
     /**
-     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface} $options
+     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
      */
     public function delete(string $uri, array $options = []): TestResponse
     {
         return $this->request('DELETE', $uri, $options);
+    }
+
+    /**
+     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>} $options
+     */
+    private function send(string $method, string $uri, array $options): TestResponse
+    {
+        $headers = $options['headers'] ?? [];
+        $merged = array_merge($this->cookies, $options['cookies'] ?? []);
+        foreach ($merged as $name => $value) {
+            if (!is_string($value)) {
+                throw new \InvalidArgumentException("Cookie '{$name}' must be a string");
+            }
+        }
+
+        $request = $this->requests->createServerRequest($method, $uri);
+        foreach ($headers as $name => $value) {
+            $request = $request->withHeader($name, $value);
+        }
+        if ($merged !== [] && !$request->hasHeader('Cookie')) {
+            $pairs = [];
+            foreach ($merged as $name => $value) {
+                $pairs[] = $name . '=' . $value;
+            }
+            $request = $request->withHeader('Cookie', implode('; ', $pairs));
+        }
+        $request = $request->withCookieParams($merged);
+        if (!empty($options['query'] ?? [])) {
+            $current = [];
+            parse_str($request->getUri()->getQuery(), $current);
+            $mergedQuery = array_merge($current, $options['query']);
+            $request = $request->withUri($request->getUri()->withQuery(http_build_query($mergedQuery)))->withQueryParams($mergedQuery);
+        }
+
+        $body = null;
+        $streamBody = false;
+        if (array_key_exists('json', $options)) {
+            $body = (string) json_encode($options['json']);
+            $request = $request->withHeader('Content-Type', 'application/json')->withBody($this->streams->createStream($body));
+        } elseif (array_key_exists('form', $options)) {
+            $body = http_build_query($options['form']);
+            $request = $request
+                ->withHeader('Content-Type', 'application/x-www-form-urlencoded')
+                ->withParsedBody($options['form'])
+                ->withBody($this->streams->createStream($body));
+        } elseif (array_key_exists('body', $options)) {
+            $given = $options['body'];
+            if ($given instanceof StreamInterface) {
+                $streamBody = true;
+                $request = $request->withBody($given);
+            } else {
+                $body = $given;
+                $request = $request->withBody($this->streams->createStream($body));
+            }
+        }
+
+        $sentHeaders = [];
+        foreach ($request->getHeaders() as $name => $values) {
+            $sentHeaders[(string) $name] = implode(', ', $values);
+        }
+        $this->lastRequest = [
+            'method' => $method,
+            'uri' => (string) $request->getUri(),
+            'headers' => $sentHeaders,
+            'body' => $body,
+            'streamBody' => $streamBody,
+        ];
+
+        $response = new TestResponse($this->handler->handle($request));
+        $this->storeCookies($response->response());
+        $this->lastResponse = $response;
+        return $response;
+    }
+
+    private function hop(ResponseInterface $redirect): TestResponse
+    {
+        if ($this->lastRequest === null) {
+            throw new LogicException('No request to replay: send a request first');
+        }
+        $location = $redirect->getHeaderLine('Location');
+        if (!in_array($redirect->getStatusCode(), self::REDIRECT_STATUSES, true) || $location === '') {
+            throw new LogicException('The last response is not a redirect with a Location');
+        }
+
+        $method = $this->lastRequest['method'];
+        $status = $redirect->getStatusCode();
+        $switchToGet = $status === 303 || ($status === 301 || $status === 302) && $method === 'POST';
+        $nextMethod = $switchToGet && $method !== 'HEAD' ? 'GET' : $method;
+
+        $headers = $this->lastRequest['headers'];
+        unset($headers['Cookie']);
+        $body = $this->lastRequest['body'];
+        if ($nextMethod !== $method) {
+            unset($headers['Content-Type'], $headers['Content-Length'], $headers['Transfer-Encoding']);
+            $body = null;
+        } elseif ($this->lastRequest['streamBody']) {
+            throw new LogicException('The request body is a stream and cannot be replayed on redirect');
+        }
+
+        $uri = $this->resolveLocation($this->lastRequest['uri'], $location);
+
+        return $this->send($nextMethod, $uri, [
+            'headers' => $headers,
+            'body' => $body ?? '',
+        ]);
+    }
+
+    private function resolveLocation(string $base, string $location): string
+    {
+        if (preg_match('#^[a-z][a-z0-9+.-]*://#i', $location) === 1) {
+            $baseHost = (string) parse_url($base, PHP_URL_HOST);
+            $targetHost = (string) parse_url($location, PHP_URL_HOST);
+            if (strtolower($targetHost) !== strtolower($baseHost)) {
+                throw new LogicException("Refusing cross-origin redirect to '{$location}'");
+            }
+            return $location;
+        }
+        if (str_starts_with($location, '?')) {
+            $path = parse_url($base, PHP_URL_PATH);
+            return ($path === null || $path === '' ? '/' : $path) . $location;
+        }
+        if (str_starts_with($location, '/')) {
+            return $location;
+        }
+        $dir = rtrim((string) dirname((string) parse_url($base, PHP_URL_PATH)), '/');
+        return $dir . '/' . $location;
+    }
+
+    private function isRedirect(ResponseInterface $response): bool
+    {
+        return in_array($response->getStatusCode(), self::REDIRECT_STATUSES, true) && $response->getHeaderLine('Location') !== '';
+    }
+
+    private function storeCookies(ResponseInterface $response): void
+    {
+        foreach ($response->getHeader('Set-Cookie') as $header) {
+            $pair = explode(';', $header, 2)[0];
+            $equals = strpos($pair, '=');
+            if ($equals === false) {
+                continue;
+            }
+            $name = trim(substr($pair, 0, $equals));
+            $value = trim(substr($pair, $equals + 1));
+            if ($name === '') {
+                continue;
+            }
+            if ($value === '') {
+                unset($this->cookies[$name]);
+                continue;
+            }
+            $this->cookies[$name] = $value;
+        }
     }
 }

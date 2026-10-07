@@ -44,6 +44,11 @@ final readonly class RouteRequest
         return new self($this->request, $this->segments, $this->prefix, $this->module, $this->locale, $ownedActions);
     }
 
+    public function withLocale(?string $locale): self
+    {
+        return new self($this->request, $this->segments, $this->prefix, $this->module, $locale, $this->ownedActions);
+    }
+
     /**
      * The path left to resolve, always starting with a slash
      */

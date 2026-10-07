@@ -7,7 +7,7 @@ namespace Kaly\Tests;
 use Kaly\Core\App;
 use Kaly\Di\Definitions;
 use Kaly\Http\Middleware\FileServer;
-use Kaly\Http\Middleware\PreventFileAccess;
+use Kaly\Http\Middleware\PreventSensitivePathAccess;
 use Kaly\Tests\Support\TempDir;
 use Kaly\Util\Fs;
 use Nyholm\Psr7\Factory\Psr17Factory;
@@ -18,11 +18,11 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 
 /**
- * The FileServer + PreventFileAccess pair as the demo and the docs recommend.
+ * The FileServer + PreventSensitivePathAccess pair as the demo and the docs recommend.
  *
  * Both middlewares are correct in isolation, but they interact through the
  * ascending-priority order of the incoming band: the static server must run
- * before the routing guard that rejects any dotted path.
+ * before the guard that rejects sensitive paths.
  */
 class StaticFilesPipelineTest extends TestCase
 {
@@ -50,7 +50,7 @@ class StaticFilesPipelineTest extends TestCase
             $defs->rebind(ResponseFactoryInterface::class, Psr17Factory::class);
             $defs->rebind(StreamFactoryInterface::class, Psr17Factory::class);
         });
-        $app->middleware()->incoming(FileServer::class, priority: -100)->incoming(PreventFileAccess::class);
+        $app->middleware()->incoming(FileServer::class, priority: -100)->incoming(PreventSensitivePathAccess::class);
         return $app->boot();
     }
 
@@ -98,6 +98,14 @@ class StaticFilesPipelineTest extends TestCase
 
             $missing = $this->get($app, '/missing.css');
             try {
+                // Non-sensitive dotted paths now reach routing: the current
+                // Add policy redirects to the slashed form before the 404.
+                if ($missing->getStatusCode() === 307) {
+                    $location = $missing->getHeaderLine('Location');
+                    $this->assertNotSame('', $location);
+                    $missing->getBody()->close();
+                    $missing = $this->get($app, $location);
+                }
                 $this->assertSame(404, $missing->getStatusCode());
             } finally {
                 $missing->getBody()->close();

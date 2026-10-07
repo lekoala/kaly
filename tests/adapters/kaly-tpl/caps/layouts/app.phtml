@@ -1,0 +1,1 @@
+<?= $v->e($i18n->locale()) ?>|<?= $v->content() ?>|layout-auth:<?= $auth->isAuthenticated() ? 'yes' : 'no' ?>|csp:<?= strlen($csp->nonce()) > 0 ? 'nonce' : 'no-nonce' ?>

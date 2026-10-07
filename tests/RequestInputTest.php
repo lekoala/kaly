@@ -19,6 +19,7 @@ use Kaly\I18n\Translator;
 use Kaly\Router\Route;
 use Kaly\Router\RouteNotFoundException;
 use Kaly\Router\RouterInterface;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Mocks\SearchInput;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Factory\Psr17Factory;
@@ -36,7 +37,7 @@ class RequestInputTest extends TestCase
 
     private function router(): RouterInterface
     {
-        return App::create(__DIR__)->boot()->container()->get(RouterInterface::class);
+        return App::create(__DIR__)->routing(TrailingSlash::Add, true)->boot()->container()->get(RouterInterface::class);
     }
 
     private function match(string $path): Route
@@ -46,7 +47,7 @@ class RequestInputTest extends TestCase
 
     private function request(string $path, string $method = 'GET'): ResponseInterface
     {
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
 
         $request = HttpFactory::createRequestFromGlobals()->withUri(new Uri($path))->withMethod($method);

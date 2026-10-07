@@ -13,6 +13,7 @@ use Kaly\Http\Session\ArraySession;
 use Kaly\Http\Session\ArraySessionProvider;
 use Kaly\Http\Session\SessionInterface;
 use Kaly\Http\Session\SessionProviderInterface;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
@@ -29,7 +30,7 @@ class CommitTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->app = new App(__DIR__);
+        $this->app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         // A request-scoped session keeps this test away from $_SESSION
         $this->app->configure(static function (Definitions $di): void {
             $di->rebind(SessionProviderInterface::class, new ArraySessionProvider());
@@ -141,7 +142,7 @@ class CommitTest extends TestCase
             }
         };
 
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->configure(static function (Definitions $di) use ($provider): void {
             $di->rebind(SessionProviderInterface::class, $provider);
         });
@@ -168,7 +169,7 @@ class CommitTest extends TestCase
 
     public function testAFailingCommitStillRunsAlwaysOutgoingWithoutReplayingThePhase(): void
     {
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->configure(static function (Definitions $di): void {
             $di->rebind(SessionProviderInterface::class, new class implements SessionProviderInterface {
                 public function create(ServerRequestInterface $request): SessionInterface

@@ -12,6 +12,7 @@ use Kaly\Router\RouteNotFoundException;
 use Kaly\Router\Router;
 use Kaly\Router\RouterInterface;
 use Kaly\Router\Routes;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
@@ -30,7 +31,7 @@ class ExplicitOwnershipTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->app = App::create(__DIR__)->boot();
+        $this->app = App::create(__DIR__)->routing(TrailingSlash::Add, true)->boot();
     }
 
     protected function tearDown(): void
@@ -65,7 +66,7 @@ class ExplicitOwnershipTest extends TestCase
             ->routes(static function (Routes $routes): void {
                 $routes->get('/vitals', [ShopController::class, 'HEALTH'])->name('vitals');
             });
-        $router = new Router([$module]);
+        $router = new Router([$module], null, [], TrailingSlash::Add);
 
         // The table route itself answers
         $route = $router->match(HttpFactory::createRequestFromGlobals()->withUri(new Uri('/case-test/vitals/')));
@@ -83,7 +84,7 @@ class ExplicitOwnershipTest extends TestCase
             ->routes(static function (Routes $routes): void {
                 $routes->get('/vitals', [ShopController::class, 'HEALTH'])->name('vitals');
             });
-        $router = new Router([$module]);
+        $router = new Router([$module], null, [], TrailingSlash::Add);
 
         foreach (['HEALTH', 'health'] as $spelling) {
             try {

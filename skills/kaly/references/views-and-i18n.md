@@ -52,6 +52,9 @@ defined by `Kaly\View\RenderVariables`.
 Do not introduce process-global request state to make template variables
 implicitly available.
 
+With Twig, `include ... only` drops the parent context: pass the needed helpers
+explicitly. Never install per-request globals on the shared Twig environment.
+
 ## Internationalization
 
 Translation is request-locale aware.
@@ -60,6 +63,10 @@ Do not mutate a shared translator to change the current locale.
 
 Use the request-bound/localized translator supplied by Kaly or an explicit
 `LocalizedTranslator`.
+
+For an application-designed `/{locale}/...` topology, project the placeholder
+with the explicit `RouteLocale` middleware; `{locale}` is never reserved
+globally.
 
 Keep translation identifiers and parameters separate from already rendered
 human text where delayed translation is required.

@@ -75,16 +75,18 @@ final class Router implements RouterInterface
 
     /**
      * @param list<RouteScope> $modules
-     * @param list<string> $locales The application locales, the first one is the default
+     * @param list<string> $locales The application locales, the first one is the default. Locales alone never activate url prefixes: see $localePrefixes
+     * @param bool $localePrefixes Whether modules declaring localized() carry the locale prefix in their urls
      */
     public function __construct(
         array $modules,
         private ?ContainerInterface $container = null,
         private array $locales = [],
-        private bool $forceTrailingSlash = true,
+        private TrailingSlash $trailingSlash = TrailingSlash::Preserve,
+        private bool $localePrefixes = false,
     ) {
         $this->locales = array_values(array_map(strtolower(...), $locales));
-        $this->convention = new ConventionResolver($forceTrailingSlash);
+        $this->convention = new ConventionResolver($trailingSlash);
 
         foreach ($modules as $module) {
             $this->register($module);
@@ -99,7 +101,7 @@ final class Router implements RouterInterface
 
     public function match(ServerRequestInterface $request): Route
     {
-        RedirectUris::ensureTrailingSlash($request, $this->forceTrailingSlash);
+        RedirectUris::ensureTrailingSlash($request, $this->trailingSlash);
 
         $path = $request->getUri()->getPath();
         $all = RoutePath::segments($path);
@@ -127,7 +129,12 @@ final class Router implements RouterInterface
      */
     private function stripLocale(ServerRequestInterface $request, array $segments): array
     {
-        if ($this->locales === [] || !isset($segments[0]) || !in_array(strtolower($segments[0]), $this->locales, true)) {
+        if (
+            !$this->localePrefixes
+            || $this->locales === []
+            || !isset($segments[0])
+            || !in_array(strtolower($segments[0]), $this->locales, true)
+        ) {
             return [null, $segments];
         }
         $given = (string) array_shift($segments);
@@ -151,6 +158,9 @@ final class Router implements RouterInterface
      */
     private function enforceLocale(ServerRequestInterface $request, RouteScope $module, ?string $locale, array $all): void
     {
+        if (!$this->localePrefixes) {
+            return;
+        }
         $localized = $module->isLocalized() && $this->locales !== [];
         if ($locale !== null && !$localized) {
             throw $this->redirect($request, $all[0], '');
@@ -388,14 +398,16 @@ final class Router implements RouterInterface
      */
     private function build(string $id, string $path, array $query, ?string $locale): string
     {
-        if ($locale !== null && $this->modules[$id]->isLocalized() && $this->locales !== []) {
+        if ($locale !== null && $this->localePrefixes && $this->modules[$id]->isLocalized() && $this->locales !== []) {
             // The home of the default locale has no prefix
             $path = $path === '' && $locale === $this->locales[0] ? '' : '/' . $locale . $path;
         }
         $url = $path === '' ? '/' : $path;
-        if ($this->forceTrailingSlash) {
-            $url = RoutePath::withTrailingSlash($url);
-        }
+        $url = match ($this->trailingSlash) {
+            TrailingSlash::Add => RoutePath::withTrailingSlash($url),
+            TrailingSlash::Remove => RoutePath::withoutTrailingSlash($url),
+            TrailingSlash::Preserve => $url,
+        };
         if ($query !== []) {
             $url .= '?' . http_build_query($query);
         }
@@ -506,6 +518,11 @@ final class Router implements RouterInterface
         if ($module->isLocalized() && $this->locales === []) {
             throw new Ex("Module '{$id}' is localized but the application declares no locales");
         }
+        if ($module->isLocalized() && !$this->localePrefixes) {
+            throw new Ex(
+                "Module '{$id}' is localized but locale prefixes are disabled: enable App::routing(localePrefixes: true) or remove localized()",
+            );
+        }
         if (!$module->isLocalized() && array_keys($module->getMount()) !== ['*']) {
             throw new Ex(
                 "Module '{$id}' has mounts per locale ('"
@@ -566,6 +583,7 @@ final class Router implements RouterInterface
                 "route table of module '{$id}' (config.php)",
                 $module->isLocalized(),
                 $id,
+                $this->localePrefixes,
             );
             $this->tables[$id] = $table;
             $entries[] = [TableResolver::PRIORITY, $tableSequence, $table];
@@ -582,7 +600,7 @@ final class Router implements RouterInterface
         if ($segment === '' || $segment !== Str::decamelize($segment) || str_contains($segment, '/')) {
             throw new Ex("Module '{$id}' mount '{$segment}' must be a single lowercase url segment (eg: 'my-module')");
         }
-        if (in_array($segment, $this->locales, true)) {
+        if ($this->localePrefixes && in_array($segment, $this->locales, true)) {
             throw new Ex("Module '{$id}' cannot be mounted on '{$segment}', it is a locale");
         }
         $taken =
@@ -621,6 +639,7 @@ final class Router implements RouterInterface
                 "claim '" . implode("', '", $claim['prefix']) . "' of module '{$id}' (config.php)",
                 $module->isLocalized(),
                 $id,
+                $this->localePrefixes,
             );
             foreach ($claim['prefix'] as $locale => $prefix) {
                 $segments = RoutePath::segments($prefix);
@@ -657,7 +676,7 @@ final class Router implements RouterInterface
 
     private function redirect(ServerRequestInterface $request, string $remove, string $replace): RedirectException
     {
-        return new RedirectException(RedirectUris::replaceSegment($request, $remove, $replace, $this->forceTrailingSlash));
+        return new RedirectException(RedirectUris::replaceSegment($request, $remove, $replace, $this->trailingSlash));
     }
 
     // #endregion

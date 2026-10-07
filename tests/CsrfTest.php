@@ -16,6 +16,7 @@ use Kaly\Router\Router;
 use Kaly\Router\RouteRequest;
 use Kaly\Router\Routes;
 use Kaly\Router\RouteScope;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Mocks\DispatcherController;
 use Kaly\Tests\Mocks\TraceClassMiddleware;
 use Kaly\Tests\Mocks\TraceMethodMiddleware;
@@ -152,7 +153,7 @@ class CsrfTest extends TestCase
             }
         };
         $scope = new StubScope($resolver, [TraceClassMiddleware::class]);
-        $route = (new Router([$scope]))->match(new ServerRequest('GET', '/shop/widget/'));
+        $route = (new Router([$scope], null, [], TrailingSlash::Add))->match(new ServerRequest('GET', '/shop/widget/'));
 
         $this->assertSame([TraceClassMiddleware::class, TraceMethodMiddleware::class], $route->middlewares);
     }
@@ -166,7 +167,7 @@ class CsrfTest extends TestCase
             }
         };
         $scope = new StubScope($resolver, [TraceClassMiddleware::class]);
-        $route = (new Router([$scope]))->match(new ServerRequest('GET', '/shop/widget/'));
+        $route = (new Router([$scope], null, [], TrailingSlash::Add))->match(new ServerRequest('GET', '/shop/widget/'));
 
         $this->assertSame([TraceClassMiddleware::class], $route->middlewares);
     }
@@ -184,7 +185,7 @@ class CsrfTest extends TestCase
                 $routes->get('/sale', [DispatcherController::class, 'stringResult']);
             });
 
-        $router = new Router([$module]);
+        $router = new Router([$module], null, [], TrailingSlash::Add);
 
         $table = $router->match(new ServerRequest('GET', '/shop/widget/'));
         $this->assertSame([TraceClassMiddleware::class], $table->middlewares);

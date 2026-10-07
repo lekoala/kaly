@@ -179,3 +179,9 @@ ports are best kept silent on that difference — nested `transactional()`
 should fail fast rather than simulate savepoints. A future savepoint need is
 an explicit capability, not a silent change of meaning.
 
+## Recipes
+
+- [Doctrine](recipes/doctrine.md): shared factory, per-operation manager,
+  explicit transactions;
+- [Cycle](recipes/cycle.md): shared ORM, disposable unit of work.
+

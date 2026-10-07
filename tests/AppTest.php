@@ -19,6 +19,7 @@ use Kaly\Log\FileLogger;
 use Kaly\Router\Route;
 use Kaly\Router\Router;
 use Kaly\Router\RouterInterface;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Mocks\ContextProbeMiddleware;
 use Kaly\Tests\Mocks\TestMiddleware;
 use Kaly\Tests\Support\HttpFactory;
@@ -44,14 +45,14 @@ class AppTest extends TestCase
 
     public function testAppIsRegisteredInTheContainer(): void
     {
-        $app = App::create(__DIR__)->boot();
+        $app = App::create(__DIR__)->routing(TrailingSlash::Add, true)->boot();
 
         $this->assertSame($app, $app->container()->get(App::class));
     }
 
     public function testPathsIsRegisteredInTheContainer(): void
     {
-        $app = App::create(__DIR__)->boot();
+        $app = App::create(__DIR__)->routing(TrailingSlash::Add, true)->boot();
 
         $this->assertSame($app->paths(), $app->container()->get(Paths::class));
     }
@@ -69,6 +70,7 @@ class AppTest extends TestCase
         };
 
         $app = App::create(__DIR__)
+            ->routing(TrailingSlash::Add, true)
             ->configure(static function (Definitions $di) use ($emitter): void {
                 $di->rebind(ResponseEmitterInterface::class, $emitter);
             })
@@ -91,7 +93,7 @@ class AppTest extends TestCase
 
     public function testHandleBootsTheAppWhenNeeded(): void
     {
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $this->assertFalse($app->isBooted());
 
         $response = $app->handle(HttpFactory::createRequestFromGlobals()->withUri(new Uri('/test-module/index/foo/')));
@@ -107,7 +109,7 @@ class AppTest extends TestCase
         $this->expectOutputString('worker log line');
         echo 'worker log line';
 
-        $app = App::create(__DIR__)->boot();
+        $app = App::create(__DIR__)->routing(TrailingSlash::Add, true)->boot();
 
         $this->assertTrue($app->isBooted());
     }
@@ -118,6 +120,7 @@ class AppTest extends TestCase
         // registered before the configure hooks run: rebind() finds it
         $clock = new SystemClock('UTC');
         $app = App::create(__DIR__)
+            ->routing(TrailingSlash::Add, true)
             ->configure(static function (Definitions $di) use ($clock): void {
                 $di->rebind(ClockInterface::class, $clock);
             })
@@ -130,6 +133,7 @@ class AppTest extends TestCase
     {
         $fired = 0;
         $app = App::create(__DIR__)
+            ->routing(TrailingSlash::Add, true)
             ->configure(static function (Definitions $di) use (&$fired): void {
                 $di->parameter(TranslatorInterface::class, 'defaultLocale', 'fr');
                 $di->callback(TranslatorInterface::class, static function (TranslatorInterface $translator) use (&$fired): void {
@@ -147,7 +151,7 @@ class AppTest extends TestCase
 
     public function testContainerCannotChangeOnceBooted(): void
     {
-        $app = App::create(__DIR__)->boot();
+        $app = App::create(__DIR__)->routing(TrailingSlash::Add, true)->boot();
 
         $this->expectException(\LogicException::class);
         $app->configure(static function (): void {});
@@ -155,9 +159,11 @@ class AppTest extends TestCase
 
     public function testAFailedBootIsTerminal(): void
     {
-        $app = App::create(__DIR__)->configure(static function (Definitions $di): void {
-            throw new \RuntimeException('boom');
-        });
+        $app = App::create(__DIR__)
+            ->routing(TrailingSlash::Add, true)
+            ->configure(static function (Definitions $di): void {
+                throw new \RuntimeException('boom');
+            });
 
         try {
             $app->boot();
@@ -175,9 +181,11 @@ class AppTest extends TestCase
 
     public function testContainerIsUnavailableAfterAFailedBoot(): void
     {
-        $app = App::create(__DIR__)->configure(static function (Definitions $di): void {
-            throw new \RuntimeException('boom');
-        });
+        $app = App::create(__DIR__)
+            ->routing(TrailingSlash::Add, true)
+            ->configure(static function (Definitions $di): void {
+                throw new \RuntimeException('boom');
+            });
 
         try {
             $app->boot();
@@ -193,7 +201,7 @@ class AppTest extends TestCase
 
     public function testLocaleDetection(): void
     {
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
 
         $router = $app->container()->get(RouterInterface::class);
@@ -223,7 +231,7 @@ class AppTest extends TestCase
         $request = HttpFactory::createRequestFromGlobals();
         $request = $request->withUri(new Uri('/test-module/'));
 
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $this->assertInstanceOf(App::class, $app);
         $app->boot();
         $this->assertTrue($app->isDebug(), 'debug flag is not set');
@@ -242,7 +250,7 @@ class AppTest extends TestCase
     {
         $request = HttpFactory::createRequestFromGlobals();
         $request = $request->withUri(new Uri('/test-module/index/redirect/'));
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
         $response = $app->handle($request);
         $this->assertEquals(307, $response->getStatusCode());
@@ -272,7 +280,7 @@ class AppTest extends TestCase
     public function testInvalidHandler(): void
     {
         $request = HttpFactory::createRequestFromGlobals();
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
 
         // Action must exists and public
@@ -289,7 +297,7 @@ class AppTest extends TestCase
     public function testArrayParams(): void
     {
         $request = HttpFactory::createRequestFromGlobals();
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
         $request = $request->withUri(new Uri('/test-module/index/arr/here,is,my/'));
         $response = $app->handle($request);
@@ -303,7 +311,7 @@ class AppTest extends TestCase
     {
         $request = HttpFactory::createRequestFromGlobals();
         $request = $request->withUri(new Uri('/test-module/json/'));
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
         $response = $app->handle($request);
         // $body = (string)$response->getBody();
@@ -314,7 +322,7 @@ class AppTest extends TestCase
     {
         $request = HttpFactory::createRequestFromGlobals();
         $request = $request->withUri(new Uri('/test-module/index/view/'));
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
         $response = $app->handle($request);
         $this->assertEquals(200, $response->getStatusCode());
@@ -324,7 +332,7 @@ class AppTest extends TestCase
 
     public function testControllerResultContract(): void
     {
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
         $base = HttpFactory::createRequestFromGlobals();
 
@@ -352,7 +360,7 @@ class AppTest extends TestCase
 
     public function testMultipleRequestsOnSameApp(): void
     {
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
         $base = HttpFactory::createRequestFromGlobals();
 
@@ -372,7 +380,7 @@ class AppTest extends TestCase
 
     public function testRequestCallbacks(): void
     {
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
 
         $after = 0;
@@ -405,7 +413,7 @@ class AppTest extends TestCase
 
     public function testFailingIncomingMiddlewareReturnsResponse(): void
     {
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
         $errors = 0;
         $app->middleware()->incoming(new class implements \Psr\Http\Server\MiddlewareInterface {
@@ -429,7 +437,7 @@ class AppTest extends TestCase
 
     public function testFailingAfterRequestCallbackDoesNotMaskResponse(): void
     {
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
         $app->onTerminate(function (): void {
             throw new \RuntimeException('after failed');
@@ -448,7 +456,7 @@ class AppTest extends TestCase
 
         $request = HttpFactory::createRequestFromGlobals();
         $request = $request->withUri(new Uri('/test-module/index/middleware/'));
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
         $app->middleware()->incoming($middlewareInst);
         $response = $app->handle($request);
@@ -464,7 +472,7 @@ class AppTest extends TestCase
 
     public function testRoutedBandKnowsTheRouteWhileIncomingDoesNot(): void
     {
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
 
         $incomingRouted = null;
@@ -491,7 +499,7 @@ class AppTest extends TestCase
 
     public function testExecutedMiddlewaresAreTrackedInPipelineOrder(): void
     {
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
 
         $executed = [];
@@ -521,7 +529,7 @@ class AppTest extends TestCase
         $flag = true;
         $request = HttpFactory::createRequestFromGlobals();
         $request = $request->withUri(new Uri('/test-module/index/middleware/'));
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->debug(true);
         $app->boot();
 
@@ -547,14 +555,14 @@ class AppTest extends TestCase
     {
         $request = HttpFactory::createRequestFromGlobals();
         $request = $request->withUri(new Uri('/test-module/index/getip/'));
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
         $response = $app->handle($request);
         $body = (string) $response->getBody();
         $this->assertNotEmpty($body);
 
         $request = $request->withUri(new Uri('/test-module/index/getipstate/'));
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
         $response = $app->handle($request);
         $body = (string) $response->getBody();
@@ -565,7 +573,7 @@ class AppTest extends TestCase
     {
         $request = HttpFactory::createRequestFromGlobals();
         $request = $request->withUri(new Uri('/test-module/index/validation/'));
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
         $response = $app->handle($request);
         $this->assertEquals(422, $response->getStatusCode(), 'Error with : ' . (string) $response->getBody());
@@ -575,7 +583,7 @@ class AppTest extends TestCase
     {
         // (string) always read from the start of the stream while
         // getBody()->getContents() can return an empty response
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->debug(true);
         $app->boot();
         $request = HttpFactory::createRequestFromGlobals();
@@ -628,7 +636,7 @@ class AppTest extends TestCase
 
     public function testGenerate(): void
     {
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
         $router = $app->container()->get(RouterInterface::class);
 
@@ -658,7 +666,7 @@ class AppTest extends TestCase
 
     public function testTrailingSlash(): void
     {
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->debug(true);
         $app->boot();
         $request = HttpFactory::createRequestFromGlobals();

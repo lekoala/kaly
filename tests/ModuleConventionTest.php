@@ -10,6 +10,7 @@ use Kaly\Core\Module;
 use Kaly\Ex;
 use Kaly\Router\Router;
 use Kaly\Router\RouterInterface;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
@@ -33,7 +34,7 @@ class ModuleConventionTest extends TestCase
 
     public function testEveryModuleIsMountedUnderItsName(): void
     {
-        $app = App::create(__DIR__);
+        $app = App::create(__DIR__)->routing(TrailingSlash::Add, true);
 
         $this->assertSame('mapped', (string) $this->get($app, '/mapped-module/')->getBody());
         $router = $app->container()->get(RouterInterface::class);

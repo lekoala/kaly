@@ -20,7 +20,8 @@ class RoutePathTest extends TestCase
     {
         $this->assertSame('/', RoutePath::join(''));
         $this->assertSame('/foo', RoutePath::join('/', 'foo'));
-        $this->assertSame('/foo/bar', RoutePath::join('/foo/', '/bar/'));
+        $this->assertSame('/foo/bar/', RoutePath::join('/foo/', '/bar/'));
+        $this->assertSame('/foo/bar', RoutePath::join('/foo/', '/bar'));
     }
 
     public function testTrailingSlash(): void

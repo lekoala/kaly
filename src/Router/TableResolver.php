@@ -43,6 +43,7 @@ final class TableResolver implements ResolverInterface
         private string $label = 'route table',
         private bool $localized = false,
         private string $moduleId = '',
+        private bool $localePrefixes = true,
     ) {}
 
     public function collection(): RouteCollection
@@ -68,7 +69,7 @@ final class TableResolver implements ResolverInterface
         $allowed = [];
 
         foreach ($this->collection()->entries() as $entry) {
-            if ($entry['locale'] !== null && $entry['locale'] !== $request->locale) {
+            if ($this->localePrefixes && $entry['locale'] !== null && $entry['locale'] !== $request->locale) {
                 continue;
             }
             $matches = [];
@@ -90,7 +91,9 @@ final class TableResolver implements ResolverInterface
                 continue;
             }
 
-            return $request->route(
+            $routeRequest = !$this->localePrefixes && $entry['locale'] !== null ? $request->withLocale($entry['locale']) : $request;
+
+            return $routeRequest->route(
                 $definition->controller,
                 $definition->action,
                 $params,
@@ -136,19 +139,20 @@ final class TableResolver implements ResolverInterface
             }
             $path = str_replace('{' . $name . '}', rawurlencode((string) $value), $path);
         }
-        return rtrim($path, '/');
+        return $path;
     }
 
     /**
-     * Locale-keyed paths only make sense with the locale prefix: without
-     * localized(), generation would produce urls the matcher resolves with
-     * the default locale and answers 404.
+     * Locale-keyed paths require the locale prefix strategy to stay
+     * unambiguous: with prefixes enabled, a non-localized module cannot own
+     * per-locale paths. Without prefixes, fully distinct paths (eg
+     * `/medecins/` and `/artsen/`) are legitimate and matched by path.
      *
      * @param list<RouteDefinition> $definitions
      */
     private function failOnLocalesWithoutPrefix(array $definitions): void
     {
-        if ($this->localized) {
+        if ($this->localized || !$this->localePrefixes) {
             return;
         }
         foreach ($definitions as $definition) {

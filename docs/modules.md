@@ -117,9 +117,9 @@ The module side of the configuration is fluent:
 | `priority(50)` | configuration order, see below |
 | `namespace('Vendor\Thing')` | root namespace of the module classes |
 | `mount('boutique')` | url segment of the conventional routes |
-| `mount(['fr' => 'boutique', 'en' => 'shop'])` | one url segment per locale |
+| `mount(['fr' => 'boutique', 'en' => 'shop'])` | one url segment per locale (with `localized()` and `routing(localePrefixes: true)`) |
 | `mount('/')` | own the root: answer urls carrying no prefix (a single module) |
-| `localized()` | its urls carry the locale prefix |
+| `localized()` | participate in locale-prefix routing (requires `routing(localePrefixes: true)`) |
 | `routes(fn(Routes $routes) => ...)` | local route table, see [Routing](routing.md) |
 | `resolver(PageResolver::class, priority: 500)` | custom resolver (pages in a database...) |
 | `claim('/about', fn(Routes $routes) => ...)` | own a path outside of the module segment |

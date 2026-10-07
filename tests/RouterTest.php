@@ -6,6 +6,7 @@ namespace Kaly\Tests;
 
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
@@ -22,7 +23,7 @@ class RouterTest extends TestCase
      */
     private function request(string $path, string $method = 'GET', ?array $body = null): \Psr\Http\Message\ResponseInterface
     {
-        $app = new App(__DIR__);
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->boot();
 
         $request = HttpFactory::createRequestFromGlobals()->withUri(new Uri($path))->withMethod($method);

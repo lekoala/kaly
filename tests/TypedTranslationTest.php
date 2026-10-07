@@ -18,6 +18,7 @@ use Kaly\I18n\Translatable;
 use Kaly\I18n\TranslationKey;
 use Kaly\I18n\Translator;
 use Kaly\I18n\TranslatorInterface;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Support\HttpFactory;
 use Kaly\Util\Json;
 use Kaly\Validation\Validator;
@@ -339,7 +340,7 @@ class TypedTranslationTest extends TestCase
 
     public function testAppBindsTheLocalizedHandler(): void
     {
-        $app = App::create(__DIR__)->debug(false);
+        $app = App::create(__DIR__)->routing(TrailingSlash::Add, true)->debug(false);
 
         $response = $this->get($app, '/test-module/index/validation/');
         $this->assertSame(422, $response->getStatusCode());
@@ -350,7 +351,7 @@ class TypedTranslationTest extends TestCase
 
     public function testRebindingRestoresHistoricalBodies(): void
     {
-        $app = App::create(__DIR__)->debug(false);
+        $app = App::create(__DIR__)->routing(TrailingSlash::Add, true)->debug(false);
         $app->configure(static function (Definitions $definitions): void {
             $definitions->rebind(ExceptionHandlerInterface::class, ExceptionHandler::class);
         });

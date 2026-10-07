@@ -4,6 +4,35 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Explicit routing policy: trailing slash and locale prefixes
+
+- New `App::routing(TrailingSlash $trailingSlash = TrailingSlash::Preserve, bool $localePrefixes = false)`.
+  The defaults canonicalize nothing: both `/foo` and `/foo/` match with no
+  redirect, and `APP_LOCALES` never consumes a url segment by itself.
+- To keep the previous urls, opt in explicitly before boot:
+
+```php
+use Kaly\Router\TrailingSlash;
+
+$app->routing(TrailingSlash::Add, true);
+```
+
+- `Kaly\Router\Router`, `ConventionResolver` and `RedirectUris` take
+  `TrailingSlash` instead of `bool $forceTrailingSlash`; `Router` also takes
+  `bool $localePrefixes`. Update manual constructions (or let `App` build the
+  router).
+- `localized()` now means participation in locale-prefix routing and requires
+  `routing(localePrefixes: true)`; without prefixes it fails at boot. Route
+  tables with one path per locale stay valid without `localized()` when their
+  full paths distinguish the languages, and a mount may be named after a
+  locale. An application-designed `/{locale}/...` topology reads the
+  placeholder through the new `Kaly\Core\Middleware\RouteLocale` middleware.
+- `PreventFileAccess` is renamed to
+  `Kaly\Http\Middleware\PreventSensitivePathAccess`: dotted application routes
+  (`/sitemap.xml`, `/robots.txt`) now reach their handler, while sensitive
+  names (`.env`, `.git`, Composer files, executable source extensions) and
+  ambiguous encodings are rejected fail-closed. Update `incoming()` registrations.
+
 ## Correct Accept-Language negotiation
 
 - New `Kaly\Http\AcceptLanguage` replaces `RequestUtils::parseAcceptedLanguages()`

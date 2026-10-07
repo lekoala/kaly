@@ -10,6 +10,7 @@ use Kaly\Core\Module;
 use Kaly\Ex;
 use Kaly\Http\Accept;
 use Kaly\Http\ExceptionHandler;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Support\HttpFactory;
 use Kaly\Util\Json;
 use Kaly\Validation\HasValidationResult;
@@ -41,6 +42,7 @@ class ErrorResponseTest extends TestCase
     {
         $errors = 0;
         $app = App::create(__DIR__)
+            ->routing(TrailingSlash::Add, true)
             ->debug(false)
             ->onError(static function () use (&$errors): void {
                 $errors++;
@@ -55,7 +57,7 @@ class ErrorResponseTest extends TestCase
 
     public function testAForbiddenIsA403ThatLeaksNothing(): void
     {
-        $app = App::create(__DIR__)->debug(false);
+        $app = App::create(__DIR__)->routing(TrailingSlash::Add, true)->debug(false);
 
         $response = $this->get($app, '/test-module/state/forbidden/');
         $this->assertSame(403, $response->getStatusCode());
@@ -69,7 +71,7 @@ class ErrorResponseTest extends TestCase
 
     public function testProductionLeaksNothing(): void
     {
-        $app = App::create(__DIR__)->debug(false);
+        $app = App::create(__DIR__)->routing(TrailingSlash::Add, true)->debug(false);
 
         $response = $this->get($app, '/test-module/state/crash/');
         $this->assertSame(500, $response->getStatusCode());
@@ -81,7 +83,7 @@ class ErrorResponseTest extends TestCase
 
     public function testTheDebugPageExplainsTheFailure(): void
     {
-        $app = App::create(__DIR__)->debug(true);
+        $app = App::create(__DIR__)->routing(TrailingSlash::Add, true)->debug(true);
 
         $request = HttpFactory::createRequestFromGlobals()
             ->withUri(new Uri('/test-module/state/crash/?x=<script>'))
@@ -106,7 +108,7 @@ class ErrorResponseTest extends TestCase
 
     public function testADebug404SaysWhyNothingMatched(): void
     {
-        $app = App::create(__DIR__)->debug(true);
+        $app = App::create(__DIR__)->routing(TrailingSlash::Add, true)->debug(true);
 
         $problem = Json::decodeMap((string) $this->get($app, '/test-module/demo/func/too/many/', 'application/json')->getBody());
 
@@ -118,7 +120,7 @@ class ErrorResponseTest extends TestCase
 
     public function testAPublicBodyIsKeptInEveryFormat(): void
     {
-        $app = App::create(__DIR__)->debug(false);
+        $app = App::create(__DIR__)->routing(TrailingSlash::Add, true)->debug(false);
 
         $response = $this->get($app, '/test-module/index/validation/');
         $this->assertSame(422, $response->getStatusCode());

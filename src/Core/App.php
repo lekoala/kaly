@@ -38,6 +38,7 @@ use Kaly\I18n\TranslatorInterface;
 use Kaly\Log\FileLogger;
 use Kaly\Router\Router;
 use Kaly\Router\RouterInterface;
+use Kaly\Router\TrailingSlash;
 use Kaly\Util\Env;
 use Kaly\Util\Fs;
 use Kaly\Util\Json;
@@ -113,6 +114,8 @@ final class App implements RequestHandlerInterface
      * @var list<string>
      */
     private array $locales = [];
+    private TrailingSlash $trailingSlash = TrailingSlash::Preserve;
+    private bool $localePrefixes = false;
     private bool $booted = false;
     private bool $booting = false;
     private bool $bootFailed = false;
@@ -185,8 +188,9 @@ final class App implements RequestHandlerInterface
 
     /**
      * The locales of the application, the first one is the default. Driven by
-     * APP_LOCALES (eg: `fr,en`) by default. A module opts in with
-     * `$module->localized()` to get the locale prefix in its urls.
+     * APP_LOCALES (eg: `fr,en`) by default. Locales describe i18n, never a url
+     * topology: url prefixes require `routing(localePrefixes: true)` together
+     * with `$module->localized()`.
      *
      * @param list<string> $locales
      */
@@ -194,6 +198,22 @@ final class App implements RequestHandlerInterface
     {
         $this->assertNotBooted('locales');
         $this->locales = array_values($locales);
+        return $this;
+    }
+
+    /**
+     * The url canonicalization: trailing-slash policy and locale-prefix strategy.
+     *
+     * `APP_LOCALES` describes the i18n languages, never a url topology. Prefixes
+     * are opt-in: `localePrefixes: true` activates the localized-module strategy,
+     * `false` leaves every segment to routes, mounts and claims. To restore the
+     * pre-0.2 urls, use `routing(TrailingSlash::Add, true)`.
+     */
+    public function routing(TrailingSlash $trailingSlash = TrailingSlash::Preserve, bool $localePrefixes = false): self
+    {
+        $this->assertNotBooted('routing');
+        $this->trailingSlash = $trailingSlash;
+        $this->localePrefixes = $localePrefixes;
         return $this;
     }
 
@@ -548,9 +568,17 @@ final class App implements RequestHandlerInterface
         if (!$definitions->has(RouterInterface::class)) {
             $modules = $this->modules;
             $locales = $this->locales;
+            $trailingSlash = $this->trailingSlash;
+            $localePrefixes = $this->localePrefixes;
             $definitions->set(
                 RouterInterface::class,
-                static fn(ContainerInterface $container): Router => new Router($modules, $container, $locales),
+                static fn(ContainerInterface $container): Router => new Router(
+                    $modules,
+                    $container,
+                    $locales,
+                    $trailingSlash,
+                    $localePrefixes,
+                ),
             );
         }
         if (!$definitions->has(LocaleResolver::class) && $this->locales !== []) {

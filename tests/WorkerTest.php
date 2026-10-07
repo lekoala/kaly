@@ -7,6 +7,7 @@ namespace Kaly\Tests;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Core\HttpContext;
+use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
@@ -26,7 +27,7 @@ class WorkerTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->app = new App(__DIR__);
+        $this->app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $this->app->boot();
     }
 
