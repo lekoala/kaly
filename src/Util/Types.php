@@ -11,7 +11,8 @@ namespace Kaly\Util;
  * they give the outer shape, this narrows each value on read.
  * No speculative primitives — a member is added only after the same pattern
  * repeats in the codebase. Anything carrying domain semantics (statuses,
- * dates, ids) stays in the domain, not here.
+ * domain dates, ids) stays in the domain, not here. Generic representation
+ * parsing belongs in its dedicated utility.
  */
 final class Types
 {

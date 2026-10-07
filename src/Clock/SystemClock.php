@@ -7,8 +7,8 @@ namespace Kaly\Clock;
 use DateInvalidTimeZoneException;
 use DateTimeImmutable;
 use DateTimeZone;
+use Kaly\Util\Dates;
 use Psr\Clock\ClockInterface;
-use Throwable;
 
 /**
  * A clock that relies on system time.
@@ -25,18 +25,7 @@ final class SystemClock implements ClockInterface
      */
     public function __construct(DateTimeZone|string|null $timezone = null)
     {
-        $timezone ??= date_default_timezone_get();
-
-        if (is_string($timezone)) {
-            // \Exception < PHP 8.3, \DateInvalidTimeZoneException >= PHP 8.3
-            try {
-                $timezone = new DateTimeZone($timezone === '' ? 'UTC' : $timezone);
-            } catch (Throwable $throwable) {
-                throw new DateInvalidTimeZoneException($throwable->getMessage(), intval($throwable->getCode()), $throwable);
-            }
-        }
-
-        $this->timezone = $timezone;
+        $this->timezone = Dates::timezone($timezone);
     }
 
     public function now(): DateTimeImmutable

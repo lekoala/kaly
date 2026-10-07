@@ -3,6 +3,20 @@
 
 ### Added
 
+- Strict web date parsing through `Kaly\Util\Dates`: `isDate()` / `isTime()` /
+  `isInstant()` validators plus throwing (`date()`, `instant()`, `at()`) and
+  nullable (`tryDate()`, `tryInstant()`, `tryAt()`) factories returning
+  `DateTimeImmutable`. `Y-m-d` dates resolve at midnight and `at()` combines a
+  date with an `H:i` time, both in the PHP default timezone unless an explicit
+  one is given; `instant()` requires an RFC 3339 string with an explicit
+  offset (`Z` accepted, fractional seconds up to microseconds). Invalid values
+  return `null` from `try*` or throw `InvalidArgumentException`, while an
+  unknown timezone string always throws `DateInvalidTimeZoneException`.
+  `Dates::timezone()` centralizes the `DateTimeZone|string|null` resolution
+  (empty string falls back to UTC) and `SystemClock` now delegates to it.
+  Richer needs stay out of scope: `brick/date-time`, `bakame/tokei` and
+  `nesbot/carbon` are listed in `suggest`.
+
 - `Types::instancesOf($value, $type)` narrows a mixed list to instances of a
   class or interface, including subclasses, preserving object identity and
   order while reindexing. Non-list inputs return an empty list.
