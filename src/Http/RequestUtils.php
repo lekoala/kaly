@@ -92,70 +92,18 @@ final class RequestUtils
     }
 
     /**
-     * @return array<string,float>
-     */
-    public static function parseAcceptedLanguages(ServerRequestInterface $request): array
-    {
-        $header = $request->getHeader('Accept-Language')[0] ?? '';
-        if (!$header) {
-            $header = $request->getServerParams()['HTTP_ACCEPT_LANGUAGE'] ?? '';
-        }
-        if (!is_string($header)) {
-            $header = '';
-        }
-        $arr = [];
-        if (!$header) {
-            return $arr;
-        }
-        foreach (explode(',', $header) as $part) {
-            $subparts = explode(';q=', $part);
-            $language = trim($subparts[0]);
-            // Ignore the wildcard and empty entries: they carry no language
-            if ($language === '' || $language === '*') {
-                continue;
-            }
-            $arr[$language] = floatval(trim($subparts[1] ?? '1'));
-        }
-        arsort($arr);
-        return $arr;
-    }
-
-    /**
      * Return the preferred language for this request.
      *
      * When $allowed is provided, the best supported language is negotiated
-     * (a request for "en-US" matches the supported "en"). Returns null when
-     * nothing matches so the caller can fall back to its own default.
+     * (a request for "en-US" matches the supported "en", and a language the
+     * client refused with q=0 is never a match). Returns null when nothing
+     * matches so the caller can fall back to its own default.
      *
      * @param array<string>|null $allowed
      */
     public static function getPreferredLanguage(ServerRequestInterface $request, ?array $allowed = null): ?string
     {
-        $arr = self::parseAcceptedLanguages($request);
-        if ($allowed === null) {
-            return $arr === [] ? null : array_key_first($arr);
-        }
-        foreach (array_keys($arr) as $language) {
-            foreach ($allowed as $candidate) {
-                if (self::languageMatches($language, $candidate)) {
-                    return $candidate;
-                }
-            }
-        }
-        return null;
-    }
-
-    private static function languageMatches(string $language, string $candidate): bool
-    {
-        if ($candidate === '') {
-            return false;
-        }
-        if (strcasecmp($language, $candidate) === 0) {
-            return true;
-        }
-        $language = strtolower($language);
-        $candidate = strtolower($candidate);
-        return str_starts_with($language, $candidate . '-') || str_starts_with($language, $candidate . '_');
+        return AcceptLanguage::fromRequest($request)->best($allowed);
     }
 
     /**

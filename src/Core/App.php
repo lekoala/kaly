@@ -527,7 +527,15 @@ final class App implements RequestHandlerInterface
             if ($explicitLogger) {
                 $definitions->set(self::DEBUG_LOGGER, static fn(ContainerInterface $container) => $container->get(LoggerInterface::class));
             } else {
-                $definitions->set(self::DEBUG_LOGGER, $this->debug ? new FileLogger($this->paths->base . '/debug.log') : NullLogger::class);
+                if ($this->debug) {
+                    // The debug artefact belongs to the runtime folder; temp/
+                    // is created on demand so a missing folder never breaks
+                    // the boot
+                    Fs::ensureDir($this->paths->temp());
+                    $definitions->set(self::DEBUG_LOGGER, new FileLogger($this->paths->temp() . 'debug.log'));
+                } else {
+                    $definitions->set(self::DEBUG_LOGGER, NullLogger::class);
+                }
             }
         }
 

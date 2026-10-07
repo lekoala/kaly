@@ -83,7 +83,11 @@ class ErrorResponseTest extends TestCase
     {
         $app = App::create(__DIR__)->debug(true);
 
-        $response = $this->get($app, '/test-module/state/crash/');
+        $request = HttpFactory::createRequestFromGlobals()
+            ->withUri(new Uri('/test-module/state/crash/?x=<script>'))
+            ->withHeader('Accept', 'text/html')
+            ->withHeader('User-Agent', '<img src=x onerror=alert(1)>');
+        $response = $app->handle($request);
         $html = (string) $response->getBody();
 
         $this->assertSame(500, $response->getStatusCode());
@@ -92,6 +96,9 @@ class ErrorResponseTest extends TestCase
         // Escaped, never rendered
         $this->assertStringContainsString('&lt;b&gt;boom&lt;/b&gt;', $html);
         $this->assertStringNotContainsString('<b>boom</b>', $html);
+        // A client-controlled header is escaped too
+        $this->assertStringContainsString('&lt;img', $html);
+        $this->assertStringNotContainsString('<img', $html);
         // The code around the failing line and what the cycle established
         $this->assertStringContainsString('class="hit"', $html);
         $this->assertStringContainsString('TestModule\Controller\StateController::crash', $html);

@@ -23,6 +23,13 @@ When making a breaking change:
 
 The goal before 1.0 is to converge toward the smallest, clearest, most durable public surface possible.
 
+## Design
+
+- Validate declarations early when validation is cheap and already belongs to
+  a compilation step — eg route table normalization. Otherwise, let normal
+  execution expose invalid application code; the framework is not a static
+  analyzer of the application.
+
 ## Architecture
 
 - A middleware independent of the Kaly runtime lives with its domain under

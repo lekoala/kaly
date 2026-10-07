@@ -45,6 +45,18 @@ class LocaleResolverTest extends TestCase
         $this->assertSame('en', $resolver->resolve($this->request('en-US')));
     }
 
+    public function testRefusedLanguageFallsBackToDefault(): void
+    {
+        $resolver = new LocaleResolver('en', ['en', 'fr']);
+
+        // fr;q=0 is a refusal, not a weak preference
+        $this->assertSame('en', $resolver->resolve($this->request('en;q=0.8, fr;q=0')));
+        // Only fr is allowed, but the client refused it
+        $this->assertSame('en', (new LocaleResolver('en', ['fr']))->resolve($this->request('fr;q=0')));
+        // Whitespace and uppercase parameters are parsed
+        $this->assertSame('fr', $resolver->resolve($this->request('fr; Q=1.0')));
+    }
+
     public function testFallsBackToDefault(): void
     {
         $resolver = new LocaleResolver('en', ['en', 'fr']);

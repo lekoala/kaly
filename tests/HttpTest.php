@@ -24,17 +24,16 @@ class HttpTest extends TestCase
     {
         $request = (new BaseServerRequest('GET', '/'))->withHeader('Accept-Language', 'en-US,en;q=0.9,fr;q=0.8');
 
-        $result = RequestUtils::parseAcceptedLanguages($request);
-        $this->assertArrayHasKey('en-US', $result);
-        $this->assertArrayHasKey('en', $result);
-        $this->assertArrayHasKey('fr', $result);
-        $this->assertEquals(0.8, $result['fr']);
-
         $preferred = RequestUtils::getPreferredLanguage($request);
         $this->assertEquals('en-US', $preferred);
 
         $preferred = RequestUtils::getPreferredLanguage($request, ['en', 'fr']);
         $this->assertEquals('en', $preferred);
+
+        // A refused language is never a match
+        $refused = (new BaseServerRequest('GET', '/'))->withHeader('Accept-Language', 'en;q=0.9,fr;q=0');
+        $this->assertNull(RequestUtils::getPreferredLanguage($refused, ['fr']));
+        $this->assertNull(RequestUtils::getPreferredLanguage(new BaseServerRequest('GET', '/')));
     }
 
     public function testParseAccept(): void

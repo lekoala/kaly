@@ -9,7 +9,7 @@ nav_order: 21
 
 You can always get a `Psr\Log\LoggerInterface` from the Di container. It defaults to a `NullLogger` if none is defined.
 
-In debug mode, there is a file based logger that will output in your base dir under the "debug.log" file.
+In debug mode, there is a file based logger that will output in the `temp/` runtime folder under the "debug.log" file.
 It is accessible under the `App::DEBUG_LOGGER` definition in the Di container. It is safe to keep code calling the Debug logger in prod
 because it will be converted to a simple `NullLogger`. No worries!
 

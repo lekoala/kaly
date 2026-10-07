@@ -4,6 +4,24 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Correct Accept-Language negotiation
+
+- New `Kaly\Http\AcceptLanguage` replaces `RequestUtils::parseAcceptedLanguages()`
+  (removed): it parses `; q=0.5` and `;Q=0.5` properly, keeps the wildcard and
+  honors `q=0` as a refusal. `RequestUtils::getPreferredLanguage()` keeps its
+  signature and delegates, so `LocaleResolver` needs no change.
+- Before, `fr;q=0` could still be selected when it was the only allowed locale;
+  it now falls back to the default. If you relied on the raw
+  `array<string,float>` of `parseAcceptedLanguages()`, use
+  `AcceptLanguage::fromRequest($request)` and read the entries instead.
+
+## Removed classes
+
+- `Kaly\Http\Exception\ResponseException`: shaped responses belong to
+  controller results (`View`, `JsonResult`), not to exceptions. It had no
+  consumer in the framework; a controller returning a response body should
+  return that body or a result object instead of throwing.
+
 ## Route middleware is explicit and tables own their actions
 
 - `#[Kaly\Router\Middleware]` on controllers and actions is removed, with the
