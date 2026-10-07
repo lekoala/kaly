@@ -35,9 +35,7 @@ final class RoutingHandler implements RequestHandlerInterface
         private RouterInterface $router,
         private LocaleResolver $localeResolver,
         private RequestHandlerInterface $next,
-    ) {
-        // promoted
-    }
+    ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
