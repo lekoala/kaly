@@ -3,6 +3,11 @@
 
 ### Added
 
+- `App::default()`: the recommended Kaly application profile (`Remove` with
+  locale prefixes) on top of the neutral `App::create()` primitives
+  (`Preserve`, no prefixes). `url()` and `urlFor()` always produce the
+  canonical form of the `TrailingSlash` policy, so a generated url matches
+  its route directly without a canonicalization redirect.
 - `App::routing(TrailingSlash $trailingSlash = TrailingSlash::Preserve, bool $localePrefixes = false)`.
   `Kaly\Router\TrailingSlash` (`Add`, `Remove`, `Preserve`) replaces the
   trailing-slash booleans in `Router`, `ConventionResolver` and

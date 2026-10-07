@@ -22,6 +22,10 @@ $client->get('/hello')
 
 `TestClient::for()` needs the container, so the app must be booted.
 
+Use `App::default()` when the test targets the behavior of a recommended Kaly
+application; use `App::create()` with an explicit `routing()` configuration
+when the routing convention itself is a precondition of the test.
+
 `request()` is the primitive, the verbs are sugar over it:
 
 ```php

@@ -96,15 +96,19 @@ than falling through and reinterpreting the URL elsewhere.
 
 Kaly canonicalizes only what the application configures via
 `App::routing(TrailingSlash, localePrefixes)` (defaults: `Preserve`, no
-prefixes).
+prefixes). The recommended profile is `App::default()` (`Remove` with locale
+prefixes); `routing(Add, true)` is the explicit legacy choice.
 
 Depending on the configured route/module this includes behavior such as:
 
 - trailing slashes (`Add`/`Remove`; `Preserve` never redirects);
-- canonical controller/action spelling;
-- lowercase locale prefixes (prefix strategy only);
+- canonical controller/action spelling;- lowercase locale prefixes (prefix strategy only);
 - locale-prefix rules (prefix strategy only);
 - default-locale home normalization (prefix strategy only).
+
+`url()` and `urlFor()` always produce the canonical form of the policy: a
+generated URL matches its route directly, without a canonicalization
+redirect.
 
 `APP_LOCALES` describes i18n, never a URL topology. `localized()` means a
 module participates in locale-prefix routing; translated route paths without

@@ -167,6 +167,21 @@ final class App implements RequestHandlerInterface
         return new self($dir, $loadEnv);
     }
 
+    /**
+     * The recommended Kaly application profile: explicit conventions on top
+     * of the neutral primitives.
+     *
+     * `create()` owns the true defaults (`Preserve`, no locale prefixes) and
+     * canonicalizes nothing. `default()` is a preset, not those defaults: it
+     * opts into the recommended topology (`Remove` with locale prefixes).
+     * `APP_LOCALES` alone never decides the url topology; `default()` already
+     * made that choice explicitly, `create()` leaves it to `routing()`.
+     */
+    public static function default(string $dir, bool $loadEnv = true): self
+    {
+        return (new self($dir, $loadEnv))->routing(TrailingSlash::Remove, true);
+    }
+
     // #region Configuration
 
     /**
@@ -206,8 +221,9 @@ final class App implements RequestHandlerInterface
      *
      * `APP_LOCALES` describes the i18n languages, never a url topology. Prefixes
      * are opt-in: `localePrefixes: true` activates the localized-module strategy,
-     * `false` leaves every segment to routes, mounts and claims. To restore the
-     * pre-0.2 urls, use `routing(TrailingSlash::Add, true)`.
+     * `false` leaves every segment to routes, mounts and claims. The recommended
+     * profile is `App::default()` (`Remove` with prefixes); to keep legacy urls,
+     * use `routing(TrailingSlash::Add, true)` explicitly.
      */
     public function routing(TrailingSlash $trailingSlash = TrailingSlash::Preserve, bool $localePrefixes = false): self
     {

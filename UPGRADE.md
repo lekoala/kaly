@@ -9,7 +9,8 @@ how to migrate.
 - New `App::routing(TrailingSlash $trailingSlash = TrailingSlash::Preserve, bool $localePrefixes = false)`.
   The defaults canonicalize nothing: both `/foo` and `/foo/` match with no
   redirect, and `APP_LOCALES` never consumes a url segment by itself.
-- To keep the previous urls, opt in explicitly before boot:
+- New `App::default()`: the recommended profile (`Remove` with locale
+  prefixes). To keep the previous urls, opt in explicitly before boot:
 
 ```php
 use Kaly\Router\TrailingSlash;

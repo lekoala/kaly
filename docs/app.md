@@ -17,10 +17,12 @@ conventional folders (`modules/`, `public/`, `temp/`, `resources/`, see `Kaly\Co
 // public/index.php
 require __DIR__ . '/../vendor/autoload.php';
 
-Kaly\Core\App::create(dirname(__DIR__))->run();
+Kaly\Core\App::default(dirname(__DIR__))->run();
 ```
 
-`run()` boots the app, builds the request from the PHP globals, handles it and emits the
+`default()` is the recommended Kaly application profile (`Remove` with locale
+prefixes); `create()` is the neutral building block (`Preserve`, no prefixes)
+for applications mastering their own topology. `run()` boots the app, builds the request from the PHP globals, handles it and emits the
 response. A failure during boot still produces a proper 500 (with details in debug mode).
 
 The app looks for a `.env` file in the base directory unless the `IGNORE_DOT_ENV`

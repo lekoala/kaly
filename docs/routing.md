@@ -21,8 +21,9 @@ $app->routing(TrailingSlash::Preserve, localePrefixes: false);
 ```
 
 The defaults are `Preserve` (no slash redirect) and no locale prefixes: the
-framework canonicalizes nothing the application did not ask for. To restore
-the pre-0.2 urls, use `routing(TrailingSlash::Add, true)`.
+framework canonicalizes nothing the application did not ask for. The
+recommended profile is `App::default()` (`Remove` with locale prefixes); to
+keep legacy urls, use `routing(TrailingSlash::Add, true)` explicitly.
 
 ## How a url is resolved
 
@@ -370,6 +371,15 @@ The policy is explicit, via `Kaly\Router\TrailingSlash`:
   keeps the declared spelling (conventions generate without a slash, except
   the root). `Preserve` never declares `/foo` and `/foo/` as two different
   resources: such a collision fails when the table compiles.
+
+In short: `App::create()` is neutral (`Preserve`), `App::default()` is the
+recommended profile (`Remove` with locale prefixes), `routing(Add, true)` is
+the explicit legacy choice.
+
+`TrailingSlash` is a bidirectional contract, not just an inbound redirect
+policy: `url()` and `urlFor()` always produce the canonical form of the
+policy, so a generated url matches its route directly, without a
+canonicalization redirect. `/` is the fixed point in every policy.
 
 There is no file-like exception: with `Add`, an application route declared as
 `/sitemap.xml` canonicalizes to `/sitemap.xml/`, like any other route.
