@@ -23,16 +23,26 @@ use Throwable;
  * timezone, the same convention as `Kaly\Clock\SystemClock`. `instant()`
  * never does: the offset is mandatory in the string. The `try*` family
  * returns `null` for an invalid value only; an unknown timezone string is a
- * configuration error and still throws `DateInvalidTimeZoneException`.
+ * configuration error and still throws `DateInvalidTimeZoneException`, even
+ * when the value itself is invalid too.
+ *
+ * The instant subset is deliberately narrow: `T` and `Z` may be lower case,
+ * seconds run `00` to `59` (no leap second), fractional seconds hold 1 to 6
+ * digits and the offset is `Z` or `±HH:MM` with an `00`–`23` hour. The unknown
+ * local offset `-00:00` is not an explicit instant and is rejected.
  */
 final class Dates
 {
     public const DATE_FORMAT = 'Y-m-d';
     public const TIME_FORMAT = 'H:i';
 
+    /**
+     * A pure calendar check, independent of any timezone: a skipped civil
+     * day (eg Samoa skipping 2011-12-30) is still a valid `Y-m-d`.
+     */
     public static function isDate(string $value): bool
     {
-        return self::parseDate($value, null) !== null;
+        return self::parseDate($value, 'UTC') !== null;
     }
 
     public static function isTime(string $value): bool
@@ -47,6 +57,9 @@ final class Dates
 
     /**
      * A `Y-m-d` date at midnight in the given timezone.
+     *
+     * A midnight skipped by a DST transition has no midnight and is
+     * rejected rather than silently normalized to another time.
      *
      * @throws InvalidArgumentException When the value is not a calendar date
      * @throws DateInvalidTimeZoneException When the timezone string is unknown
@@ -134,28 +147,38 @@ final class Dates
      */
     private static function parseDate(string $value, DateTimeZone|string|null $timezone): ?DateTimeImmutable
     {
+        // Resolve first: an unknown timezone throws even for an invalid value
+        $timezone = self::timezone($timezone);
+
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) !== 1) {
             return null;
         }
 
-        $date = DateTimeImmutable::createFromFormat('!' . self::DATE_FORMAT, $value, self::timezone($timezone));
+        $date = DateTimeImmutable::createFromFormat('!' . self::DATE_FORMAT, $value, $timezone);
 
-        return $date !== false && $date->format(self::DATE_FORMAT) === $value ? $date : null;
+        // The round trip rejects impossible dates; the midnight check rejects
+        // days whose midnight never happened (DST gaps normalized by PHP)
+        return $date !== false && $date->format(self::DATE_FORMAT) === $value && $date->format('H:i:s') === '00:00:00' ? $date : null;
     }
 
     /**
-     * `YYYY-MM-DDTHH:MM:SS` with 1 to 6 fractional digits and `Z` or `±HH:MM`.
+     * `YYYY-MM-DD[Tt]HH:MM:SS` with 1 to 6 fractional digits and `[Zz]` or
+     * `±HH:MM`. Seconds run `00`–`59` and the offset hour `00`–`23`; anything
+     * outside (leap seconds, unknown `-00:00` offset) is rejected.
      */
     private static function parseInstant(string $value): ?DateTimeImmutable
     {
         if (
-            preg_match('/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/D', $value, $m)
-            !== 1
+            preg_match(
+                '/^(\d{4})-(\d{2})-(\d{2})[tT](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?([zZ]|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/D',
+                $value,
+                $m,
+            ) !== 1
         ) {
             return null;
         }
 
-        $offset = $m[8] === 'Z' ? '+00:00' : $m[8];
+        $offset = strtoupper($m[8]) === 'Z' ? '+00:00' : $m[8];
         $head = "{$m[1]}-{$m[2]}-{$m[3]}T{$m[4]}:{$m[5]}:{$m[6]}";
         $fraction = $m[7];
 
@@ -176,12 +199,15 @@ final class Dates
      */
     private static function parseAt(string $date, string $time, DateTimeZone|string|null $timezone): ?DateTimeImmutable
     {
+        // Resolve first: an unknown timezone throws even for an invalid pair
+        $timezone = self::timezone($timezone);
+
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $date) !== 1 || !self::isTime($time)) {
             return null;
         }
 
         $candidate = "{$date} {$time}";
-        $at = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $candidate, self::timezone($timezone));
+        $at = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $candidate, $timezone);
 
         return $at !== false && $at->format('Y-m-d H:i') === $candidate ? $at : null;
     }

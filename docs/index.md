@@ -40,5 +40,6 @@ Use the sidebar to browse the guides. Start with
 - [Logging](logging.md)
 - [Mailer](mailer.md)
 - [Debugging](debugging.md)
+- [Utilities](utils.md)
 - [Benchmarks](benchmarks.md)
 

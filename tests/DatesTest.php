@@ -28,6 +28,27 @@ class DatesTest extends TestCase
         $this->assertFalse(Dates::isDate('tomorrow'));
     }
 
+    public function testIsDateIgnoresTheGlobalTimezone(): void
+    {
+        // Samoa skipped 2011-12-30 entirely; it stays a valid calendar date
+        $previous = date_default_timezone_get();
+        date_default_timezone_set('Pacific/Apia');
+        try {
+            $this->assertTrue(Dates::isDate('2011-12-30'));
+        } finally {
+            date_default_timezone_set($previous);
+        }
+    }
+
+    public function testDateRejectsAMidnightSkippedByDst(): void
+    {
+        // America/Sao_Paulo sprang forward at midnight on 2018-11-04
+        $this->assertNull(Dates::tryDate('2018-11-04', 'America/Sao_Paulo'));
+
+        $this->expectException(InvalidArgumentException::class);
+        Dates::date('2018-11-04', 'America/Sao_Paulo');
+    }
+
     public function testDateIsMidnightInTheDefaultTimezone(): void
     {
         $previous = date_default_timezone_get();
@@ -65,6 +86,24 @@ class DatesTest extends TestCase
         Dates::tryDate('2026-02-28', 'Nope/Zone');
     }
 
+    public function testUnknownTimezoneThrowsEvenForAnInvalidValue(): void
+    {
+        // An unknown timezone is a configuration error, never a null
+        $thrown = 0;
+        try {
+            Dates::tryDate('bad', 'Nope/Zone');
+        } catch (DateInvalidTimeZoneException) {
+            $thrown++;
+        }
+        try {
+            Dates::tryAt('bad', 'bad', 'Nope/Zone');
+        } catch (DateInvalidTimeZoneException) {
+            $thrown++;
+        }
+
+        $this->assertSame(2, $thrown);
+    }
+
     public function testIsTimeAcceptsStrictHoursOnly(): void
     {
         $this->assertTrue(Dates::isTime('00:00'));
@@ -92,6 +131,20 @@ class DatesTest extends TestCase
         $this->assertFalse(Dates::isInstant('2026-10-07T12:30:00.1234567+02:00'));
         $this->assertFalse(Dates::isInstant('2026-02-31T12:30:00+02:00'));
         $this->assertFalse(Dates::isInstant('2026-10-07T24:00:00+02:00'));
+    }
+
+    public function testInstantAcceptsLowercaseAnnotations(): void
+    {
+        $this->assertTrue(Dates::isInstant('2026-10-07t12:30:00z'));
+        $this->assertSame('+00:00', Dates::instant('2026-10-07t12:30:00z')->format('P'));
+    }
+
+    public function testInstantRejectsOutsideTheSupportedSubset(): void
+    {
+        // Leap seconds are not representable and the unknown local offset
+        // is not an explicit instant
+        $this->assertFalse(Dates::isInstant('2016-12-31T23:59:60Z'));
+        $this->assertFalse(Dates::isInstant('2026-10-07T12:30:00-00:00'));
     }
 
     public function testInstantNormalizesZoneAndKeepsMicroseconds(): void

@@ -9,9 +9,15 @@
   `DateTimeImmutable`. `Y-m-d` dates resolve at midnight and `at()` combines a
   date with an `H:i` time, both in the PHP default timezone unless an explicit
   one is given; `instant()` requires an RFC 3339 string with an explicit
-  offset (`Z` accepted, fractional seconds up to microseconds). Invalid values
+  offset (`Z` accepted in either case, fractional seconds up to microseconds,
+  no leap seconds). `isDate()` is timezone-independent while `date()`
+  guarantees a real local midnight: days whose midnight is skipped by a DST
+  transition are rejected rather than normalized. Invalid values
   return `null` from `try*` or throw `InvalidArgumentException`, while an
-  unknown timezone string always throws `DateInvalidTimeZoneException`.
+  unknown timezone string always throws `DateInvalidTimeZoneException`, even
+  for an invalid value. A [Utilities](docs/utils.md) page maps the
+  `Kaly\Util` / `Kaly\Clock` foundations; the PHP docblocks stay the
+  reference.
   `Dates::timezone()` centralizes the `DateTimeZone|string|null` resolution
   (empty string falls back to UTC) and `SystemClock` now delegates to it.
   Richer needs stay out of scope: `brick/date-time`, `bakame/tokei` and
