@@ -104,16 +104,17 @@ class DatesTest extends TestCase
         $this->assertSame(2, $thrown);
     }
 
-    public function testIsTimeAcceptsStrictHoursOnly(): void
+    public function testIsTimeAcceptsStrictLocalTimes(): void
     {
         $this->assertTrue(Dates::isTime('00:00'));
         $this->assertTrue(Dates::isTime('09:30'));
         $this->assertTrue(Dates::isTime('23:59'));
+        $this->assertTrue(Dates::isTime('09:30:10'));
 
         $this->assertFalse(Dates::isTime('24:00'));
         $this->assertFalse(Dates::isTime('09:60'));
+        $this->assertFalse(Dates::isTime('09:30:60'));
         $this->assertFalse(Dates::isTime('9:30'));
-        $this->assertFalse(Dates::isTime('09:30:10'));
         $this->assertFalse(Dates::isTime(''));
     }
 
@@ -179,12 +180,20 @@ class DatesTest extends TestCase
         $this->assertSame('09:30', Dates::at('2026-10-07', '09:30', 'UTC')->format('H:i'));
     }
 
+    public function testAtKeepsSecondsWhenGiven(): void
+    {
+        $this->assertSame('2026-10-07 09:30:15', Dates::at('2026-10-07', '09:30:15', 'UTC')->format('Y-m-d H:i:s'));
+        $this->assertSame('09:30:00', Dates::at('2026-10-07', '09:30', 'UTC')->format(Dates::TIME_FORMAT));
+        $this->assertSame('09:30:15', Dates::at('2026-10-07', '09:30:15', 'UTC')->format(Dates::TIME_FORMAT));
+    }
+
     public function testAtRejectsEitherInvalidPart(): void
     {
         $this->assertNull(Dates::tryAt('2026-02-31', '09:30'));
         $this->assertNull(Dates::tryAt('2026-10-07', '24:00'));
-        // Seconds are not a local time in v1, even composed
-        $this->assertNull(Dates::tryAt('2026-10-07', '09:30:10'));
+        $this->assertNull(Dates::tryAt('2026-10-07', '09:30:60'));
+        // A local time skipped by a DST transition is rejected with seconds too
+        $this->assertNull(Dates::tryAt('2018-11-04', '00:30:15', 'America/Sao_Paulo'));
 
         $this->expectException(InvalidArgumentException::class);
         Dates::at('2026-10-07', '24:00');

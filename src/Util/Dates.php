@@ -13,9 +13,9 @@ use Throwable;
 /**
  * Strict parsing of the everyday web date representations.
  *
- * A tiny native complement, not a date library: `Y-m-d` dates, `H:i` times
- * and RFC 3339 instants with an explicit offset (fractional seconds up to
- * microsecond precision). Anything richer — `LocalDate`, durations,
+ * A tiny native complement, not a date library: `Y-m-d` dates, `H:i` or
+ * `H:i:s` times and RFC 3339 instants with an explicit offset (fractional
+ * seconds up to microsecond precision). Anything richer — `LocalDate`, durations,
  * circular intervals, arithmetic, humanization — belongs to
  * `brick/date-time`, `bakame/tokei` or Carbon.
  *
@@ -34,7 +34,11 @@ use Throwable;
 final class Dates
 {
     public const DATE_FORMAT = 'Y-m-d';
-    public const TIME_FORMAT = 'H:i';
+    /**
+     * The canonical output format: both `H:i` and `H:i:s` are accepted on
+     * input, missing seconds default to `00`.
+     */
+    public const TIME_FORMAT = 'H:i:s';
 
     /**
      * A pure calendar check, independent of any timezone: a skipped civil
@@ -47,7 +51,7 @@ final class Dates
 
     public static function isTime(string $value): bool
     {
-        return preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/D', $value) === 1;
+        return preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/D', $value) === 1;
     }
 
     public static function isInstant(string $value): bool
@@ -97,7 +101,7 @@ final class Dates
     }
 
     /**
-     * A `Y-m-d` date plus an `H:i` time in the given timezone.
+     * A `Y-m-d` date plus an `H:i` or `H:i:s` time in the given timezone.
      *
      * @throws InvalidArgumentException When the pair is not a calendar date and time
      * @throws DateInvalidTimeZoneException When the timezone string is unknown
@@ -106,7 +110,7 @@ final class Dates
     {
         return (
             self::parseAt($date, $time, $timezone) ?? throw new InvalidArgumentException(
-                "Invalid datetime '{$date} {$time}', expected Y-m-d H:i",
+                "Invalid datetime '{$date} {$time}', expected Y-m-d H:i or Y-m-d H:i:s",
             )
         );
     }
@@ -206,9 +210,12 @@ final class Dates
             return null;
         }
 
+        $time = strlen($time) === 5 ? $time . ':00' : $time;
         $candidate = "{$date} {$time}";
-        $at = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $candidate, $timezone);
 
-        return $at !== false && $at->format('Y-m-d H:i') === $candidate ? $at : null;
+        $format = '!' . self::DATE_FORMAT . ' ' . self::TIME_FORMAT;
+        $at = DateTimeImmutable::createFromFormat($format, $candidate, $timezone);
+
+        return $at !== false && $at->format(self::DATE_FORMAT . ' ' . self::TIME_FORMAT) === $candidate ? $at : null;
     }
 }

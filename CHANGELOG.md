@@ -7,7 +7,7 @@
   `isInstant()` validators plus throwing (`date()`, `instant()`, `at()`) and
   nullable (`tryDate()`, `tryInstant()`, `tryAt()`) factories returning
   `DateTimeImmutable`. `Y-m-d` dates resolve at midnight and `at()` combines a
-  date with an `H:i` time, both in the PHP default timezone unless an explicit
+  date with an `H:i` or `H:i:s` time (missing seconds default to `00`), both in the PHP default timezone unless an explicit
   one is given; `instant()` requires an RFC 3339 string with an explicit
   offset (`Z` accepted in either case, fractional seconds up to microseconds,
   no leap seconds). `isDate()` is timezone-independent while `date()`

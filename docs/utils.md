@@ -24,7 +24,7 @@ Two questions, two answers:
 ## Dates
 
 `Kaly\Util\Dates` strictly parses the three representations the web keeps
-handing over: `Y-m-d` dates, `H:i` times and RFC 3339 instants with an
+handing over: `Y-m-d` dates, `H:i` or `H:i:s` times and RFC 3339 instants with an
 explicit offset. It returns plain `DateTimeImmutable` values.
 
 Conventions to know:
