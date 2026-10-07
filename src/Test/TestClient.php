@@ -411,10 +411,7 @@ final class TestClient
     private static function mergePaths(string $basePath, string $location): string
     {
         $suffix = '';
-        $cut = min(
-            ($q = strpos($location, '?')) === false ? PHP_INT_MAX : $q,
-            ($h = strpos($location, '#')) === false ? PHP_INT_MAX : $h,
-        );
+        $cut = min(($q = strpos($location, '?')) === false ? PHP_INT_MAX : $q, ($h = strpos($location, '#')) === false ? PHP_INT_MAX : $h);
         if ($cut !== PHP_INT_MAX) {
             $suffix = substr($location, $cut);
             $location = substr($location, 0, $cut);
@@ -429,40 +426,29 @@ final class TestClient
 
     private static function removeDotSegments(string $path): string
     {
-        $input = $path;
-        $output = '';
-        while ($input !== '') {
-            if (str_starts_with($input, '../')) {
-                $input = substr($input, 3);
-            } elseif (str_starts_with($input, './')) {
-                $input = substr($input, 2);
-            } elseif (str_starts_with($input, '/./')) {
-                $input = '/' . substr($input, 3);
-            } elseif ($input === '/.') {
-                $input = '/';
-            } elseif (str_starts_with($input, '/../')) {
-                $input = '/' . substr($input, 4);
-                $slash = strrpos($output, '/');
-                $output = $slash === false ? '' : substr($output, 0, $slash);
-            } elseif ($input === '/..') {
-                $input = '/';
-                $slash = strrpos($output, '/');
-                $output = $slash === false ? '' : substr($output, 0, $slash);
-            } elseif ($input === '.' || $input === '..') {
-                $input = '';
-            } else {
-                // Move the first path segment (with its leading slash) over
-                $pos = strpos($input, '/', 1);
-                if ($pos === false) {
-                    $output .= $input;
-                    $input = '';
-                } else {
-                    $output .= substr($input, 0, $pos);
-                    $input = substr($input, $pos);
+        $segments = [];
+        foreach (explode('/', $path) as $segment) {
+            if ($segment === '.') {
+                continue;
+            }
+            if ($segment === '..') {
+                if ($segments !== []) {
+                    array_pop($segments);
+                    // Removing the last segment leaves its preceding slash
+                    if ($segments === []) {
+                        $segments[] = '';
+                    }
                 }
+            } else {
+                // Empty segments preserve leading and repeated slashes
+                $segments[] = $segment;
             }
         }
-        return $output === '' ? '/' : $output;
+        if (str_ends_with($path, '/.') || str_ends_with($path, '/..')) {
+            $segments[] = '';
+        }
+        $result = implode('/', $segments);
+        return $result === '' ? '/' : $result;
     }
 
     private function isRedirect(ResponseInterface $response): bool
