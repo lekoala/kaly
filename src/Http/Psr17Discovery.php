@@ -20,6 +20,9 @@ use Psr\Http\Message\UriFactoryInterface;
  */
 final class Psr17Discovery
 {
+    /**
+     * @var list<class-string>
+     */
     public const INTERFACES = [
         RequestFactoryInterface::class,
         ResponseFactoryInterface::class,

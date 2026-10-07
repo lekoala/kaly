@@ -88,6 +88,9 @@ final class App implements RequestHandlerInterface
     public const ENV_LOCALES = 'APP_LOCALES';
     public const ENV_IDE_PLACEHOLDER = 'DUMP_IDE_PLACEHOLDER';
 
+    /**
+     * @var array<class-string,class-string>
+     */
     private const DEFAULT_IMPLEMENTATIONS = [
         // PSR-20
         ClockInterface::class => SystemClock::class,
