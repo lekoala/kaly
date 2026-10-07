@@ -50,11 +50,17 @@ final class Dates
         return self::parseDate($value, 'UTC') !== null;
     }
 
+    /**
+     * Check whether a string is an `H:i` or `H:i:s` time.
+     */
     public static function isTime(string $value): bool
     {
         return preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/D', $value) === 1;
     }
 
+    /**
+     * Check whether a string is an RFC 3339 instant with an explicit offset.
+     */
     public static function isInstant(string $value): bool
     {
         return self::parseInstant($value) !== null;
@@ -96,6 +102,9 @@ final class Dates
         );
     }
 
+    /**
+     * Return the instant, or null when the value is not such an instant.
+     */
     public static function tryInstant(string $value): ?DateTimeImmutable
     {
         return self::parseInstant($value);

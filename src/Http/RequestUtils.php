@@ -16,6 +16,9 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 final class RequestUtils
 {
+    /**
+     * Get the request path.
+     */
     public static function getPath(ServerRequestInterface $request): string
     {
         return $request->getUri()->getPath();
