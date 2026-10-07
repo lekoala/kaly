@@ -100,4 +100,50 @@ class TrailingSlashCanonicalTest extends TestCase
             $this->assertSame(AliasController::class, $this->matchDirect($router, '/'));
         }
     }
+
+    public function testLocalizedHomeHasNoPrefixForTheDefaultLocale(): void
+    {
+        require_once __DIR__ . '/modules/TestModule/src/Controller/AliasController.php';
+
+        $expectedPrefix = [
+            TrailingSlash::Add->name => '/en/',
+            TrailingSlash::Remove->name => '/en',
+            TrailingSlash::Preserve->name => '/en/',
+        ];
+
+        foreach ([TrailingSlash::Add, TrailingSlash::Remove, TrailingSlash::Preserve] as $policy) {
+            $module = (new Module(__DIR__ . '/modules/TestModule'))
+                ->mount('/')
+                ->localized()
+                ->routes(static function (Routes $routes): void {
+                    $routes->get('/', [AliasController::class, 'hello'])->name('home');
+                });
+            $router = new Router([$module], null, ['fr', 'en'], $policy, true);
+
+            // An explicit '/' home generates '/' for the default locale, like '' does
+            $this->assertSame('/', $router->url('home'));
+            $this->assertSame($expectedPrefix[$policy->name], $router->url('home', [], 'en'));
+
+            $this->assertSame(AliasController::class, $this->matchDirect($router, '/'));
+            $this->assertSame(AliasController::class, $this->matchDirect($router, $router->url('home', [], 'en')));
+
+            // The bare default-locale prefix redirects to the home, never to an empty Location.
+            // Under Add the trailing-slash rule fires first ('/fr' -> '/fr/'), then the home rule ('/fr/' -> '/').
+            $expectedLocation = $policy === TrailingSlash::Add ? '/fr/' : '/';
+            try {
+                $router->match(HttpFactory::createRequestFromGlobals()->withUri(new Uri('/fr')));
+                $this->fail("'/fr' should redirect under {$policy->name}");
+            } catch (RedirectException $e) {
+                $this->assertSame($expectedLocation, $e->getUrl());
+            }
+            if ($policy === TrailingSlash::Add) {
+                try {
+                    $router->match(HttpFactory::createRequestFromGlobals()->withUri(new Uri('/fr/')));
+                    $this->fail("'/fr/' should redirect to '/' under Add");
+                } catch (RedirectException $e) {
+                    $this->assertSame('/', $e->getUrl());
+                }
+            }
+        }
+    }
 }

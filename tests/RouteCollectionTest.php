@@ -80,6 +80,47 @@ class RouteCollectionTest extends TestCase
         ]);
     }
 
+    public function testTranslatedPathsSharingAPatternCollideWithoutPrefixes(): void
+    {
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage('Colliding routes');
+        new RouteCollection([
+            new RouteDefinition(['fr' => '/shared'], RouteHandlerFixture::class, 'show', ['GET']),
+            new RouteDefinition(['en' => '/shared'], RouteHandlerFixture::class, 'show', ['GET']),
+        ], false);
+    }
+
+    public function testIdenticalPathsWithinOneDeclarationCollideWithoutPrefixes(): void
+    {
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage('cannot tell them apart');
+        new RouteCollection([
+            new RouteDefinition(['fr' => '/shared', 'en' => '/shared'], RouteHandlerFixture::class, 'show', ['GET']),
+        ], false);
+    }
+
+    public function testTranslatedPathsStayDisjointWithPrefixes(): void
+    {
+        $collection = new RouteCollection([
+            new RouteDefinition(['fr' => '/shared'], RouteHandlerFixture::class, 'show', ['GET']),
+            new RouteDefinition(['en' => '/shared'], RouteHandlerFixture::class, 'show', ['GET']),
+        ]);
+        $this->assertSame(2, $collection->count());
+
+        $single = new RouteCollection([
+            new RouteDefinition(['fr' => '/shared', 'en' => '/shared'], RouteHandlerFixture::class, 'show', ['GET']),
+        ]);
+        $this->assertSame(1, $single->count());
+    }
+
+    public function testDistinctTranslatedPathsDoNotCollideWithoutPrefixes(): void
+    {
+        $collection = new RouteCollection([
+            new RouteDefinition(['fr' => '/medecins', 'nl' => '/artsen'], RouteHandlerFixture::class, 'show', ['GET']),
+        ], false);
+        $this->assertSame(1, $collection->count());
+    }
+
     public function testDifferingRequirementsDoNotCollide(): void
     {
         $collection = new RouteCollection([

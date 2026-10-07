@@ -281,6 +281,18 @@
 
 ### Fixed
 
+- The localized home generates `/` for the default locale even when declared
+  as an explicit `/` route, and the default-locale prefix redirect targets
+  `/` instead of an empty `Location` under `Remove`.
+- Translated route tables sharing a match pattern without locale prefixes now
+  fail at compile time instead of letting generation reach the wrong handler;
+  with prefixes they stay disjoint as before.
+- `TestClient` replays the parsed body on 307/308 redirects, so form data
+  survives `followRedirect()` like the raw body already did.
+- `TestClient` resolves relative redirect locations per RFC 3986 (dot-segment
+  removal) and refuses anything off-origin: network-path references, scheme
+  and effective-port changes, not just host changes.
+
 - Static files are served with a correct Content-Type on every platform: CSS
   and JS no longer fall back to `text/plain` when fileinfo does (notably on
   Windows).

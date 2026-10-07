@@ -54,7 +54,7 @@ final class TableResolver implements ResolverInterface
                 ($this->declare)($routes);
                 $definitions = $routes->definitions();
                 $this->failOnLocalesWithoutPrefix($definitions);
-                $this->collection = new RouteCollection($definitions);
+                $this->collection = new RouteCollection($definitions, $this->localePrefixes);
             } catch (Ex $e) {
                 throw new Ex("Invalid {$this->label}: {$e->getMessage()}", 0, $e);
             }

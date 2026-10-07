@@ -74,7 +74,8 @@ final class RedirectUris
         }
         return $uri->withPath(match ($trailingSlash) {
             TrailingSlash::Add => RoutePath::withTrailingSlash($path),
-            TrailingSlash::Remove => RoutePath::withoutTrailingSlash($path),
+            // An emptied path is the root: '/fr' canonicalizes to '/', never ''
+            TrailingSlash::Remove => $path === '' ? '/' : RoutePath::withoutTrailingSlash($path),
             TrailingSlash::Preserve => $path === '' ? '/' : $path,
         });
     }

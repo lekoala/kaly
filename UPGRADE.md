@@ -829,6 +829,10 @@ $module->localized();                 // in the config.php of LangModule itself
   table compiles (paths).
 - Generating an url for a locale the route or the mount has no variant for fails instead
   of producing an url no route would match.
+- Without locale prefixes, translated paths sharing the same pattern (across
+  routes or within one declaration) fail when the table compiles instead of
+  matching the wrong handler: give them distinct paths or enable
+  `routing(localePrefixes: true)` with `localized()` modules.
 - Every `$module->routes()` call feeds the same table: use the priority of each route
   (`->priority(10)`) instead of the removed second argument of `routes()`. A name shared
   by two declarations of the table fails when it compiles; a name shared with a claim

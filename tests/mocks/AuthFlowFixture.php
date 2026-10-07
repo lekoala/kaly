@@ -37,9 +37,56 @@ class AuthFlowFixture extends AbstractController
         return $this->request->getMethod() . ':' . (string) $this->request->getBody();
     }
 
+    public function echoParsed(): string
+    {
+        $parsed = $this->request->getParsedBody();
+        $value = is_array($parsed) && isset($parsed['a']) && is_scalar($parsed['a']) ? (string) $parsed['a'] : 'none';
+        return $this->request->getMethod() . ':' . $value;
+    }
+
     public function forward(): never
     {
         throw new RedirectException('/target', 307);
+    }
+
+    public function forwardParsed(): never
+    {
+        throw new RedirectException('/target-parsed', 307);
+    }
+
+    public function dotSource(): never
+    {
+        throw new RedirectException('../target', 307);
+    }
+
+    public function dotTarget(): string
+    {
+        return 'dot-ok';
+    }
+
+    public function protoSource(): never
+    {
+        throw new RedirectException('//evil.example/target', 307);
+    }
+
+    public function schemeSource(): never
+    {
+        throw new RedirectException('https://good.example/target-abs', 307);
+    }
+
+    public function portSource(): never
+    {
+        throw new RedirectException('http://good.example:8080/target-abs', 307);
+    }
+
+    public function absSource(): never
+    {
+        throw new RedirectException('http://good.example/target-abs', 307);
+    }
+
+    public function absTarget(): string
+    {
+        return 'abs-ok';
     }
 
     public function bounce(): never

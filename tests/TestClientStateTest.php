@@ -39,6 +39,15 @@ class TestClientStateTest extends TestCase
                     $routes->post('/logout', [AuthFlowFixture::class, 'logout']);
                     $routes->post('/forward', [AuthFlowFixture::class, 'forward']);
                     $routes->post('/target', [AuthFlowFixture::class, 'echoPost']);
+                    $routes->post('/forward-parsed', [AuthFlowFixture::class, 'forwardParsed']);
+                    $routes->post('/target-parsed', [AuthFlowFixture::class, 'echoParsed']);
+                    $routes->get('/a/source', [AuthFlowFixture::class, 'dotSource']);
+                    $routes->get('/target', [AuthFlowFixture::class, 'dotTarget']);
+                    $routes->get('/proto', [AuthFlowFixture::class, 'protoSource']);
+                    $routes->get('/scheme', [AuthFlowFixture::class, 'schemeSource']);
+                    $routes->get('/port', [AuthFlowFixture::class, 'portSource']);
+                    $routes->get('/abs', [AuthFlowFixture::class, 'absSource']);
+                    $routes->get('/target-abs', [AuthFlowFixture::class, 'absTarget']);
                     $routes->get('/bounce', [AuthFlowFixture::class, 'bounce']);
                 });
             };
@@ -128,6 +137,65 @@ class TestClientStateTest extends TestCase
 
         $target = $client->followRedirect();
         $target->assertStatus(200)->assertBody('POST:a=1');
+    }
+
+    public function testPost307ReplaysParsedBody(): void
+    {
+        $client = TestClient::for($this->app);
+
+        $redirect = $client->post('/forward-parsed', ['form' => ['a' => '1']]);
+        $redirect->assertStatus(307)->assertLocation('/target-parsed');
+
+        $target = $client->followRedirect();
+        $target->assertStatus(200)->assertBody('POST:1');
+    }
+
+    public function testRelativeDotSegmentsNormalize(): void
+    {
+        $client = TestClient::for($this->app);
+
+        $redirect = $client->get('/a/source');
+        $redirect->assertStatus(307)->assertLocation('../target');
+
+        $client->followRedirect()->assertStatus(200)->assertBody('dot-ok');
+    }
+
+    public function testProtocolRelativeRedirectIsRefused(): void
+    {
+        $client = TestClient::for($this->app);
+        $client->get('/proto');
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('cross-origin');
+        $client->followRedirect();
+    }
+
+    public function testSchemeChangeIsRefused(): void
+    {
+        $client = TestClient::for($this->app);
+        $client->get('http://good.example/scheme');
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('cross-origin');
+        $client->followRedirect();
+    }
+
+    public function testPortChangeIsRefused(): void
+    {
+        $client = TestClient::for($this->app);
+        $client->get('http://good.example/port');
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('cross-origin');
+        $client->followRedirect();
+    }
+
+    public function testAbsoluteSameOriginRedirectIsFollowed(): void
+    {
+        $client = TestClient::for($this->app);
+        $client->get('http://good.example/abs');
+
+        $client->followRedirect()->assertStatus(200)->assertBody('abs-ok');
     }
 
     public function testAutoFollowWithLimit(): void

@@ -43,13 +43,15 @@ final class RouteCollection
 
     /**
      * @param list<RouteDefinition> $definitions
+     * @param bool $localePrefixes Whether locale-keyed entries match in disjoint
+     *   per-locale spaces (prefix strategy) or in one shared space
      */
-    public function __construct(array $definitions)
+    public function __construct(array $definitions, bool $localePrefixes = true)
     {
         $definitions = array_map(static fn(RouteDefinition $definition): RouteDefinition => clone $definition, array_values($definitions));
         $this->definitions = $definitions;
         $this->failOnDuplicateNames($definitions);
-        $this->failOnCollisions($definitions);
+        $this->failOnCollisions($definitions, $localePrefixes);
         $entries = [];
         foreach ($definitions as $definition) {
             $reflection = new ReflectionClass($definition->controller);
@@ -202,9 +204,14 @@ final class RouteCollection
      * ignored, effective fragments compared), not a regex-equivalence proof:
      * '\d+' vs '[0-9]+' will not be flagged.
      *
+     * Without the locale prefix strategy every locale-keyed entry matches in
+     * the same space, so per-locale paths are compared across locales — both
+     * between definitions and within a single declaration, whose variants
+     * would otherwise shadow each other.
+     *
      * @param list<RouteDefinition> $definitions
      */
-    private function failOnCollisions(array $definitions): void
+    private function failOnCollisions(array $definitions, bool $localePrefixes): void
     {
         $count = count($definitions);
         for ($i = 0; $i < $count; $i++) {
@@ -216,7 +223,7 @@ final class RouteCollection
                 }
                 foreach ($a->paths() as $localeA => $pathA) {
                     foreach ($b->paths() as $localeB => $pathB) {
-                        if ($localeA !== '*' && $localeB !== '*' && $localeA !== $localeB) {
+                        if ($localePrefixes && $localeA !== '*' && $localeB !== '*' && $localeA !== $localeB) {
                             continue;
                         }
                         if (self::canonicalPattern($pathA, $a->requirements) !== self::canonicalPattern($pathB, $b->requirements)) {
@@ -234,6 +241,24 @@ final class RouteCollection
                         ));
                     }
                 }
+            }
+        }
+        if ($localePrefixes) {
+            return;
+        }
+        foreach ($definitions as $definition) {
+            $seen = [];
+            foreach ($definition->paths() as $locale => $path) {
+                $key = self::canonicalPattern($path, $definition->requirements);
+                if (isset($seen[$key]) && $seen[$key] !== $locale) {
+                    throw new Ex(sprintf(
+                        "Route '%s' declares the same path for locales '%s' and '%s' but locale prefixes are disabled: matching cannot tell them apart",
+                        $path,
+                        $seen[$key],
+                        $locale,
+                    ));
+                }
+                $seen[$key] = $locale;
             }
         }
     }

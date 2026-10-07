@@ -399,8 +399,10 @@ final class Router implements RouterInterface
     private function build(string $id, string $path, array $query, ?string $locale): string
     {
         if ($locale !== null && $this->localePrefixes && $this->modules[$id]->isLocalized() && $this->locales !== []) {
-            // The home of the default locale has no prefix
-            $path = $path === '' && $locale === $this->locales[0] ? '' : '/' . $locale . $path;
+            // The home of the default locale has no prefix, whether it is
+            // declared as '' (convention, claim) or '/' (explicit route)
+            $isHome = ($path === '' || $path === '/') && $locale === $this->locales[0];
+            $path = $isHome ? '' : '/' . $locale . $path;
         }
         $url = $path === '' ? '/' : $path;
         $url = match ($this->trailingSlash) {

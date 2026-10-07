@@ -60,7 +60,8 @@ $client->post('/login', ['form' => ['user' => 'ada'], 'maxRedirects' => 5])
     ->assertBody('user:42');
 ```
 
-303 (and 301/302 on POST) become GET; 307/308 replay the method and the body
+303 (and 301/302 on POST) become GET; 307/308 replay the method, the body and
+the parsed body
 (streams cannot be replayed and fail loudly). Query-only and relative
 locations resolve against the last request; cross-origin locations are
 refused, and loops past the limit fail instead of hanging.

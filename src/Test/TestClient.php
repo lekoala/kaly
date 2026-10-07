@@ -40,7 +40,7 @@ final class TestClient
     private ?TestResponse $lastResponse = null;
 
     /**
-     * @var array{method:string,uri:string,headers:array<string,string>,body:?string,streamBody:bool}|null
+     * @var array{method:string,uri:string,headers:array<string,string>,body:?string,streamBody:bool,parsedBody:array<array-key,mixed>|object|null}|null
      */
     private ?array $lastRequest = null;
 
@@ -177,7 +177,7 @@ final class TestClient
     }
 
     /**
-     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>} $options
+     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,parsedBody?:array<array-key,mixed>|object|null} $options
      */
     private function send(string $method, string $uri, array $options): TestResponse
     {
@@ -229,6 +229,11 @@ final class TestClient
                 $request = $request->withBody($this->streams->createStream($body));
             }
         }
+        if (array_key_exists('parsedBody', $options) && $options['parsedBody'] !== null) {
+            // Internal replay (307/308): restore the parsed representation the
+            // server would have built, alongside the raw body
+            $request = $request->withParsedBody($options['parsedBody']);
+        }
 
         $sentHeaders = [];
         foreach ($request->getHeaders() as $name => $values) {
@@ -240,6 +245,7 @@ final class TestClient
             'headers' => $sentHeaders,
             'body' => $body,
             'streamBody' => $streamBody,
+            'parsedBody' => $request->getParsedBody(),
         ];
 
         $response = new TestResponse($this->handler->handle($request));
@@ -275,31 +281,125 @@ final class TestClient
 
         $uri = $this->resolveLocation($this->lastRequest['uri'], $location);
 
-        return $this->send($nextMethod, $uri, [
+        $options = [
             'headers' => $headers,
             'body' => $body ?? '',
-        ]);
+        ];
+        if ($nextMethod === $method && $this->lastRequest['parsedBody'] !== null) {
+            $options['parsedBody'] = $this->lastRequest['parsedBody'];
+        }
+
+        return $this->send($nextMethod, $uri, $options);
     }
 
     private function resolveLocation(string $base, string $location): string
     {
-        if (preg_match('#^[a-z][a-z0-9+.-]*://#i', $location) === 1) {
-            $baseHost = (string) parse_url($base, PHP_URL_HOST);
-            $targetHost = (string) parse_url($location, PHP_URL_HOST);
-            if (strtolower($targetHost) !== strtolower($baseHost)) {
-                throw new LogicException("Refusing cross-origin redirect to '{$location}'");
+        if (preg_match('#^[a-z][a-z0-9+.-]*://#i', $location) === 1 || str_starts_with($location, '//')) {
+            // Absolute or network-path reference: only same-origin targets
+            // stay in the app, otherwise '//evil.example/...' would escape it
+            $this->assertSameOrigin($base, $location);
+            if (str_starts_with($location, '//')) {
+                $scheme = (string) parse_url($base, PHP_URL_SCHEME);
+                return ($scheme === '' ? 'http' : $scheme) . ':' . $location;
             }
             return $location;
         }
-        if (str_starts_with($location, '?')) {
+        if (str_starts_with($location, '?') || str_starts_with($location, '#')) {
             $path = parse_url($base, PHP_URL_PATH);
             return ($path === null || $path === '' ? '/' : $path) . $location;
         }
         if (str_starts_with($location, '/')) {
             return $location;
         }
-        $dir = rtrim((string) dirname((string) parse_url($base, PHP_URL_PATH)), '/');
-        return $dir . '/' . $location;
+        return self::mergePaths((string) parse_url($base, PHP_URL_PATH), $location);
+    }
+
+    /**
+     * The request stays in the app: scheme, host and effective port must match.
+     * A network-path reference ('//host/...') inherits the base scheme.
+     */
+    private function assertSameOrigin(string $base, string $location): void
+    {
+        $networkPath = str_starts_with($location, '//');
+        $baseParts = parse_url($base);
+        $targetParts = parse_url($networkPath ? 'http:' . $location : $location);
+        if (!is_array($baseParts) || !is_array($targetParts)) {
+            throw new LogicException("Refusing redirect to '{$location}': unparseable uri");
+        }
+        if ($networkPath) {
+            $targetParts['scheme'] = $baseParts['scheme'] ?? null;
+        }
+        $baseHost = strtolower((string) ($baseParts['host'] ?? ''));
+        $targetHost = strtolower((string) ($targetParts['host'] ?? ''));
+        if ($targetHost === '' || $targetHost !== $baseHost) {
+            throw new LogicException("Refusing cross-origin redirect to '{$location}'");
+        }
+        if (strtolower((string) ($baseParts['scheme'] ?? '')) !== strtolower((string) ($targetParts['scheme'] ?? ''))) {
+            throw new LogicException("Refusing cross-origin redirect to '{$location}'");
+        }
+        if (self::effectivePort($baseParts) !== self::effectivePort($targetParts)) {
+            throw new LogicException("Refusing cross-origin redirect to '{$location}'");
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $parts
+     */
+    private static function effectivePort(array $parts): ?int
+    {
+        $port = $parts['port'] ?? null;
+        if (is_int($port)) {
+            return $port;
+        }
+        $scheme = $parts['scheme'] ?? null;
+        return match (is_string($scheme) ? strtolower($scheme) : '') {
+            'http' => 80,
+            'https' => 443,
+            default => null,
+        };
+    }
+
+    /**
+     * Merge a relative reference against a base path (RFC 3986 section 5.2.3)
+     * and remove dot segments, so '../target' from '/a/source' is '/target'.
+     */
+    private static function mergePaths(string $basePath, string $location): string
+    {
+        $suffix = '';
+        $cut = min(
+            ($q = strpos($location, '?')) === false ? PHP_INT_MAX : $q,
+            ($h = strpos($location, '#')) === false ? PHP_INT_MAX : $h,
+        );
+        if ($cut !== PHP_INT_MAX) {
+            $suffix = substr($location, $cut);
+            $location = substr($location, 0, $cut);
+        }
+        if ($basePath === '' || $basePath === '/') {
+            $merged = '/' . $location;
+        } else {
+            $merged = substr($basePath, 0, (int) strrpos($basePath, '/') + 1) . $location;
+        }
+        return self::removeDotSegments($merged) . $suffix;
+    }
+
+    private static function removeDotSegments(string $path): string
+    {
+        $out = [];
+        foreach (explode('/', $path) as $segment) {
+            if ($segment === '.') {
+                continue;
+            }
+            if ($segment === '..') {
+                array_pop($out);
+                continue;
+            }
+            $out[] = $segment;
+        }
+        $result = implode('/', $out);
+        if (str_starts_with($path, '/') && !str_starts_with($result, '/')) {
+            $result = '/' . $result;
+        }
+        return $result === '' ? '/' : $result;
     }
 
     private function isRedirect(ResponseInterface $response): bool
