@@ -93,4 +93,46 @@ class AuthFlowFixture extends AbstractController
     {
         throw new RedirectException('/bounce', 303);
     }
+
+    public function originStart(): never
+    {
+        throw new RedirectException('/origin-middle', 307);
+    }
+
+    public function originMiddle(): never
+    {
+        throw new RedirectException('https://good.example/origin-end', 307);
+    }
+
+    public function originEnd(): string
+    {
+        return 'origin-ok';
+    }
+
+    public function headerForward(): never
+    {
+        throw new RedirectException('/header-echo', 303);
+    }
+
+    public function headerEcho(): string
+    {
+        return $this->request->getMethod()
+            . '|' . ($this->request->getHeaderLine('content-type') === '' ? 'no-ct' : 'ct')
+            . '|' . ($this->request->getHeaderLine('cookie') === '' ? 'no-cookie' : 'cookie');
+    }
+
+    public function dottedPage(): never
+    {
+        throw new RedirectException('.', 307);
+    }
+
+    public function dottedDir(): never
+    {
+        throw new RedirectException('next', 307);
+    }
+
+    public function dottedNext(): string
+    {
+        return 'dotted-ok';
+    }
 }

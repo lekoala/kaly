@@ -23,6 +23,7 @@ final readonly class RouteRequest
      * @param string $prefix The consumed part of the path (locale and entry point)
      * @param string $module The module namespace
      * @param array<string,true> $ownedActions Canonical controller actions owned by explicit routing, ignored by the convention
+     * @param bool $localeExplicit Whether the routing imposes `$locale`, as opposed to the application default
      */
     public function __construct(
         public ServerRequestInterface $request,
@@ -31,6 +32,7 @@ final readonly class RouteRequest
         public string $module,
         public ?string $locale = null,
         public array $ownedActions = [],
+        public bool $localeExplicit = false,
     ) {}
 
     /**
@@ -41,12 +43,16 @@ final readonly class RouteRequest
      */
     public function withOwnedActions(array $ownedActions): self
     {
-        return new self($this->request, $this->segments, $this->prefix, $this->module, $this->locale, $ownedActions);
+        return new self($this->request, $this->segments, $this->prefix, $this->module, $this->locale, $ownedActions, $this->localeExplicit);
     }
 
-    public function withLocale(?string $locale): self
+    /**
+     * The same request with another locale. Selecting a locale here is an
+     * explicit choice of the routing, so it is explicit by default.
+     */
+    public function withLocale(?string $locale, bool $localeExplicit = true): self
     {
-        return new self($this->request, $this->segments, $this->prefix, $this->module, $locale, $this->ownedActions);
+        return new self($this->request, $this->segments, $this->prefix, $this->module, $locale, $this->ownedActions, $localeExplicit);
     }
 
     /**
@@ -82,6 +88,6 @@ final readonly class RouteRequest
         array $middlewares = [],
         ?string $inputClass = null,
     ): Route {
-        return new Route($controller, $action, $params, $bindings, $name, $middlewares, $inputClass, $this->locale, $this->module);
+        return new Route($controller, $action, $params, $bindings, $name, $middlewares, $inputClass, $this->locale, $this->module, $this->localeExplicit);
     }
 }

@@ -28,6 +28,11 @@ $app->routing(TrailingSlash::Add, true);
   full paths distinguish the languages, and a mount may be named after a
   locale. An application-designed `/{locale}/...` topology reads the
   placeholder through the new `Kaly\Core\Middleware\RouteLocale` middleware.
+- `RouteLocale` now refuses a `{locale}` placeholder that contradicts an
+  explicitly declared route locale, even when that locale is the application
+  default. The distinction is carried by the new `Route::$localeExplicit`
+  (default `true`, no effect when `$locale` is null); a route matched without
+  an imposed locale keeps the placeholder's value.
 - `PreventFileAccess` is renamed to
   `Kaly\Http\Middleware\PreventSensitivePathAccess`: dotted application routes
   (`/sitemap.xml`, `/robots.txt`) now reach their handler, while sensitive

@@ -292,6 +292,17 @@
 - `TestClient` resolves relative redirect locations per RFC 3986 (dot-segment
   removal) and refuses anything off-origin: network-path references, scheme
   and effective-port changes, not just host changes.
+- `TestClient` keeps the request origin across relative redirects, so a later
+  absolute same-origin redirect is not mistaken for cross-origin; a fragment
+  reference keeps the base query. Dot-segment removal preserves a trailing
+  slash (`/a/b/page` + `.` is `/a/b/`).
+- `TestClient` drops the body headers and the stale request cookie
+  case-insensitively when a redirect switches to GET.
+- `RouteLocale` no longer lets an explicitly declared route locale be
+  overridden by the `{locale}` placeholder; a declared locale equal to the
+  application default still contradicts a different placeholder. The new
+  `Route::$localeExplicit` (default `true`, no effect when `$locale` is null)
+  carries the distinction from the routing to the middleware.
 
 - Static files are served with a correct Content-Type on every platform: CSS
   and JS no longer fall back to `text/plain` when fileinfo does (notably on

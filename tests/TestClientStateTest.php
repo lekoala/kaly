@@ -49,6 +49,14 @@ class TestClientStateTest extends TestCase
                     $routes->get('/abs', [AuthFlowFixture::class, 'absSource']);
                     $routes->get('/target-abs', [AuthFlowFixture::class, 'absTarget']);
                     $routes->get('/bounce', [AuthFlowFixture::class, 'bounce']);
+                    $routes->get('/origin-start', [AuthFlowFixture::class, 'originStart']);
+                    $routes->get('/origin-middle', [AuthFlowFixture::class, 'originMiddle']);
+                    $routes->get('/origin-end', [AuthFlowFixture::class, 'originEnd']);
+                    $routes->post('/header-forward', [AuthFlowFixture::class, 'headerForward']);
+                    $routes->get('/header-echo', [AuthFlowFixture::class, 'headerEcho']);
+                    $routes->get('/a/b/page', [AuthFlowFixture::class, 'dottedPage']);
+                    $routes->get('/a/b', [AuthFlowFixture::class, 'dottedDir']);
+                    $routes->get('/a/b/next', [AuthFlowFixture::class, 'dottedNext']);
                 });
             };
             PHP);
@@ -196,6 +204,43 @@ class TestClientStateTest extends TestCase
         $client->get('http://good.example/abs');
 
         $client->followRedirect()->assertStatus(200)->assertBody('abs-ok');
+    }
+
+    public function testRelativeRedirectKeepsTheRequestOrigin(): void
+    {
+        $client = TestClient::for($this->app);
+
+        $client->get('https://good.example/origin-start');
+        // '/origin-middle' is relative: the origin must survive the hop,
+        // otherwise the next absolute redirect looks cross-origin
+        $client->followRedirect()->assertStatus(307);
+        $client->followRedirect()->assertStatus(200)->assertBody('origin-ok');
+    }
+
+    public function testSwitchToGetDropsBodyHeadersAndStaleCookie(): void
+    {
+        $client = TestClient::for($this->app);
+
+        $client->post('/header-forward', [
+            'headers' => [
+                'cookie' => 'stale=1',
+                'content-type' => 'text/plain',
+                'content-length' => '3',
+            ],
+            'body' => 'abc',
+        ]);
+
+        $client->followRedirect()->assertStatus(200)->assertBody('GET|no-ct|no-cookie');
+    }
+
+    public function testDotSegmentRedirectKeepsTheTrailingSlash(): void
+    {
+        $client = TestClient::for($this->app);
+
+        $client->get('/a/b/page');
+        // Location: '.' from /a/b/page is /a/b/, not /a/b
+        $client->followRedirect()->assertStatus(307);
+        $client->followRedirect()->assertStatus(200)->assertBody('dotted-ok');
     }
 
     public function testAutoFollowWithLimit(): void

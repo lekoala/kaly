@@ -114,7 +114,7 @@ final class Router implements RouterInterface
         $this->enforceLocale($request, $module, $locale, $all);
 
         $prefix = ($locale !== null ? '/' . $locale : '') . $entry;
-        $routeRequest = new RouteRequest($request, $remaining, $prefix, $module->getNamespace(), $effective);
+        $routeRequest = new RouteRequest($request, $remaining, $prefix, $module->getNamespace(), $effective, localeExplicit: $locale !== null);
 
         // The route comes back final: module and locale already inside,
         // the name already qualified by the table that matched.

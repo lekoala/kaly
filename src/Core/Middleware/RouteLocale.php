@@ -61,7 +61,7 @@ final readonly class RouteLocale implements MiddlewareInterface
             throw new NotFoundException("Unsupported locale '{$value}'");
         }
 
-        if ($route->locale !== null && $route->locale !== $locale && $route->locale !== $this->resolver->getDefaultLocale()) {
+        if ($route->locale !== null && $route->localeExplicit && $route->locale !== $locale) {
             throw new Ex("Route locale '{$route->locale}' contradicts '{$this->param}' argument '{$locale}'");
         }
 

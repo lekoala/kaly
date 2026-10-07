@@ -63,7 +63,9 @@ $client->post('/login', ['form' => ['user' => 'ada'], 'maxRedirects' => 5])
 303 (and 301/302 on POST) become GET; 307/308 replay the method, the body and
 the parsed body
 (streams cannot be replayed and fail loudly). Query-only and relative
-locations resolve against the last request; cross-origin locations are
+locations resolve against the last request — keeping its origin, so a later
+absolute same-origin redirect is not mistaken for cross-origin; cross-origin
+locations are
 refused, and loops past the limit fail instead of hanging.
 
 Sessions across requests need a provider that outlives the cycle:

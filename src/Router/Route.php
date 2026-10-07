@@ -23,6 +23,7 @@ final readonly class Route
      * @param list<class-string> $middlewares The middlewares scoped to this route, outermost first
      * @param string|null $name The qualified name of the route (`module:name`), if it has one
      * @param string|null $module The module namespace
+     * @param bool $localeExplicit Whether the routing imposes `$locale`. No effect when `$locale` is null
      */
     public function __construct(
         public string $controller,
@@ -34,6 +35,7 @@ final readonly class Route
         public ?string $inputClass = null,
         public ?string $locale = null,
         public ?string $module = null,
+        public bool $localeExplicit = true,
     ) {}
 
     /**
@@ -51,6 +53,7 @@ final readonly class Route
             inputClass: $this->inputClass,
             locale: $this->locale,
             module: $this->module,
+            localeExplicit: $this->localeExplicit,
         );
     }
 

@@ -269,11 +269,10 @@ final class TestClient
         $switchToGet = $status === 303 || ($status === 301 || $status === 302) && $method === 'POST';
         $nextMethod = $switchToGet && $method !== 'HEAD' ? 'GET' : $method;
 
-        $headers = $this->lastRequest['headers'];
-        unset($headers['Cookie']);
+        $headers = self::withoutHeaders($this->lastRequest['headers'], 'Cookie');
         $body = $this->lastRequest['body'];
         if ($nextMethod !== $method) {
-            unset($headers['Content-Type'], $headers['Content-Length'], $headers['Transfer-Encoding']);
+            $headers = self::withoutHeaders($headers, 'Content-Type', 'Content-Length', 'Transfer-Encoding');
             $body = null;
         } elseif ($this->lastRequest['streamBody']) {
             throw new LogicException('The request body is a stream and cannot be replayed on redirect');
@@ -304,14 +303,60 @@ final class TestClient
             }
             return $location;
         }
-        if (str_starts_with($location, '?') || str_starts_with($location, '#')) {
-            $path = parse_url($base, PHP_URL_PATH);
-            return ($path === null || $path === '' ? '/' : $path) . $location;
+
+        // A relative reference resolves against the base origin: losing it
+        // would make a later absolute redirect look cross-origin
+        $origin = self::originOf($base);
+        $basePath = parse_url($base, PHP_URL_PATH);
+        $basePath = is_string($basePath) && $basePath !== '' ? $basePath : '/';
+
+        // A fragment keeps the base query; a bare query replaces it
+        if (str_starts_with($location, '#')) {
+            $query = parse_url($base, PHP_URL_QUERY);
+            return $origin . $basePath . (is_string($query) ? '?' . $query : '') . $location;
+        }
+        if (str_starts_with($location, '?')) {
+            return $origin . $basePath . $location;
         }
         if (str_starts_with($location, '/')) {
-            return $location;
+            return $origin . $location;
         }
-        return self::mergePaths((string) parse_url($base, PHP_URL_PATH), $location);
+        return $origin . self::mergePaths($basePath, $location);
+    }
+
+    /**
+     * The scheme and authority of an absolute uri, '' for a relative one.
+     */
+    private static function originOf(string $uri): string
+    {
+        $parts = parse_url($uri);
+        if (!is_array($parts) || !isset($parts['host'])) {
+            return '';
+        }
+        $scheme = $parts['scheme'] ?? null;
+        $origin = (is_string($scheme) && $scheme !== '' ? $scheme : 'http') . '://' . $parts['host'];
+        $port = $parts['port'] ?? null;
+        if (is_int($port)) {
+            $origin .= ':' . $port;
+        }
+        return $origin;
+    }
+
+    /**
+     * Drop headers by name, header names being case-insensitive.
+     *
+     * @param array<string,string> $headers
+     * @return array<string,string>
+     */
+    private static function withoutHeaders(array $headers, string ...$names): array
+    {
+        $lower = array_map(strtolower(...), $names);
+        foreach ($headers as $name => $_) {
+            if (in_array(strtolower((string) $name), $lower, true)) {
+                unset($headers[$name]);
+            }
+        }
+        return $headers;
     }
 
     /**
@@ -384,22 +429,40 @@ final class TestClient
 
     private static function removeDotSegments(string $path): string
     {
-        $out = [];
-        foreach (explode('/', $path) as $segment) {
-            if ($segment === '.') {
-                continue;
+        $input = $path;
+        $output = '';
+        while ($input !== '') {
+            if (str_starts_with($input, '../')) {
+                $input = substr($input, 3);
+            } elseif (str_starts_with($input, './')) {
+                $input = substr($input, 2);
+            } elseif (str_starts_with($input, '/./')) {
+                $input = '/' . substr($input, 3);
+            } elseif ($input === '/.') {
+                $input = '/';
+            } elseif (str_starts_with($input, '/../')) {
+                $input = '/' . substr($input, 4);
+                $slash = strrpos($output, '/');
+                $output = $slash === false ? '' : substr($output, 0, $slash);
+            } elseif ($input === '/..') {
+                $input = '/';
+                $slash = strrpos($output, '/');
+                $output = $slash === false ? '' : substr($output, 0, $slash);
+            } elseif ($input === '.' || $input === '..') {
+                $input = '';
+            } else {
+                // Move the first path segment (with its leading slash) over
+                $pos = strpos($input, '/', 1);
+                if ($pos === false) {
+                    $output .= $input;
+                    $input = '';
+                } else {
+                    $output .= substr($input, 0, $pos);
+                    $input = substr($input, $pos);
+                }
             }
-            if ($segment === '..') {
-                array_pop($out);
-                continue;
-            }
-            $out[] = $segment;
         }
-        $result = implode('/', $out);
-        if (str_starts_with($path, '/') && !str_starts_with($result, '/')) {
-            $result = '/' . $result;
-        }
-        return $result === '' ? '/' : $result;
+        return $output === '' ? '/' : $output;
     }
 
     private function isRedirect(ResponseInterface $response): bool
