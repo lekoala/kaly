@@ -528,11 +528,13 @@ final class App implements RequestHandlerInterface
                 $definitions->set(self::DEBUG_LOGGER, static fn(ContainerInterface $container) => $container->get(LoggerInterface::class));
             } else {
                 if ($this->debug) {
-                    // The debug artefact belongs to the runtime folder; temp/
-                    // is created on demand so a missing folder never breaks
-                    // the boot
-                    Fs::ensureDir($this->paths->temp());
-                    $definitions->set(self::DEBUG_LOGGER, new FileLogger($this->paths->temp() . 'debug.log'));
+                    // The debug artefact belongs to the disposable runtime
+                    // folder; the logs folder is created on demand so a
+                    // missing folder never breaks the boot. A logger with
+                    // retention is the application's own PSR-3 binding.
+                    $logDir = $this->paths->logs();
+                    Fs::ensureDir($logDir);
+                    $definitions->set(self::DEBUG_LOGGER, new FileLogger(Fs::toDir($logDir, 'debug.log')));
                 } else {
                     $definitions->set(self::DEBUG_LOGGER, NullLogger::class);
                 }

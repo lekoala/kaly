@@ -17,6 +17,6 @@ return static function (Module $module, Definitions $di): void {
 
     $di->set(RendererInterface::class, new KalyTplRenderer(new ViewEngine(__DIR__ . '/templates')))->set(
         App::DEBUG_LOGGER,
-        fn() => new FileLogger(dirname(__DIR__, 2) . '/temp/debug.log'),
+        fn() => new FileLogger(dirname(__DIR__, 2) . '/temp/logs/debug.log'),
     );
 };

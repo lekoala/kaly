@@ -15,6 +15,7 @@ use Kaly\Http\Middleware\FileServer;
 use Kaly\Http\ResponseEmitterInterface;
 use Kaly\I18n\Translator;
 use Kaly\I18n\TranslatorInterface;
+use Kaly\Log\FileLogger;
 use Kaly\Router\Route;
 use Kaly\Router\Router;
 use Kaly\Router\RouterInterface;
@@ -76,6 +77,16 @@ class AppTest extends TestCase
         $app->run(HttpFactory::createRequestFromGlobals()->withUri(new Uri('/test-module/index/foo/')));
 
         $this->assertSame(1, $emitter->emitted);
+    }
+
+    public function testTheDefaultDebugLoggerWritesToTempLogs(): void
+    {
+        // A module-less app keeps the framework default (the TestModule
+        // fixture used elsewhere rebinds App::DEBUG_LOGGER itself)
+        $app = App::create(__DIR__ . '/data/apps/logs')->boot();
+
+        $this->assertInstanceOf(FileLogger::class, $app->container()->get(App::DEBUG_LOGGER));
+        $this->assertDirectoryExists($app->paths()->logs());
     }
 
     public function testHandleBootsTheAppWhenNeeded(): void

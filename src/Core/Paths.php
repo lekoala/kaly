@@ -15,7 +15,8 @@ use Kaly\Util\Fs;
  *   modules/     one folder per module
  *   public/      the document root
  *   resources/   shared, non public files
- *   temp/        caches, compiled files
+ *   temp/        caches and other disposable runtime files
+ *     logs/      disposable runtime logs
  * ```
  */
 final readonly class Paths
@@ -55,6 +56,14 @@ final readonly class Paths
     public function temp(): string
     {
         return Fs::toDir($this->base, self::TEMP);
+    }
+
+    /**
+     * The disposable runtime logs folder
+     */
+    public function logs(): string
+    {
+        return Fs::toDir($this->temp(), 'logs');
     }
 
     /**
