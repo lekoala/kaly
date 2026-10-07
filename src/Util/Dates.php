@@ -28,8 +28,9 @@ use Throwable;
  *
  * The instant subset is deliberately narrow: `T` and `Z` may be lower case,
  * seconds run `00` to `59` (no leap second), fractional seconds hold 1 to 6
- * digits and the offset is `Z` or `±HH:MM` with an `00`–`23` hour. The unknown
- * local offset `-00:00` is not an explicit instant and is rejected.
+ * digits and the offset is `Z` or `±HH:MM` with an `00`–`23` hour. The subset
+ * deliberately excludes the unknown local offset `-00:00`, which states no
+ * explicit offset.
  */
 final class Dates
 {
