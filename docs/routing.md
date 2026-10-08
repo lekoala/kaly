@@ -77,6 +77,13 @@ spelling (`/Shop/`, `/SHOP/`) redirects to `/shop/`.
 | custom resolver | 0 | `$module->resolver(PageResolver::class, priority: 500)` |
 | convention | 1000 | implicit, removed with `$module->withoutConventionRouting()` |
 
+The route table declares reachability **explicitly**, so prefer it for the
+actions that matter: each route makes an action's url and policy visible. The
+convention is the convenience layer above it. While it is on, a controller's
+public methods are its conventional actions, and that is the only reason PHP
+visibility becomes HTTP reachability — it is on by default, and a module drops
+it with `$module->withoutConventionRouting()`.
+
 ### The route table
 
 Paths are relative to the module entry point: in a module mounted on `shop`, `/cart`

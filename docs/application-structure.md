@@ -72,6 +72,61 @@ implements a `BookingRepository` port declared by the domain or application, and
 port is what everything else depends on. See [Persistence](database.md), which is this
 same rule applied to databases.
 
+## HTTP action styles
+
+Kaly does not prescribe how HTTP actions are organized. A route targets either a
+public controller method or an invokable class, and the dispatcher treats both the
+same:
+
+```text
+Route
+  -> HTTP action (public controller method, or invokable class __invoke)
+  -> Application use case / Domain
+  -> View / Response / Redirect
+  -> responder (dispatcher + ViewResponder)
+```
+
+Two shapes are first-rank, and mixing them is normal:
+
+**Multi-action controller.** Several related actions in one class: few files, handy
+for CRUD and small surfaces. The conventional url `controller/action` derives from
+the class and method names; an explicit route to the same method works too and takes
+ownership of the action.
+
+```php
+final class BookingController
+{
+    public function show(string $id): View {}
+
+    public function confirm(string $id): View {}
+}
+```
+
+**Single-action / invokable class.** One class per endpoint, routed as
+`Action::class` (its `__invoke` method). Maximum isolation, fitting complex
+orchestration, API endpoints and thin handlers. It needs neither a base class nor an
+interface:
+
+```php
+final class ConfirmBookingAction
+{
+    public function __invoke(string $id): View {}
+}
+```
+
+```php
+$routes->get('/booking/{id}', [BookingController::class, 'show']);
+$routes->post('/booking/{id}/confirm', ConfirmBookingAction::class);
+```
+
+Both map onto ADR with no Kaly interface: the **Action** is the controller method or
+the `__invoke`, the **Domain** is the `Application` layer, the **Responder** is the
+dispatcher plus `ViewResponder`. An action returns a `View`, a `JsonResult`, an array
+or a string; to redirect it throws `Kaly\Http\Exception\RedirectException` — via
+`AbstractController::redirectToRoute()` when it extends the base class, or directly
+from an invokable action. Prefer [explicit routes](routing.md#the-route-table) so each
+action's url and middleware policy stay visible.
+
 ## Verify the boundaries with Mago Guard
 
 Conventions erode. Mago's **perimeter guard** turns these directions into a check:
