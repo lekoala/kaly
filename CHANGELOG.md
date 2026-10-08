@@ -1,6 +1,8 @@
 # Changelog
 ## Unreleased
 
+## 0.2.0 - 2026-10-08
+
 ### Added
 
 - `App::default()`: the recommended Kaly application profile (`Remove` with
