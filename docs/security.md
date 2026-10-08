@@ -37,9 +37,11 @@ Templates use the reserved `csrf` variable — the raw value, escaped by the
 engine. Rendering a view without calling `csrf.token()` never creates the
 session. See [Views](views.md):
 
+{% raw %}
 ```html
 <input type="hidden" name="{{ csrf.fieldName }}" value="{{ csrf.token }}">
 ```
+{% endraw %}
 
 Whether CSRF applies is a question of who sends the request, not of which
 `Authorization` scheme is present. A browser replays cached Basic credentials
@@ -105,9 +107,11 @@ one per response.
 
 Templates use the reserved `csp` variable, which is the very same object:
 
+{% raw %}
 ```html
 <script nonce="{{ csp.nonce }}" src="{{ asset('app.js') }}"></script>
 ```
+{% endraw %}
 
 The policy itself is an outgoing middleware away — the band exists precisely
 for response headers that must be there whatever produced the response. Only

@@ -309,11 +309,13 @@ protection. It is documented under [Security](security.md): the `Csrf`
 session primitive, `CsrfMiddleware` (login-CSRF included, without requiring
 authentication), and the reserved `csrf` template variable next to `auth`:
 
+{% raw %}
 ```twig
 {% if auth.isAuthenticated %}
     Hello {{ auth.principal.name }}
 {% endif %}
 ```
+{% endraw %}
 
 Bearer APIs carry no automatic credential, so they mount no CSRF middleware;
 a cookie-authenticated SPA does.
@@ -328,12 +330,14 @@ and CSRF all see the effective method. It is opt-in and disabled by default:
 $app->middleware()->incoming(MethodOverrideMiddleware::class);
 ```
 
+{% raw %}
 ```html
 <form method="post" action="...">
     <input type="hidden" name="_method" value="DELETE">
     <input type="hidden" name="_csrf" value="{{ csrf.token }}">
 </form>
 ```
+{% endraw %}
 
 Only real POST requests are overridable; the `_method` field is read from
 true HTML submissions (never JSON — JSON clients use the

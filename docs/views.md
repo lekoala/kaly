@@ -78,6 +78,7 @@ context: keep the two distinct.
 `TwigRenderer` installs a small Kaly extension that exposes the capabilities
 idiomatically, and injects the rest as variables:
 
+{% raw %}
 ```twig
 {{ 'account.title'|trans }}
 {{ url('account') }}
@@ -86,6 +87,7 @@ idiomatically, and injects the rest as variables:
 {{ csp.nonce() }}
 {% if auth.allows('account.edit') %}...{% endif %}
 ```
+{% endraw %}
 
 The extension is stateless: every helper reads the capability from the context of
 the current render. Configure the Twig environment completely before wrapping it
@@ -124,7 +126,7 @@ register them as engine globals: a collision is rejected.
 
 With Twig, `include ... only` drops the parent context on purpose, so the
 capabilities are gone too. Pass the ones the partial needs explicitly, eg
-`{% include 'partial.twig' with {url: url} only %}`. A Kaly helper whose
+{% raw %}`{% include 'partial.twig' with {url: url} only %}`{% endraw %}. A Kaly helper whose
 capability is missing fails with an explicit error instead of recovering a
 hidden parent context. Never install per-request globals on the shared Twig
 environment: a global mutated for one request leaks into the next in a worker.

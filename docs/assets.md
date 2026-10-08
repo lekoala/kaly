@@ -30,10 +30,12 @@ $assets->url('app.css');
 $assets->url('@admin/admin.js');
 ```
 
+{% raw %}
 ```twig
 <link rel="stylesheet" href="{{ asset('app.css') }}">
 <script type="module" src="{{ asset('@admin/admin.js') }}"></script>
 ```
+{% endraw %}
 
 Because the relative tree is preserved from source to URL, relative references
 keep working with zero rewriting:
