@@ -73,6 +73,10 @@ capabilities are ordinary variables:
 `$url('account')` generates the url, `$v->url(...)` escapes it for a URL
 context: keep the two distinct.
 
+Use `$v->date($date)`, `$v->time($date)` and `$v->datetime($date)` for localized
+display. Keep persistence and serialization formats at their own boundaries;
+the view formatter handles presentation styles such as `short` and `medium`.
+
 ### Twig
 
 `TwigRenderer` installs a small Kaly extension that exposes the capabilities

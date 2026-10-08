@@ -76,6 +76,11 @@ class UtilTest extends TestCase
         $this->assertSame('my-page', Str::slug('  My Page  '));
         // An underscore is dropped rather than turned into a separator
         $this->assertSame('mypage', Str::slug('my_page'));
+        $this->assertSame('hello-world-2', Str::slug('hello-world-2'));
+        $this->assertSame('2-hello', Str::slug('2-hello'));
+        $this->assertSame('2026-10-08', Str::slug('2026-10-08'));
+        $this->assertSame('a-b-2', Str::slug('a  --  b -- 2'));
+        $this->assertSame('0', Str::slug('0'));
     }
 
     public function testEncodingHelpers(): void

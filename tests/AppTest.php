@@ -129,6 +129,30 @@ class AppTest extends TestCase
         $this->assertSame($clock, $app->container()->get(ClockInterface::class));
     }
 
+    public function testDefaultClockIsResolvable(): void
+    {
+        $app = App::create(__DIR__)->routing(TrailingSlash::Add, true)->boot();
+        $clock = $app->container()->get(ClockInterface::class);
+
+        $this->assertInstanceOf(SystemClock::class, $clock);
+        $this->assertSame(date_default_timezone_get(), $clock->now()->getTimezone()->getName());
+        $this->assertInstanceOf(SystemClock::class, $app->container()->get(SystemClock::class));
+    }
+
+    public function testClockTimezoneCanBeConfigured(): void
+    {
+        $app = App::create(__DIR__)
+            ->routing(TrailingSlash::Add, true)
+            ->configure(static function (Definitions $di): void {
+                $di->parameter(SystemClock::class, 'timezone', 'Asia/Tokyo');
+            })
+            ->boot();
+        $clock = $app->container()->get(ClockInterface::class);
+
+        $this->assertInstanceOf(SystemClock::class, $clock);
+        $this->assertSame('Asia/Tokyo', $clock->now()->getTimezone()->getName());
+    }
+
     public function testRebindKeepsTheParametersAndCallbacksAttachedToTheId(): void
     {
         $fired = 0;

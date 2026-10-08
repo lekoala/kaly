@@ -508,6 +508,11 @@ final class App implements RequestHandlerInterface
             }
         }
 
+        // A timezone is configuration, not an autowired DateTimeZone service.
+        if (!array_key_exists('timezone', $definitions->parametersFor(SystemClock::class))) {
+            $definitions->parameter(SystemClock::class, 'timezone', null);
+        }
+
         // One CookiePolicy per App: the historical baseline unless the
         // application bound its own. Never a mutable process-global.
         if (!$definitions->has(CookiePolicy::class)) {

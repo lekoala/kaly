@@ -63,7 +63,7 @@ final class Str
      */
     public static function slug(?string $str): string
     {
-        if (!$str) {
+        if ($str === null || $str === '') {
             return '';
         }
         // Intl is only suggested: fall back to a best-effort ascii slug
@@ -80,15 +80,13 @@ final class Str
             :: NFC;
             :: [^-[:^Punctuation:]] Remove;
             :: Lower();
-            [:^L:] { [-] > ;
-            [-] } [:^L:] > ;
             [-[:Separator:]]+ > '-';
             RULES;
-        $slug = Transliterator::createFromRules($rules)?->transliterate($str) ?: '';
+        $slug = Transliterator::createFromRules($rules)?->transliterate($str);
 
         // The rules keep the leading and trailing separators; a slug does not
         // carry them, and the fallback above already trimmed
-        return trim($slug, '-');
+        return trim(is_string($slug) ? $slug : '', '-');
     }
 
     /**

@@ -1,6 +1,22 @@
 # Changelog
 ## Unreleased
 
+### Added
+
+- `TestClient` accepts `files` containing PSR-7 uploaded files, including nested
+  and multiple uploads, alongside optional `form` data. Redirects preserve the
+  files on 307/308 and discard them when switching to GET.
+- Application time conventions for `ClockInterface`, `Dates`, `FrozenClock`,
+  persistence formats and localized template formatting.
+
+### Fixed
+
+- The default `ClockInterface` and `SystemClock` resolve without configuration:
+  the timezone parameter defaults explicitly to PHP's default timezone instead
+  of attempting to autowire `DateTimeZone`.
+- **Behavior change:** `Str::slug()` preserves hyphens next to digits, including
+  `hello-world-2`, and preserves the string `0`. Existing numeric slugs may change.
+
 ## 0.2.0 - 2026-10-08
 
 ### Added

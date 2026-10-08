@@ -72,6 +72,33 @@ implements a `BookingRepository` port declared by the domain or application, and
 port is what everything else depends on. See [Persistence](database.md), which is this
 same rule applied to databases.
 
+## Time dependencies
+
+Inject `Psr\Clock\ClockInterface` into services that need the current instant
+and call `$clock->now()`. Kaly binds it to `Kaly\Clock\SystemClock` by default,
+using the PHP default timezone; no application binding is required.
+Use `Kaly\Util\Dates` to parse and validate incoming dates and times, rather
+than relying on PHP's permissive date parsing. See [Utilities](utils.md).
+
+For deterministic tests, replace the clock before booting:
+
+```php
+use Kaly\Clock\FrozenClock;
+use Kaly\Di\Definitions;
+use Kaly\Util\Dates;
+use Psr\Clock\ClockInterface;
+
+$clock = new FrozenClock(Dates::instant('2026-10-08T12:00:00Z'));
+$app->configure(static function (Definitions $di) use ($clock): void {
+    $di->rebind(ClockInterface::class, $clock);
+});
+```
+
+Choose storage formats at the persistence boundary, including the timezone
+and precision needed by the application. Let the presentation engine handle
+localized display: with kaly-tpl, use `$v->date()`, `$v->time()` and
+`$v->datetime()` instead of formatting display dates manually.
+
 ## HTTP action styles
 
 Kaly does not prescribe how HTTP actions are organized. A route targets either a

@@ -34,10 +34,25 @@ $client->get('/search', ['query' => ['q' => 'kaly']]);
 $client->post('/login', ['form' => ['user' => 'ada']]);
 ```
 
-The `$options` vocabulary is closed: `headers`, `query`, `form`, `json`, a raw
+The `$options` vocabulary is closed: `headers`, `query`, `form`, `files`, `json`, a raw
 `body`, explicit `cookies`, and `maxRedirects` for automatic redirect
 following — a single body kind per request. Anything else fails loudly instead
 of being silently ignored.
+
+For uploads, pass PSR-7 `UploadedFileInterface` objects in `files`, optionally
+alongside `form`:
+
+```php
+$client->post('/admin/media', [
+    'form' => ['title' => 'Photo'],
+    'files' => ['image' => $uploadedFile, 'gallery' => [$firstFile, $secondFile]],
+]);
+```
+
+Nested arrays and upload errors are preserved. The client sets the parsed body
+and uploaded files directly on the server request; it does not encode a multipart
+body or generate a multipart content type. `files` cannot be combined with `json`
+or a raw `body`. Construct the uploaded objects using your PSR-7 implementation.
 
 `TestResponse` offers `assertStatus()`, `assertHeader()`, `assertLocation()`,
 `assertBody()` and `assertJson()`: plain PHPUnit assertions, so failures are real
@@ -61,12 +76,15 @@ $client->post('/login', ['form' => ['user' => 'ada'], 'maxRedirects' => 5])
 ```
 
 303 (and 301/302 on POST) become GET; 307/308 replay the method, the body and
-the parsed body
+the parsed body and uploaded file objects
 (streams cannot be replayed and fail loudly). Query-only and relative
 locations resolve against the last request — keeping its origin, so a later
 absolute same-origin redirect is not mistaken for cross-origin; cross-origin
 locations are
 refused, and loops past the limit fail instead of hanging.
+When a redirect changes the request to GET, form data and files are discarded.
+Replayed uploads reuse the same objects, so files already moved by the application
+are not recreated.
 
 Sessions across requests need a provider that outlives the cycle:
 `Kaly\Test\MemorySessionProvider` keeps the data while the client jar carries

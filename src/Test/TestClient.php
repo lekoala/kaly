@@ -10,6 +10,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
+use Psr\Http\Message\UploadedFileInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 /**
@@ -40,7 +41,7 @@ final class TestClient
     private ?TestResponse $lastResponse = null;
 
     /**
-     * @var array{method:string,uri:string,headers:array<string,string>,body:?string,streamBody:bool,parsedBody:array<array-key,mixed>|object|null}|null
+     * @var array{method:string,uri:string,headers:array<string,string>,body:?string,streamBody:bool,parsedBody:array<array-key,mixed>|object|null,files:array<array-key,mixed>}|null
      */
     private ?array $lastRequest = null;
 
@@ -69,22 +70,29 @@ final class TestClient
     /**
      * Send a request and get the response with fluent assertions.
      *
-     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
+     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,files?:array<array-key,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
      *   Closed vocabulary: headers to send, query params merged into the uri,
      *   one of json (encoded, JSON content type), form (urlencoded body, parsed
      *   body set as a server would) or a raw body; cookies explicitly sent
      *   (winning over the stored ones); maxRedirects automatically followed
-     *   redirects, 0 by default.
+     *   redirects, 0 by default. files is a tree of UploadedFileInterface objects,
+     *   optionally alongside form, set directly on the PSR-7 request.
      */
     public function request(string $method, string $uri, array $options = []): TestResponse
     {
-        $unknown = array_diff(array_keys($options), ['headers', 'query', 'form', 'json', 'body', 'cookies', 'maxRedirects']);
+        $unknown = array_diff(array_keys($options), ['headers', 'query', 'form', 'files', 'json', 'body', 'cookies', 'maxRedirects']);
         if ($unknown !== []) {
             throw new \InvalidArgumentException('Unknown request options: ' . implode(', ', $unknown));
         }
         $bodies = array_intersect(['json', 'form', 'body'], array_keys($options));
         if (count($bodies) > 1) {
             throw new \InvalidArgumentException('Only one of json, form or body may be given, got: ' . implode(', ', $bodies));
+        }
+        if (array_key_exists('files', $options)) {
+            if (array_key_exists('json', $options) || array_key_exists('body', $options)) {
+                throw new \InvalidArgumentException('files may only be combined with form');
+            }
+            self::assertUploadedFiles($options['files']);
         }
         $maxRedirects = $options['maxRedirects'] ?? 0;
         if (!is_int($maxRedirects) || $maxRedirects < 0) {
@@ -137,7 +145,7 @@ final class TestClient
     }
 
     /**
-     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
+     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,files?:array<array-key,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
      */
     public function get(string $uri, array $options = []): TestResponse
     {
@@ -145,7 +153,7 @@ final class TestClient
     }
 
     /**
-     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
+     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,files?:array<array-key,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
      */
     public function post(string $uri, array $options = []): TestResponse
     {
@@ -153,7 +161,7 @@ final class TestClient
     }
 
     /**
-     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
+     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,files?:array<array-key,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
      */
     public function put(string $uri, array $options = []): TestResponse
     {
@@ -161,7 +169,7 @@ final class TestClient
     }
 
     /**
-     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
+     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,files?:array<array-key,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
      */
     public function patch(string $uri, array $options = []): TestResponse
     {
@@ -169,7 +177,7 @@ final class TestClient
     }
 
     /**
-     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
+     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,files?:array<array-key,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,maxRedirects?:int} $options
      */
     public function delete(string $uri, array $options = []): TestResponse
     {
@@ -177,7 +185,7 @@ final class TestClient
     }
 
     /**
-     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,parsedBody?:array<array-key,mixed>|object|null} $options
+     * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,files?:array<array-key,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,parsedBody?:array<array-key,mixed>|object|null} $options
      */
     // A linear request builder: the volume reflects the number of supported
     // option shapes, not intertwined control flow.
@@ -216,6 +224,9 @@ final class TestClient
         if (array_key_exists('json', $options)) {
             $body = (string) json_encode($options['json']);
             $request = $request->withHeader('Content-Type', 'application/json')->withBody($this->streams->createStream($body));
+        } elseif (array_key_exists('files', $options) && !array_key_exists('body', $options)) {
+            // Model the server's parsed request directly, without multipart encoding.
+            $request = $request->withParsedBody($options['form'] ?? []);
         } elseif (array_key_exists('form', $options)) {
             $body = http_build_query($options['form']);
             $request = $request
@@ -238,6 +249,8 @@ final class TestClient
             $request = $request->withParsedBody($options['parsedBody']);
         }
 
+        $request = $request->withUploadedFiles($options['files'] ?? []);
+
         $sentHeaders = [];
         foreach ($request->getHeaders() as $name => $values) {
             $sentHeaders[(string) $name] = implode(', ', $values);
@@ -249,12 +262,27 @@ final class TestClient
             'body' => $body,
             'streamBody' => $streamBody,
             'parsedBody' => $request->getParsedBody(),
+            'files' => $request->getUploadedFiles(),
         ];
 
         $response = new TestResponse($this->handler->handle($request));
         $this->storeCookies($response->response());
         $this->lastResponse = $response;
         return $response;
+    }
+
+    /**
+     * @param array<array-key,mixed> $files
+     */
+    private static function assertUploadedFiles(array $files): void
+    {
+        foreach ($files as $file) {
+            if (is_array($file)) {
+                self::assertUploadedFiles($file);
+            } elseif (!$file instanceof UploadedFileInterface) {
+                throw new \InvalidArgumentException('Every file must be an UploadedFileInterface or a nested array of uploaded files');
+            }
+        }
     }
 
     private function hop(ResponseInterface $redirect): TestResponse
@@ -289,6 +317,9 @@ final class TestClient
         ];
         if ($nextMethod === $method && $this->lastRequest['parsedBody'] !== null) {
             $options['parsedBody'] = $this->lastRequest['parsedBody'];
+        }
+        if ($nextMethod === $method) {
+            $options['files'] = $this->lastRequest['files'];
         }
 
         return $this->send($nextMethod, $uri, $options);
