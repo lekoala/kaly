@@ -365,6 +365,43 @@ The Core bridge is installed automatically when an error view is bound and no
 explicit error-page implementation exists. Keep broader error conversion, such
 as domain-to-HTTP mapping, at `ExceptionHandlerInterface`.
 
+### The error responder seam
+
+Rendering an HTTP error with the application's normal renderer needs no new
+abstraction. The boundary `Throwable -> ResponseInterface` is
+`Kaly\Http\ExceptionHandlerInterface`, and the per-status template selection is
+`Kaly\Core\ErrorViewInterface` (`Kaly\Http\ErrorPageInterface` for an HTTP-only
+integration without Kaly runtime state). Mapping a status to a template is an
+ordinary `match`:
+
+```php
+return match ($status) {
+    403 => View::of('@app/errors/403', ['status' => $status]),
+    404 => View::of('@app/errors/404', ['status' => $status]),
+    429 => View::of('@app/errors/429', ['status' => $status]),
+    500 => View::of('@app/errors/500', ['status' => $status]),
+    default => null,
+};
+```
+
+A proposed `ErrorResponderInterface` that returns a response directly would
+duplicate `ExceptionHandlerInterface`; the fallback when nothing is selected
+already exists, since `null` keeps Kaly's standard response.
+
+The selector is only consulted when the exception exposes no public body. A
+non-empty `getResponseBody()` is an explicit representation and takes precedence
+over the error view, so a message-bearing `HttpException` answers with plain
+text instead. An exception that wants the application template leaves its body
+empty; this is how `NotFoundException` (404), `ForbiddenException` (403) and
+`TooManyRequestsException` (429, with an optional `Retry-After`) opt into
+`ErrorViewInterface` while keeping their status and headers.
+
+An error view is not a re-render of a form. It receives the request capabilities
+Kaly reserves (`i18n`, `url`, `asset`, `auth`, `csrf`, `csp`) but none of the
+submitted values. Preserving values across an error — and never re-displaying a
+submitted password, for example after a `429` — is an explicit application
+decision, not something the handler restores for you.
+
 ## Summary
 
 ```text

@@ -13,6 +13,7 @@ use Kaly\Di\Definitions;
 use Kaly\Http\ErrorPageInterface;
 use Kaly\Http\Exception\HttpException;
 use Kaly\Http\Exception\NotFoundException;
+use Kaly\Http\Exception\TooManyRequestsException;
 use Kaly\Http\ExceptionHandler;
 use Kaly\Router\TrailingSlash;
 use Kaly\Tpl\ViewEngine;
@@ -76,6 +77,25 @@ final class ErrorViewTest extends TestCase
         $this->assertSame(500, $response->getStatusCode());
         $this->assertStringContainsString('url:yes|error:500', (string) $response->getBody());
         $this->assertStringNotContainsString('private failure', (string) $response->getBody());
+    }
+
+    public function testAThrottleRendersThroughTheErrorView(): void
+    {
+        $view = $this->errorView();
+        $app = $this->app($view);
+        $app->middleware()->incoming(new class implements MiddlewareInterface {
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+            {
+                throw new TooManyRequestsException(30);
+            }
+        });
+
+        $response = $app->handle(new ServerRequest('GET', '/'));
+
+        $this->assertSame(429, $response->getStatusCode());
+        $this->assertSame('30', $response->getHeaderLine('Retry-After'));
+        $this->assertStringContainsString('error:429', (string) $response->getBody());
+        $this->assertSame(1, $view->calls);
     }
 
     public function testConsecutiveErrorsUseIndependentLocales(): void

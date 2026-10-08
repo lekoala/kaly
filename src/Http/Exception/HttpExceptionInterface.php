@@ -25,7 +25,13 @@ interface HttpExceptionInterface
     public function getResponseHeaders(): array;
 
     /**
-     * The raw response body
+     * The raw response body.
+     *
+     * A non-empty body is an explicit representation and takes precedence
+     * over the application error view. Return an empty body when the
+     * exception should be rendered through `Kaly\Core\ErrorViewInterface`
+     * instead, as the silent client errors (`NotFoundException`,
+     * `ForbiddenException`, `TooManyRequestsException`) do.
      */
     public function getResponseBody(): string;
 }

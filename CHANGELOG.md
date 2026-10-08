@@ -71,6 +71,13 @@
   and fall back without recursive error rendering.
 - `Kaly\Http\ErrorPageInterface` provides the runtime-independent HTML fallback
   used by `ExceptionHandler`; Core bridges error views to it automatically.
+- `Kaly\Http\Exception\TooManyRequestsException` (429, empty public body,
+  optional `Retry-After`) so a throttle renders through `ErrorViewInterface`
+  like the other silent client errors.
+- `Kaly\Core\ViolationMessageResolver` composes `Validation` and `I18n` to
+  resolve one violation message with its fallback; `LocalizedExceptionHandler`
+  now uses it, so an adapter no longer reinterprets
+  `messageId`/`domain`/`fallback`.
 
 - A consumer-facing `kaly` agent skill in `skills/kaly/`, with focused
   references for application structure, HTTP/routing, DI/runtime,
@@ -141,6 +148,8 @@
 - Documentation: [Building a Kaly application](docs/application-structure.md)
   describes the recommended module layout, a Mago Guard profile for the layer
   boundaries, the three integration seams, and the domain-error to HTTP mapping.
+  [kaly-forms](docs/recipes/kaly-forms.md) documents integrating the
+  `lekoala/kaly-forms` companion, now suggested in `composer.json`.
 
 - `Kaly\Http\ContentType::forFile()` resolves the Content-Type of a served file
   deterministically for web extensions (`.css`, `.js`, ...), falling back to

@@ -87,3 +87,8 @@ $client->post('/shop/checkout/', ['json' => ['email' => 'ada@example.test']])
 
 Generate the form action with `$url('shop:checkout')` so templates never
 hardcode paths. See [Views](views.md) and [Testing](testing.md).
+
+For rich server-rendered form presentation and progressive enhancement, the
+companion [`kaly-forms`](recipes/kaly-forms.md) library builds on these values
+and violations. Kaly's native forms cover request input and validation;
+`kaly-forms` adds the rendering and interaction layer.

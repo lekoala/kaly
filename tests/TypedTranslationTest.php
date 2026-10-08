@@ -8,6 +8,7 @@ use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Core\HttpContext;
 use Kaly\Core\LocalizedExceptionHandler;
+use Kaly\Core\ViolationMessageResolver;
 use Kaly\Di\Definitions;
 use Kaly\Http\ExceptionHandler;
 use Kaly\Http\ExceptionHandlerInterface;
@@ -179,6 +180,30 @@ class TypedTranslationTest extends TestCase
         $this->assertSame('email', $violation->messageId);
         $this->assertSame('validation', $violation->domain);
         $this->assertSame('This value is not a valid email address', $this->emailException()->getResponseBody());
+    }
+
+    public function testViolationResolverUsesTheCatalogByIdAndDomain(): void
+    {
+        $resolver = new ViolationMessageResolver(new LocalizedTranslator($this->translator(), 'fr'));
+        $violation = new Violation('email', 'email', 'email', 'fallback', domain: 'validation');
+
+        $this->assertSame('Cette adresse e-mail n’est pas valide', $resolver->resolve($violation));
+    }
+
+    public function testViolationResolverFormatsParameters(): void
+    {
+        $resolver = new ViolationMessageResolver(new LocalizedTranslator($this->translator(), 'en'));
+        $violation = new Violation('email', 'required', 'required', 'fallback', ['%field%' => 'email'], 'validation');
+
+        $this->assertSame('Field email is required', $resolver->resolve($violation));
+    }
+
+    public function testViolationResolverFallsBackWhenTheKeyIsMissing(): void
+    {
+        $resolver = new ViolationMessageResolver(new LocalizedTranslator($this->translator(), 'fr'));
+        $violation = new Violation('name', 'custom_code', 'untranslated.key', 'Fallback text', domain: 'app');
+
+        $this->assertSame('Fallback text', $resolver->resolve($violation));
     }
 
     public function testResolvePropagatesNonNullDomain(): void

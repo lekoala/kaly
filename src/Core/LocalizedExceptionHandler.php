@@ -63,19 +63,14 @@ final class LocalizedExceptionHandler implements ExceptionHandlerInterface
         InputException|ValidationException $exception,
         LocalizedTranslator $i18n,
     ): InputException|ValidationException {
+        $resolve = new ViolationMessageResolver($i18n);
         $violations = [];
         foreach ($exception->validation()->violations() as $violation) {
-            // The native translator returns the id itself when a key is
-            // missing: for a violation that means the fallback wins.
-            $message = $i18n->translate($violation->messageId, $violation->parameters, $violation->domain);
-            if ($message === $violation->messageId) {
-                $message = $violation->fallback;
-            }
             $violations[] = new Violation(
                 $violation->field,
                 $violation->code,
                 $violation->messageId,
-                $message,
+                $resolve->resolve($violation),
                 $violation->parameters,
                 $violation->domain,
             );

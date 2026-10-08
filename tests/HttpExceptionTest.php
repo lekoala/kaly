@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Kaly\Ex;
 use Kaly\Http\Exception\ForbiddenException;
 use Kaly\Http\Exception\HttpException;
@@ -11,6 +13,7 @@ use Kaly\Http\Exception\HttpExceptionInterface;
 use Kaly\Http\Exception\MethodNotAllowedException;
 use Kaly\Http\Exception\NotFoundException;
 use Kaly\Http\Exception\RedirectException;
+use Kaly\Http\Exception\TooManyRequestsException;
 use Kaly\Http\Input\InputException;
 use Kaly\Http\Input\ValidationException;
 use Kaly\Router\RouteNotFoundException;
@@ -43,6 +46,7 @@ class HttpExceptionTest extends TestCase
             new RouteNotFoundException(),
             new ForbiddenException(),
             new MethodNotAllowedException(['GET']),
+            new TooManyRequestsException(),
             $this->unmappedInput(),
             $this->invalidInput(),
             new RedirectException('/x'),
@@ -61,6 +65,7 @@ class HttpExceptionTest extends TestCase
         $this->assertSame(404, (new NotFoundException())->status());
         $this->assertSame(403, (new ForbiddenException())->status());
         $this->assertSame(405, (new MethodNotAllowedException())->status());
+        $this->assertSame(429, (new TooManyRequestsException())->status());
         $this->assertSame(400, $this->unmappedInput()->status());
         $this->assertSame(422, $this->invalidInput()->status());
         $this->assertSame(307, (new RedirectException('/x'))->status());
@@ -81,6 +86,7 @@ class HttpExceptionTest extends TestCase
         $this->assertSame('', (new NotFoundException())->getResponseBody());
         $this->assertSame('', (new ForbiddenException())->getResponseBody());
         $this->assertSame('', (new MethodNotAllowedException(['GET']))->getResponseBody());
+        $this->assertSame('', (new TooManyRequestsException(30))->getResponseBody());
 
         $this->assertSame('This value must not be blank', $this->unmappedInput()->getResponseBody());
         $this->assertSame('This value must not be blank', $this->invalidInput()->getResponseBody());
@@ -91,6 +97,12 @@ class HttpExceptionTest extends TestCase
         $this->assertSame(['Allow' => 'GET, POST'], (new MethodNotAllowedException(['GET', 'POST', 'GET']))->getResponseHeaders());
         $this->assertSame([], (new MethodNotAllowedException([]))->getResponseHeaders());
         $this->assertSame(['Location' => '/target'], (new RedirectException('/target'))->getResponseHeaders());
+        $this->assertSame([], (new TooManyRequestsException())->getResponseHeaders());
+        $this->assertSame(['Retry-After' => '30'], (new TooManyRequestsException(30))->getResponseHeaders());
+        $this->assertSame(
+            ['Retry-After' => 'Fri, 02 Jan 2026 03:04:05 GMT'],
+            (new TooManyRequestsException(new DateTimeImmutable('2026-01-02 03:04:05', new DateTimeZone('UTC'))))->getResponseHeaders(),
+        );
     }
 
     /**
