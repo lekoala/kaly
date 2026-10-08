@@ -74,11 +74,18 @@ same rule applied to databases.
 
 ## Time dependencies
 
-Inject `Psr\Clock\ClockInterface` into services that need the current instant
-and call `$clock->now()`. Kaly binds it to `Kaly\Clock\SystemClock` by default,
-using the PHP default timezone; no application binding is required.
+When the current time affects application behavior, inject
+`Psr\Clock\ClockInterface` and call `$clock->now()` instead of `time()`,
+`new DateTimeImmutable()` or `new DateTimeImmutable('now')`. Kaly binds it to
+`Kaly\Clock\SystemClock` by default, using the PHP default timezone;
+no application binding is required.
 Use `Kaly\Util\Dates` to parse and validate incoming dates and times, rather
 than relying on PHP's permissive date parsing. See [Utilities](utils.md).
+
+Prefer application-supplied timestamps over database-generated timestamps
+when business behavior depends on them, so the injected clock also controls
+those scenarios in tests. Direct access to system time belongs in `SystemClock`
+and infrastructure that explicitly owns that responsibility.
 
 For deterministic tests, replace the clock before booting:
 
@@ -95,7 +102,11 @@ $app->configure(static function (Definitions $di) use ($clock): void {
 ```
 
 Choose storage formats at the persistence boundary, including the timezone
-and precision needed by the application. Let the presentation engine handle
+and precision needed by the application. Checking the exact stored
+representation belongs in the application's persistence codec; import formats
+and sentinels belong in the import adapter. See
+[Parsing vs. application conventions](utils.md#parsing-vs-application-conventions).
+Let the presentation engine handle
 localized display: with kaly-tpl, use `$v->date()`, `$v->time()` and
 `$v->datetime()` instead of formatting display dates manually.
 

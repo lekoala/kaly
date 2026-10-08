@@ -131,7 +131,7 @@ class AppTest extends TestCase
 
     public function testDefaultClockIsResolvable(): void
     {
-        $app = App::create(__DIR__)->routing(TrailingSlash::Add, true)->boot();
+        $app = App::default(__DIR__ . '/data/apps/logs')->boot();
         $clock = $app->container()->get(ClockInterface::class);
 
         $this->assertInstanceOf(SystemClock::class, $clock);

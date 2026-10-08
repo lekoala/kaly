@@ -25,6 +25,8 @@ The goal before 1.0 is to converge toward the smallest, clearest, most durable p
 
 ## Design
 
+- Follow the [time dependency conventions](docs/application-structure.md#time-dependencies)
+  for application behavior, parsing, persistence and presentation.
 - Validate declarations early when validation is cheap and already belongs to
   a compilation step — eg route table normalization. Otherwise, let normal
   execution expose invalid application code; the framework is not a static

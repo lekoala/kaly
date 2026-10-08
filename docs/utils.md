@@ -16,9 +16,10 @@ because they carry no HTTP or runtime state.
 
 Two questions, two answers:
 
-- **What time is it?** Depend on `Psr\Clock\ClockInterface`, inject
-  `Kaly\Clock\SystemClock` (PHP default timezone, or an explicit one) and
-  freeze it with `Kaly\Clock\FrozenClock` in tests.
+- **What time is it?** Inject `Psr\Clock\ClockInterface`, bound by default to
+  `Kaly\Clock\SystemClock` (PHP default timezone, or an explicit one), and
+  replace it with `Kaly\Clock\FrozenClock` in tests. See the
+  [time dependency conventions](application-structure.md#time-dependencies).
 - **Is this string a valid date?** Use `Kaly\Util\Dates`, described below.
 
 ## Dates
@@ -32,19 +33,34 @@ Conventions to know:
 - Throwing factories (`date()`, `instant()`, `at()`) for already-validated
   boundaries, nullable `try*` twins for user input, `is*` predicates for
   guards — the same strict-by-default shape as the JSON boundary.
-- A missing timezone means the PHP default timezone (as with `SystemClock`);
-  `''` falls back to `UTC`. `instant()` never consults it: the offset is
-  mandatory in the string.
+- For `date()` and `at()`, a missing timezone means the PHP default timezone
+  (as with `SystemClock`); `''` falls back to `UTC`.
+- `instant()` and `tryInstant()` require and preserve the input offset;
+  they never use the PHP default timezone. Use native `setTimezone()` to
+  convert the result to another timezone.
 - `isDate()` is a pure calendar check while `date()` guarantees a real local
   midnight: a midnight skipped by a DST transition is rejected, and an
   unknown timezone string always throws, even when the value is invalid too.
-- The instant subset is narrow on purpose: optional `T`/`Z` in either case,
-  seconds `00`–`59`, 1 to 6 fractional digits, offset `Z` or `±HH:MM`.
+- The instant subset is narrow on purpose: a `T` separator in either case,
+  seconds `00`–`59`, optionally 1 to 6 fractional digits, offset `Z` (either
+  case) or `±HH:MM`.
   Leap seconds and the unknown `-00:00` offset are rejected.
 
 What it is not: durations, arithmetic, calendars, humanization and rich
 `LocalDate` modeling stay out. Reach for `brick/date-time`, `bakame/tokei`
 or Carbon instead — all three are listed in `suggest`.
+
+### Parsing vs. application conventions
+
+`Dates` validates common date and time representations. Source-specific
+conventions, such as database zero dates, import formats and missing-value
+sentinels, belong to their respective adapters.
+
+Applications define timestamp storage formats and precision at the persistence
+boundary. Use `Dates::instant()` to validate supported RFC 3339 values, and
+native `DateTimeImmutable` operations for timezone conversion and formatting.
+Checking an exact canonical storage representation belongs in the application's
+persistence codec.
 
 ## Values in, values out
 

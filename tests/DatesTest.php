@@ -164,6 +164,28 @@ class DatesTest extends TestCase
         Dates::instant('tomorrow');
     }
 
+    public function testInstantPreservesInputOffsetRegardlessOfTheDefaultTimezone(): void
+    {
+        $previous = date_default_timezone_get();
+        date_default_timezone_set('Asia/Tokyo');
+        try {
+            $value = '2026-10-08T12:30:00.123456-03:30';
+            $this->assertSame($value, Dates::instant($value)->format('Y-m-d\TH:i:s.uP'));
+            $this->assertSame($value, Dates::tryInstant($value)?->format('Y-m-d\TH:i:s.uP'));
+        } finally {
+            date_default_timezone_set($previous);
+        }
+    }
+
+    public function testTryInstantRejectsMissingOffsetsAndImpossibleDates(): void
+    {
+        $this->assertNull(Dates::tryInstant('2026-10-08T12:30:00'));
+        $this->assertNull(Dates::tryInstant('2026-02-31T12:30:00Z'));
+
+        $this->expectException(InvalidArgumentException::class);
+        Dates::instant('2026-10-08T12:30:00');
+    }
+
     public function testAtCombinesDateAndTime(): void
     {
         $previous = date_default_timezone_get();
