@@ -21,6 +21,7 @@ Use the sidebar to browse the guides. Start with
 - [App](app.md)
 - [Modules](modules.md)
 - [Building a Kaly application](application-structure.md)
+- [Application composition](application-composition.md)
 - [Http context](http-context.md)
 - [Runtime](runtime.md)
 - [Routing](routing.md)

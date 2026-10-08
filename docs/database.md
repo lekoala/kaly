@@ -158,6 +158,107 @@ Same shape works for HTTP, CLI, workers, queue, and tests.
 Multiple databases need no connection names: typed DI is enough
 (`MainDatabase`, `AnalyticsDatabase` as separate application ports).
 
+## Choosing a backend
+
+Kaly does not prescribe an ORM, and it does not require one. Choose persistence
+tools according to the model and the lifecycle of the application, not
+according to framework integration. The engine itself — SQLite, MySQL, MariaDB,
+PostgreSQL, or another — matters less than the way the application uses it.
+
+### A persistence decision checklist
+
+Before choosing an ORM or a database abstraction, ask:
+
+**Lifecycle** — Can the main runtime process live for hours or days? Does the
+library keep mutable state between operations? Can that state be disposed of
+explicitly?
+
+**Domain fit** — Do entities benefit from an identity map and a unit of work?
+Is the application primarily CRUD, or does it have strongly separated
+command/read models?
+
+**Query fit** — Will important queries depend on features of the chosen engine?
+Are search and reporting projections more naturally expressed as SQL?
+
+**Existing investment** — Does the team already have mappings, migrations and
+operational knowledge for one tool? Migration cost is a legitimate
+architectural constraint.
+
+**Tooling** — How will the application handle schema changes, migrations,
+fixtures, test databases, debugging and profiling?
+
+Kaly deliberately does not answer these questions for the application.
+
+### Comparing common options
+
+| Need / property | Doctrine ORM | Cycle ORM | DBAL / PDO |
+|---|---|---|---|
+| Existing Doctrine model | excellent | migration required | complement |
+| Rich identity map / unit of work | yes | yes, different model | no |
+| State to discard between operations | dedicated manager factory | natural with a disposable unit of work | generally simple |
+| Long-running worker | discipline required | naturally suited | mostly a matter of the connection |
+| `final` entities | usually possible | watch out for proxies | not applicable |
+| Engine-specific queries | often step down to DBAL | often step down to SQL | excellent |
+| Read models / projections | often overkill | often overkill | recommended |
+| Migrations / schema | rich ecosystem | focused ecosystem | choose separately |
+| Team inertia / skills | very common | to evaluate | very accessible |
+
+> Kaly does not recommend an ORM. It recommends making the lifetime of
+> persistence state explicit.
+
+### Let the engine do its work
+
+Do not hide persistence behind a lowest-common-denominator layer. Every engine
+has capabilities worth using — native types, constraints, full-text search,
+JSON documents, upserts, or specific query features — and recreating weaker
+equivalents in PHP, or restricting the application to the intersection of all
+engines, is usually the wrong trade. An application that has chosen its engine
+should be free to use what that engine does well.
+
+Keep persistence ports at the level of meaning, not at the level of SQL. A port
+describes what the application needs (`CatalogSearch`, `OrderRepository`); its
+implementation is unapologetically tied to the chosen engine, and the rest of
+the application never depends on the SQL representation. This is not about
+being portable: it is about keeping the engine-specific code in one place while
+still using it.
+
+```text
+write model
+    → ORM
+
+read model
+    → SQL / DBAL
+
+search
+    → engine-specific query
+
+reporting
+    → SQL projection
+```
+
+### Do not choose one abstraction for ideological consistency
+
+> Prefer one tool when it fits naturally. Use another when the model changes.
+
+Using several persistence styles is often healthier than forcing every access
+path through a single abstraction merely because it is already installed:
+
+```text
+ORM
+    transactional write model
+
+DBAL
+    read models and simple queries
+
+SQL
+    search and reporting projections
+
+Redis
+    ephemeral coordination
+```
+
+This is not a compromise. It is often a better separation of responsibilities.
+
 ## Dependency rules
 
 ```text
@@ -180,6 +281,9 @@ should fail fast rather than simulate savepoints. A future savepoint need is
 an explicit capability, not a silent change of meaning.
 
 ## Recipes
+
+The general doctrine for composing external libraries is in
+[Application composition](application-composition.md).
 
 - [Doctrine](recipes/doctrine.md): shared factory, per-operation manager,
   explicit transactions;
