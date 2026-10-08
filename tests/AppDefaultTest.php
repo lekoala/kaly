@@ -18,9 +18,7 @@ class AppDefaultTest extends TestCase
     {
         $reflection = new ReflectionClass($app);
         $trailing = $reflection->getProperty('trailingSlash');
-        $trailing->setAccessible(true);
         $prefixes = $reflection->getProperty('localePrefixes');
-        $prefixes->setAccessible(true);
 
         $trailingSlash = $trailing->getValue($app);
         if (!$trailingSlash instanceof TrailingSlash) {

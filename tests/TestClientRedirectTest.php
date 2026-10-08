@@ -25,7 +25,6 @@ class TestClientRedirectTest extends TestCase
     {
         $this->client = TestClient::for(App::create(__DIR__)->routing(TrailingSlash::Add, true)->boot());
         $this->resolve = new ReflectionMethod($this->client, 'resolveLocation');
-        $this->resolve->setAccessible(true);
     }
 
     protected function tearDown(): void
