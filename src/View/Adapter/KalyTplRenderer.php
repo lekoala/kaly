@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kaly\View\Adapter;
 
 use Kaly\Tpl\ViewEngine;
+use Kaly\View\RenderEnvironmentInterface;
 use Kaly\View\RendererInterface;
-use Kaly\View\RenderVariables;
 use Kaly\View\TemplateLocatorInterface;
 use Kaly\View\TemplatePathRegistryInterface;
 
@@ -22,22 +22,18 @@ final class KalyTplRenderer implements RendererInterface, TemplateLocatorInterfa
     ) {}
 
     /**
-     * Framework capabilities are forwarded as per-render shared data so they
+     * Reserved capabilities are forwarded as per-render shared data so they
      * stay available in partials and layouts; everything else is a page local.
      *
      * @param array<string,mixed> $data
      */
-    public function render(string $template, array $data = []): string
+    public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
     {
-        $shared = [];
-        foreach (RenderVariables::SHARED as $name) {
-            if (array_key_exists($name, $data)) {
-                $shared[$name] = $data[$name];
-                unset($data[$name]);
-            }
+        if ($environment !== null) {
+            $environment->assertCompatible($data);
         }
 
-        return (string) $this->engine->render($template, $data, sharedData: $shared);
+        return (string) $this->engine->render($template, $data, sharedData: $environment?->variables() ?? []);
     }
 
     public function has(string $template): bool

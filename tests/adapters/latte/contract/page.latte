@@ -1,0 +1,1 @@
+caps:{$i18n->locale()}:{$i18n->translate('global.test')}:{$url('home')}:{$asset('app.css')}:{$auth->isAuthenticated() ? 'yes' : 'no'}:{$csrf->token() ? 'csrf' : 'no-csrf'}:{$csp->nonce() ? 'nonce' : 'no-nonce'}|page:{$pageLocal ?? 'none'}

@@ -148,7 +148,7 @@ class RequestInputTest extends TestCase
         $factory = new Psr17Factory();
         $dispatcher = new RequestDispatcher(
             new Injector(new Container(new Definitions())),
-            new ViewResponder(new Translator('en'), $factory, $factory),
+            new ViewResponder(new Translator('en'), $factory, $factory, $router),
             $factory,
             $factory,
         );

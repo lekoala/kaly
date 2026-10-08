@@ -27,9 +27,17 @@
 - Recipes under `docs/recipes/`: Doctrine (per-operation factory), Cycle,
   Symfony Translator, console and cron. Stateful resources stay per operation
   with explicit transactions and closing; no request-scope container is added.
-- Render capability guarantees: the six `RenderVariables::SHARED` helpers
-  reach kaly-tpl partials and layouts and stay isolated across concurrent
-  renders; Twig `include ... only` usage is documented.
+- Render environment separation: `RendererInterface::render()` takes an
+  optional `Kaly\View\RenderEnvironmentInterface` alongside page data, so the
+  six reserved capabilities (`i18n`, `url`, `asset`, `auth`, `csrf`, `csp`) can
+  never be silently replaced by view data. `Kaly\Core\RenderEnvironment`
+  composes the typed capabilities, `Kaly\Router\UrlView` and
+  `Kaly\Asset\AssetView` replace the raw url/asset closures, and the Twig
+  adapter installs a small stateless Kaly extension (`trans` filter, `url()` and
+  `asset()` functions) with explicit conflict detection. `RenderVariables` is
+  removed: a collision with a reserved name is now a `Kaly\Ex`, and the six
+  capabilities stay isolated across concurrent renders. Twig `include ... only`
+  usage is documented.
 
 - Strict web date parsing through `Kaly\Util\Dates`: `isDate()` / `isTime()` /
   `isInstant()` validators plus throwing (`date()`, `instant()`, `at()`) and

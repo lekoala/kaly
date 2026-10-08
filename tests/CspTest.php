@@ -17,6 +17,7 @@ use Kaly\I18n\Translator;
 use Kaly\Router\Route;
 use Kaly\Router\RouterInterface;
 use Kaly\Tests\Mocks\DispatcherController;
+use Kaly\View\RenderEnvironmentInterface;
 use Kaly\View\RendererInterface;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
@@ -75,7 +76,7 @@ class CspTest extends TestCase
         $factory = new Psr17Factory();
         $dispatcher = new RequestDispatcher(
             new Injector(new Container(new Definitions())),
-            new ViewResponder((new Translator('en'))->addPath(__DIR__ . '/data/lang'), $factory, $factory, $renderer),
+            new ViewResponder((new Translator('en'))->addPath(__DIR__ . '/data/lang'), $factory, $factory, $router, $renderer),
             $factory,
             $factory,
         );
@@ -97,9 +98,9 @@ final class CapturingRenderer implements RendererInterface
     /**
      * @param array<string,mixed> $data
      */
-    public function render(string $template, array $data = []): string
+    public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
     {
-        $csp = $data['csp'] ?? null;
+        $csp = $environment?->variables()['csp'] ?? null;
 
         if ($csp instanceof Csp) {
             $this->csp = $csp;

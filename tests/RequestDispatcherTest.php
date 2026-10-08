@@ -18,11 +18,12 @@ use Kaly\I18n\LocalizedTranslator;
 use Kaly\I18n\Translator;
 use Kaly\Router\Route;
 use Kaly\Router\RouterInterface;
+use Kaly\Router\UrlView;
 use Kaly\Tests\Mocks\DispatcherController;
 use Kaly\Tpl\ViewEngine;
 use Kaly\View\Adapter\KalyTplRenderer;
+use Kaly\View\RenderEnvironmentInterface;
 use Kaly\View\RendererInterface;
-use Kaly\View\RenderVariables;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\TestCase;
@@ -65,7 +66,12 @@ class RequestDispatcherTest extends TestCase
 
         $translator = (new Translator('en'))->addPath(__DIR__ . '/data/lang');
 
-        $dispatcher = new RequestDispatcher($injector, new ViewResponder($translator, $factory, $factory, $renderer), $factory, $factory);
+        $dispatcher = new RequestDispatcher(
+            $injector,
+            new ViewResponder($translator, $factory, $factory, $router, $renderer),
+            $factory,
+            $factory,
+        );
 
         // The dispatcher only runs behind the routing step
         return new RoutingHandler($router, $localeResolver ?? new LocaleResolver('en', ['en', 'fr']), $dispatcher);
@@ -132,7 +138,7 @@ class RequestDispatcherTest extends TestCase
     public function testViewIsRendered(): void
     {
         $renderer = new class implements RendererInterface {
-            public function render(string $template, array $data = []): string
+            public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
             {
                 $title = $data['title'] ?? null;
                 return $template . ':' . (is_scalar($title) ? (string) $title : '');
@@ -147,9 +153,9 @@ class RequestDispatcherTest extends TestCase
     public function testRenderReceivesALocalizedTranslator(): void
     {
         $renderer = new class implements RendererInterface {
-            public function render(string $template, array $data = []): string
+            public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
             {
-                $i18n = $data[RenderVariables::I18N];
+                $i18n = $environment?->variables()['i18n'] ?? null;
                 assert($i18n instanceof LocalizedTranslator);
                 return $i18n->locale() . ':' . $i18n->translate('global.test');
             }
@@ -166,11 +172,11 @@ class RequestDispatcherTest extends TestCase
     public function testRouteLocaleWinsOverHeaders(): void
     {
         $renderer = new class implements RendererInterface {
-            public function render(string $template, array $data = []): string
+            public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
             {
-                $i18n = $data[RenderVariables::I18N];
-                assert($i18n instanceof LocalizedTranslator);
-                return $i18n->locale();
+                $i18n = $environment?->variables()['i18n'] ?? null;
+
+                return $i18n instanceof LocalizedTranslator ? $i18n->locale() : '';
             }
         };
 
@@ -186,30 +192,30 @@ class RequestDispatcherTest extends TestCase
         $this->assertSame('fr', $body['locale']);
     }
 
-    public function testI18nIsReservedAndOverridesViewData(): void
+    public function testI18nIsReservedAndRejectedInViewData(): void
     {
         $renderer = new class implements RendererInterface {
-            public function render(string $template, array $data = []): string
+            public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
             {
-                return get_debug_type($data[RenderVariables::I18N]);
+                return '';
             }
         };
 
-        $response = $this->dispatch($this->dispatcher('viewResultWithI18n', $renderer));
-        $this->assertSame(LocalizedTranslator::class, (string) $response->getBody());
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage("View data cannot contain the reserved variable 'i18n'");
+        $this->dispatch($this->dispatcher('viewResultWithI18n', $renderer));
     }
 
     public function testRenderReceivesAUrlGeneratorBoundToTheRequestLocale(): void
     {
         $renderer = new class implements RendererInterface {
-            public function render(string $template, array $data = []): string
+            public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
             {
-                $url = $data[RenderVariables::URL];
-                if (!$url instanceof \Closure) {
+                $url = $environment?->variables()['url'] ?? null;
+                if (!$url instanceof UrlView) {
                     return '';
                 }
-                $result = $url('shop:product', ['slug' => 'velo']);
-                return is_string($result) ? $result : '';
+                return $url('shop:product', ['slug' => 'velo']);
             }
         };
 
@@ -221,17 +227,18 @@ class RequestDispatcherTest extends TestCase
         $this->assertSame('en:shop:product', (string) $this->dispatch($dispatcher)->getBody());
     }
 
-    public function testUrlIsReservedAndOverridesViewData(): void
+    public function testUrlIsReservedAndRejectedInViewData(): void
     {
         $renderer = new class implements RendererInterface {
-            public function render(string $template, array $data = []): string
+            public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
             {
-                return get_debug_type($data[RenderVariables::URL]);
+                return '';
             }
         };
 
-        $response = $this->dispatch($this->dispatcher('viewResultWithUrl', $renderer));
-        $this->assertSame('Closure', (string) $response->getBody());
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage("View data cannot contain the reserved variable 'url'");
+        $this->dispatch($this->dispatcher('viewResultWithUrl', $renderer));
     }
 
     public function testJsonResultCarriesStatusAndHeaders(): void
@@ -246,7 +253,7 @@ class RequestDispatcherTest extends TestCase
     public function testViewResultWithStatusAnswersWithThatStatus(): void
     {
         $renderer = new class implements RendererInterface {
-            public function render(string $template, array $data = []): string
+            public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
             {
                 $title = $data['title'] ?? null;
                 return $template . ':' . (is_scalar($title) ? (string) $title : '');

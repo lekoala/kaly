@@ -179,6 +179,9 @@ final class TestClient
     /**
      * @param array{headers?:array<string,string>,query?:array<string,mixed>,form?:array<string,mixed>,json?:mixed,body?:string|StreamInterface,cookies?:array<string,string>,parsedBody?:array<array-key,mixed>|object|null} $options
      */
+    // A linear request builder: the volume reflects the number of supported
+    // option shapes, not intertwined control flow.
+    // @mago-expect lint:halstead
     private function send(string $method, string $uri, array $options): TestResponse
     {
         $headers = $options['headers'] ?? [];

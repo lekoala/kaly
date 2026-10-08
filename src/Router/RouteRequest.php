@@ -88,6 +88,17 @@ final readonly class RouteRequest
         array $middlewares = [],
         ?string $inputClass = null,
     ): Route {
-        return new Route($controller, $action, $params, $bindings, $name, $middlewares, $inputClass, $this->locale, $this->module, $this->localeExplicit);
+        return new Route(
+            $controller,
+            $action,
+            $params,
+            $bindings,
+            $name,
+            $middlewares,
+            $inputClass,
+            $this->locale,
+            $this->module,
+            $this->localeExplicit,
+        );
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Core;
 
 use Kaly\Asset\AssetsInterface;
+use Kaly\Asset\AssetView;
 use Kaly\Asset\NullAssets;
 use Kaly\Auth\AuthView;
 use Kaly\Ex;
@@ -15,8 +16,8 @@ use Kaly\I18n\LocaleResolver;
 use Kaly\I18n\LocalizedTranslator;
 use Kaly\I18n\TranslatorInterface;
 use Kaly\Router\RouterInterface;
+use Kaly\Router\UrlView;
 use Kaly\View\RendererInterface;
-use Kaly\View\RenderVariables;
 use Kaly\View\View;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -29,11 +30,11 @@ final class ViewResponder
         private TranslatorInterface $translator,
         private ResponseFactoryInterface $responseFactory,
         private StreamFactoryInterface $streamFactory,
+        private RouterInterface $router,
         private ?RendererInterface $renderer = null,
         private ?AssetsInterface $assets = null,
         private ?Csrf $csrf = null,
         private LocaleResolver $localeResolver = new LocaleResolver(),
-        private ?RouterInterface $router = null,
     ) {
         $this->assets ??= new NullAssets();
         $this->csrf ??= new Csrf();
@@ -47,24 +48,24 @@ final class ViewResponder
         if (!$ctx->hasLocale()) {
             $ctx->useLocale($this->localeResolver->resolve($ctx->request()));
         }
-        if ($this->router !== null) {
-            $ctx->useRouter($this->router);
-        }
         $assets = $this->assets;
         $csrf = $this->csrf;
         assert($assets !== null && $csrf !== null);
-        $data = [
-            ...$view->data,
-            RenderVariables::I18N => new LocalizedTranslator($this->translator, $ctx->locale()),
-            RenderVariables::URL => $ctx->url(...),
-            RenderVariables::ASSET => $assets->url(...),
-            RenderVariables::AUTH => new AuthView($ctx->auth()),
-            RenderVariables::CSRF => new CsrfView($csrf, $ctx->session(...)),
-            RenderVariables::CSP => $ctx->csp(),
-        ];
+
+        $locale = $ctx->locale();
+        $environment = new RenderEnvironment(
+            i18n: new LocalizedTranslator($this->translator, $locale),
+            url: new UrlView($this->router, $locale),
+            asset: new AssetView($assets),
+            auth: new AuthView($ctx->auth()),
+            csrf: new CsrfView($csrf, $ctx->session(...)),
+            csp: $ctx->csp(),
+        );
+        $environment->assertCompatible($view->data);
+
         return $this->responseFactory
             ->createResponse($view->status)
             ->withHeader('Content-Type', ContentType::HTML)
-            ->withBody($this->streamFactory->createStream($this->renderer->render($view->template, $data)));
+            ->withBody($this->streamFactory->createStream($this->renderer->render($view->template, $view->data, $environment)));
     }
 }

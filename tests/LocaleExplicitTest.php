@@ -43,14 +43,9 @@ class LocaleExplicitTest extends TestCase
         $request = new ServerRequest('GET', '/nl/hello');
         $ctx = new HttpContext($request);
         $ctx->bind($request);
-        $ctx->useRoute(new Route(
-            LocaleEchoFixture::class,
-            'hello',
-            $params,
-            locale: $routeLocale,
-            name: 'site:hello',
-            localeExplicit: $explicit,
-        ));
+        $ctx->useRoute(
+            new Route(LocaleEchoFixture::class, 'hello', $params, locale: $routeLocale, name: 'site:hello', localeExplicit: $explicit),
+        );
         $ctx->useLocale('en');
 
         return $ctx;

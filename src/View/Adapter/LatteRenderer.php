@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\View\Adapter;
 
+use Kaly\View\RenderEnvironmentInterface;
 use Kaly\View\RendererInterface;
 use Kaly\View\TemplateLocatorInterface;
 use Kaly\View\TemplatePathRegistryInterface;
@@ -24,9 +25,16 @@ final class LatteRenderer implements RendererInterface, TemplateLocatorInterface
     /**
      * @param array<string,mixed> $data
      */
-    public function render(string $template, array $data = []): string
+    public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
     {
-        return $this->engine->renderToString($template, $data);
+        if ($environment !== null) {
+            $environment->assertCompatible($data);
+        }
+
+        return $this->engine->renderToString($template, [
+            ...$data,
+            ...($environment?->variables() ?? []),
+        ]);
     }
 
     public function has(string $template): bool

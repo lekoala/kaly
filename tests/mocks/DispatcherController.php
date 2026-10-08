@@ -70,14 +70,14 @@ class DispatcherController extends AbstractController
 
     public function viewResultWithI18n(): View
     {
-        // i18n is reserved: the dispatcher always overrides it
-        return new View('template', ['i18n' => 'should be overridden']);
+        // i18n is reserved: a collision with the render environment is an error
+        return new View('template', ['i18n' => 'should be rejected']);
     }
 
     public function viewResultWithUrl(): View
     {
-        // url is reserved: the dispatcher always overrides it
-        return new View('template', ['url' => 'should be overridden']);
+        // url is reserved: a collision with the render environment is an error
+        return new View('template', ['url' => 'should be rejected']);
     }
 
     public function jsonResponseResult(): JsonResult

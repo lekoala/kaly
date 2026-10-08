@@ -116,9 +116,13 @@ class AuthFlowFixture extends AbstractController
 
     public function headerEcho(): string
     {
-        return $this->request->getMethod()
-            . '|' . ($this->request->getHeaderLine('content-type') === '' ? 'no-ct' : 'ct')
-            . '|' . ($this->request->getHeaderLine('cookie') === '' ? 'no-cookie' : 'cookie');
+        return (
+            $this->request->getMethod()
+            . '|'
+            . ($this->request->getHeaderLine('content-type') === '' ? 'no-ct' : 'ct')
+            . '|'
+            . ($this->request->getHeaderLine('cookie') === '' ? 'no-cookie' : 'cookie')
+        );
     }
 
     public function dottedPage(): never
