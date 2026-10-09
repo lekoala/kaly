@@ -3,6 +3,9 @@
 
 ### Added
 
+- `Kaly\Auth\PasswordHasher` provides an injectable password hashing policy
+  with `hash()`, `verify()` and `needsRehash()`, using PHP defaults unless configured.
+  Auth and testing recipes cover password creation, login, rehashing and fast fixtures.
 - `Fs::ensureDir()` accepts a creation mode (default `0o755`, subject to umask)
   and tolerates concurrent directory creation, throwing `Kaly\Ex` on failure.
 - `TestClient` accepts `files` containing PSR-7 uploaded files, including nested

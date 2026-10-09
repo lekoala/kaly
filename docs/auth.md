@@ -17,10 +17,66 @@ The boundary is deliberate:
 
 That means Kaly provides the current identity, the session lifecycle, the
 `Authorization` parsing, a permission set, CSRF and method override — while
-the application owns the user repository, password checking, roles and domain
-policies. Password hashing (`password_hash()` / `password_verify()`),
-remember-me storage, JWT, OAuth and OIDC stay outside: external mechanisms
+the application owns the user repository, credential rules, roles and domain
+policies. `PasswordHasher` supplies a configurable hashing primitive; the
+application chooses its policy and decides when to check a password.
+Remember-me storage, JWT, OAuth and OIDC stay outside: external mechanisms
 all converge on the same `Authentication`.
+
+## Password hashing
+
+Inject `Kaly\Auth\PasswordHasher` into the application service that creates
+users, the login controller and fixture seeders. It is a concrete, stateless
+policy with three operations:
+
+```php
+use Kaly\Auth\PasswordHasher;
+
+$passwords = new PasswordHasher(); // PASSWORD_DEFAULT, PHP's default options
+$hash = $passwords->hash('secret');
+$passwords->verify('secret', $hash); // true
+$passwords->needsRehash($hash);      // false under the same policy
+```
+
+The default policy resolves through constructor autowiring. To choose another
+policy, declare it in the application's composition root:
+
+```php
+use Kaly\Auth\PasswordHasher;
+use Kaly\Di\Definitions;
+
+$app->configure(static function (Definitions $di): void {
+    $di->set(PasswordHasher::class, new PasswordHasher(PASSWORD_BCRYPT, ['cost' => 12]));
+});
+```
+
+Choose the algorithm and options for your application's deployment. This class
+delegates to PHP's native password functions, including their validation and
+exceptions; invalid configuration is exposed when used. `verify()` reads the
+algorithm and options stored in the hash, so changing the configured policy
+still allows existing passwords to be verified. `needsRehash()` compares that
+metadata against the current policy. Password arguments are marked
+`SensitiveParameter` to redact them from exception traces.
+
+At registration or administrator creation, hash before persistence and pass
+the hash to the repository. The seeder accepts a hash rather than choosing its
+own cryptographic cost:
+
+```php
+$users->create(
+    email: $input->email,
+    passwordHash: $passwords->hash($input->password),
+);
+
+$initializer->seedAdministrator(
+    email: 'admin@example.test',
+    passwordHash: $passwords->hash($administratorPassword),
+);
+```
+
+`Users`, input objects and the initializer in these recipes are application
+types. They own validation, persistence and account rules. Hashing fixtures
+uses the same dependency with a cheaper policy; see [Testing](testing.md#password-fixtures).
 
 ## Current identity
 
@@ -195,15 +251,57 @@ return $handler->handle($request);
 Kaly will not grow `denyAccessUnlessGranted()` and family: the guard you can
 read is the whole abstraction.
 
-A login controller validates credentials through the application, then
-delegates the lifecycle and redirects (303):
+A login controller receives the repository, hashing policy and session
+lifecycle through its constructor, verifies credentials, then redirects (303).
+The example assumes that `Users::authenticationIdentity()` reloads the current
+principal and permissions, as in `ResolveUser` above:
 
 ```php
-public function post(LoginInput $input): never
+final class LoginController extends AbstractController
 {
-    $user = $this->users->findByEmail($input->email);
+    public function __construct(
+        ServerRequestInterface $request,
+        private Users $users,
+        private PasswordHasher $passwords,
+        private SessionAuthentication $sessionAuth,
+    ) {
+        parent::__construct($request);
+    }
 
-    if ($user === null || !password_verify($input->password, $user->passwordHash)) {
+    public function post(LoginInput $input): never
+    {
+        $user = $this->users->findByEmail($input->email);
+
+        if ($user === null || !$this->passwords->verify($input->password, $user->passwordHash)) {
+            $this->invalidCredentials();
+        }
+
+        if ($this->passwords->needsRehash($user->passwordHash)) {
+            $replacement = $this->passwords->hash($input->password);
+            if (!$this->users->replacePasswordHash($user->id, $user->passwordHash, $replacement)) {
+                $this->invalidCredentials();
+            }
+        }
+
+        $identity = $this->users->authenticationIdentity((string) $user->id);
+        if ($identity === null) {
+            $this->invalidCredentials();
+        }
+
+        $ctx = $this->ctx();
+        $this->sessionAuth->login(
+            $ctx->session(),
+            $ctx->auth(),
+            (string) $user->id,
+            $identity->principal,
+            $identity->permissions,
+        );
+
+        $this->redirectToRoute('admin:dashboard');
+    }
+
+    private function invalidCredentials(): never
+    {
         $validator = new Validator();
         $validator->add(new Violation(
             field: null,
@@ -214,18 +312,21 @@ public function post(LoginInput $input): never
         ));
         throw new ValidationException($validator->result());
     }
-
-    $this->sessionAuth->login(
-        $this->ctx->session(),
-        $this->ctx->auth(),
-        (string) $user->id,
-        $user,
-        $permissions,
-    );
-
-    $this->redirectToRoute('admin:dashboard');
 }
 ```
+
+`Users::replacePasswordHash($id, $expectedHash, $replacement)` is an
+application repository operation: update only when the stored hash still
+equals `$expectedHash`, and return whether the update succeeded. This prevents
+an opportunistic rehash from overwriting a concurrent password change. The
+example refuses the login when that comparison fails; retrying authentication
+is another application policy. Rehash only after successful verification.
+
+The complete cycle is: hash at creation, load and verify at login, optionally
+rehash, call `SessionAuthentication::login()`, then reload the principal and
+permissions through `ResolveUser` on each subsequent request. Password checking
+does not establish an identity by itself, so OAuth, passkeys and SSO can use the
+same session lifecycle without involving `PasswordHasher`.
 
 When the password is only the first step, the login branches into a
 pending challenge instead of calling `login()` right away: the session

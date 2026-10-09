@@ -99,6 +99,51 @@ $app = App::create(__DIR__)
     ->boot();
 ```
 
+## Password fixtures
+
+Use the same injected `Kaly\Auth\PasswordHasher` for fixtures, seeders and
+login code, with a cheap bcrypt policy in the test composition:
+
+```php
+use Kaly\Auth\PasswordHasher;
+use Kaly\Core\App;
+use Kaly\Di\Definitions;
+
+$app = App::create(__DIR__)
+    ->configure(static function (Definitions $di): void {
+        $di->set(PasswordHasher::class, new PasswordHasher(PASSWORD_BCRYPT, ['cost' => 4]));
+    })
+    ->boot();
+
+$passwords = $app->container()->get(PasswordHasher::class);
+$initializer->seedAdministrator(
+    email: 'admin@example.test',
+    passwordHash: $passwords->hash('secret'),
+);
+```
+
+`set()` declares the policy when it was previously only autowired. If the
+application already declares a production policy in module configuration or
+an earlier configure hook, replace that declaration with `rebind()` instead:
+
+```php
+$di->rebind(PasswordHasher::class, new PasswordHasher(PASSWORD_BCRYPT, ['cost' => 4]));
+```
+
+Avoid production-cost `password_hash()` calls in test setup. Bcrypt cost 4
+produces ordinary salted hashes compatible with `password_verify()`; each call
+gets a fresh salt. Fixture setup and login must resolve the same configured
+dependency. Tests of the application's hashing policy should exercise its
+actual production configuration. No environment-dependent cost or hash cache
+is needed.
+
+For tests that only need an authenticated identity, an application helper can
+call `SessionAuthentication::login()` with its user and permissions. Keep tests
+of the login form and credential validation on the real login flow. Kaly leaves
+the user lookup in that helper to the application. See [Auth](auth.md).
+
+## Testing boundaries
+
 Two rules draw the boundary:
 
 - `Kaly\Test` is provided by Kaly but is **not part of the production runtime**:

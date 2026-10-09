@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use Kaly\Auth\PasswordHasher;
 use Kaly\Clock\SystemClock;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
@@ -137,6 +138,28 @@ class AppTest extends TestCase
         $this->assertInstanceOf(SystemClock::class, $clock);
         $this->assertSame(date_default_timezone_get(), $clock->now()->getTimezone()->getName());
         $this->assertInstanceOf(SystemClock::class, $app->container()->get(SystemClock::class));
+    }
+
+    public function testDefaultPasswordHasherIsResolvable(): void
+    {
+        $app = App::create(__DIR__ . '/data/apps/logs')->boot();
+
+        $this->assertInstanceOf(PasswordHasher::class, $app->container()->get(PasswordHasher::class));
+    }
+
+    public function testPasswordHashingPolicyCanBeReplacedForTests(): void
+    {
+        $fast = new PasswordHasher(PASSWORD_BCRYPT, ['cost' => 4]);
+        $app = App::create(__DIR__ . '/data/apps/logs')
+            ->configure(static function (Definitions $di): void {
+                $di->set(PasswordHasher::class, new PasswordHasher());
+            })
+            ->configure(static function (Definitions $di) use ($fast): void {
+                $di->rebind(PasswordHasher::class, $fast);
+            })
+            ->boot();
+
+        $this->assertSame($fast, $app->container()->get(PasswordHasher::class));
     }
 
     public function testClockTimezoneCanBeConfigured(): void
