@@ -13,6 +13,7 @@ use Kaly\Ex;
 use Kaly\Router\TrailingSlash;
 use Kaly\Util\Base64Url;
 use LogicException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerExceptionInterface;
 use Symfony\Component\VarDumper\Cloner\VarCloner;
@@ -121,17 +122,28 @@ class CryptoTest extends TestCase
         }
     }
 
-    public function testHmacSignsWithAStableFormat(): void
+    /**
+     * Frozen reference vectors: signatures may be persisted or cross deployments,
+     * so the derivation and the encoding are a compatibility contract. A failure
+     * here means existing signatures would stop verifying: never update the
+     * expected values without a versioning or migration plan.
+     */
+    #[DataProvider('referenceVectors')]
+    public function testHmacMatchesFrozenReferenceVectors(string $message, string $signature): void
     {
-        $hmac = new Hmac(Secret::fromBase64Url(self::SECRET), 'auth-verification:v1');
-        $message = json_encode([42, '+32470000000', '123456'], JSON_THROW_ON_ERROR);
+        $hmac = new Hmac(Secret::fromBase64Url(self::SECRET), 'test-vector:v1');
 
-        $key = hash_hkdf('sha256', (string) Base64Url::decode(self::SECRET), 32, 'kaly.hmac:auth-verification:v1');
-        $expected = Base64Url::encode(hash_hmac('sha256', $message, $key, true));
+        $this->assertSame($signature, $hmac->sign($message));
+        $this->assertTrue($hmac->verify($message, $signature));
+    }
 
-        $this->assertSame($expected, $hmac->sign($message));
-        $this->assertMatchesRegularExpression('/^[A-Za-z0-9_-]{43}$/', $hmac->sign($message));
-        $this->assertTrue($hmac->verify($message, $hmac->sign($message)));
+    /** @return array<string,array{string,string}> */
+    public static function referenceVectors(): array
+    {
+        return [
+            'text' => ['Kaly HMAC test vector', 'd0V-ftOoDunDPyYdfAqLV6_zA9DCEILzDvxa7NGLF1s'],
+            'binary' => ["\x00\x01\xFE\xFF", 'HsmWDx_Jt07z4ntrCYVgI6dC88YdgZaEaMyAx7-kTXc'],
+        ];
     }
 
     public function testHmacRejectsAnotherMessagePurposeOrSecret(): void

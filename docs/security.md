@@ -205,6 +205,22 @@ $valid = $codes->verify($context, $storedHash);
   for short-lived codes; a long-lived stored format should carry a version so a
   key ring can be added later.
 
+### Signature contract
+
+Signatures can be stored or cross deployments, so their construction is a
+compatibility contract that Kaly keeps stable:
+
+- the key is HKDF-SHA256 of the secret, 32 bytes, with
+  `info = "kaly.hmac:" . purpose` and no salt;
+- the signature is HMAC-SHA256 of the message bytes under that key;
+- the output is base64url without padding (43 characters).
+
+Kaly owns this construction: changing it requires an explicit version or a
+migration strategy for persisted signatures, and frozen reference vectors in
+the test suite guard it. The version inside the purpose (`form-protection:v1`)
+belongs to the application: bump it to change your own protocol without any
+change to the primitive.
+
 Short secrets such as six-digit codes need an HMAC rather than a plain hash: a
 leaked SHA-256 of a code is reversed by trying a million values, while the HMAC
 also needs the secret. Encryption is out of scope: use libsodium or a dedicated
