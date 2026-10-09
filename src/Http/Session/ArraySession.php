@@ -76,7 +76,9 @@ final class ArraySession implements CookieSessionInterface
 
     public function get(string $key, mixed $default = null): mixed
     {
-        $this->open();
+        if (!$this->loadSession()) {
+            return $default;
+        }
         return array_key_exists($key, $this->data) ? $this->data[$key] : $default;
     }
 
@@ -88,19 +90,25 @@ final class ArraySession implements CookieSessionInterface
 
     public function has(string $key): bool
     {
-        $this->open();
+        if (!$this->loadSession()) {
+            return false;
+        }
         return isset($this->data[$key]);
     }
 
     public function remove(string $key): void
     {
-        $this->open();
+        if (!$this->loadSession()) {
+            return;
+        }
         unset($this->data[$key]);
     }
 
     public function clear(): void
     {
-        $this->open();
+        if (!$this->loadSession()) {
+            return;
+        }
         $this->data = [];
     }
 
@@ -113,7 +121,9 @@ final class ArraySession implements CookieSessionInterface
 
     public function all(): array
     {
-        $this->open();
+        if (!$this->loadSession()) {
+            return [];
+        }
         return $this->data;
     }
 
@@ -182,6 +192,15 @@ final class ArraySession implements CookieSessionInterface
     }
 
     // #endregion
+
+    private function loadSession(): bool
+    {
+        if (!$this->started && $this->getId() === null) {
+            return false;
+        }
+        $this->open();
+        return true;
+    }
 
     private function open(): void
     {

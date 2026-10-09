@@ -16,6 +16,10 @@
 
 ### Fixed
 
+- **Behavior change:** Session reads (`get()`, `has()`, `all()`) and removals
+  (`remove()`, `clear()`, `pull()`) no longer create storage or emit a cookie
+  when no session exists. Native and in-memory sessions remain lazy until a
+  write or id regeneration; reads still load sessions identified by cookies.
 - `Fs::removeDir()` removes symlinks and Windows junctions without traversing
   their targets, including when the link is the directory being removed.
 - Asset publishing preserves complete filenames when the source is a filesystem root.

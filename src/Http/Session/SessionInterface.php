@@ -12,6 +12,11 @@ namespace Kaly\Http\Session;
  * nothing about PSR-7, cookies or session ids: HTTP and persistence belong to
  * the SessionProviderInterface, which creates the session from the request and
  * writes it back to the response.
+ *
+ * Reading missing storage returns defaults without creating a session.
+ * Removing or clearing missing storage is also a no-op. set() and
+ * regenerateId() create storage when needed. A stored null is returned by
+ * get() and pull(), while has() only reports non-null values.
  */
 interface SessionInterface
 {

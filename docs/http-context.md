@@ -186,6 +186,21 @@ provider cannot create a session: `session()` refuses to guess and throws
 never persisted unless a provider is also present. The provider also owns
 persistence: it reads the session id from the request and writes the
 `Set-Cookie` header on commit, so `SessionInterface` itself never sees PSR-7.
+
+Session storage is lazy even after calling `$ctx->session()`. Without a session
+id or active storage, `get()` returns its default, `has()` returns `false`, and
+`all()` returns `[]`: no storage is opened and no session cookie is emitted.
+`remove()`, `clear()` and `pull()` also leave missing storage unopened. A stored
+`null` is still returned by `get()` and `pull()`; `has()` reports only non-null
+values. `set()` and `regenerateId()` create a session when needed.
+
+With a session cookie, reading loads the session normally. Native PHP strict
+mode still replaces unknown or expired ids with fresh ids when storage is
+opened. Closing storage keeps its id, so later operations on the same instance
+can reopen it. Destroying storage clears the id: subsequent reads stay empty
+and commit expires the incoming cookie; a later write creates a new session.
+`ArraySession` and the test memory backend share these lazy read semantics.
+
 Cookies need no such backend choice: they are emitted as `Set-Cookie` headers
 on the PSR-7 response, never through PHP globals. Both share the `CookiePolicy`
 service bound per `App` (historical baseline: browser-session lifetime,

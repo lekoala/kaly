@@ -139,7 +139,9 @@ final class NativePhpSession implements CookieSessionInterface
 
     public function get(string $key, mixed $default = null): mixed
     {
-        $this->ensureStarted();
+        if (!$this->loadSession()) {
+            return $default;
+        }
         $data = self::sessionData();
         return array_key_exists($key, $data) ? $data[$key] : $default;
     }
@@ -152,19 +154,25 @@ final class NativePhpSession implements CookieSessionInterface
 
     public function has(string $key): bool
     {
-        $this->ensureStarted();
+        if (!$this->loadSession()) {
+            return false;
+        }
         return isset($_SESSION[$key]);
     }
 
     public function remove(string $key): void
     {
-        $this->ensureStarted();
+        if (!$this->loadSession()) {
+            return;
+        }
         unset($_SESSION[$key]);
     }
 
     public function clear(): void
     {
-        $this->ensureStarted();
+        if (!$this->loadSession()) {
+            return;
+        }
         $_SESSION = [];
     }
 
@@ -177,7 +185,9 @@ final class NativePhpSession implements CookieSessionInterface
 
     public function all(): array
     {
-        $this->ensureStarted();
+        if (!$this->loadSession()) {
+            return [];
+        }
         return self::sessionData();
     }
 
@@ -300,6 +310,18 @@ final class NativePhpSession implements CookieSessionInterface
         /** @var array<string,mixed> $data */
         $data = $_SESSION ?? [];
         return $data;
+    }
+
+    /**
+     * Load existing storage without creating an anonymous session.
+     */
+    private function loadSession(): bool
+    {
+        if (!$this->isActive() && $this->getId() === null) {
+            return false;
+        }
+        $this->ensureStarted();
+        return true;
     }
 
     private function ensureStarted(): void

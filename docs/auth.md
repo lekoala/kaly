@@ -186,7 +186,10 @@ final class ResolveUser implements MiddlewareInterface
 ```
 
 `ResolveUser` identifies, it protects nothing: public pages keep working for
-visitors while knowing the connected user. Protection is a second, separate
+visitors while knowing the connected user. Reading the identifier without a
+session cookie does not open storage or issue a cookie, so it can run globally
+when public pages need to display the connected user. Otherwise, attach it only
+to the scopes that need identity restoration. Protection is a second, separate
 step — and its failure mode is the application's choice (HTML redirects to
 the login, an API answers 401):
 

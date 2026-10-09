@@ -43,6 +43,11 @@ session. See [Views](views.md):
 ```
 {% endraw %}
 
+Validating a token against a request with no existing session returns `false`
+without creating storage or emitting a session cookie. Generating or refreshing
+a token writes its secret and creates the session, even after earlier anonymous
+reads. Clearing a secret from a missing session does not create one.
+
 Whether CSRF applies is a question of who sends the request, not of which
 `Authorization` scheme is present. A browser replays cached Basic credentials
 inside their protection space (RFC 7617), so a Basic-protected UI sending

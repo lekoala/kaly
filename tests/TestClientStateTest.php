@@ -282,4 +282,12 @@ class TestClientStateTest extends TestCase
         $client->get('/bounce');
         $this->assertSame([], $client->cookies());
     }
+
+    public function testAnonymousIdentityReadSetsNoCookie(): void
+    {
+        $client = TestClient::for($this->app);
+
+        $client->get('/me')->assertStatus(401);
+        $this->assertSame([], $client->cookies());
+    }
 }
