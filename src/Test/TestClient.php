@@ -225,7 +225,11 @@ final class TestClient
             $body = (string) json_encode($options['json']);
             $request = $request->withHeader('Content-Type', 'application/json')->withBody($this->streams->createStream($body));
         } elseif (array_key_exists('files', $options) && !array_key_exists('body', $options)) {
-            // Model the server's parsed request directly, without multipart encoding.
+            // Model the server's parsed request directly, without multipart
+            // encoding. The media type still tells middlewares it is a form.
+            if (!$request->hasHeader('Content-Type')) {
+                $request = $request->withHeader('Content-Type', 'multipart/form-data');
+            }
             $request = $request->withParsedBody($options['form'] ?? []);
         } elseif (array_key_exists('form', $options)) {
             $body = http_build_query($options['form']);

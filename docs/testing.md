@@ -51,7 +51,9 @@ $client->post('/admin/media', [
 
 Nested arrays and upload errors are preserved. The client sets the parsed body
 and uploaded files directly on the server request; it does not encode a multipart
-body or generate a multipart content type. `files` cannot be combined with `json`
+body. It sends `Content-Type: multipart/form-data` unless `headers` gives one, so
+middlewares that read form fields, such as method override, see a form submission.
+`files` cannot be combined with `json`
 or a raw `body`. Construct the uploaded objects using your PSR-7 implementation.
 
 `TestResponse` offers `assertStatus()`, `assertHeader()`, `assertLocation()`,

@@ -4,6 +4,58 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## 0.3: `Fs` path helpers
+
+- `Fs::toDir()` is removed. Use `Fs::join(string ...$segments)`:
+
+```php
+// Before
+Fs::toDir($paths->resources(), 'media');
+// After
+Fs::join($paths->resources(), 'media');
+```
+
+  `join()` only accepts strings, keeps `"0"`, preserves Unix, drive and UNC
+  roots, and throws `Kaly\Ex` when a segment after the first one is rooted or
+  drive-prefixed (`/var`, `\share`, `C:`). `toDir()` silently produced
+  `base//var` in that case; build such paths from the absolute segment instead.
+- `Fs::relativePath($base, $path)` no longer returns a leading separator, and
+  only strips `$base` at a directory boundary: `relativePath('/app', '/application/x')`
+  now returns the path unchanged. Remove any `ltrim($relative, '/\\')` or
+  `substr(..., 1)` applied to its result.
+- `Fs::ensureDir()` throws `Kaly\Ex` instead of a base `Exception`. A
+  `catch (\Exception)` keeps working; narrow it to `Kaly\Ex` if you only meant
+  the directory failure.
+
+## 0.3: Lazy native sessions without implicit rotation
+
+- The `NativePhpSessionProvider` options `regen_interval`, `expiry_key`,
+  `remember_lifetime` and `remember_key` are removed and rejected with an
+  `InvalidArgumentException`. Remove them from the provider configuration.
+- The session ID no longer rotates periodically: call `regenerateId()`
+  explicitly at login, logout and privilege changes, as before. Applications
+  that need periodic rotation bind a provider with a bounded ID transition
+  policy; see [Runtime](docs/runtime.md).
+- POST `_remember` no longer extends the cookie. Set the cookie duration with
+  the `lifetime` option or `CookiePolicy`, and implement remember-me tokens in
+  the authentication policy. Existing `_expiry` session entries are ordinary
+  data and can be removed.
+- Reads (`get()`, `has()`, `all()`) and removals (`remove()`, `clear()`,
+  `pull()`) no longer create a session or emit a cookie when the request has
+  none. Code that read the session to "start" it must write a value or call
+  `regenerateId()`. Tests asserting a `Set-Cookie` after an anonymous read
+  must expect none.
+- `NativePhpSession::close()`, `destroy()` and `discard()` throw `Kaly\Ex`
+  when PHP fails, and `setId()` throws on an active session. Set the id before
+  the first access, as `NativePhpSessionProvider` does.
+
+## 0.3: Slugs keep hyphens next to digits
+
+`Str::slug()` with ext-intl now keeps hyphens around digits: `hello-world-2`
+stays `hello-world-2` (previously `hello-world2`) and `"0"` gives `0` instead
+of an empty string. Stored slugs built from such inputs may differ from newly
+generated ones; regenerate them or keep looking up the stored value.
+
 ## Explicit routing policy: trailing slash and locale prefixes
 
 - New `App::routing(TrailingSlash $trailingSlash = TrailingSlash::Preserve, bool $localePrefixes = false)`.

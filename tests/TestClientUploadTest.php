@@ -7,6 +7,7 @@ namespace Kaly\Tests;
 use InvalidArgumentException;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
+use Kaly\Http\Middleware\MethodOverrideMiddleware;
 use Kaly\Router\TrailingSlash;
 use Kaly\Test\TestClient;
 use Nyholm\Psr7\Response;
@@ -63,6 +64,32 @@ class TestClientUploadTest extends TestCase
         $this->assertSame($files, $this->probe->requests[0]->getUploadedFiles());
         $this->client->get('/media');
         $this->assertSame([], $this->probe->requests[1]->getUploadedFiles());
+    }
+
+    public function testUploadsAreSentAsMultipartFormsForMethodOverride(): void
+    {
+        $app = App::create(__DIR__)->routing(TrailingSlash::Add, true);
+        $app->middleware()->incoming(new MethodOverrideMiddleware())->incoming($this->probe);
+        $client = TestClient::for($app->boot());
+        $files = ['image' => new UploadedFile(Stream::create('photo'), 5, UPLOAD_ERR_OK)];
+
+        $client->post('/media', ['form' => ['_method' => 'PUT'], 'files' => $files])->assertStatus(200);
+        $request = $this->probe->requests[0];
+
+        $this->assertSame('multipart/form-data', $request->getHeaderLine('Content-Type'));
+        $this->assertSame('PUT', $request->getMethod());
+        $this->assertSame($files, $request->getUploadedFiles());
+    }
+
+    public function testExplicitContentTypeWinsForUploads(): void
+    {
+        $files = ['image' => new UploadedFile(Stream::create('photo'), 5, UPLOAD_ERR_OK)];
+        $this->client->post('/media', [
+            'headers' => ['Content-Type' => 'multipart/form-data; boundary=kaly'],
+            'files' => $files,
+        ]);
+
+        $this->assertSame('multipart/form-data; boundary=kaly', $this->probe->requests[0]->getHeaderLine('Content-Type'));
     }
 
     public function testInvalidNestedFileFailsBeforeSending(): void

@@ -1,5 +1,5 @@
 # Changelog
-## Unreleased
+## 0.3.0 - 2026-10-09
 
 ### Added
 
@@ -7,12 +7,43 @@
   with `hash()`, `verify()` and `needsRehash()`, using PHP defaults unless configured.
   Auth and testing recipes cover password creation, login, rehashing and fast fixtures.
 - `Fs::ensureDir()` accepts a creation mode (default `0o755`, subject to umask)
-  and tolerates concurrent directory creation, throwing `Kaly\Ex` on failure.
+  and tolerates concurrent directory creation.
 - `TestClient` accepts `files` containing PSR-7 uploaded files, including nested
-  and multiple uploads, alongside optional `form` data. Redirects preserve the
-  files on 307/308 and discard them when switching to GET.
+  and multiple uploads, alongside optional `form` data. The request carries
+  `Content-Type: multipart/form-data` unless `headers` sets one, so method
+  override and other form-aware middlewares behave as in production. Redirects
+  preserve the files on 307/308 and discard them when switching to GET.
 - Application time conventions for `ClockInterface`, `Dates`, `FrozenClock`,
   persistence formats and localized template formatting.
+
+### Changed
+
+- **Breaking:** `Fs::toDir()` is replaced by `Fs::join(string ...$segments)`.
+  Joining trims boundary separators and ignores empty strings while preserving
+  `"0"`. Rooted or drive-prefixed segments after the first non-empty segment
+  are rejected with `Kaly\Ex`. Paths are joined lexically without resolving
+  `.` or `..`.
+- **Breaking:** `Fs::relativePath()` returns paths without a leading separator
+  and only strips the base at a directory boundary, fixing Composer module detection.
+- **Breaking:** `Fs::ensureDir()` throws `Kaly\Ex` instead of a base `Exception`
+  when the directory cannot be created.
+- **Breaking:** Native sessions no longer rotate periodically or infer persistent
+  cookies from POST `_remember`. Removed options `regen_interval`, `expiry_key`,
+  `remember_lifetime` and `remember_key` are rejected. Use explicit `lifetime`
+  or `CookiePolicy` for cookie duration; use an application provider with a bounded
+  ID transition policy for periodic rotation. Explicit login/logout rotation
+  continues to invalidate the old ID immediately.
+- **Breaking:** `NativePhpSession::close()`, `destroy()` and `discard()` throw
+  `Kaly\Ex` when PHP fails to write, destroy or abort the storage instead of
+  failing silently, and `setId()` refuses to replace the id of an active session.
+- **Behavior change:** Session reads (`get()`, `has()`, `all()`) and removals
+  (`remove()`, `clear()`, `pull()`) no longer create storage or emit a cookie
+  when no session exists. Native and in-memory sessions remain lazy until a
+  write or id regeneration; reads still load sessions identified by cookies.
+- **Behavior change:** `Str::slug()` preserves hyphens next to digits, including
+  `hello-world-2`, and preserves the string `0`. Existing numeric slugs may change.
+- `FileServer` and `Assets` reject drive-prefixed paths (`C:...`) like other
+  rooted paths.
 
 ### Fixed
 
@@ -21,33 +52,15 @@
   exceptional exits, clearing the native id and data between worker cycles.
 - Native `destroy()` invalidates persisted storage even before the first read
   or after `close()`, preventing authenticated session-cookie replay.
-- **Breaking:** Native sessions no longer rotate periodically or infer persistent
-  cookies from POST `_remember`. Removed options `regen_interval`, `expiry_key`,
-  `remember_lifetime` and `remember_key` are rejected. Use explicit `lifetime`
-  or `CookiePolicy` for cookie duration; use an application provider with a bounded
-  ID transition policy for periodic rotation. Explicit login/logout rotation
-  continues to invalidate the old ID immediately.
-- **Behavior change:** Session reads (`get()`, `has()`, `all()`) and removals
-  (`remove()`, `clear()`, `pull()`) no longer create storage or emit a cookie
-  when no session exists. Native and in-memory sessions remain lazy until a
-  write or id regeneration; reads still load sessions identified by cookies.
 - `Fs::removeDir()` removes symlinks and Windows junctions without traversing
   their targets, including when the link is the directory being removed.
 - Asset publishing preserves complete filenames when the source is a filesystem root.
-- **Breaking:** `Fs::relativePath()` returns paths without a leading separator
-  and only strips the base at a directory boundary, fixing Composer module detection.
 - `Fs::getFile()` and `Fs::contentType()` keep their documented fallbacks for
   unreadable files when Kaly's error handler is enabled.
 - `Fs::dir()` preserves Unix, Windows drive and UNC roots.
-- **Breaking:** `Fs::toDir()` is replaced by `Fs::join(string ...$segments)`.
-  Joining trims boundary separators and ignores empty strings while preserving
-  `"0"`. Rooted or drive-prefixed segments after the first non-empty segment
-  are rejected. Paths are joined lexically without resolving `.` or `..`.
 - The default `ClockInterface` and `SystemClock` resolve without configuration:
   the timezone parameter defaults explicitly to PHP's default timezone instead
   of attempting to autowire `DateTimeZone`.
-- **Behavior change:** `Str::slug()` preserves hyphens next to digits, including
-  `hello-world-2`, and preserves the string `0`. Existing numeric slugs may change.
 
 ## 0.2.0 - 2026-10-08
 

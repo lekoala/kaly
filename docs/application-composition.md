@@ -133,7 +133,7 @@ interface. Ask:
 Typical application capabilities include:
 
 ```text
-PasswordHasher
+DocumentStorage
 DeliveryChannel
 CommandBus
 PaymentGateway
@@ -159,8 +159,8 @@ explicit composition:
 
 ```php
 $di->bind(
-    PasswordHasher::class,
-    ArgonPasswordHasher::class,
+    PaymentGateway::class,
+    StripePaymentGateway::class,
 );
 ```
 
