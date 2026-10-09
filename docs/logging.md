@@ -109,6 +109,25 @@ $app->configure(function (Definitions $definitions) use ($app): void {
 });
 ```
 
+### Request ids
+
+`HttpContext::requestId()` is a random identifier of the current cycle (32 hex
+characters), created on first use and stable until the terminate hooks. Add it
+to the log context, and expose it to users so a support report points to the
+exact cycle:
+
+```php
+use Kaly\Core\Middleware\RequestIdHeader;
+
+$app->middleware()->outgoing(RequestIdHeader::class, always: true);
+
+$logger->error('Payment failed', ['request_id' => $ctx->requestId()]);
+```
+
+`always: true` puts the `X-Request-Id` header on error responses too. An
+incoming `X-Request-Id` is client input and is ignored: Kaly does not trust a
+proxy-provided id.
+
 ### Sessions in a worker
 
 Create one session per request through the request context (`$ctx->session()`).

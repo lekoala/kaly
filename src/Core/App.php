@@ -16,8 +16,10 @@ use Kaly\Core\Middleware\OutgoingRunner;
 use Kaly\Core\Middleware\Registry;
 use Kaly\Core\Middleware\RouteRunner;
 use Kaly\Core\Middleware\Runner;
+use Kaly\Crypto\Secret;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
+use Kaly\Ex;
 use Kaly\Http\Cookie\CookiePolicy;
 use Kaly\Http\DebugPageInterface;
 use Kaly\Http\ErrorPageInterface;
@@ -87,6 +89,9 @@ final class App implements RequestHandlerInterface
     public const ENV_DEBUG = 'APP_DEBUG';
     public const ENV_TIMEZONE = 'APP_TIMEZONE';
     public const ENV_LOCALES = 'APP_LOCALES';
+    // An environment variable name, not a value
+    // @mago-expect lint:no-literal-password
+    public const ENV_SECRET = 'APP_SECRET';
     public const ENV_IDE_PLACEHOLDER = 'DUMP_IDE_PLACEHOLDER';
 
     /**
@@ -511,6 +516,22 @@ final class App implements RequestHandlerInterface
         // A timezone is configuration, not an autowired DateTimeZone service.
         if (!array_key_exists('timezone', $definitions->parametersFor(SystemClock::class))) {
             $definitions->parameter(SystemClock::class, 'timezone', null);
+        }
+
+        // The root secret is read when first resolved, so an application
+        // without signatures needs no APP_SECRET. Never generated silently.
+        if (!$definitions->has(Secret::class)) {
+            $definitions->set(Secret::class, static function (): Secret {
+                $encoded = Env::getString(self::ENV_SECRET);
+                if ($encoded === '') {
+                    throw new Ex(self::ENV_SECRET . ' is not configured');
+                }
+                try {
+                    return Secret::fromBase64Url($encoded);
+                } catch (InvalidArgumentException $e) {
+                    throw new Ex(self::ENV_SECRET . ' is invalid: ' . $e->getMessage(), 0, $e);
+                }
+            });
         }
 
         // One CookiePolicy per App: the historical baseline unless the

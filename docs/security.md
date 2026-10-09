@@ -157,6 +157,57 @@ belong where trusted markup is produced — the template.
 
 CSP applies with or without HTTPS; only HSTS is HTTPS-only.
 
+## Application secret and signatures
+
+`Kaly\Crypto\Secret` is the root secret of the application: at least 32 random
+bytes, configured as base64url text in `APP_SECRET`. Kaly never generates a
+missing secret. Create one once per environment and keep it stable across the
+instances that must verify each other's signatures:
+
+```bash
+php -r 'require "vendor/autoload.php"; echo Kaly\Crypto\Secret::generate(), PHP_EOL;'
+```
+
+`App` resolves `Secret` from `APP_SECRET` on first use, so an application that
+signs nothing needs no secret. A missing or invalid value fails at that point
+with a `Kaly\Ex` naming the variable. Bind your own `Secret` to load it from
+elsewhere (a secrets manager, a file outside the web root).
+
+The raw secret never leaves the object: dumps redact it, serialization is
+refused, and each purpose gets its own key through HKDF-SHA256.
+`Kaly\Crypto\Hmac` signs and verifies with such a key:
+
+```php
+use Kaly\Crypto\Hmac;
+use Kaly\Crypto\Secret;
+
+// Usually built once in a factory of the module's config.php
+$codes = new Hmac($container->get(Secret::class), 'auth-verification:v1');
+$context = json_encode([$memberId, $recipient, $code], JSON_THROW_ON_ERROR);
+
+$hash = $codes->sign($context);              // store this, never the code
+$valid = $codes->verify($context, $storedHash);
+```
+
+- **One purpose per use.** A signature made for `form-protection:v1` never
+  verifies as `auth-verification:v1`. Bump the version in the purpose to
+  invalidate every signature of that use at once.
+- **Bind the context.** Encode every field that matters unambiguously, eg as a
+  JSON list, never by concatenating strings.
+- **Compare in PHP.** Load the record, then call `verify()`: the comparison is
+  constant time, and a stored format can evolve. Avoid looking signatures up
+  with SQL equality.
+- **A signature is not a policy.** Expiry, attempt limits and single use stay
+  the application's rules.
+- **Rotation.** Changing `APP_SECRET` invalidates every signature. That is fine
+  for short-lived codes; a long-lived stored format should carry a version so a
+  key ring can be added later.
+
+Short secrets such as six-digit codes need an HMAC rather than a plain hash: a
+leaked SHA-256 of a code is reversed by trying a million values, while the HMAC
+also needs the secret. Encryption is out of scope: use libsodium or a dedicated
+library such as CipherSweet, with its own keys.
+
 ## What Kaly does not bundle
 
 There is no `CspMiddleware`, no policy builder and no security-headers

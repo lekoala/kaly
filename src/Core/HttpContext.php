@@ -55,6 +55,8 @@ final class HttpContext
 
     private ?Csp $csp = null;
 
+    private ?string $requestId = null;
+
     /**
      * Middlewares that actually entered the stack, in execution order.
      * This is diagnostic information: never use it to decide whether a piece
@@ -294,6 +296,17 @@ final class HttpContext
     public function csp(): Csp
     {
         return $this->csp ??= new Csp();
+    }
+
+    /**
+     * A random identifier of this HTTP cycle (32 hex characters), stable from
+     * the first use to the terminate hooks, for logs and support reports. An
+     * incoming `X-Request-Id` is client input and never becomes this value.
+     * Expose it with the `RequestIdHeader` outgoing middleware.
+     */
+    public function requestId(): string
+    {
+        return $this->requestId ??= bin2hex(random_bytes(16));
     }
 
     /**

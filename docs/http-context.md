@@ -27,6 +27,7 @@ $ctx->url('shop:product', ['slug' => 'velo']); // an url for the request locale
 $ctx->session();    // the session of this request
 $ctx->cookies();    // the cookies of this request
 $ctx->response();   // the final response, once the cycle is over
+$ctx->requestId();  // a random id of this cycle, for logs and support
 ```
 
 Instead of probing the request:

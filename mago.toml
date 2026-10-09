@@ -74,6 +74,7 @@ deny-from = [
     "Kaly\\View\\**",
     "Kaly\\Clock\\**",
     "Kaly\\Log\\**",
+    "Kaly\\Crypto\\**",
     "Kaly\\Util\\**",
 ]
 
@@ -88,17 +89,18 @@ deny-from = [
     "Kaly\\View\\**",
     "Kaly\\Clock\\**",
     "Kaly\\Log\\**",
+    "Kaly\\Crypto\\**",
     "Kaly\\Util\\**",
 ]
 
 # The remaining layers form an explicit order: a layer may depend on the ones
-# below it, never the reverse. Util and Clock are foundations, Log builds on
-# them, Http is the protocol, Router/Asset/I18n/View are domains, Core composes
+# below it, never the reverse. Util and Clock are foundations, Log and Crypto
+# build on them, Http is the protocol, Router/Asset/I18n/View are domains, Core composes
 # everything. Encoding the order this way also makes a cycle impossible outside
 # Core and Test, and outside the Util/Clock pair, which are peer foundations.
 #
 #   Util, Clock                  foundations
-#   Log                          foundations + Util
+#   Log, Crypto                  foundations + Util
 #   Http                         protocol; foundations + Log
 #   Router, Asset, I18n, View    domains; Http + foundations
 #   Core                         composition; everything
@@ -112,11 +114,20 @@ deny-from = [
 ]
 
 [[guard.perimeter.restrictions]]
+dependency = "Kaly\\Crypto\\**"
+deny-from = [
+    "Kaly\\Util\\**",
+    "Kaly\\Clock\\**",
+    "Kaly\\Log\\**",
+]
+
+[[guard.perimeter.restrictions]]
 dependency = "Kaly\\Http\\**"
 deny-from = [
     "Kaly\\Util\\**",
     "Kaly\\Clock\\**",
     "Kaly\\Log\\**",
+    "Kaly\\Crypto\\**",
 ]
 
 [[guard.perimeter.restrictions]]
@@ -125,6 +136,7 @@ deny-from = [
     "Kaly\\Util\\**",
     "Kaly\\Clock\\**",
     "Kaly\\Log\\**",
+    "Kaly\\Crypto\\**",
     "Kaly\\Http\\**",
     "Kaly\\Asset\\**",
     "Kaly\\I18n\\**",
@@ -137,6 +149,7 @@ deny-from = [
     "Kaly\\Util\\**",
     "Kaly\\Clock\\**",
     "Kaly\\Log\\**",
+    "Kaly\\Crypto\\**",
     "Kaly\\Http\\**",
     "Kaly\\Router\\**",
     "Kaly\\I18n\\**",
@@ -149,6 +162,7 @@ deny-from = [
     "Kaly\\Util\\**",
     "Kaly\\Clock\\**",
     "Kaly\\Log\\**",
+    "Kaly\\Crypto\\**",
     "Kaly\\Http\\**",
     "Kaly\\Router\\**",
     "Kaly\\Asset\\**",
@@ -161,6 +175,7 @@ deny-from = [
     "Kaly\\Util\\**",
     "Kaly\\Clock\\**",
     "Kaly\\Log\\**",
+    "Kaly\\Crypto\\**",
     "Kaly\\Http\\**",
     "Kaly\\Router\\**",
     "Kaly\\Asset\\**",

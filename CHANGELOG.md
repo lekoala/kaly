@@ -3,6 +3,17 @@
 
 ### Added
 
+- `Kaly\Crypto\Secret` holds the application root secret (at least 32 bytes,
+  base64url in `APP_SECRET`) and derives one key per purpose with HKDF-SHA256.
+  It redacts dumps and refuses serialization. `App` resolves it from
+  `APP_SECRET` on first use and fails with `Kaly\Ex` when the value is missing or
+  invalid; nothing is generated silently. `Secret::generate()` creates a value.
+- `Kaly\Crypto\Hmac` signs and verifies messages with HMAC-SHA256 under a
+  purpose-specific key, in constant time, as base64url text.
+- `HttpContext::requestId()` returns a random 128-bit id of the cycle, stable
+  until the terminate hooks. `Kaly\Core\Middleware\RequestIdHeader` exposes it
+  as `X-Request-Id` (opt-in, register it with `always: true`). An incoming
+  `X-Request-Id` is ignored.
 - `Kaly\Auth\PasswordHasher` provides an injectable password hashing policy
   with `hash()`, `verify()` and `needsRehash()`, using PHP defaults unless configured.
   Auth and testing recipes cover password creation, login, rehashing and fast fixtures.

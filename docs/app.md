@@ -31,7 +31,11 @@ environment variable is set.
 ```
 APP_DEBUG=true
 APP_TIMEZONE=UTC
+APP_SECRET=...
 ```
+
+`APP_SECRET` is only read when something resolves `Kaly\Crypto\Secret`; see
+[Security](security.md#application-secret-and-signatures).
 
 ## PSR-7 implementation
 
