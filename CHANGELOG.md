@@ -13,6 +13,13 @@
 
 ### Fixed
 
+- `Fs::removeDir()` removes symlinks and Windows junctions without traversing
+  their targets, including when the link is the directory being removed.
+- Asset publishing preserves complete filenames when the source is a filesystem root.
+- **Breaking:** `Fs::relativePath()` returns paths without a leading separator
+  and only strips the base at a directory boundary, fixing Composer module detection.
+- `Fs::getFile()` and `Fs::contentType()` keep their documented fallbacks for
+  unreadable files when Kaly's error handler is enabled.
 - `Fs::dir()` preserves Unix, Windows drive and UNC roots.
 - **Breaking:** `Fs::toDir()` is replaced by `Fs::join(string ...$segments)`.
   Joining trims boundary separators and ignores empty strings while preserving

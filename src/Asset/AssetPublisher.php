@@ -181,7 +181,7 @@ final class AssetPublisher
         );
         /** @var string $pathname */
         foreach ($iterator as $pathname) {
-            $relative = str_replace(DIRECTORY_SEPARATOR, '/', (string) substr($pathname, strlen(Fs::dir($dir)) + 1));
+            $relative = str_replace(DIRECTORY_SEPARATOR, '/', Fs::relativePath($dir, $pathname));
             // Dot segments are skipped rather than fatal: a `.git/` inside a
             // source dir must not fail the publish
             if (Fs::hasDotSegment($relative)) {

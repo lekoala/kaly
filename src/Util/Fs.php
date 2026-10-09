@@ -23,7 +23,7 @@ final class Fs
      */
     public static function getFile(string $filename): string
     {
-        $contents = file_get_contents($filename);
+        $contents = @file_get_contents($filename);
         if ($contents === false) {
             $contents = '';
         }
@@ -46,7 +46,7 @@ final class Fs
      */
     public static function contentType(string $filename): string
     {
-        $res = mime_content_type($filename);
+        $res = @mime_content_type($filename);
         if ($res === false) {
             return 'application/octet-stream';
         }
@@ -141,36 +141,64 @@ final class Fs
     }
 
     /**
-     * Remove a directory and its contents.
+     * Remove a directory and its contents without following symlinks or Windows junctions.
      */
     public static function removeDir(string $dir): void
     {
+        $dir = self::dir($dir);
+        // PHP on Windows reports junctions with no file type in lstat(),
+        // while is_link() can return false and pollute the stat cache.
+        if (DIRECTORY_SEPARATOR === '\\') {
+            $stat = @lstat($dir);
+            if ($stat !== false && ($stat['mode'] & 0o170_000) === 0) {
+                rmdir($dir);
+                return;
+            }
+        }
+        if (is_link($dir)) {
+            // rmdir also handles dangling Windows directory symlinks.
+            if (DIRECTORY_SEPARATOR === '\\' && @rmdir($dir)) {
+                return;
+            }
+            unlink($dir);
+            return;
+        }
         if (!is_dir($dir)) {
             return;
         }
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::CURRENT_AS_PATHNAME),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        /** @var string $pathname */
-        foreach ($iterator as $pathname) {
-            if (is_dir($pathname) && !is_link($pathname)) {
-                rmdir($pathname);
+        foreach (new \DirectoryIterator($dir) as $entry) {
+            if ($entry->isDot()) {
                 continue;
             }
-            unlink($pathname);
+            $pathname = $entry->getPathname();
+            if ($entry->isDir() || $entry->isLink() || DIRECTORY_SEPARATOR === '\\' && !$entry->isFile()) {
+                self::removeDir($pathname);
+            } else {
+                unlink($pathname);
+            }
         }
         rmdir($dir);
     }
 
     /**
-     * Strip the base directory prefix from a path. Only a leading prefix is
-     * stripped: a path that does not start with the base is returned untouched.
+     * Strip the base directory and its separator from a path lexically.
+     * Directory boundaries are respected; paths outside the base are unchanged.
+     * Both separator styles are accepted, with case-sensitive comparison.
      */
     public static function relativePath(string $baseDir, string $path): string
     {
-        if (str_starts_with($path, $baseDir)) {
-            return substr($path, strlen($baseDir));
+        $baseDir = self::dir($baseDir);
+        if ($baseDir === '') {
+            return $path;
+        }
+        $base = str_replace('\\', '/', $baseDir);
+        $normalized = str_replace('\\', '/', $path);
+        if ($normalized === $base) {
+            return '';
+        }
+        $prefix = rtrim($base, '/') . '/';
+        if (str_starts_with($normalized, $prefix)) {
+            return substr($path, strlen($prefix));
         }
         return $path;
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use Kaly\Core\ErrorHandler;
 use Kaly\Core\Paths;
 use Kaly\Ex;
 use Kaly\Tests\Support\TempDir;
@@ -13,6 +14,98 @@ use PHPUnit\Framework\TestCase;
 
 class FsTest extends TestCase
 {
+    #[DataProvider('relativePaths')]
+    public function testRelativePath(string $base, string $path, string $expected): void
+    {
+        $this->assertSame($expected, Fs::relativePath($base, $path));
+    }
+
+    /** @return array<string, array{string, string, string}> */
+    public static function relativePaths(): array
+    {
+        return [
+            'module source' => ['/app', '/app/modules/Foo/src', 'modules/Foo/src'],
+            'base separator' => ['/app/', '/app/modules/Foo/src', 'modules/Foo/src'],
+            'same directory' => ['/app/', '/app', ''],
+            'directory boundary' => ['/app', '/application/src', '/application/src'],
+            'outside' => ['/app', '/other/src', '/other/src'],
+            'empty base' => ['', '/app/src', '/app/src'],
+            'unix root' => ['/', '/image.png', 'image.png'],
+            'drive root' => ['D:\\', 'D:\\image.png', 'image.png'],
+            'mixed separators' => ['D:/app/', 'D:\\app\\modules\\Foo', 'modules\\Foo'],
+            'unc root' => ['\\\\server\\share\\', '\\\\server\\share\\image.png', 'image.png'],
+            'relative base' => ['app', 'app/src', 'src'],
+        ];
+    }
+
+    public function testReadFallbacksWithKalyErrorHandler(): void
+    {
+        $base = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'kaly-fs-' . uniqid();
+        ErrorHandler::configureDefaults(false);
+        try {
+            $this->assertSame('', Fs::getFile($base . '/missing'));
+            $this->assertSame('application/octet-stream', Fs::contentType($base . '/missing'));
+            Fs::putFile($base . '/readable.txt', 'hello');
+            $this->assertSame('hello', Fs::getFile($base . '/readable.txt'));
+            $this->assertSame('text/plain', Fs::contentType($base . '/readable.txt'));
+        } finally {
+            ErrorHandler::restoreDefaults();
+            TempDir::remove($base);
+        }
+    }
+
+    #[DataProvider('directoryLinkLocations')]
+    public function testRemoveDirDoesNotFollowDirectoryLinks(bool $nested): void
+    {
+        $base = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'kaly-fs-' . uniqid();
+        $target = Fs::join($base, 'target');
+        $tree = Fs::join($base, 'tree');
+        $link = $nested ? Fs::join($tree, 'link') : $tree;
+        try {
+            Fs::putFile(Fs::join($target, 'keep.txt'), 'keep');
+            Fs::ensureDir(dirname($link));
+            if (DIRECTORY_SEPARATOR === '\\') {
+                exec('cmd /c mklink /J ' . escapeshellarg($link) . ' ' . escapeshellarg($target), $output, $status);
+                if ($status !== 0) {
+                    $this->markTestSkipped('Windows junctions are not available');
+                }
+            } elseif (!@symlink($target, $link)) {
+                $this->markTestSkipped('Symlinks are not available');
+            }
+            if ($nested) {
+                Fs::putFile(Fs::join($tree, 'child', 'remove.txt'), 'remove');
+            }
+            Fs::removeDir($tree . DIRECTORY_SEPARATOR);
+            clearstatcache();
+            $this->assertDirectoryDoesNotExist($tree);
+            $this->assertSame('keep', Fs::getFile(Fs::join($target, 'keep.txt')));
+        } finally {
+            TempDir::remove($base);
+        }
+    }
+
+    /** @return array<string, array{bool}> */
+    public static function directoryLinkLocations(): array
+    {
+        return ['root link' => [false], 'nested link' => [true]];
+    }
+
+    public function testRemoveDirRemovesDanglingSymlink(): void
+    {
+        $base = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'kaly-fs-' . uniqid();
+        Fs::ensureDir($base);
+        $link = Fs::join($base, 'link');
+        try {
+            if (!@symlink(Fs::join($base, 'missing'), $link)) {
+                $this->markTestSkipped('Symlinks are not available');
+            }
+            Fs::removeDir($base);
+            $this->assertDirectoryDoesNotExist($base);
+        } finally {
+            TempDir::remove($base);
+        }
+    }
+
     /** @param list<string> $segments */
     #[DataProvider('joinedPaths')]
     public function testJoin(array $segments, string $expected): void

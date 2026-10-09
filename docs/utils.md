@@ -97,6 +97,19 @@ It does not require an existing path, call `realpath()` or resolve `.` / `..`.
 It is not a path traversal security boundary.
 
 `Fs::dir()` removes trailing separators while preserving roots.
+
+`Fs::relativePath($base, $path)` strips the base directory and its separator
+at a directory boundary: `/app/modules/Foo/src` relative to `/app` becomes
+`modules/Foo/src`, while `/application/src` remains unchanged. This operation
+is lexical, accepts both separator styles and compares case-sensitively.
+
+`Fs::removeDir()` removes a directory recursively, removing symlinks and Windows
+junctions themselves without following their targets.
+
+`Fs::getFile()` returns an empty string for unreadable files;
+`Fs::contentType()` falls back to `application/octet-stream` when MIME detection
+fails, including with Kaly's error handler enabled.
+
 `Fs::ensureDir($directory, $mode = 0o755)` creates directories recursively and
 tolerates another process creating the directory concurrently. Creation failures
 throw `Kaly\Ex`. The mode is subject to umask, is ignored on Windows, and does

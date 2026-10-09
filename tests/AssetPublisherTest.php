@@ -71,6 +71,40 @@ class AssetPublisherTest extends TestCase
         $this->assertSame("v1\n", Fs::getFile($this->base . '/public/assets/.version'));
     }
 
+    public function testPublishFromDriveRoot(): void
+    {
+        if (DIRECTORY_SEPARATOR !== '\\') {
+            $this->markTestSkipped('This test requires a Windows drive mapping');
+        }
+        $drive = null;
+        foreach (range('Z', 'D') as $letter) {
+            if (!is_dir($letter . ':\\')) {
+                $drive = $letter . ':';
+                break;
+            }
+        }
+        if ($drive === null) {
+            $this->markTestSkipped('No free drive letter is available');
+        }
+        $source = Fs::join($this->base, 'assets');
+        Fs::putFile(Fs::join($source, 'image.png'), 'image');
+        Fs::putFile(Fs::join($source, 'nested', 'app.js'), 'script');
+        exec('subst ' . $drive . ' ' . escapeshellarg($source), $output, $status);
+        if ($status !== 0) {
+            $this->markTestSkipped('Drive mapping is not available');
+        }
+        try {
+            $publisher = new AssetPublisher(new AssetSources(['app' => $drive . '\\']), $this->base . '/public');
+            $publisher->publish('root');
+            $this->assertSame('image', Fs::getFile($this->base . '/public/assets/root/app/image.png'));
+            $this->assertSame('script', Fs::getFile($this->base . '/public/assets/root/app/nested/app.js'));
+            $ordinary = new AssetPublisher(new AssetSources(['app' => $source]), $this->base . '/public');
+            $this->assertSame($ordinary->contentHash(), $publisher->contentHash());
+        } finally {
+            exec('subst ' . $drive . ' /D');
+        }
+    }
+
     public function testPublishFallsBackToContentHash(): void
     {
         $this->seedHappyPath();
