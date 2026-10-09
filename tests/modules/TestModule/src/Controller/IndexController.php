@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace TestModule\Controller;
 
 use Exception;
+use JsonSerializable;
 use Kaly\Core\AbstractController;
 use Kaly\Http\Exception\RedirectException;
 use Kaly\Http\Input\ValidationException;
+use Kaly\Http\JsonResult;
 use Kaly\Tests\Mocks\SaveInput;
 use Kaly\Validation\Validator;
 use Kaly\View\View;
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
+use RuntimeException;
 
 class IndexController extends AbstractController
 {
@@ -24,6 +27,31 @@ class IndexController extends AbstractController
     public function raw(): ResponseInterface
     {
         return new Response(201, ['X-Raw' => 'yes'], 'raw');
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function jsonArray(): array
+    {
+        return ['value' => new class($this->request->hasHeader('X-Serialization-Failure')) implements JsonSerializable {
+            public function __construct(
+                private bool $fail,
+            ) {}
+
+            public function jsonSerialize(): string
+            {
+                if ($this->fail) {
+                    throw new RuntimeException('Serialization failed');
+                }
+                return 'serialized';
+            }
+        }];
+    }
+
+    public function jsonResult(): JsonResult
+    {
+        return new JsonResult($this->jsonArray(), 201, ['X-Json' => 'yes']);
     }
 
     protected function isinvalid(): string

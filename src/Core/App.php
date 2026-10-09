@@ -17,6 +17,7 @@ use Kaly\Core\Middleware\Registry;
 use Kaly\Core\Middleware\RouteRunner;
 use Kaly\Core\Middleware\Runner;
 use Kaly\Crypto\Secret;
+use Kaly\Debug\Profile;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Ex;
@@ -115,6 +116,9 @@ final class App implements RequestHandlerInterface
     private Hooks $hooks;
     private Registry $middleware;
     private bool $debug = false;
+    private bool $profiling = false;
+    private bool $serverTiming = false;
+    private ?Profile $bootProfile = null;
     /**
      * @var list<string>
      */
@@ -204,6 +208,21 @@ final class App implements RequestHandlerInterface
     public function isDebug(): bool
     {
         return $this->debug;
+    }
+
+    /** Enable native elapsed-time measurements before boot, with optional final HTTP export. */
+    public function profiling(bool $enabled = true, bool $serverTiming = false): self
+    {
+        $this->assertNotBooted('profiling');
+        $this->profiling = $enabled;
+        $this->serverTiming = $serverTiming;
+        return $this;
+    }
+
+    /** Boot belongs to the application instance, never to a request. */
+    public function bootProfile(): ?Profile
+    {
+        return $this->bootProfile;
     }
 
     /**
@@ -339,6 +358,8 @@ final class App implements RequestHandlerInterface
         }
 
         $this->booting = true;
+        $start = $this->profiling ? hrtime(true) : null;
+        $this->bootProfile = $this->profiling ? new Profile() : null;
 
         try {
             ErrorHandler::configureDefaults($this->debug);
@@ -355,6 +376,8 @@ final class App implements RequestHandlerInterface
                 new OutgoingRunner($this->container, $this->middleware, $this->hooks->error(...)),
                 $this->container->get(SessionProviderInterface::class),
                 $this->container->get(CookiePolicy::class),
+                profiling: $this->profiling,
+                serverTiming: $this->serverTiming,
             );
 
             $this->hooks->boot($this);
@@ -369,6 +392,9 @@ final class App implements RequestHandlerInterface
             $this->bootFailed = true;
             throw $ex;
         } finally {
+            if ($start !== null) {
+                $this->bootProfile?->record('boot', hrtime(true) - $start);
+            }
             $this->booting = false;
         }
 

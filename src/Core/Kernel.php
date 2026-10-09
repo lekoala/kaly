@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Kaly\Core;
 
 use Kaly\Core\Middleware\OutgoingRunner;
+use Kaly\Debug\Profile;
+use Kaly\Debug\ServerTiming;
 use Kaly\Http\Cookie\CookiePolicy;
 use Kaly\Http\ExceptionHandlerInterface;
 use Kaly\Http\Session\SessionProviderInterface;
@@ -26,6 +28,7 @@ use Throwable;
  * pipeline (incoming, routing, routed, route middlewares, dispatcher)
  *   -> outgoing
  *   -> commit (session storage, session cookie, cookies)
+ *   -> final profile export (optional)
  *   -> terminate hooks
  * ```
  */
@@ -38,11 +41,13 @@ final class Kernel implements RequestHandlerInterface
         private ?OutgoingRunner $outgoing = null,
         private ?SessionProviderInterface $sessionProvider = null,
         private ?CookiePolicy $cookiePolicy = null,
+        private bool $profiling = false,
+        private bool $serverTiming = false,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $ctx = new HttpContext($request, $this->sessionProvider, $this->cookiePolicy);
+        $ctx = new HttpContext($request, $this->sessionProvider, $this->cookiePolicy, $this->profiling ? new Profile() : null);
         $ctx->bind($request);
 
         try {
@@ -55,6 +60,25 @@ final class Kernel implements RequestHandlerInterface
     }
 
     private function handleContext(HttpContext $ctx): ResponseInterface
+    {
+        $start = $ctx->profile() !== null ? hrtime(true) : null;
+        try {
+            $response = $this->produceResponse($ctx);
+        } finally {
+            if ($start !== null) {
+                $ctx->profile()?->record('request', hrtime(true) - $start);
+            }
+        }
+        if ($this->serverTiming && $ctx->profile() !== null) {
+            $response = ServerTiming::apply($response, $ctx->profile());
+        }
+        $ctx->complete($response);
+        $this->hooks->terminate($ctx);
+
+        return $response;
+    }
+
+    private function produceResponse(HttpContext $ctx): ResponseInterface
     {
         // First boundary: produce a response, from the happy path or from an
         // exception escaping the request pipeline.
@@ -81,19 +105,21 @@ final class Kernel implements RequestHandlerInterface
         // changes become headers. If the commit itself fails, the error
         // response still runs through the `always` middlewares, without
         // retrying the failed commit.
+        $start = $ctx->profile() !== null ? hrtime(true) : null;
         try {
-            $response = $ctx->commit($response);
+            try {
+                $response = $ctx->commit($response);
+            } finally {
+                if ($start !== null) {
+                    $ctx->profile()?->record('commit', hrtime(true) - $start);
+                }
+            }
         } catch (Throwable $ex) {
             $response = $this->handleException($ex, $ctx);
             if ($this->outgoing !== null) {
                 $response = $this->outgoing->process($response, $ctx, recovering: true);
             }
         }
-
-        // The cycle is over: from here on the context exposes its response
-        $ctx->complete($response);
-
-        $this->hooks->terminate($ctx);
 
         return $response;
     }

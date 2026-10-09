@@ -28,7 +28,13 @@ $ctx->session();    // the session of this request
 $ctx->cookies();    // the cookies of this request
 $ctx->response();   // the final response, once the cycle is over
 $ctx->requestId();  // a random id of this cycle, for logs and support
+$ctx->profile();    // optional native timings, enabled with App::profiling()
 ```
+
+Profiles belong to this cycle and are absent when profiling is disabled.
+The response-production duration is complete before terminate hooks; boot is
+tracked separately on `App::bootProfile()`. See the
+[Server-Timing recipe](recipes/server-timing.md) for measured stages and export.
 
 Instead of probing the request:
 

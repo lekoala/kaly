@@ -42,6 +42,18 @@ final class ViewResponder
 
     public function respond(View $view, HttpContext $ctx): ResponseInterface
     {
+        $start = $ctx->profile() !== null ? hrtime(true) : null;
+        try {
+            return $this->renderResponse($view, $ctx);
+        } finally {
+            if ($start !== null) {
+                $ctx->profile()?->record('view', hrtime(true) - $start);
+            }
+        }
+    }
+
+    private function renderResponse(View $view, HttpContext $ctx): ResponseInterface
+    {
         if ($this->renderer === null) {
             throw new Ex('A View was returned but no renderer is configured: bind a Kaly\View\RendererInterface implementation');
         }

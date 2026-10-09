@@ -55,7 +55,14 @@ final class RequestDispatcher implements RequestHandlerInterface
 
         // Running unrouted or without a locale is a broken invariant, not
         // something to paper over with a default: the routing step is fixed.
-        $result = $this->dispatch($ctx, $ctx->route());
+        $start = $ctx->profile() !== null ? hrtime(true) : null;
+        try {
+            $result = $this->dispatch($ctx, $ctx->route());
+        } finally {
+            if ($start !== null) {
+                $ctx->profile()?->record('controller', hrtime(true) - $start);
+            }
+        }
 
         return $this->prepareResponse($result, $ctx);
     }
@@ -192,15 +199,30 @@ final class RequestDispatcher implements RequestHandlerInterface
             return $result;
         }
         if ($result instanceof JsonResult) {
-            return $this->createResponse(Json::encode($result->data), ContentType::JSON, $result->status, $result->headers);
+            return $this->createResponse($this->serializeJson($result->data, $ctx), ContentType::JSON, $result->status, $result->headers);
         }
         if ($result instanceof View) {
             return $this->views->respond($result, $ctx);
         }
         if (is_array($result)) {
-            return $this->createResponse(Json::encode($result), ContentType::JSON);
+            return $this->createResponse($this->serializeJson($result, $ctx), ContentType::JSON);
         }
         return $this->createResponse((string) $result, ContentType::HTML);
+    }
+
+    /**
+     * @param array<mixed> $data
+     */
+    private function serializeJson(array $data, HttpContext $ctx): string
+    {
+        $start = $ctx->profile() !== null ? hrtime(true) : null;
+        try {
+            return Json::encode($data);
+        } finally {
+            if ($start !== null) {
+                $ctx->profile()?->record('serialization', hrtime(true) - $start);
+            }
+        }
     }
 
     /**

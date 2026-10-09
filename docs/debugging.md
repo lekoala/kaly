@@ -74,7 +74,14 @@ xdebug.file_link_format="vscode://file/%f:%l"
 
 ## Profiling
 
-Buggregator renders XHProf data as flame graphs and call graphs. Kaly provides no profiler abstraction: wrap a cycle with `start()` / `end()` from any XHProf-based package in a plain PSR-15 middleware. Example with `spiral-packages/profiler` (requires the XHProf extension):
+For a lightweight duration visible in browser DevTools, use the
+[Server-Timing recipe](recipes/server-timing.md).
+
+Kaly provides lightweight request-stage profiling, but no call-graph or sampling
+profiler. For method-level profiling, use an XHProf-based tool. Buggregator renders
+XHProf data as flame graphs and call graphs. Wrap a cycle with `start()` / `end()`
+from an XHProf-based package in a plain PSR-15 middleware. Example with
+`spiral-packages/profiler` (requires the XHProf extension):
 
 ```bash
 composer require --dev spiral-packages/profiler

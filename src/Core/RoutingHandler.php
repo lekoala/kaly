@@ -45,14 +45,21 @@ final class RoutingHandler implements RequestHandlerInterface
         $ctx = HttpContext::tryFrom($request) ?? new HttpContext($request);
         $ctx->bind($request);
 
-        $ctx->useRouter($this->router);
-        $route = $this->router->match($ctx->request());
-        $ctx->useRoute($route);
+        $start = $ctx->profile() !== null ? hrtime(true) : null;
+        try {
+            $ctx->useRouter($this->router);
+            $route = $this->router->match($ctx->request());
+            $ctx->useRoute($route);
 
-        // The route wins over a locale imposed by an incoming middleware,
-        // which in turn wins over content negotiation.
-        $imposed = $ctx->hasLocale() ? $ctx->locale() : null;
-        $ctx->useLocale($this->localeResolver->resolve($ctx->request(), $route->locale ?? $imposed));
+            // The route wins over a locale imposed by an incoming middleware,
+            // which in turn wins over content negotiation.
+            $imposed = $ctx->hasLocale() ? $ctx->locale() : null;
+            $ctx->useLocale($this->localeResolver->resolve($ctx->request(), $route->locale ?? $imposed));
+        } finally {
+            if ($start !== null) {
+                $ctx->profile()?->record('routing', hrtime(true) - $start);
+            }
+        }
 
         return $this->next->handle($ctx->request());
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Core;
 
 use Kaly\Auth\Authentication;
+use Kaly\Debug\Profile;
 use Kaly\Http\Cookie\CookiePolicy;
 use Kaly\Http\Cookie\Cookies;
 use Kaly\Http\Csp\Csp;
@@ -77,7 +78,14 @@ final class HttpContext
         private ServerRequestInterface $request,
         private ?SessionProviderInterface $sessionProvider = null,
         private ?CookiePolicy $cookiePolicy = null,
+        private ?Profile $profile = null,
     ) {}
+
+    /** Null when profiling is disabled; request duration is complete before terminate hooks. */
+    public function profile(): ?Profile
+    {
+        return $this->profile;
+    }
 
     /**
      * Get the context attached to a request. This is how a kaly middleware
