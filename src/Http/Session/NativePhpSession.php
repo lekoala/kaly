@@ -16,20 +16,20 @@ use Throwable;
  * pull/all + regenerateId/destroy) plus the CookieSessionInterface transport
  * read-model (getId, setId, getName, isDestroyed, close, getCookieParams) that
  * the provider consumes through SessionCookie. Everything transport-related
- * (session id lookup, cookie emission, remember-me, id regeneration timing)
+ * (session id lookup and cookie emission)
  * is driven by the NativePhpSessionProvider; isActive and discard remain
  * concrete details for code that explicitly opted into native sessions.
  *
  * Worker usage: since PHP's native session state is global to the process, a
  * new instance must be created for every request and `$_SESSION` must
  * not be shared between requests that could run concurrently (eg: coroutines).
- * `start()` always resets the native session id so a previous request cannot
- * leak into the next one.
+ * Opening storage always resets the native session id so a previous request
+ * cannot leak into the next one; an active session belongs to one instance.
  *
  * Concurrent runtimes must bind a SessionProviderInterface returning a
  * request-scoped SessionInterface implementation instead.
  *
- * @phpstan-type SessionOptions array{name?:string,save_path?:string,regen_interval?:int,expiry_key?:string,remember_lifetime?:int,remember_key?:string,lifetime?:int,path?:string,domain?:string,secure?:bool,httponly?:bool,samesite?:string,partitioned?:bool}
+ * @phpstan-type SessionOptions array{name?:string,save_path?:string,lifetime?:int,path?:string,domain?:string,secure?:bool,httponly?:bool,samesite?:string,partitioned?:bool}
  *
  * @link https://github.com/upscalesoftware/swoole-session
  * @link https://github.com/yiisoft/session
@@ -38,12 +38,7 @@ use Throwable;
  */
 final class NativePhpSession implements CookieSessionInterface
 {
-    private const DEFAULT_BEHAVIOR = [
-        'regen_interval' => 3600,
-        'expiry_key' => '_expiry',
-        'remember_lifetime' => 31_536_000,
-        'remember_key' => '_remember',
-    ];
+    private static ?self $owner = null;
 
     private CookiePolicy $policy;
     private string $name;
@@ -55,41 +50,27 @@ final class NativePhpSession implements CookieSessionInterface
     private bool $destroyed = false;
     /**
      * Options passed to session_start(). Cookie settings carry the cookie_
-     * prefix. Behavior keys (regen_interval, ...) are consumed, not forwarded.
+     * prefix.
      *
      * @link https://www.php.net/manual/en/session.configuration.php
      * @var array<string,mixed>
      */
     private array $options = [];
-    /**
-     * @var array{regen_interval:int,expiry_key:string,remember_lifetime:int,remember_key:string}
-     */
-    private array $behavior;
 
     /**
      * @param array<string,mixed> $options Explicit 'name' wins over session_name();
      *  cookie entries (lifetime, path, domain, secure, httponly, samesite,
-     *  partitioned) win over the policy baseline; behavior entries tune id
-     *  regeneration and remember-me. 'save_path' sets session_save_path().
+     *  partitioned) win over the policy baseline; 'save_path' is applied when
+     *  storage starts. Rotation and persistent login are application decisions.
      */
     public function __construct(array $options = [], ?CookiePolicy $policy = null)
     {
         $this->policy = $policy ?? CookiePolicy::baseline();
 
-        $behavior = array_merge(self::DEFAULT_BEHAVIOR, array_intersect_key($options, self::DEFAULT_BEHAVIOR));
-        $regenInterval = $behavior['regen_interval'] ?? self::DEFAULT_BEHAVIOR['regen_interval'];
-        $expiryKey = $behavior['expiry_key'] ?? self::DEFAULT_BEHAVIOR['expiry_key'];
-        $rememberLifetime = $behavior['remember_lifetime'] ?? self::DEFAULT_BEHAVIOR['remember_lifetime'];
-        $rememberKey = $behavior['remember_key'] ?? self::DEFAULT_BEHAVIOR['remember_key'];
-        $this->behavior = [
-            'regen_interval' => is_numeric($regenInterval) ? (int) $regenInterval : self::DEFAULT_BEHAVIOR['regen_interval'],
-            'expiry_key' => is_string($expiryKey) && $expiryKey !== '' ? $expiryKey : self::DEFAULT_BEHAVIOR['expiry_key'],
-            'remember_lifetime' => is_numeric($rememberLifetime) ? (int) $rememberLifetime : self::DEFAULT_BEHAVIOR['remember_lifetime'],
-            'remember_key' => is_string($rememberKey) && $rememberKey !== '' ? $rememberKey : self::DEFAULT_BEHAVIOR['remember_key'],
-        ];
-
-        if (isset($options['save_path']) && is_string($options['save_path']) && $options['save_path'] !== '') {
-            session_save_path($options['save_path']);
+        foreach (['regen_interval', 'expiry_key', 'remember_lifetime', 'remember_key'] as $key) {
+            if (array_key_exists($key, $options)) {
+                throw new InvalidArgumentException("Session option '{$key}' is no longer supported");
+            }
         }
 
         $name = $options['name'] ?? null;
@@ -109,11 +90,6 @@ final class NativePhpSession implements CookieSessionInterface
         $forward = $options;
         unset(
             $forward['name'],
-            $forward['save_path'],
-            $forward['regen_interval'],
-            $forward['expiry_key'],
-            $forward['remember_lifetime'],
-            $forward['remember_key'],
             $forward['lifetime'],
             $forward['path'],
             $forward['domain'],
@@ -207,8 +183,17 @@ final class NativePhpSession implements CookieSessionInterface
 
     public function destroy(): void
     {
+        // A cookie or close() can identify persisted storage without an open
+        // native session. Load it before destroying it, just as for a read.
+        if ($this->getId() !== null) {
+            $this->ensureStarted();
+        }
         if ($this->isActive()) {
-            session_destroy();
+            if (!session_destroy()) {
+                throw new Ex('Failed to destroy session');
+            }
+            self::$owner = null;
+            $_SESSION = [];
             session_id('');
         }
         // Also covers a session that was never started: the client cookie must
@@ -228,6 +213,9 @@ final class NativePhpSession implements CookieSessionInterface
 
     public function setId(string $sessionId): void
     {
+        if ($this->isActive()) {
+            throw new Ex('Cannot replace the id of an active session');
+        }
         $this->sessionId = $sessionId;
     }
 
@@ -238,7 +226,12 @@ final class NativePhpSession implements CookieSessionInterface
 
     public function isActive(): bool
     {
-        return session_status() === PHP_SESSION_ACTIVE;
+        return (
+            self::$owner === $this
+            && session_status() === PHP_SESSION_ACTIVE
+            && session_id() === $this->sessionId
+            && session_name() === $this->name
+        );
     }
 
     /**
@@ -248,6 +241,11 @@ final class NativePhpSession implements CookieSessionInterface
     {
         if ($this->isActive()) {
             $closed = session_write_close();
+            if (!$closed) {
+                throw new Ex('Failed to close session');
+            }
+            self::$owner = null;
+            $_SESSION = [];
             // Do not leave the native session id behind: it would be reused
             // by the next request handled in the same process.
             session_id('');
@@ -259,7 +257,11 @@ final class NativePhpSession implements CookieSessionInterface
     public function discard(): void
     {
         if ($this->isActive()) {
-            session_abort();
+            if (!session_abort()) {
+                throw new Ex('Failed to discard session');
+            }
+            self::$owner = null;
+            $_SESSION = [];
             session_id('');
         }
     }
@@ -349,33 +351,15 @@ final class NativePhpSession implements CookieSessionInterface
         session_id($this->sessionId ?? '');
 
         try {
-            session_start($this->options);
+            if (!session_start($this->options)) {
+                throw new Ex('Failed to start session');
+            }
+            self::$owner = $this;
             $this->sessionId = session_id() ?: null;
             // A fresh start supersedes a previous destroy()
             $this->destroyed = false;
-            $this->runIdRegeneration();
         } catch (Throwable $e) {
             throw new Ex('Failed to start session', 0, $e);
-        }
-    }
-
-    /**
-     * Regenerate the session ID if needed.
-     */
-    private function runIdRegeneration(): void
-    {
-        $interval = $this->behavior['regen_interval'];
-        $key = $this->behavior['expiry_key'];
-        if ($interval <= 0) {
-            return;
-        }
-        $expiry = time() + $interval;
-        if (!isset($_SESSION[$key])) {
-            $_SESSION[$key] = $expiry;
-        }
-        if ($_SESSION[$key] < time() || $_SESSION[$key] > $expiry) {
-            $this->regenerateId();
-            $_SESSION[$key] = $expiry;
         }
     }
 

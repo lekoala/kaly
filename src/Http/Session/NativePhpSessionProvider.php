@@ -16,9 +16,8 @@ use Psr\Http\Message\ServerRequestInterface;
  * request-scoped SessionInterface implementation instead.
  *
  * The provider owns transport: it derives the session id from the request
- * cookie, scopes the cookie to the request (secure/domain), honors
- * remember-me, commits the storage and applies the Set-Cookie header to the
- * final response.
+ * cookie, scopes the cookie to the request (secure/domain), commits the
+ * storage and applies the Set-Cookie header to the final response.
  *
  * The constructor is pure: it touches no global PHP state (no ini, no
  * output). Everything session_start() needs (no cookies, no url rewriting,
@@ -37,8 +36,7 @@ final class NativePhpSessionProvider implements SessionProviderInterface
     /**
      * @param array<string,mixed> $options Passed to NativePhpSession: 'name',
      *  'save_path', cookie overrides (lifetime, path, domain, secure,
-     *  httponly, samesite, partitioned) and behavior (regen_interval,
-     *  expiry_key, remember_lifetime, remember_key).
+     *  httponly, samesite, partitioned).
      */
     public function __construct(array $options = [], ?CookiePolicy $policy = null)
     {
@@ -48,7 +46,8 @@ final class NativePhpSessionProvider implements SessionProviderInterface
 
     public function create(ServerRequestInterface $request): SessionInterface
     {
-        $session = new NativePhpSession($this->optionsForRequest($request), $this->policy);
+        $options = SessionCookie::deriveOptions($this->options, $this->policy, $request);
+        $session = new NativePhpSession($options, $this->policy);
         $id = SessionCookie::idFromRequest($request, $session->getName());
         if ($id !== null) {
             $session->setId($id);
@@ -62,34 +61,5 @@ final class NativePhpSessionProvider implements SessionProviderInterface
             return SessionCookie::commit($session, $request, $response);
         }
         return $response;
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function optionsForRequest(ServerRequestInterface $request): array
-    {
-        $options = SessionCookie::deriveOptions($this->options, $this->policy, $request);
-        if ($this->isRememberMe($request)) {
-            $rememberLifetime = $options['remember_lifetime'] ?? 31_536_000;
-            $options['lifetime'] = is_numeric($rememberLifetime) ? (int) $rememberLifetime : 31_536_000;
-        }
-        return $options;
-    }
-
-    private function isRememberMe(ServerRequestInterface $request): bool
-    {
-        if ($request->getMethod() !== 'POST') {
-            return false;
-        }
-        $body = $request->getParsedBody();
-        if (!is_array($body)) {
-            return false;
-        }
-        $key = $this->options['remember_key'] ?? '_remember';
-        if (!is_string($key) || $key === '') {
-            $key = '_remember';
-        }
-        return !empty($body[$key]);
     }
 }

@@ -128,10 +128,14 @@ primitive underneath: name + value + params in, header string out.
 ## Native PHP sessions
 
 `NativePhpSession` wraps the process-global `$_SESSION`. It is safe for
-sequential execution — Kaly resets the native session id when it starts the
-session (`startSession()`) and when it closes it (`close()`) so nothing leaks
-between requests — but two requests running concurrently in the same process
-must not share it.
+sequential execution: each active native session belongs to exactly one
+instance. Other instances cannot adopt or close it. Kaly resets the native id
+and data on close, and the kernel closes storage in a `finally` block after
+terminate hooks, including when a hook reopens committed storage or error
+recovery fails. Two requests running concurrently in the same process must
+not share native storage. Outside the kernel, callers must close their session
+in a `finally` block. `destroy()` also invalidates persisted storage before
+the first read or after `close()`.
 
 ```text
 NativePhpSessionProvider (App's default)
@@ -149,6 +153,24 @@ emission) while `SessionInterface` stays a backend-agnostic applicative
 contract (`get/set/has/remove/clear/pull/all` + `regenerateId/destroy`).
 Cookie- or server-backed session policies are a decision of the
 application or of a dedicated package, not of the Kaly core.
+
+Session IDs rotate only through explicit `regenerateId()` calls, including
+login and logout. There is no periodic rotation and `_expiry` is ordinary
+application data. Native explicit rotation deletes the old storage immediately
+to invalidate the old credential. Applications that need periodic rotation
+with concurrent requests must use a backend with an explicit, bounded ID
+transition policy; merely retaining the old PHP session file is insufficient.
+See the [PHP rotation warning](https://www.php.net/manual/en/function.session-regenerate-id.php).
+
+Cookie duration is an explicit provider option (`lifetime`) or `CookiePolicy`
+setting and remains the same when a subsequent request rotates its ID. The
+provider does not inspect POST `_remember`. A persistent cookie alone is not
+a remember-me authentication system: applications must implement token expiry,
+revocation and renewal in their authentication policy or a dedicated provider.
+The former `regen_interval`, `expiry_key`, `remember_lifetime` and `remember_key`
+options have been removed and are rejected; remove them from provider
+configuration. Existing `_expiry` session entries may be cleared by the
+application and otherwise have no effect.
 
 `ArraySession` is concurrency-safe but persists nothing between requests: tests
 and isolated cycles only, never a production backend.

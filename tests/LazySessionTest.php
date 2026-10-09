@@ -62,7 +62,7 @@ class LazySessionTest extends TestCase
 
     private function provider(string $backend): SessionProviderInterface
     {
-        $options = ['name' => 'LAZYSESSION', 'regen_interval' => 0];
+        $options = ['name' => 'LAZYSESSION'];
         return match ($backend) {
             'native' => new NativePhpSessionProvider($options),
             'array' => new ArraySessionProvider($options),

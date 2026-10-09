@@ -9,6 +9,7 @@ use Kaly\Http\Cookie\CookiePolicy;
 use Kaly\Http\Cookie\Cookies;
 use Kaly\Http\Csp\Csp;
 use Kaly\Http\RequestUtils;
+use Kaly\Http\Session\CookieSessionInterface;
 use Kaly\Http\Session\SessionInterface;
 use Kaly\Http\Session\SessionProviderInterface;
 use Kaly\Router\Route;
@@ -313,6 +314,17 @@ final class HttpContext
         }
 
         return $response;
+    }
+
+    /**
+     * @internal Release storage after the entire cycle, including terminate
+     * hooks and exceptional exits. Never creates an untouched session.
+     */
+    public function closeSession(): void
+    {
+        if ($this->session instanceof CookieSessionInterface) {
+            $this->session->close();
+        }
     }
 
     private function sessionProvider(): SessionProviderInterface

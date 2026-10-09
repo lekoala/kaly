@@ -45,6 +45,17 @@ final class Kernel implements RequestHandlerInterface
         $ctx = new HttpContext($request, $this->sessionProvider, $this->cookiePolicy);
         $ctx->bind($request);
 
+        try {
+            return $this->handleContext($ctx);
+        } finally {
+            // A terminate or error hook may reopen committed storage. Release
+            // it even when response production or error recovery throws.
+            $ctx->closeSession();
+        }
+    }
+
+    private function handleContext(HttpContext $ctx): ResponseInterface
+    {
         // First boundary: produce a response, from the happy path or from an
         // exception escaping the request pipeline.
         try {

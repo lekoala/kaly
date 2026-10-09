@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use Kaly\Core\Hooks;
+use Kaly\Core\HttpContext;
+use Kaly\Core\Kernel;
+use Kaly\Ex;
 use Kaly\Http\Cookie\CookiePolicy;
+use Kaly\Http\ExceptionHandlerInterface;
 use Kaly\Http\Session\NativePhpSession;
 use Kaly\Http\Session\NativePhpSessionProvider;
 use Kaly\Tests\Support\HttpFactory;
@@ -12,7 +17,9 @@ use Kaly\Tests\Support\TempDir;
 use Kaly\Util\Fs;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
 class SessionTest extends TestCase
 {
@@ -148,27 +155,226 @@ class SessionTest extends TestCase
         $this->assertStringNotContainsString('Domain=', $cookie);
     }
 
-    public function testRememberMeExtendsTheCookieLifetime(): void
+    public function testExplicitCookieLifetimeSurvivesRotationOnALaterGet(): void
     {
-        $provider = $this->provider(['remember_lifetime' => 9999]);
+        $provider = $this->provider(['lifetime' => 9999]);
         $post = (new BaseServerRequest('POST', 'https://example.test/'))->withParsedBody(['_remember' => '1']);
         $session = $provider->create($post);
         assert($session instanceof NativePhpSession);
-        $this->assertSame(9999, $session->getCookieParams()['lifetime']);
+        $session->set('_auth', 'user-C');
+        $response = $provider->commit($session, $post, HttpFactory::createResponse());
+        $this->assertStringContainsString('Max-Age=9999', $response->getHeaderLine('Set-Cookie'));
+
+        $get = $this->request()->withCookieParams(['KALYAUDIT' => $session->getId()]);
+        $restored = $provider->create($get);
+        $restored->regenerateId();
+        $response = $provider->commit($restored, $get, HttpFactory::createResponse());
+        $this->assertStringContainsString('Max-Age=9999', $response->getHeaderLine('Set-Cookie'));
+        $this->assertSame('user-C', $restored->get('_auth'));
+        $restored->destroy();
+    }
+
+    public function testRememberPostFieldDoesNotChooseCookiePolicy(): void
+    {
+        $request = (new BaseServerRequest('POST', 'https://example.test/'))->withParsedBody(['_remember' => '1']);
+        $provider = $this->provider();
+        $session = $provider->create($request);
+        $session->set('_auth', 'user-C');
+        $response = $provider->commit($session, $request, HttpFactory::createResponse());
+        $this->assertStringNotContainsString('Max-Age', $response->getHeaderLine('Set-Cookie'));
+        $this->assertStringNotContainsString('Expires', $response->getHeaderLine('Set-Cookie'));
         $session->destroy();
+    }
 
-        $get = new BaseServerRequest('GET', 'https://example.test/');
-        $plain = $provider->create($get);
-        assert($plain instanceof NativePhpSession);
-        $this->assertSame(0, $plain->getCookieParams()['lifetime']);
-        $plain->destroy();
+    public function testAnotherInstanceCannotReadOrReleaseTheActiveNativeSession(): void
+    {
+        $first = new NativePhpSession();
+        $first->set('_auth', 'user-C');
+        $second = new NativePhpSession();
+        $this->assertFalse($second->isActive());
+        $this->assertNull($second->get('_auth'));
+        $this->assertFalse($second->close());
+        $second->discard();
+        $second->destroy();
+        $this->assertTrue($first->isActive());
+        $this->assertSame('user-C', $first->get('_auth'));
+        $first->destroy();
+    }
 
-        // An object body (eg: JSON parsed without assoc) must not fatal
-        $postWithObjectBody = (new BaseServerRequest('POST', 'https://example.test/'))->withParsedBody(new \stdClass());
-        $objectSession = $provider->create($postWithObjectBody);
-        assert($objectSession instanceof NativePhpSession);
-        $this->assertSame(0, $objectSession->getCookieParams()['lifetime']);
-        $objectSession->destroy();
+    public function testAnotherInstanceCannotAdoptEvenTheSameActiveId(): void
+    {
+        $first = new NativePhpSession();
+        $first->set('_auth', 'user-C');
+        $second = new NativePhpSession();
+        $id = $first->getId();
+        assert($id !== null);
+        $second->setId($id);
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage('already started by PHP');
+        $second->get('_auth');
+    }
+
+    public function testAnotherInstanceCannotWriteIntoTheActiveNativeSession(): void
+    {
+        $first = new NativePhpSession();
+        $first->set('_auth', 'user-C');
+        $second = new NativePhpSession();
+        try {
+            $second->set('_auth', 'user-B');
+            $this->fail('A second native session must not adopt active storage');
+        } catch (Ex $e) {
+            $this->assertStringContainsString('already started by PHP', $e->getMessage());
+        }
+        $this->assertSame('user-C', $first->get('_auth'));
+        $first->destroy();
+    }
+
+    public function testDestroyDeletesPersistedStorageWithoutAPreliminaryRead(): void
+    {
+        $provider = $this->provider();
+        $first = $provider->create($this->request());
+        $first->set('_auth', 'user-C');
+        $provider->commit($first, $this->request(), HttpFactory::createResponse());
+        assert($first instanceof NativePhpSession);
+        $id = $first->getId();
+        $request = $this->request()->withCookieParams(['KALYAUDIT' => $id]);
+        $second = $provider->create($request);
+        $second->destroy();
+        $this->assertFileDoesNotExist($this->savePath . '/sess_' . $id);
+        $replayed = $provider->create($request);
+        $this->assertNull($replayed->get('_auth'));
+        $replayed->destroy();
+    }
+
+    public function testDestroyDeletesPersistedStorageAfterClose(): void
+    {
+        $session = new NativePhpSession();
+        $session->set('_auth', 'user-C');
+        $id = $session->getId();
+        $session->close();
+        $session->destroy();
+        $this->assertFileDoesNotExist($this->savePath . '/sess_' . $id);
+        $replayed = new NativePhpSession();
+        assert($id !== null);
+        $replayed->setId($id);
+        $this->assertNull($replayed->get('_auth'));
+        $replayed->destroy();
+    }
+
+    public function testExpiredApplicationDataDoesNotTriggerAnImplicitRotation(): void
+    {
+        $provider = $this->provider();
+        $first = $provider->create($this->request());
+        $first->set('_auth', 'user-C');
+        $first->set('_expiry', 1);
+        $provider->commit($first, $this->request(), HttpFactory::createResponse());
+        assert($first instanceof NativePhpSession);
+        $id = $first->getId();
+        $request = $this->request()->withCookieParams(['KALYAUDIT' => $id]);
+        // Both in-flight requests keep the same authenticated storage and do
+        // not emit competing cookies merely because time has passed.
+        for ($i = 0; $i < 2; $i++) {
+            $restored = $provider->create($request);
+            $this->assertSame('user-C', $restored->get('_auth'));
+            $this->assertSame(1, $restored->get('_expiry'));
+            $response = $provider->commit($restored, $request, HttpFactory::createResponse());
+            $this->assertFalse($response->hasHeader('Set-Cookie'));
+        }
+        $first->destroy();
+    }
+
+    public function testKernelReleasesTheSessionReopenedByATerminateHook(): void
+    {
+        $handler = $this->createStub(RequestHandlerInterface::class);
+        $handler
+            ->method('handle')
+            ->willReturnCallback(static function (ServerRequestInterface $request): ResponseInterface {
+                $session = HttpContext::from($request)->session();
+                if ($request->getMethod() === 'POST') {
+                    $session->set('_auth', 'user-C');
+                }
+                $user = $session->get('_auth');
+                return HttpFactory::createResponse()->withHeader('X-User', is_string($user) ? $user : 'anonymous');
+            });
+        $errors = $this->createStub(ExceptionHandlerInterface::class);
+        $errors->method('toResponse')->willReturn(HttpFactory::createResponse()->withStatus(500));
+        $hooks = new Hooks();
+        $seen = [];
+        $hooks->terminate[] = static function (HttpContext $ctx) use (&$seen): void {
+            $seen[] = $ctx->session()->get('_auth');
+        };
+        $kernel = new Kernel($handler, $errors, $hooks, sessionProvider: $this->provider());
+        $first = $kernel->handle(new BaseServerRequest('POST', 'https://example.test/'));
+        $this->assertSame('user-C', $first->getHeaderLine('X-User'));
+        $this->assertSame(PHP_SESSION_NONE, session_status());
+        $this->assertSame('', session_id());
+        $this->assertSame([], $_SESSION);
+
+        $second = $kernel->handle($this->request());
+        $this->assertSame('anonymous', $second->getHeaderLine('X-User'));
+        $this->assertFalse($second->hasHeader('Set-Cookie'));
+        $this->assertSame(['user-C', null], $seen);
+    }
+
+    public function testKernelReleasesNativeStorageWhenExceptionHandlingThrows(): void
+    {
+        $handler = $this->createStub(RequestHandlerInterface::class);
+        $handler
+            ->method('handle')
+            ->willReturnCallback(static function (ServerRequestInterface $request): ResponseInterface {
+                HttpContext::from($request)->session()->set('_auth', 'user-C');
+                throw new Ex('Pipeline failed');
+            });
+        $errors = $this->createStub(ExceptionHandlerInterface::class);
+        $errors->method('toResponse')->willThrowException(new Ex('Error recovery failed'));
+        $kernel = new Kernel($handler, $errors, sessionProvider: $this->provider());
+        try {
+            $kernel->handle($this->request());
+            $this->fail('The exception handler must fail');
+        } catch (Ex $e) {
+            $this->assertSame('Error recovery failed', $e->getMessage());
+        }
+        $this->assertSame(PHP_SESSION_NONE, session_status());
+        $this->assertSame('', session_id());
+        $this->assertSame([], $_SESSION);
+    }
+
+    public function testKernelReleasesNativeStorageAfterAFailingTerminateHook(): void
+    {
+        $handler = $this->createStub(RequestHandlerInterface::class);
+        $handler
+            ->method('handle')
+            ->willReturnCallback(static function (ServerRequestInterface $request): ResponseInterface {
+                HttpContext::from($request)->session()->set('_auth', 'user-C');
+                return HttpFactory::createResponse();
+            });
+        $errors = $this->createStub(ExceptionHandlerInterface::class);
+        $errors->method('toResponse')->willReturn(HttpFactory::createResponse()->withStatus(500));
+        $hooks = new Hooks();
+        $hooks->terminate[] = static function (HttpContext $ctx): void {
+            $ctx->session()->get('_auth');
+            throw new Ex('Terminate failed');
+        };
+        $reported = [];
+        $hooks->error[] = static function (\Throwable $error, HttpContext $ctx) use (&$reported): void {
+            $reported[] = $error->getMessage();
+            $ctx->session()->get('_auth');
+        };
+        $kernel = new Kernel($handler, $errors, $hooks, sessionProvider: $this->provider());
+        $this->assertSame(200, $kernel->handle($this->request())->getStatusCode());
+        $this->assertSame(['Terminate failed'], $reported);
+        $this->assertSame(PHP_SESSION_NONE, session_status());
+        $this->assertSame('', session_id());
+    }
+
+    public function testConstructingAnotherSessionDoesNotChangeActiveStorageConfiguration(): void
+    {
+        $first = new NativePhpSession(['save_path' => $this->savePath]);
+        $first->set('_auth', 'user-C');
+        new NativePhpSession(['save_path' => $this->savePath . '/other']);
+        $this->assertSame($this->savePath, session_save_path());
+        $this->assertSame('user-C', $first->get('_auth'));
+        $first->destroy();
     }
 
     public function testGetNameFallsBackToConfiguredNameBeforeStart(): void

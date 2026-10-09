@@ -16,6 +16,17 @@
 
 ### Fixed
 
+- Native PHP session instances can no longer adopt or release another instance's
+  active storage. The kernel closes storage after terminate hooks and on
+  exceptional exits, clearing the native id and data between worker cycles.
+- Native `destroy()` invalidates persisted storage even before the first read
+  or after `close()`, preventing authenticated session-cookie replay.
+- **Breaking:** Native sessions no longer rotate periodically or infer persistent
+  cookies from POST `_remember`. Removed options `regen_interval`, `expiry_key`,
+  `remember_lifetime` and `remember_key` are rejected. Use explicit `lifetime`
+  or `CookiePolicy` for cookie duration; use an application provider with a bounded
+  ID transition policy for periodic rotation. Explicit login/logout rotation
+  continues to invalidate the old ID immediately.
 - **Behavior change:** Session reads (`get()`, `has()`, `all()`) and removals
   (`remove()`, `clear()`, `pull()`) no longer create storage or emit a cookie
   when no session exists. Native and in-memory sessions remain lazy until a
