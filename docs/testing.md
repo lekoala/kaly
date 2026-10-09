@@ -144,6 +144,27 @@ call `SessionAuthentication::login()` with its user and permissions. Keep tests
 of the login form and credential validation on the real login flow. Kaly leaves
 the user lookup in that helper to the application. See [Auth](auth.md).
 
+## Slow tests
+
+In-process tests with `TestClient` should stay in the millisecond range. To
+spot the ones that drift (a production hashing cost, a real network call, a
+sleep), add the slow test detector:
+
+```bash
+composer require --dev ergebnis/phpunit-slow-test-detector
+```
+
+and register its extension in `phpunit.xml.dist`:
+
+```xml
+<extensions>
+    <bootstrap class="Ergebnis\PHPUnit\SlowTestDetector\Extension"/>
+</extensions>
+```
+
+PHPUnit then lists the slowest tests above a threshold (500 ms by default)
+after each run.
+
 ## Testing boundaries
 
 Two rules draw the boundary:
