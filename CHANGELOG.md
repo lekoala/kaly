@@ -60,6 +60,8 @@
 
 ### Fixed
 
+- Debug page source excerpts no longer insert blank rows between code lines;
+  aligned line numbers, a bordered code block and row hover improve readability.
 - Native PHP session instances can no longer adopt or release another instance's
   active storage. The kernel closes storage after terminate hooks and on
   exceptional exits, clearing the native id and data between worker cycles.

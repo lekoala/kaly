@@ -106,7 +106,7 @@ final class DebugPage implements DebugPageInterface
         $out = '';
         for ($i = $from; $i <= $to; $i++) {
             $class = $i === $line ? ' class="hit"' : '';
-            $out .= "<span{$class}><i>{$i}</i>" . self::e($lines[$i - 1]) . "</span>\n";
+            $out .= "<span{$class}><i>{$i}</i>" . self::e($lines[$i - 1]) . '</span>';
         }
         return "<pre class=\"code\">{$out}</pre>";
     }
@@ -176,9 +176,11 @@ final class DebugPage implements DebugPageInterface
             .label { text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
             a { color: inherit; font-family: ui-monospace, monospace; font-size: 13px; overflow-wrap: anywhere; }
             pre { margin: 12px 0 0; overflow-x: auto; font: 13px/1.5 ui-monospace, monospace; }
-            .code span { display: block; white-space: pre; }
-            .code .hit { background: var(--hit); }
-            .code i { display: inline-block; width: 4em; color: var(--muted); font-style: normal; user-select: none; }
+            pre.code { padding: 8px 0; border: 1px solid var(--line); border-radius: 6px; white-space: normal; tab-size: 4; }
+            .code > span { display: block; min-height: 1.5em; white-space: pre; }
+            .code > span:hover { background: var(--bg); }
+            .code > .hit, .code > .hit:hover { background: var(--hit); }
+            .code i { display: inline-block; width: 4em; padding-inline-end: 1em; color: var(--muted); text-align: right; font-style: normal; user-select: none; }
             summary { cursor: pointer; margin-top: 12px; color: var(--muted); }
             table { border-collapse: collapse; width: 100%; font-size: 14px; }
             th { text-align: left; color: var(--muted); font-weight: 500; padding: 4px 16px 4px 0; vertical-align: top; white-space: nowrap; }

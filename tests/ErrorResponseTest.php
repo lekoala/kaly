@@ -103,6 +103,13 @@ class ErrorResponseTest extends TestCase
         $this->assertStringNotContainsString('<img', $html);
         // The code around the failing line and what the cycle established
         $this->assertStringContainsString('class="hit"', $html);
+        // Block-level source lines must not have preserved newline separators
+        if (preg_match('/<pre class="code">(.*?)<\/pre>/s', $html, $excerpt) !== 1) {
+            $this->fail('The debug page must include a source excerpt');
+        }
+        $this->assertStringContainsString('</span><span', $excerpt[1]);
+        $this->assertStringNotContainsString("\n", $excerpt[1]);
+        $this->assertStringNotContainsString("\r", $excerpt[1]);
         $this->assertStringContainsString('TestModule\Controller\StateController::crash', $html);
     }
 
