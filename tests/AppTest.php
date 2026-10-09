@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use Kaly\Auth\PasswordHasher;
+use Kaly\Clock\FrozenClock;
 use Kaly\Clock\SystemClock;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Core\HttpContext;
 use Kaly\Core\Paths;
 use Kaly\Di\Definitions;
+use Kaly\Http\ConditionalRequest;
 use Kaly\Http\ContentType;
 use Kaly\Http\Middleware\FileServer;
 use Kaly\Http\ResponseEmitterInterface;
@@ -24,6 +26,8 @@ use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Mocks\ContextProbeMiddleware;
 use Kaly\Tests\Mocks\TestMiddleware;
 use Kaly\Tests\Support\HttpFactory;
+use Kaly\Util\Dates;
+use Nyholm\Psr7\Request;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
@@ -145,6 +149,23 @@ class AppTest extends TestCase
         $app = App::create(__DIR__ . '/data/apps/logs')->boot();
 
         $this->assertInstanceOf(PasswordHasher::class, $app->container()->get(PasswordHasher::class));
+    }
+
+    public function testConditionalRequestUsesTheApplicationClockWithoutRegistration(): void
+    {
+        $clock = new FrozenClock(Dates::instant('2026-10-09T12:00:00Z'));
+        $app = App::create(__DIR__ . '/data/apps/logs')
+            ->configure(static function (Definitions $di) use ($clock): void {
+                $di->rebind(ClockInterface::class, $clock);
+            })
+            ->boot();
+        $conditional = $app->container()->get(ConditionalRequest::class);
+        $request = new Request('GET', '/', ['If-Modified-Since' => 'Friday, 09-Oct-76 12:00:00 GMT']);
+        $modified = Dates::instant('2076-10-09T12:00:00Z');
+
+        $this->assertTrue($conditional->isNotModified($request, lastModified: $modified));
+        $clock->setTo(Dates::instant('2026-10-09T11:59:59Z'));
+        $this->assertFalse($conditional->isNotModified($request, lastModified: $modified));
     }
 
     public function testPasswordHashingPolicyCanBeReplacedForTests(): void

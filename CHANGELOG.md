@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- `Kaly\Http\ConditionalRequest` evaluates GET/HEAD cache revalidation for an
+  existing, selected and authorized representation that otherwise returns 200.
+  It supports weak ETag comparison, lists, standalone wildcards and all three
+  HTTP date formats, with an injected clock for RFC 850's 50-year rule.
+  Malformed `If-None-Match` suppresses date fallback; higher-priority
+  `If-Match`/`If-Unmodified-Since` conservatively prevent a 304 decision.
+  Validator generation, response construction and cache policy remain application-owned.
+
 - Opt-in native request profiling through `App::profiling()`, with per-cycle
   `HttpContext::profile()` durations and counts for routing, controller, JSON
   serialization, view, commit and response production. `App::bootProfile()`

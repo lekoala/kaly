@@ -43,3 +43,8 @@ Version by module, not by prefix hack: a `v2` module mounts its own segment
 with its own tables, and both versions coexist. See [Routing](routing.md) and
 [Testing](testing.md).
 
+For ETag or Last-Modified revalidation, inject `Kaly\Http\ConditionalRequest`
+and return an empty PSR-7 304 response before serialization when it matches.
+See [Conditional responses](serving.md#conditional-responses) for the contract,
+shared cache headers and a JSON example.
+
