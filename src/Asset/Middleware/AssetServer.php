@@ -67,7 +67,7 @@ final class AssetServer implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        $filename = Fs::toDir($root, str_replace('/', DIRECTORY_SEPARATOR, $relative));
+        $filename = Fs::join($root, str_replace('/', DIRECTORY_SEPARATOR, $relative));
 
         if (is_link($filename) || !Fs::isInside($root, $filename) || !is_file($filename)) {
             return $handler->handle($request);

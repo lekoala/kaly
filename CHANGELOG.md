@@ -3,6 +3,8 @@
 
 ### Added
 
+- `Fs::ensureDir()` accepts a creation mode (default `0o755`, subject to umask)
+  and tolerates concurrent directory creation, throwing `Kaly\Ex` on failure.
 - `TestClient` accepts `files` containing PSR-7 uploaded files, including nested
   and multiple uploads, alongside optional `form` data. Redirects preserve the
   files on 307/308 and discard them when switching to GET.
@@ -11,6 +13,11 @@
 
 ### Fixed
 
+- `Fs::dir()` preserves Unix, Windows drive and UNC roots.
+- **Breaking:** `Fs::toDir()` is replaced by `Fs::join(string ...$segments)`.
+  Joining trims boundary separators and ignores empty strings while preserving
+  `"0"`. Rooted or drive-prefixed segments after the first non-empty segment
+  are rejected. Paths are joined lexically without resolving `.` or `..`.
 - The default `ClockInterface` and `SystemClock` resolve without configuration:
   the timezone parameter defaults explicitly to PHP's default timezone instead
   of attempting to autowire `DateTimeZone`.

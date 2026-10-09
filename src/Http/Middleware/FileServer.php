@@ -39,11 +39,11 @@ final class FileServer implements MiddlewareInterface
         // `.well-known` is the public protocol convention (acme, webfinger)
         $path = ltrim($request->getUri()->getPath(), '/');
         $checkedPath = str_starts_with($path, '.well-known/') ? substr($path, strlen('.well-known/')) : $path;
-        if (str_contains($path, '\\') || Fs::hasDotSegment($checkedPath)) {
+        if (str_contains($path, '\\') || preg_match('/^[A-Za-z]:/', $path) || Fs::hasDotSegment($checkedPath)) {
             return $handler->handle($request);
         }
 
-        $filename = Fs::toDir($this->publicDir, $path);
+        $filename = Fs::join($this->publicDir, $path);
 
         // Reject path traversal, symlink escapes and non regular files
         if (!Fs::isInside($this->publicDir, $filename) || !is_file($filename)) {

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Util;
 
-use Exception;
+use Kaly\Ex;
 
 /**
  * Filesystem helpers used by bootstrap, modules and static file serving.
@@ -54,23 +54,51 @@ final class Fs
     }
 
     /**
-     * Join path segments with the directory separator, skipping empty parts.
+     * Join filesystem path segments lexically using DIRECTORY_SEPARATOR at boundaries.
      *
-     * @param string[] ...$args Path segments
+     * Empty segments are ignored, but "0" is preserved. Only the first non-empty
+     * segment may be rooted or carry a Windows drive prefix. Unix, drive and UNC
+     * roots and interior separators are preserved; trailing separators are removed.
+     * No filesystem access or resolution of . / .. occurs: this is not a path
+     * traversal security boundary.
+     *
+     * @throws Ex When a later segment is rooted or carries a drive prefix
      */
-    public static function toDir(...$args): string
+    public static function join(string ...$segments): string
     {
-        $args = array_filter($args);
-        /** @var array<string> $args */
-        return implode(DIRECTORY_SEPARATOR, $args);
+        $path = '';
+        foreach ($segments as $segment) {
+            if ($segment === '') {
+                continue;
+            }
+            if ($path === '') {
+                $path = self::dir($segment);
+                continue;
+            }
+            if ($segment[0] === '/' || $segment[0] === '\\' || preg_match('/^[A-Za-z]:/', $segment)) {
+                throw new Ex("Cannot join rooted or drive-prefixed path segment '{$segment}' after the first segment");
+            }
+            // A bare drive prefix is drive-relative: C: + file must stay C:file.
+            $separator = preg_match('/^[A-Za-z]:$/D', $path) ? '' : DIRECTORY_SEPARATOR;
+            $path = rtrim($path, '\\/') . $separator . self::dir($segment);
+        }
+        return $path;
     }
 
     /**
-     * Return the directory without trailing slash or backslash.
+     * Remove trailing slashes or backslashes, preserving Unix, drive and UNC roots.
+     * Interior separators are left untouched.
      */
     public static function dir(string $dir): string
     {
-        return rtrim($dir, '\/');
+        $trimmed = rtrim($dir, '\\/');
+        if ($dir !== '' && $trimmed === '') {
+            return $dir[0];
+        }
+        if ($trimmed !== $dir && preg_match('/^[A-Za-z]:$/D', $trimmed)) {
+            return $trimmed . $dir[2];
+        }
+        return $trimmed;
     }
 
     /**
@@ -85,19 +113,15 @@ final class Fs
     }
 
     /**
-     * Create the directory if needed, throwing when creation fails.
+     * Create the directory recursively if needed, tolerating concurrent creation.
+     * The mode defaults to 0o755 and is subject to umask; Windows ignores it.
      *
-     * See https://www.digitalocean.com/community/questions/proper-permissions-for-web-server-s-directory.
-     *
-     * @throws Exception When the directory cannot be created
+     * @throws Ex When the directory cannot be created
      */
-    public static function ensureDir(string $dir): void
+    public static function ensureDir(string $dir, int $mode = 0o755): void
     {
-        if (!is_dir($dir)) {
-            $result = mkdir($dir, 0o755, true);
-            if (!$result) {
-                throw new Exception("Could not create {$dir}");
-            }
+        if (!is_dir($dir) && !@mkdir($dir, $mode, true) && !is_dir($dir)) {
+            throw new Ex("Cannot create directory '{$dir}'");
         }
     }
 

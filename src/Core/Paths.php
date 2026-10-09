@@ -35,27 +35,27 @@ final readonly class Paths
 
     public function modules(): string
     {
-        return Fs::toDir($this->base, self::MODULES);
+        return Fs::join($this->base, self::MODULES);
     }
 
     public function publicDir(): string
     {
-        return Fs::toDir($this->base, self::PUBLIC);
+        return Fs::join($this->base, self::PUBLIC);
     }
 
     public function resources(): string
     {
-        return Fs::toDir($this->base, self::RESOURCES);
+        return Fs::join($this->base, self::RESOURCES);
     }
 
     public function assets(): string
     {
-        return Fs::toDir($this->base, 'assets');
+        return Fs::join($this->base, 'assets');
     }
 
     public function temp(): string
     {
-        return Fs::toDir($this->base, self::TEMP);
+        return Fs::join($this->base, self::TEMP);
     }
 
     /**
@@ -63,7 +63,7 @@ final readonly class Paths
      */
     public function logs(): string
     {
-        return Fs::toDir($this->temp(), 'logs');
+        return Fs::join($this->temp(), 'logs');
     }
 
     /**
@@ -71,7 +71,7 @@ final readonly class Paths
      */
     public function tempFor(string|object $name): string
     {
-        $dir = Fs::toDir($this->temp(), strtolower(Reflection::getShortClassName($name)));
+        $dir = Fs::join($this->temp(), strtolower(Reflection::getShortClassName($name)));
         Fs::ensureDir($dir);
         return $dir;
     }

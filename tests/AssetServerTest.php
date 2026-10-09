@@ -114,6 +114,12 @@ class AssetServerTest extends TestCase
         $this->assertSame(404, $this->serve('GET', '/_assets/app/.secret')->getStatusCode());
     }
 
+    public function testDrivePrefixedPathsFallThrough(): void
+    {
+        $this->assertSame(404, $this->serve('GET', '/_assets/app/C:/app.js')->getStatusCode());
+        $this->assertSame(404, $this->serve('GET', '/_assets/app/C:app.js')->getStatusCode());
+    }
+
     public function testBackslashCannotBypassHiddenFileProtection(): void
     {
         Fs::putFile($this->base . '/assets/nested/.secret', 'DOTFILE-SENTINEL');

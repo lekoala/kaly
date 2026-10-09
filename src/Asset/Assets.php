@@ -98,6 +98,7 @@ final class Assets implements AssetsInterface
         if (
             $path === ''
             || str_starts_with($path, '/')
+            || preg_match('/^[A-Za-z]:/', $path)
             || str_contains($path, '\\')
             || str_contains($path, "\0")
             || Fs::hasDotSegment($path)
@@ -130,7 +131,7 @@ final class Assets implements AssetsInterface
             }
         }
 
-        $file = Fs::toDir($this->publicDir, 'assets', self::VERSION_FILE);
+        $file = Fs::join($this->publicDir, 'assets', self::VERSION_FILE);
         if (is_file($file)) {
             $version = trim(Fs::getFile($file));
             if ($version !== '') {

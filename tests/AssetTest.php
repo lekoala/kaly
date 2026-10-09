@@ -111,6 +111,8 @@ class AssetTest extends TestCase
             'traversal' => ['../secret.js'],
             'nested traversal' => ['js/../../secret.js'],
             'absolute' => ['/app.js'],
+            'drive absolute' => ['C:/app.js'],
+            'drive relative' => ['C:app.js'],
             'dot segment' => ['./app.js'],
             'dotfile' => ['.env'],
             'dotfile nested' => ['js/.hidden.js'],

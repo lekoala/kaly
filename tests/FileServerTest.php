@@ -96,6 +96,12 @@ class FileServerTest extends TestCase
         $this->assertStringNotContainsString('AUDIT-PRIVATE-SENTINEL', (string) $response->getBody());
     }
 
+    public function testDrivePrefixedPathsFallThrough(): void
+    {
+        $this->assertSame(404, $this->serve('GET', '/C:/asset.txt')->getStatusCode());
+        $this->assertSame(404, $this->serve('GET', '/C:asset.txt')->getStatusCode());
+    }
+
     public function testEncodedTraversalIsBlocked(): void
     {
         $response = $this->serve('GET', '/%2e%2e/private-note');

@@ -578,7 +578,7 @@ final class App implements RequestHandlerInterface
                     // retention is the application's own PSR-3 binding.
                     $logDir = $this->paths->logs();
                     Fs::ensureDir($logDir);
-                    $definitions->set(self::DEBUG_LOGGER, new FileLogger(Fs::toDir($logDir, 'debug.log')));
+                    $definitions->set(self::DEBUG_LOGGER, new FileLogger(Fs::join($logDir, 'debug.log')));
                 } else {
                     $definitions->set(self::DEBUG_LOGGER, NullLogger::class);
                 }

@@ -78,3 +78,26 @@ persistence codec.
 - `Kaly\Util\Str` (multibyte case, slugs, encoding), `Kaly\Util\Fs`
   (dot-segment guard, recursive helpers), `Kaly\Util\Arr`,
   `Kaly\Util\Cast` and `Kaly\Util\Base64Url` round out the toolbox.
+
+### Filesystem paths
+
+Use `Fs::join(string ...$segments)` to compose filesystem paths:
+
+```php
+$databaseFile = Fs::join($paths->resources(), 'database.sqlite');
+Fs::ensureDir(Fs::join($paths->publicDir(), 'uploads'), 0o775);
+```
+
+`join()` ignores empty strings, preserves `"0"` and filesystem roots (Unix,
+Windows drives and UNC shares), and uses `DIRECTORY_SEPARATOR` at junctions.
+Interior separators are unchanged and trailing separators are removed.
+Only the first non-empty segment may be rooted or carry a Windows drive prefix;
+later rooted or drive-prefixed segments throw `Kaly\Ex`.
+It does not require an existing path, call `realpath()` or resolve `.` / `..`.
+It is not a path traversal security boundary.
+
+`Fs::dir()` removes trailing separators while preserving roots.
+`Fs::ensureDir($directory, $mode = 0o755)` creates directories recursively and
+tolerates another process creating the directory concurrently. Creation failures
+throw `Kaly\Ex`. The mode is subject to umask, is ignored on Windows, and does
+not change permissions on existing directories.

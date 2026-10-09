@@ -63,7 +63,7 @@ final class AssetPublisher
         }
         self::assertValidVersion($resolved);
 
-        $dest = Fs::toDir($this->publicDir, 'assets', $resolved);
+        $dest = Fs::join($this->publicDir, 'assets', $resolved);
         if (is_dir($dest)) {
             $this->writeVersionFile($resolved);
             return $resolved;
@@ -89,15 +89,15 @@ final class AssetPublisher
      */
     public function prune(int $keep = 3): int
     {
-        $assetsDir = Fs::toDir($this->publicDir, 'assets');
+        $assetsDir = Fs::join($this->publicDir, 'assets');
         if (!is_dir($assetsDir)) {
             return 0;
         }
 
-        $active = trim(Fs::getFile(Fs::toDir($assetsDir, Assets::VERSION_FILE)));
+        $active = trim(Fs::getFile(Fs::join($assetsDir, Assets::VERSION_FILE)));
 
         $versions = [];
-        foreach (glob(Fs::toDir($assetsDir, '*'), GLOB_ONLYDIR) ?: [] as $dir) {
+        foreach (glob(Fs::join($assetsDir, '*'), GLOB_ONLYDIR) ?: [] as $dir) {
             $version = basename($dir);
             if (!str_starts_with($version, '.')) {
                 $versions[$version] = (int) filemtime($dir);
@@ -112,7 +112,7 @@ final class AssetPublisher
             if ($position <= $keep || $version === $active) {
                 continue;
             }
-            Fs::removeDir(Fs::toDir($assetsDir, $version));
+            Fs::removeDir(Fs::join($assetsDir, (string) $version));
             $removed++;
         }
         return $removed;
@@ -149,7 +149,7 @@ final class AssetPublisher
     private function publishNamespace(string $namespace, string $dir, string $dest): void
     {
         foreach ($this->collect($namespace, $dir) as $relative => $file) {
-            $target = Fs::toDir($dest, $namespace, str_replace('/', DIRECTORY_SEPARATOR, $relative));
+            $target = Fs::join($dest, $namespace, str_replace('/', DIRECTORY_SEPARATOR, $relative));
             Fs::ensureDir(dirname($target));
             if (!copy($file, $target)) {
                 throw new RuntimeException("Could not publish '{$file}'");
@@ -206,13 +206,13 @@ final class AssetPublisher
 
     private function writeVersionFile(string $version): void
     {
-        $dir = Fs::toDir($this->publicDir, 'assets');
+        $dir = Fs::join($this->publicDir, 'assets');
         Fs::ensureDir($dir);
-        $tmp = Fs::toDir($dir, '.' . Assets::VERSION_FILE . '.' . getmypid() . '.tmp');
+        $tmp = Fs::join($dir, '.' . Assets::VERSION_FILE . '.' . getmypid() . '.tmp');
         Fs::putFile($tmp, $version . "\n");
         // Atomic on the same filesystem; fallback to copy on Windows quirks
-        if (!@rename($tmp, Fs::toDir($dir, Assets::VERSION_FILE))) {
-            Fs::putFile(Fs::toDir($dir, Assets::VERSION_FILE), $version . "\n");
+        if (!@rename($tmp, Fs::join($dir, Assets::VERSION_FILE))) {
+            Fs::putFile(Fs::join($dir, Assets::VERSION_FILE), $version . "\n");
             @unlink($tmp);
         }
     }
