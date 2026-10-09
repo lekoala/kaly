@@ -5,7 +5,9 @@
 
 - `Kaly\Crypto\Secret` holds the application root secret (at least 32 bytes,
   base64url in `APP_SECRET`) and derives one key per purpose with HKDF-SHA256.
-  It redacts dumps and refuses serialization. `App` resolves it from
+  Neither it nor `Hmac` keeps key material in instance properties, so native
+  dumps and Symfony VarDumper never show it; serialization and cloning are
+  refused. `App` resolves it from
   `APP_SECRET` on first use and fails with `Kaly\Ex` when the value is missing or
   invalid; nothing is generated silently. `Secret::generate()` creates a value.
 - `Kaly\Crypto\Hmac` signs and verifies messages with HMAC-SHA256 under a

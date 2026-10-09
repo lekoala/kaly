@@ -14,29 +14,36 @@ use SensitiveParameter;
  * The key is derived from the secret and the purpose, so a signature made
  * for `form-protection:v1` never verifies as an `auth-verification:v1` one.
  * Signatures are base64url text (43 characters) and verification runs in
- * constant time.
+ * constant time. Like the secret, the derived key is kept out of the
+ * instance properties, so dumps only show the purpose.
  *
  * A signature only proves who produced a message. Expiry, attempt limits and
  * single use stay the caller's rules, and the message must bind every piece
  * of context that matters: encode several fields unambiguously, eg with
  * `json_encode([$memberId, $recipient, $code])`, never by concatenation.
  */
-final readonly class Hmac
+final class Hmac
 {
-    private string $key;
+    /**
+     * Derived keys by instance, out of reach of dumpers.
+     *
+     * @var \WeakMap<self,string>|null
+     */
+    private static ?\WeakMap $keys = null;
 
     public function __construct(
         #[SensitiveParameter]
         Secret $secret,
-        public string $purpose,
+        public readonly string $purpose,
     ) {
         // The prefix separates HMAC keys from other keys derived for the same purpose.
-        $this->key = $secret->deriveKey('kaly.hmac:' . $purpose);
+        self::$keys ??= new \WeakMap();
+        self::$keys[$this] = $secret->deriveKey('kaly.hmac:' . $purpose);
     }
 
     public function sign(#[SensitiveParameter] string $message): string
     {
-        return Base64Url::encode(hash_hmac('sha256', $message, $this->key, true));
+        return Base64Url::encode(hash_hmac('sha256', $message, self::key($this), true));
     }
 
     public function verify(#[SensitiveParameter] string $message, string $signature): bool
@@ -45,11 +52,11 @@ final readonly class Hmac
     }
 
     /**
-     * @return array{purpose:string}
+     * @throws LogicException Always: an instance owns its key material
      */
-    public function __debugInfo(): array
+    public function __clone(): void
     {
-        return ['purpose' => $this->purpose];
+        throw new LogicException('A signing key cannot be cloned');
     }
 
     /**
@@ -66,5 +73,10 @@ final readonly class Hmac
     public function __unserialize(array $data): void
     {
         throw new LogicException('A signing key cannot be unserialized');
+    }
+
+    private static function key(self $hmac): string
+    {
+        return self::$keys[$hmac] ?? throw new LogicException('A signing key must be constructed before use');
     }
 }

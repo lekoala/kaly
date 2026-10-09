@@ -173,8 +173,10 @@ signs nothing needs no secret. A missing or invalid value fails at that point
 with a `Kaly\Ex` naming the variable. Bind your own `Secret` to load it from
 elsewhere (a secrets manager, a file outside the web root).
 
-The raw secret never leaves the object: dumps redact it, serialization is
-refused, and each purpose gets its own key through HKDF-SHA256.
+The raw secret never leaves the object. Neither the secret nor a derived key
+is stored in an instance property, so `var_dump()`, `print_r()` and Symfony
+VarDumper (`d()`) never show them; serialization and cloning are refused. Each
+purpose gets its own key through HKDF-SHA256.
 `Kaly\Crypto\Hmac` signs and verifies with such a key:
 
 ```php

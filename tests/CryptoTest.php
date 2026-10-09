@@ -15,6 +15,7 @@ use Kaly\Util\Base64Url;
 use LogicException;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerExceptionInterface;
+use Symfony\Component\VarDumper\Cloner\VarCloner;
 
 class CryptoTest extends TestCase
 {
@@ -75,16 +76,35 @@ class CryptoTest extends TestCase
         $secret->deriveKey('a', 8);
     }
 
-    public function testSecretsNeverLeakThroughDumpsOrSerialization(): void
+    public function testNativeDumpsShowNoKeyMaterial(): void
+    {
+        $secret = new Secret(str_repeat('K', 32));
+        $hmac = new Hmac($secret, 'dump:v1');
+
+        $this->assertSame("Kaly\\Crypto\\Secret Object\n(\n    [bytes] => [redacted]\n)\n", print_r($secret, true));
+        $this->assertSame("Kaly\\Crypto\\Hmac Object\n(\n    [purpose] => dump:v1\n)\n", print_r($hmac, true));
+        $this->assertSame(['purpose' => 'dump:v1'], (array) $hmac);
+        $this->assertSame([], (array) $secret);
+    }
+
+    public function testSymfonyDumpsShowNoKeyMaterial(): void
+    {
+        // VarDumper reads private properties besides __debugInfo(): only the
+        // values below may appear, never the bytes or a derived key.
+        $secret = new Secret(str_repeat('K', 32));
+        $cloner = new VarCloner();
+
+        $this->assertSame(['[redacted]'], array_values((array) $cloner->cloneVar($secret)->getValue(true)));
+        $this->assertSame(['dump:v1'], array_values((array) $cloner->cloneVar(new Hmac($secret, 'dump:v1'))->getValue(true)));
+    }
+
+    public function testSecretsAndSigningKeysCannotBeSerializedOrCloned(): void
     {
         $secret = Secret::fromBase64Url(self::SECRET);
-        $raw = (string) Base64Url::decode(self::SECRET);
-
-        $this->assertStringNotContainsString($raw, print_r($secret, true));
-        $this->assertStringContainsString('[redacted]', print_r($secret, true));
-
         $hmac = new Hmac($secret, 'dump:v1');
-        $this->assertSame(['purpose' => 'dump:v1'], $hmac->__debugInfo());
+
+        // Static analysis does not see __clone() behind the clone operator
+        $clone = static fn(object $object): object => clone $object;
 
         foreach ([$secret, $hmac] as $object) {
             try {
@@ -92,6 +112,11 @@ class CryptoTest extends TestCase
                 $this->fail('Serialization must be refused');
             } catch (LogicException $e) {
                 $this->assertStringEndsWith('cannot be serialized', $e->getMessage());
+            }
+            try {
+                $this->fail('Cloning must be refused, got ' . $clone($object)::class);
+            } catch (LogicException $e) {
+                $this->assertStringEndsWith('cannot be cloned', $e->getMessage());
             }
         }
     }
