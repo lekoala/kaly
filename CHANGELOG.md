@@ -19,14 +19,6 @@
   keeps boot separate.
   `App::profiling(serverTiming: true)` exports completed durations, including
   commit and request, to browser DevTools after response production.
-- Profiles keep at most 64 distinct metrics with names up to 64 characters.
-  Capacity overflow is ignored without interrupting response production;
-  existing metrics continue to accumulate. The profiling recipe clarifies
-  that global HTTP export has no per-request authorization or filtering.
-- **Breaking:** `Kaly\Debug\RequestProfile` is renamed to `Kaly\Debug\Profile`
-  for both boot and request measurements. Replace outgoing
-  `Core\Middleware\ServerTiming` registration with
-  `App::profiling(serverTiming: true)`; outgoing middleware still runs before commit.
 
 ## 0.3.0 - 2026-10-09
 
