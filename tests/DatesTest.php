@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use DateInvalidTimeZoneException;
+use DateTime;
 use DateTimeZone;
 use InvalidArgumentException;
 use Kaly\Util\Dates;
@@ -12,6 +13,55 @@ use PHPUnit\Framework\TestCase;
 
 class DatesTest extends TestCase
 {
+    public function testCompareDateOrdersCalendarComponents(): void
+    {
+        foreach ([
+            ['2025-12-31', '2026-01-01'],
+            ['2026-01-31', '2026-02-01'],
+            ['2026-10-09', '2026-10-10'],
+        ] as [$left, $right]) {
+            $a = Dates::date($left, 'UTC');
+            $b = Dates::date($right, 'UTC');
+
+            $this->assertSame(-1, Dates::compareDate($a, $b));
+            $this->assertSame(1, Dates::compareDate($b, $a));
+            $this->assertSame(0, Dates::compareDate($a, $a));
+        }
+    }
+
+    public function testCompareDateIgnoresTimeAndPreservesMutableInputs(): void
+    {
+        $a = new DateTime('2026-10-10 00:30:00.123456', new DateTimeZone('Europe/Brussels'));
+        $b = new DateTime('2026-10-10 23:59:59.654321', new DateTimeZone('America/New_York'));
+        $originalA = clone $a;
+        $originalB = clone $b;
+
+        $this->assertSame(0, Dates::compareDate($a, $b));
+        $this->assertEquals($originalA, $a);
+        $this->assertEquals($originalB, $b);
+    }
+
+    public function testCompareDateUsesEachObjectsOwnTimezone(): void
+    {
+        $a = Dates::instant('2026-10-10T00:30:00+02:00');
+        $b = $a->setTimezone(new DateTimeZone('UTC'));
+
+        $this->assertEquals($a, $b);
+        $this->assertSame(1, Dates::compareDate($a, $b));
+        $this->assertSame(-1, Dates::compareDate($b, $a));
+    }
+
+    public function testCompareDateSupportsNegativeAndExpandedYears(): void
+    {
+        foreach ([[-2, -1], [-1, 0], [9999, 10_000]] as [$left, $right]) {
+            $a = Dates::date('2026-01-01', 'UTC')->setDate($left, 1, 1);
+            $b = Dates::date('2026-01-01', 'UTC')->setDate($right, 1, 1);
+
+            $this->assertSame(-1, Dates::compareDate($a, $b));
+            $this->assertSame(1, Dates::compareDate($b, $a));
+        }
+    }
+
     public function testIsDateAcceptsCalendarDatesOnly(): void
     {
         $this->assertTrue(Dates::isDate('2026-02-28'));

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `Kaly\Util\Dates::compareDate()` compares civil dates in each object's own
+  timezone, ignoring time without converting timezones or modifying the inputs.
+
 - `Kaly\Http\ConditionalRequest` evaluates GET/HEAD cache revalidation for an
   existing, selected and authorized representation that otherwise returns 200.
   It supports weak ETag comparison, lists, standalone wildcards and all three

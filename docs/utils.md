@@ -28,6 +28,12 @@ Two questions, two answers:
 handing over: `Y-m-d` dates, `H:i` or `H:i:s` times and RFC 3339 instants with an
 explicit offset. It returns plain `DateTimeImmutable` values.
 
+`Dates::compareDate($a, $b)` compares the calendar dates of two
+`DateTimeInterface` objects and returns `-1`, `0` or `1`. It reads each date
+in its own timezone, ignores the time and modifies neither object. It does
+not convert timezones or compare instants: the same instant can have different
+calendar dates in different timezones.
+
 Conventions to know:
 
 - Throwing factories (`date()`, `instant()`, `at()`) for already-validated

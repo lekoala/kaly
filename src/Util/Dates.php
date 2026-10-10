@@ -6,12 +6,13 @@ namespace Kaly\Util;
 
 use DateInvalidTimeZoneException;
 use DateTimeImmutable;
+use DateTimeInterface;
 use DateTimeZone;
 use InvalidArgumentException;
 use Throwable;
 
 /**
- * Strict parsing of the everyday web date representations.
+ * Strict parsing of everyday web date representations and civil date comparison.
  *
  * A tiny native complement, not a date library: `Y-m-d` dates, `H:i` or
  * `H:i:s` times and RFC 3339 instants with an explicit offset (fractional
@@ -40,6 +41,23 @@ final class Dates
      * input, missing seconds default to `00`.
      */
     public const TIME_FORMAT = 'H:i:s';
+
+    /**
+     * Compare calendar dates in each object's own timezone, ignoring time.
+     *
+     * Returns -1, 0 or 1 without converting timezones or modifying either
+     * object. Do not use this to compare instants.
+     */
+    public static function compareDate(DateTimeInterface $a, DateTimeInterface $b): int
+    {
+        return (
+            [(int) $a->format('Y'), (int) $a->format('m'), (int) $a->format('d')] <=> [
+                (int) $b->format('Y'),
+                (int) $b->format('m'),
+                (int) $b->format('d'),
+            ]
+        );
+    }
 
     /**
      * A pure calendar check, independent of any timezone: a skipped civil
