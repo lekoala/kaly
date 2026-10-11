@@ -31,6 +31,17 @@
 - `ConventionResolver` no longer caches unknown controller classes, which let
   random urls grow a worker's memory.
 
+### HTTP
+
+- A `HEAD` response never carries content, whatever the runtime: the kernel
+  runs the whole cycle (outgoing middlewares and commit included, so headers
+  match the `GET` ones), then drops the body without reading it. An existing
+  `Content-Length` is kept, a missing one is never computed. Terminate hooks
+  see the bodyless response. `Kernel` takes a `StreamFactoryInterface`.
+- **Behavior change:** declared `GET` routes answer `HEAD` (it was a `405`). A
+  route declaring `HEAD` itself wins whatever the declaration order, and a
+  `405` lists `HEAD` along with `GET`.
+
 - `Kaly\Util\Dates::compareDate()` compares civil dates in each object's own
   timezone, ignoring time without converting timezones or modifying the inputs.
 

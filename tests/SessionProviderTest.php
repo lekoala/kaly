@@ -118,7 +118,7 @@ class SessionProviderTest extends TestCase
             }
         };
         $psr17 = new Psr17Factory();
-        $kernel = new Kernel($handler, new ExceptionHandler($psr17, $psr17), sessionProvider: $this->provider());
+        $kernel = new Kernel($handler, new ExceptionHandler($psr17, $psr17), $psr17, sessionProvider: $this->provider());
 
         $kernel->handle(new ServerRequest('GET', '/'));
         $kernel->handle(new ServerRequest('GET', '/'));
@@ -154,7 +154,7 @@ class SessionProviderTest extends TestCase
             }
         };
         $psr17 = new Psr17Factory();
-        $kernel = new Kernel($handler, new ExceptionHandler($psr17, $psr17));
+        $kernel = new Kernel($handler, new ExceptionHandler($psr17, $psr17), $psr17);
 
         $kernel->handle(new ServerRequest('GET', '/'));
 

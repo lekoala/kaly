@@ -12,6 +12,7 @@ use Kaly\Http\ExceptionHandlerInterface;
 use Kaly\Http\Session\SessionProviderInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Throwable;
 
@@ -29,14 +30,20 @@ use Throwable;
  *   -> outgoing
  *   -> commit (session storage, session cookie, cookies)
  *   -> final profile export (optional)
+ *   -> HEAD: the content is dropped
  *   -> terminate hooks
  * ```
+ *
+ * A HEAD response goes through the whole cycle with its content, so every
+ * header matches the GET one, then leaves without it whatever the runtime
+ * (RFC 9110, 9.3.2). Content-Length is kept as produced, never computed.
  */
 final class Kernel implements RequestHandlerInterface
 {
     public function __construct(
         private RequestHandlerInterface $handler,
         private ExceptionHandlerInterface $exceptionHandler,
+        private StreamFactoryInterface $streams,
         private Hooks $hooks = new Hooks(),
         private ?OutgoingRunner $outgoing = null,
         private ?SessionProviderInterface $sessionProvider = null,
@@ -51,7 +58,7 @@ final class Kernel implements RequestHandlerInterface
         $ctx->bind($request);
 
         try {
-            return $this->handleContext($ctx);
+            return $this->handleContext($ctx, $request->getMethod() === 'HEAD');
         } finally {
             // A terminate or error hook may reopen committed storage. Release
             // it even when response production or error recovery throws.
@@ -59,7 +66,7 @@ final class Kernel implements RequestHandlerInterface
         }
     }
 
-    private function handleContext(HttpContext $ctx): ResponseInterface
+    private function handleContext(HttpContext $ctx, bool $isHead): ResponseInterface
     {
         $start = $ctx->profile() !== null ? hrtime(true) : null;
         try {
@@ -71,6 +78,12 @@ final class Kernel implements RequestHandlerInterface
         }
         if ($this->serverTiming && $ctx->profile() !== null) {
             $response = ServerTiming::apply($response, $ctx->profile());
+        }
+        if ($isHead) {
+            // Never read: the stream may be large, unseekable or compressed
+            $content = $response->getBody();
+            $response = $response->withBody($this->streams->createStream());
+            $content->close();
         }
         $ctx->complete($response);
         $this->hooks->terminate($ctx);

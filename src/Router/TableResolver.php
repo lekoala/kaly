@@ -68,6 +68,35 @@ final class TableResolver implements ResolverInterface
         $method = $request->method();
         $allowed = [];
 
+        // HEAD is answered by a GET route, unless a route accepts HEAD itself:
+        // a full pass for HEAD first, so that declaration order never decides
+        $route = $this->match($request, $method, $allowed);
+        if ($route === null && $method === 'HEAD') {
+            $route = $this->match($request, 'GET', $allowed);
+        }
+        if ($route !== null) {
+            return $route;
+        }
+
+        if ($allowed !== []) {
+            if (isset($allowed['GET'])) {
+                $allowed['HEAD'] = true;
+            }
+            throw new MethodNotAllowedException(array_keys($allowed), "Method {$method} is not allowed for '{$path}'");
+        }
+        return null;
+    }
+
+    /**
+     * The first route matching the path for this method, collecting the
+     * methods of the routes that match the path only.
+     *
+     * @param array<string,true> $allowed
+     */
+    private function match(RouteRequest $request, string $method, array &$allowed): ?Route
+    {
+        $path = $request->path();
+
         foreach ($this->collection()->entries() as $entry) {
             if ($this->localePrefixes && $entry['locale'] !== null && $entry['locale'] !== $request->locale) {
                 continue;
@@ -103,9 +132,6 @@ final class TableResolver implements ResolverInterface
             );
         }
 
-        if ($allowed !== []) {
-            throw new MethodNotAllowedException(array_keys($allowed), "Method {$method} is not allowed for '{$path}'");
-        }
         return null;
     }
 

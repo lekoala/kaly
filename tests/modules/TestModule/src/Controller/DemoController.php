@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace TestModule\Controller;
 
 use Kaly\Core\AbstractController;
+use Nyholm\Psr7\Response;
+use Psr\Http\Message\ResponseInterface;
 
 class DemoController extends AbstractController
 {
@@ -24,6 +26,16 @@ class DemoController extends AbstractController
     public function lastPostGet(): string
     {
         return 'last post';
+    }
+
+    public function probeGet(): ResponseInterface
+    {
+        return new Response(200, ['X-Action' => 'get'], 'probe');
+    }
+
+    public function probeHead(): ResponseInterface
+    {
+        return new Response(200, ['X-Action' => 'head']);
     }
 
     public function moveItemPost(int $id): string

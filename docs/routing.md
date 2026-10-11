@@ -104,9 +104,12 @@ $module->routes(function (Routes $routes): void {
 });
 ```
 
+A route that answers `GET` answers `HEAD` too, unless a route declares `HEAD`
+itself: that one wins whatever the declaration order. A `405` lists `HEAD` with `GET`.
+
 ```php
 $routes->get($path, $handler);   // post, put, patch, delete
-$routes->map(['GET', 'HEAD'], $path, $handler);
+$routes->map(['PUT', 'PATCH'], $path, $handler);
 
 $route->name('product')->where('id', '\d+')->middleware(Auth::class)->default('tab', 'info')->priority(10);
 ```

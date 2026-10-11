@@ -15,6 +15,7 @@ use Kaly\Http\Session\NativePhpSessionProvider;
 use Kaly\Tests\Support\HttpFactory;
 use Kaly\Tests\Support\TempDir;
 use Kaly\Util\Fs;
+use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
@@ -303,7 +304,7 @@ class SessionTest extends TestCase
         $hooks->terminate[] = static function (HttpContext $ctx) use (&$seen): void {
             $seen[] = $ctx->session()->get('_auth');
         };
-        $kernel = new Kernel($handler, $errors, $hooks, sessionProvider: $this->provider());
+        $kernel = new Kernel($handler, $errors, new Psr17Factory(), $hooks, sessionProvider: $this->provider());
         $first = $kernel->handle(new BaseServerRequest('POST', 'https://example.test/'));
         $this->assertSame('user-C', $first->getHeaderLine('X-User'));
         $this->assertSame(PHP_SESSION_NONE, session_status());
@@ -327,7 +328,7 @@ class SessionTest extends TestCase
             });
         $errors = $this->createStub(ExceptionHandlerInterface::class);
         $errors->method('toResponse')->willThrowException(new Ex('Error recovery failed'));
-        $kernel = new Kernel($handler, $errors, sessionProvider: $this->provider());
+        $kernel = new Kernel($handler, $errors, new Psr17Factory(), sessionProvider: $this->provider());
         try {
             $kernel->handle($this->request());
             $this->fail('The exception handler must fail');
@@ -360,7 +361,7 @@ class SessionTest extends TestCase
             $reported[] = $error->getMessage();
             $ctx->session()->get('_auth');
         };
-        $kernel = new Kernel($handler, $errors, $hooks, sessionProvider: $this->provider());
+        $kernel = new Kernel($handler, $errors, new Psr17Factory(), $hooks, sessionProvider: $this->provider());
         $this->assertSame(200, $kernel->handle($this->request())->getStatusCode());
         $this->assertSame(['Terminate failed'], $reported);
         $this->assertSame(PHP_SESSION_NONE, session_status());

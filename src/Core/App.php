@@ -372,6 +372,7 @@ final class App implements RequestHandlerInterface
             $this->kernel = new Kernel(
                 $this->createRequestHandler(),
                 $this->container->get(ExceptionHandlerInterface::class),
+                $this->container->get(StreamFactoryInterface::class),
                 $this->hooks,
                 new OutgoingRunner($this->container, $this->middleware, $this->hooks->error(...)),
                 $this->container->get(SessionProviderInterface::class),

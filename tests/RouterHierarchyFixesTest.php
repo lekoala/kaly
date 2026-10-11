@@ -63,7 +63,7 @@ class RouterHierarchyFixesTest extends TestCase
             $this->match($router, '/shop/same/', 'PUT');
             $this->fail('A 405 was expected');
         } catch (MethodNotAllowedException $e) {
-            $this->assertEqualsCanonicalizing(['GET', 'POST'], $e->getAllowedMethods());
+            $this->assertEqualsCanonicalizing(['GET', 'HEAD', 'POST'], $e->getAllowedMethods());
         }
     }
 
@@ -270,7 +270,7 @@ class RouterHierarchyFixesTest extends TestCase
             $this->match($router, '/test-module/alias/hello/', 'POST');
             $this->fail('A 405 was expected');
         } catch (MethodNotAllowedException $e) {
-            $this->assertSame(['GET'], $e->getAllowedMethods());
+            $this->assertSame(['GET', 'HEAD'], $e->getAllowedMethods());
         }
     }
 

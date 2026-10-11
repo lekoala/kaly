@@ -98,7 +98,8 @@ Build a 304 response with an empty body. Preserve `ETag`, `Date`, `Vary`,
 `Last-Modified` metadata. Apply the same validators and cache policy on both paths.
 For files, evaluate the condition before calling `FileResponseFactory::create()`
 to avoid opening the file stream on the 304 path. Pass the request method to
-the file factory so HEAD remains bodyless on the 200 path too.
+the file factory so a HEAD request does not open the file either: the kernel
+drops the content of every HEAD response anyway, keeping its headers.
 
 For example, an application's file action can share headers between both paths:
 
