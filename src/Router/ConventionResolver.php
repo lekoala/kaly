@@ -10,6 +10,7 @@ use Kaly\Http\Exception\RedirectException;
 use Kaly\Http\Input\RequestInput;
 use Kaly\Util\Str;
 use ReflectionClass;
+use ReflectionMethod;
 use ReflectionNamedType;
 use ReflectionParameter;
 
@@ -22,7 +23,8 @@ use ReflectionParameter;
  * ```
  *
  * - the action is the camelized segment, preferably suffixed by the HTTP verb
- *   (`addPost` for a POST, see RestActionNaming)
+ *   (`addPost` for a POST, see RestActionNaming); a bare name only answers
+ *   GET and HEAD
  * - remaining segments are the action scalar parameters, strictly coerced: a
  *   value that does not fit its type does not match (404)
  * - a trailing RequestInput parameter is built from the query and the body
@@ -45,9 +47,16 @@ final class ConventionResolver implements ResolverInterface
     private const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 
     /**
-     * Controller declarations never change during the life of the process
+     * The only HTTP methods an action without a verb suffix answers.
+     */
+    private const BARE_METHODS = ['GET', 'HEAD'];
+
+    /**
+     * Controller declarations never change during the life of the process.
+     * Only existing classes are kept: misses come from the url, caching them
+     * would let a worker grow without bound.
      *
-     * @var array<string,ReflectionClass<object>|false>
+     * @var array<string,ReflectionClass<object>>
      */
     private static array $reflections = [];
 
@@ -88,14 +97,18 @@ final class ConventionResolver implements ResolverInterface
         $baseClass = substr($controller, (int) strrpos($controller, '\\') + 1);
         $controllerName = (string) preg_replace('/' . self::CONTROLLER_SUFFIX . '$/', '', $baseClass);
 
+        // Rest style actions are reached without their verb suffix, and
+        // spelled after their declaration whatever the case given here
+        $action = (new ReflectionMethod($controller, $action))->getName();
+        $baseAction = RestActionNaming::stripVerbSuffix($action);
+
         $path = '';
         $hasParams = $params !== [];
-        if ($controllerName !== self::DEFAULT_CONTROLLER || $action !== self::DEFAULT_ACTION || $hasParams) {
+        if ($controllerName !== self::DEFAULT_CONTROLLER || $baseAction !== self::DEFAULT_ACTION || $hasParams) {
             $path .= '/' . Str::decamelize($controllerName);
         }
-        if ($action !== self::DEFAULT_ACTION || $hasParams) {
-            // Rest style actions are reached without their verb suffix
-            $path .= '/' . RestActionNaming::stripVerbSuffix($action);
+        if ($baseAction !== self::DEFAULT_ACTION || $hasParams) {
+            $path .= '/' . self::segmentOf($action);
         }
         foreach ($params as $value) {
             if (is_scalar($value)) {
@@ -110,10 +123,13 @@ final class ConventionResolver implements ResolverInterface
      */
     private function reflect(string $class): ReflectionClass|false
     {
-        if (!array_key_exists($class, self::$reflections)) {
-            self::$reflections[$class] = class_exists($class) ? new ReflectionClass($class) : false;
+        if (isset(self::$reflections[$class])) {
+            return self::$reflections[$class];
         }
-        return self::$reflections[$class];
+        if (!class_exists($class)) {
+            return false;
+        }
+        return self::$reflections[$class] = new ReflectionClass($class);
     }
 
     private function redirect(ConventionMatch $m, string $remove, string $replace = ''): RedirectException
@@ -164,8 +180,10 @@ final class ConventionResolver implements ResolverInterface
     /**
      * Find a matching action based on the next remaining segment
      *
-     * An explicitly routed candidate is refused outright: the path is never
-     * reinterpreted through a sibling action or the index fallback.
+     * The segment names the base action, never a method: `/change/` is the
+     * url of changePost(), `/change-post/` is not. An explicitly routed
+     * candidate is refused outright: the path is never reinterpreted through
+     * a sibling action or the index fallback.
      *
      * @param ReflectionClass<object> $refl
      * @param array<string,true> $owned Canonical actions explicit routing owns
@@ -176,59 +194,125 @@ final class ConventionResolver implements ResolverInterface
         $class = $refl->getName();
 
         $testPart = $m->parts[0] ?? '';
-
-        // Index or __invoke is used by default
-        $action = $refl->hasMethod(RouterInterface::FALLBACK_ACTION) ? RouterInterface::FALLBACK_ACTION : self::DEFAULT_ACTION;
-
-        if ($testPart) {
+        if ($testPart !== '') {
             // Action should be lowercase camelcase
-            $testAction = Str::camelize($testPart, false);
-            // Rest style routing: the HTTP method is added at the end to avoid
-            // confusion with getters
-            $methodSuffix = RestActionNaming::methodSuffix($method);
-            $testActionWithMethod = $testAction . $methodSuffix;
+            $base = Str::camelize($testPart, false);
 
-            if ($this->isOwnedAction($refl, $testActionWithMethod, $owned) || $this->isOwnedAction($refl, $testAction, $owned)) {
-                throw new RouteNotFoundException("Action '{$testAction}' of '{$class}' is explicitly routed and has no conventional url");
+            foreach ([$base, ...$this->candidates($base, $method)] as $candidate) {
+                if ($this->isOwnedAction($refl, $candidate, $owned)) {
+                    throw new RouteNotFoundException(
+                        "Action '{$candidate}' of '{$class}' is explicitly routed and has no conventional url",
+                    );
+                }
             }
 
-            // Don't allow controller/index to be called directly because it would create duplicated urls
+            // Do not allow controller/index to be called directly because it would create duplicated urls
             // This only applies if no other parameters is passed in the url
-            if ($testAction === self::DEFAULT_ACTION && count($m->parts) === 1) {
+            if ($base === self::DEFAULT_ACTION && count($m->parts) === 1) {
                 throw $this->redirect($m, self::DEFAULT_ACTION);
             }
 
-            // A url naming an action suffixed by another HTTP verb must not
-            // run for this request (eg: GET /index/change-post/ is a 405).
-            $verbSuffix = RestActionNaming::verbSuffix($testAction);
-            if ($verbSuffix !== null && $this->isRoutableAction($refl, $testAction, $owned) && $verbSuffix !== $methodSuffix) {
-                $baseAction = RestActionNaming::stripVerbSuffix($testAction);
-                throw new MethodNotAllowedException(
-                    $this->findAllowedMethods($refl, $baseAction, $owned),
-                    "Method {$method} is not allowed for action '{$baseAction}'",
-                );
+            $action = $this->selectAction($refl, $base, $method, $owned);
+            $allowed = $action === null ? $this->allowedMethods($refl, $base, $owned, array_slice($m->parts, 1), $m) : [];
+            // One spelling per action: /index/typedInt/ is /index/typed-int/
+            $canonical = $this->canonicalSegment($refl, $base, $owned);
+            if ($canonical !== null && $testPart !== $canonical) {
+                throw $this->redirect($m, $testPart, $canonical);
+            }
+            if ($action !== null) {
+                array_shift($m->parts);
+                return $action;
+            }
+            if ($allowed !== []) {
+                throw new MethodNotAllowedException($allowed, "Method {$method} is not allowed for action '{$base}'");
             }
 
-            if ($this->isRoutableAction($refl, $testActionWithMethod, $owned)) {
-                array_shift($m->parts);
-                $action = $testActionWithMethod;
-            } elseif ($this->isRoutableAction($refl, $testAction, $owned)) {
-                array_shift($m->parts);
-                $action = $testAction;
-            } else {
-                // The action may exist for other HTTP verbs only
-                $allowed = $this->findAllowedMethods($refl, $testAction, $owned);
-                if ($allowed !== []) {
-                    throw new MethodNotAllowedException($allowed, "Method {$method} is not allowed for action '{$testAction}'");
+            // Otherwise the segment is a parameter of the default action
+        }
+
+        // Index or __invoke is used by default
+        $default = $refl->hasMethod(RouterInterface::FALLBACK_ACTION) ? RouterInterface::FALLBACK_ACTION : self::DEFAULT_ACTION;
+        $action = $this->selectAction($refl, $default, $method, $owned);
+        if ($action !== null) {
+            return $action;
+        }
+        $allowed = $this->allowedMethods($refl, $default, $owned, $m->parts, $m);
+        if ($allowed !== []) {
+            throw new MethodNotAllowedException($allowed, "Method {$method} is not allowed for action '{$default}'");
+        }
+        throw new RouteNotFoundException("Controller '{$class}' does not have an action '{$default}'");
+    }
+
+    /**
+     * The methods that may answer a base action for an HTTP method, by
+     * preference: the verb suffixed action, then for HEAD the GET one, then
+     * for a read the bare name. A base ending with a verb is never bare: the
+     * verb is always a suffix (`lastPostGet()` is the GET of `/last-post/`).
+     *
+     * @return list<string>
+     */
+    private function candidates(string $base, string $method): array
+    {
+        $candidates = [$base . RestActionNaming::methodSuffix($method)];
+        if ($method === 'HEAD') {
+            $candidates[] = $base . 'Get';
+        }
+        if (in_array($method, self::BARE_METHODS, true) && RestActionNaming::verbSuffix($base) === null) {
+            $candidates[] = $base;
+        }
+        return $candidates;
+    }
+
+    /**
+     * The url segment of a base action, spelled from its declared name since
+     * PHP method names ignore case, or null when no method answers it.
+     *
+     * @param ReflectionClass<object> $refl
+     * @param array<string,true> $owned Canonical actions explicit routing owns
+     */
+    private function canonicalSegment(ReflectionClass $refl, string $base, array $owned): ?string
+    {
+        foreach (self::HTTP_METHODS as $httpMethod) {
+            foreach ($this->candidates($base, $httpMethod) as $candidate) {
+                if ($this->isRoutableAction($refl, $candidate, $owned)) {
+                    return self::segmentOf($refl->getMethod($candidate)->getName());
                 }
             }
         }
+        return null;
+    }
 
-        if (!$this->isRoutableAction($refl, $action, $owned)) {
-            throw new RouteNotFoundException("Controller '{$class}' does not have an action '{$action}'");
+    /**
+     * The url segment of a declared action name: `changePost` is `change`,
+     * `typedInt` is `typed-int`.
+     */
+    private static function segmentOf(string $action): string
+    {
+        return Str::decamelize(RestActionNaming::stripVerbSuffix($action));
+    }
+
+    /**
+     * The action answering a base action for an HTTP method, if any.
+     *
+     * @param ReflectionClass<object> $refl
+     * @param array<string,true> $owned Canonical actions explicit routing owns
+     * @throws Ex When the bare name and its Get variant would both answer GET
+     */
+    private function selectAction(ReflectionClass $refl, string $base, string $method, array $owned): ?string
+    {
+        if (
+            RestActionNaming::verbSuffix($base) === null
+            && $this->isRoutableAction($refl, $base, $owned)
+            && $this->isRoutableAction($refl, $base . 'Get', $owned)
+        ) {
+            throw new Ex("Actions '{$base}' and '{$base}Get' of '{$refl->getName()}' both answer GET, keep only one");
         }
-
-        return $action;
+        foreach ($this->candidates($base, $method) as $candidate) {
+            if ($this->isRoutableAction($refl, $candidate, $owned)) {
+                return $candidate;
+            }
+        }
+        return null;
     }
 
     /**
@@ -267,23 +351,30 @@ final class ConventionResolver implements ResolverInterface
     }
 
     /**
-     * The HTTP methods supported by a base action through the rest-style
-     * action suffix convention.
+     * The HTTP methods whose variant of a base action would match the url:
+     * the method exists AND its signature takes the remaining segments. A
+     * variant that could not consume them is no reason for a 405, the url is
+     * a 404 for every method.
      *
      * @param ReflectionClass<object> $refl
      * @param array<string,true> $owned Canonical actions explicit routing owns
+     * @param string[] $parts The segments the action would receive
      * @return list<string>
      */
-    private function findAllowedMethods(ReflectionClass $refl, string $baseAction, array $owned): array
+    private function allowedMethods(ReflectionClass $refl, string $base, array $owned, array $parts, ConventionMatch $m): array
     {
-        if ($baseAction === '') {
-            return [];
-        }
         $allowed = [];
         foreach (self::HTTP_METHODS as $httpMethod) {
-            if ($this->isRoutableAction($refl, $baseAction . RestActionNaming::methodSuffix($httpMethod), $owned)) {
-                $allowed[] = $httpMethod;
+            $action = $this->selectAction($refl, $base, $httpMethod, $owned);
+            if ($action === null) {
+                continue;
             }
+            try {
+                $this->collectParameters(new ConventionMatch($m->request, array_values($parts)), $refl, $action);
+            } catch (RouteNotFoundException) {
+                continue;
+            }
+            $allowed[] = $httpMethod;
         }
         return $allowed;
     }

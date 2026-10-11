@@ -60,7 +60,7 @@ class RequestIdTest extends TestCase
         $base = HttpFactory::createRequestFromGlobals();
 
         $notFound = $app->handle($base->withUri(new Uri('/no-such-module/')));
-        $error = $app->handle($base->withUri(new Uri('/test-module/index/middlewareexception/')));
+        $error = $app->handle($base->withUri(new Uri('/test-module/index/middleware-exception/')));
 
         $this->assertSame(404, $notFound->getStatusCode());
         $this->assertMatchesRegularExpression('/^[0-9a-f]{32}$/', $notFound->getHeaderLine(RequestIdHeader::HEADER));

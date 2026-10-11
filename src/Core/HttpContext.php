@@ -359,8 +359,8 @@ final class HttpContext
     }
 
     /**
-     * The client ip as reported by the server, without any proxy resolution.
-     * A trusted proxy middleware can overwrite REMOTE_ADDR on the request.
+     * The client ip: REMOTE_ADDR, or the client the TrustedProxy middleware
+     * resolved behind a trusted reverse proxy.
      */
     public function clientIp(): string
     {

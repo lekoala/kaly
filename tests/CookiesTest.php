@@ -37,6 +37,19 @@ class CookiesTest extends TestCase
         $this->assertStringContainsString('; SameSite=Strict', $header);
     }
 
+    public function testHttpsMakesCookiesSecureUnlessThePolicyDecides(): void
+    {
+        $emit = static function (string $url, CookiePolicy $policy): string {
+            $cookies = new Cookies(new BaseServerRequest('GET', $url), $policy);
+            $cookies->set('theme', 'dark');
+            return $cookies->addToResponse(new Response())->getHeaderLine('Set-Cookie');
+        };
+
+        $this->assertStringContainsString('; Secure', $emit('https://example.test/', CookiePolicy::baseline()));
+        $this->assertStringNotContainsString('; Secure', $emit('https://example.test/', CookiePolicy::baseline()->with(secure: false)));
+        $this->assertStringContainsString('; Secure', $emit('http://example.test/', CookiePolicy::baseline()->with(secure: true)));
+    }
+
     public function testGetChangesReportsRemoval(): void
     {
         $cookies = $this->cookies(['auth' => 'AUDIT']);

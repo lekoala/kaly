@@ -67,7 +67,7 @@ class AlwaysOutgoingTest extends TestCase
         $this->assertSame('yes', $notFound->getHeaderLine('X-Audit'));
 
         // Throwing action: kernel-built 500
-        $error = $app->handle($base->withUri(new Uri('/test-module/index/middlewareexception/')));
+        $error = $app->handle($base->withUri(new Uri('/test-module/index/middleware-exception/')));
         $this->assertSame(500, $error->getStatusCode());
         $this->assertSame('yes', $error->getHeaderLine('X-Audit'));
     }

@@ -37,11 +37,13 @@ final class Cookies implements JsonSerializable
      * @var array<string,CookieParams>
      */
     protected array $params = [];
+    protected bool $https;
 
     public function __construct(
         ServerRequestInterface $request,
         protected CookiePolicy $policy,
     ) {
+        $this->https = $request->getUri()->getScheme() === 'https';
         foreach ($request->getCookieParams() as $k => $v) {
             // PSR-7 allows array values (eg: foo[]=bar); store a string baseline
             if (is_array($v)) {
@@ -178,12 +180,19 @@ final class Cookies implements JsonSerializable
     /**
      * The application baseline this instance builds its cookies from.
      *
+     * Like the session cookie, an https request makes cookies Secure unless
+     * the policy decides: behind a TLS-terminating proxy, the TrustedProxy
+     * middleware restores the scheme first.
+     *
      * @return CookieParams
      */
     protected function baselineParams(): array
     {
         /** @var CookieParams $params */
         $params = array_merge(session_get_cookie_params(), $this->policy->toArray());
+        if ($this->policy->secure === null && $this->https) {
+            $params['secure'] = true;
+        }
         return $params;
     }
 

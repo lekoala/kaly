@@ -8,8 +8,8 @@ namespace Kaly\Router;
  * The rest-style action suffix convention.
  *
  * The HTTP method is appended to the action name (eg: POST => changePost) to
- * avoid confusion with getters. A url naming an action suffixed by another
- * HTTP verb must not run for the current request.
+ * avoid confusion with getters. A trailing verb is always a suffix: the url
+ * names the base action (`/change/`), never the suffixed method.
  */
 final class RestActionNaming
 {

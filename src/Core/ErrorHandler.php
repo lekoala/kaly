@@ -51,8 +51,8 @@ final class ErrorHandler
         if (self::$debug !== null) {
             return self::$debug;
         }
-        // Not configured yet: keep the previous php.ini driven behaviour
-        return error_reporting() !== 0;
+        // Not configured yet: fail closed, traces are never shown by accident
+        return false;
     }
 
     public static function restoreDefaults(): void

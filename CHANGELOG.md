@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+### Security
+
+- **Breaking:** a conventional action without a verb suffix only answers
+  `GET` and `HEAD`, including `index` and `__invoke`. A write names its verb
+  (`savePost`, `removeDelete`, `indexPost` for `POST /cart/`), so a cross-site
+  `GET` can never reach it past the CSRF middleware. Other methods get a `405`
+  with the `Allow` header of the variants that exist.
+- **Breaking:** conventional actions have a single url. The verb suffix is
+  never part of it (`/cart/add-post/` no longer reaches `addPost()`), and a
+  name ending with a verb takes a suffix (`lastPostGet()` for `/last-post/`).
+  Urls are spelled after the declared method name: `urlFor()` generates
+  `/typed-int/` for `typedInt()`, other spellings redirect. `HEAD` falls back
+  to the `Get` variant. Declaring both `show()` and `showGet()` throws.
+- Router redirects (canonical spelling, trailing slash, locale) emit a relative
+  `Location`: a forged `Host` or absolute-form request target is never reflected
+  into a cacheable redirect.
+- `Kaly\Http\Middleware\TrustedProxy` restores scheme, host, port and client ip
+  from the `X-Forwarded-*` headers of configured proxies (ip or CIDR).
+  `RequestUtils::getIp()` and `HttpContext::clientIp()` return the resolved client.
+- Application cookies are `Secure` on https requests unless the `CookiePolicy`
+  sets `secure`, like the session cookie.
+- `ErrorHandler::isDebug()` is `false` until `configureDefaults()` runs: an
+  early `ErrorHandler::handle()` never renders a debug page.
+- `SetCookieHeader` refuses a `Domain` or `Path` containing `;` or control characters.
+- `FileServer` decodes the request path once through `HttpPath`: files with
+  spaces or non-ASCII names are served, ambiguous encodings fall through.
+- `ConventionResolver` no longer caches unknown controller classes, which let
+  random urls grow a worker's memory.
+
 - `Kaly\Util\Dates::compareDate()` compares civil dates in each object's own
   timezone, ignoring time without converting timezones or modifying the inputs.
 

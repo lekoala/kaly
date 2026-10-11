@@ -142,10 +142,25 @@ The last resolver of every module maps `controller/action/params`:
 /shop/cart/add/42/      Shop\Controller\CartController::add(42)
 ```
 
-- The action is the camelized segment. An action whose name ends with an HTTP verb
-  (`addPost`, `removeDelete`) is restricted to that verb: `GET /cart/add-post/` is a
-  `405` with an `Allow: POST` header, and a bare name answers any method. Recognized
-  suffixes: `Get`, `Post`, `Put`, `Patch`, `Delete`, `Head`, `Options`.
+- The segment names the action, the HTTP method picks its variant. A trailing verb
+  (`Get`, `Post`, `Put`, `Patch`, `Delete`, `Head`, `Options`) is always a suffix,
+  never part of the url:
+
+  | Request | Action |
+  | --- | --- |
+  | `GET /cart/add/` | `addGet()` or `add()` |
+  | `HEAD /cart/add/` | `addHead()`, else `addGet()` or `add()` |
+  | `POST /cart/add/` | `addPost()` |
+  | `POST /cart/` | `indexPost()` |
+
+  The order is a lookup, never a tie-break: `addGet()` and `add()` cannot coexist.
+  A bare name (`add`, `index`, `__invoke`) is a read: it answers `GET` and `HEAD`
+  only, a write always names its verb. When another verb's variant would match the
+  url, its signature taking the remaining segments, the request is a `405` with an
+  `Allow` header; otherwise a `404`. `/cart/add-post/` is not an alias of `addPost()`:
+  a name that really ends with a verb takes a suffix, `lastPostGet()` answers
+  `GET /cart/last-post/`. Declaring both `show()` and `showGet()` is an error: both
+  would answer `GET`.
 - Remaining segments are the action parameters, and only url segments. They are
   coerced strictly: a value that does not fit an `int`/`float`/`bool` parameter does
   not match (404). A variadic `...$rest` takes every remaining segment; extra
@@ -153,9 +168,11 @@ The last resolver of every module maps `controller/action/params`:
 - One trailing `Kaly\Http\Input\RequestInput` parameter is built from the query string and
   the body, and consumes no segment (see [Request input](input.md)). Any other
   object parameter is refused: services belong to the constructor.
-- One canonical url per action: `/index/`, `/cart/index/` and camelized spellings
-  redirect. `/index/index/param/` is allowed.
-- Public methods only; magic methods other than `__invoke` are never exposed.
+- One canonical url per action, spelled after the declared method name:
+  `typedInt()` is `/cart/typed-int/`. `/index/`, `/cart/index/` and other spellings
+  (`/Cart/`, `/cart/typedInt/`) redirect. `/index/index/param/` is allowed.
+- Public methods only, inherited and trait methods included: keep helpers and setters
+  `protected`. Magic methods other than `__invoke` are never exposed.
 - The convention never exposes an action owned by explicit routing: once an
   action appears in a route table, only its explicit urls answer (see
   [Route middlewares](#route-middlewares)).

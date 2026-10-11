@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Http\Cookie;
 
+use InvalidArgumentException;
+
 /**
  * Builds raw Set-Cookie header values.
  *
@@ -49,11 +51,11 @@ final class SetCookieHeader
         }
 
         if (!empty($params['domain'])) {
-            $cookie .= "; Domain={$params['domain']}";
+            $cookie .= '; Domain=' . self::attribute('Domain', $params['domain']);
         }
 
         if (!empty($params['path'])) {
-            $cookie .= "; Path={$params['path']}";
+            $cookie .= '; Path=' . self::attribute('Path', $params['path']);
         }
 
         $samesite = self::normalizeSameSite($params['samesite'] ?? null);
@@ -75,5 +77,17 @@ final class SetCookieHeader
         }
 
         return $cookie;
+    }
+
+    /**
+     * An attribute value is written verbatim: a `;` would smuggle another
+     * attribute and a control character would break the header.
+     */
+    private static function attribute(string $name, string $value): string
+    {
+        if (preg_match('/[;\x00-\x1F\x7F]/', $value) === 1) {
+            throw new InvalidArgumentException("Invalid cookie {$name} attribute, it must not contain ';' or control characters");
+        }
+        return $value;
     }
 }

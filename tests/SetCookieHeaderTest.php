@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use InvalidArgumentException;
 use Kaly\Http\Cookie\SetCookieHeader;
 use PHPUnit\Framework\TestCase;
 
@@ -56,5 +57,24 @@ class SetCookieHeaderTest extends TestCase
         $this->assertStringContainsString('; Secure', $header);
         $this->assertStringContainsString('; HttpOnly', $header);
         $this->assertStringContainsString('; Partitioned', $header);
+    }
+
+    public function testDomainAndPathCannotInjectAttributes(): void
+    {
+        $this->assertSame('a=b; Domain=example.test; Path=/app', SetCookieHeader::build('a', 'b', [
+            'domain' => 'example.test',
+            'path' => '/app',
+        ]));
+
+        $invalid = [['domain' => 'example.test; Secure'], ['path' => "/\r\nSet-Cookie: x=y"], ['path' => "/a\0"]];
+        $refused = 0;
+        foreach ($invalid as $params) {
+            try {
+                SetCookieHeader::build('a', 'b', $params);
+            } catch (InvalidArgumentException) {
+                $refused++;
+            }
+        }
+        $this->assertSame(count($invalid), $refused);
     }
 }

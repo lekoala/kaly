@@ -151,8 +151,8 @@ incoming -> routing -> routed -> route middlewares -> dispatcher -> (kernel) -> 
 
 ```php
 $app = App::create(dirname(__DIR__));
-// Example middleware names — ship your own PSR-15 implementations,
-// Kaly only bundles FileServer and PreventSensitivePathAccess.
+// TrustedProxy is bundled (see security.md), the others are example
+// names: ship your own PSR-15 implementations.
 $app->middleware()
     ->incoming(TrustedProxy::class)
     ->incoming(RequestId::class)

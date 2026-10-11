@@ -17,6 +17,7 @@ use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
+use TestModule\Controller\InheritedController;
 use TestModule\Controller\MixedController;
 use TestModule\Controller\ShopController;
 
@@ -57,6 +58,22 @@ class ExplicitOwnershipTest extends TestCase
         $this->assertSame(404, $this->request('/test-module/mixed/buy/', 'POST')->getStatusCode());
         $this->assertSame(404, $this->request('/test-module/mixed/buy-post/')->getStatusCode());
         $this->assertSame(404, $this->request('/test-module/mixed/buy-post/', 'POST')->getStatusCode());
+    }
+
+    public function testAnOwnedInheritedActionHasNoConventionalUrl(): void
+    {
+        $module = (new Module(__DIR__ . '/modules/TestModule'))
+            ->mount('owned')
+            ->routes(static function (Routes $routes): void {
+                $routes->get('/all', [InheritedController::class, 'list'])->name('all');
+            });
+        $router = new Router([$module], null, [], TrailingSlash::Add);
+
+        $route = $router->match(HttpFactory::createRequestFromGlobals()->withUri(new Uri('/owned/all/')));
+        $this->assertSame('list', $route->action);
+
+        $this->expectException(RouteNotFoundException::class);
+        $router->match(HttpFactory::createRequestFromGlobals()->withUri(new Uri('/owned/inherited/list/')));
     }
 
     public function testOwnershipIgnoresLetterCase(): void

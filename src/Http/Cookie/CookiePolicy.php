@@ -12,7 +12,8 @@ use InvalidArgumentException;
  *
  * Immutable and boring on purpose: it only carries values, never reads the
  * request, the response, the container or PHP globals. A null entry means
- * "inherit from php.ini at the use site"; an explicit entry wins over it.
+ * "inherit from php.ini at the use site", except a null secure which also
+ * follows the request scheme; an explicit entry wins over it.
  * Cookie *values* stay request-scoped (Cookies, SessionInterface).
  *
  * There is no global default: one instance lives in the container, bound per

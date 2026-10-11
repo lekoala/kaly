@@ -13,6 +13,10 @@ use Psr\Http\Message\UriInterface;
  *
  * Redirects keep a single canonical url per resource (trailing slash policy,
  * lowercase segments) so duplicates never reach the dispatcher.
+ *
+ * Locations are relative references (path and query): the request Host and
+ * scheme are client input, and reflecting them in a cacheable redirect would
+ * let a forged Host poison a shared cache.
  */
 final class RedirectUris
 {
@@ -35,10 +39,10 @@ final class RedirectUris
         }
         if ($policy === TrailingSlash::Add) {
             if (!str_ends_with($path, '/')) {
-                throw new RedirectException($uri->withPath(RoutePath::withTrailingSlash($path)));
+                throw new RedirectException(self::local($uri, RoutePath::withTrailingSlash($path)));
             }
         } elseif (str_ends_with($path, '/')) {
-            throw new RedirectException($uri->withPath(RoutePath::withoutTrailingSlash($path)));
+            throw new RedirectException(self::local($uri, RoutePath::withoutTrailingSlash($path)));
         }
     }
 
@@ -49,7 +53,8 @@ final class RedirectUris
      * leading locale of `/fr/shop/fr/` gives `/shop/fr/`, and canonicalizing
      * `/Shop/product/Shop/` gives `/shop/product/Shop/`.
      *
-     * `Preserve` keeps the trailing slash state untouched.
+     * `Preserve` keeps the trailing slash state untouched. The result is a
+     * relative reference, see self::local().
      */
     public static function replaceSegment(
         ServerRequestInterface $request,
@@ -72,11 +77,28 @@ final class RedirectUris
                 $offset = $pos + 1;
             }
         }
-        return $uri->withPath(match ($trailingSlash) {
+        return self::local($uri, match ($trailingSlash) {
             TrailingSlash::Add => RoutePath::withTrailingSlash($path),
             // An emptied path is the root: '/fr' canonicalizes to '/', never ''
             TrailingSlash::Remove => $path === '' ? '/' : RoutePath::withoutTrailingSlash($path),
             TrailingSlash::Preserve => $path === '' ? '/' : $path,
         });
+    }
+
+    /**
+     * The relative reference of a path on this uri, keeping its query.
+     *
+     * Leading slashes collapse to one: without an authority, `//evil.test/`
+     * (or `/\evil.test/`, which browsers read the same way) would be a
+     * network-path reference to another host.
+     */
+    private static function local(UriInterface $uri, string $path): UriInterface
+    {
+        return $uri
+            ->withScheme('')
+            ->withUserInfo('')
+            ->withHost('')
+            ->withPort(null)
+            ->withPath('/' . ltrim($path, '/\\'));
     }
 }

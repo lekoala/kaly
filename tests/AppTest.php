@@ -473,7 +473,7 @@ class AppTest extends TestCase
         $this->assertSame(0, $errors);
 
         // Generic errors are reported
-        $response = $app->handle($base->withUri(new Uri('/test-module/index/middlewareexception/')));
+        $response = $app->handle($base->withUri(new Uri('/test-module/index/middleware-exception/')));
         $this->assertSame(500, $response->getStatusCode());
         $this->assertSame(1, $errors);
         $this->assertSame(3, $after);

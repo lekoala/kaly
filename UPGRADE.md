@@ -4,6 +4,36 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Unreleased: bare conventional actions are reads
+
+A conventional action without a verb suffix (`save()`, `index()`, `__invoke()`)
+now answers `GET` and `HEAD` only; other methods get a `405`. Rename every action
+that handles a write after its verb:
+
+```php
+// Before: POST /contact/ and POST /cart/save/
+public function index(): string {}
+public function save(): string {}
+
+// After
+public function index(): string {}      // GET, HEAD
+public function indexPost(): string {}  // POST /contact/
+public function savePost(): string {}   // POST /cart/save/
+```
+
+An invokable controller that accepts writes needs a declared route
+(`$routes->post('/contact', ContactController::class)`). Declared routes keep the
+methods they declare.
+
+The verb suffix is no longer reachable in the url: `/cart/add-post/` is a `404`
+(unless `index()` takes it as a parameter), only `/cart/add/` reaches `addPost()`. A method whose
+business name ends with a verb takes a suffix: `lastPost()` becomes `lastPostGet()`.
+Urls follow the declared method name: `/cart/typedint/` and `/cart/typedInt/`
+redirect to `/cart/typed-int/`, and `urlFor()` generates the dashed form. Remove
+`foo()` or `fooGet()` when a controller declares both.
+
+Router redirects now carry a relative `Location` (`/shop/`): assert on the path
+instead of an absolute url in tests.
 ## 0.3: `Fs` path helpers
 
 - `Fs::toDir()` is removed. Use `Fs::join(string ...$segments)`:

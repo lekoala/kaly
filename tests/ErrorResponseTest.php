@@ -38,6 +38,14 @@ class ErrorResponseTest extends TestCase
         return $app->handle(HttpFactory::createRequestFromGlobals()->withUri(new Uri($path))->withHeader('Accept', $accept));
     }
 
+    public function testAnUnconfiguredHandlerShowsNoDetails(): void
+    {
+        // ErrorHandler::handle() may run before App::boot(): it fails closed
+        ErrorHandler::restoreDefaults();
+        $this->assertFalse(ErrorHandler::isDebug());
+        $this->assertSame('Server error', ErrorHandler::generateError(new Ex('Secret detail')));
+    }
+
     public function testANotFoundIsExpectedNotAnError(): void
     {
         $errors = 0;

@@ -6,6 +6,7 @@ namespace Kaly\Http\Middleware;
 
 use InvalidArgumentException;
 use Kaly\Http\FileResponseFactory;
+use Kaly\Http\HttpPath;
 use Kaly\Http\PublicFilePolicy;
 use Kaly\Util\Fs;
 use Psr\Http\Message\ResponseInterface;
@@ -37,9 +38,15 @@ final class FileServer implements MiddlewareInterface
 
         // Hidden files and dot segments (.env, .git, ...) are never served.
         // `.well-known` is the public protocol convention (acme, webfinger)
-        $path = ltrim($request->getUri()->getPath(), '/');
+        // Files are named by their decoded path, decoded exactly once: an
+        // ambiguous encoding (%2F, %00, double encoding, backslash) is never served
+        try {
+            $path = implode('/', HttpPath::segments($request->getUri()->getPath()));
+        } catch (InvalidArgumentException) {
+            return $handler->handle($request);
+        }
         $checkedPath = str_starts_with($path, '.well-known/') ? substr($path, strlen('.well-known/')) : $path;
-        if (str_contains($path, '\\') || preg_match('/^[A-Za-z]:/', $path) || Fs::hasDotSegment($checkedPath)) {
+        if (preg_match('/^[A-Za-z]:/', $path) || Fs::hasDotSegment($checkedPath)) {
             return $handler->handle($request);
         }
 

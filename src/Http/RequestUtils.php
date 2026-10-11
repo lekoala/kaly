@@ -17,6 +17,12 @@ use Psr\Http\Message\ServerRequestInterface;
 final class RequestUtils
 {
     /**
+     * The request attribute holding the client ip a trusted proxy reported.
+     * Server params are immutable in PSR-7, REMOTE_ADDR stays the proxy.
+     */
+    public const CLIENT_IP_ATTRIBUTE = 'kaly.client_ip';
+
+    /**
      * Get the request path.
      */
     public static function getPath(ServerRequestInterface $request): string
@@ -84,12 +90,17 @@ final class RequestUtils
     }
 
     /**
-     * The client ip as reported by the server, without any proxy resolution.
+     * The client ip: the one the TrustedProxy middleware resolved, else
+     * REMOTE_ADDR as reported by the server.
      *
      * Missing or blank values fall back to '0.0.0.0'.
      */
     public static function getIp(ServerRequestInterface $request): string
     {
+        $ip = $request->getAttribute(self::CLIENT_IP_ATTRIBUTE);
+        if (is_string($ip) && $ip !== '') {
+            return $ip;
+        }
         $ip = self::getServerParam($request, 'REMOTE_ADDR');
         return $ip !== null && $ip !== '' ? $ip : '0.0.0.0';
     }

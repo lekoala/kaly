@@ -20,7 +20,7 @@ class RedirectUrisTest extends TestCase
             RedirectUris::ensureTrailingSlash($request, TrailingSlash::Add);
             $this->fail('A redirect was expected');
         } catch (RedirectException $e) {
-            $this->assertSame('https://example.test/foo/', $e->getUrl());
+            $this->assertSame('/foo/', $e->getUrl());
         }
     }
 
@@ -41,7 +41,7 @@ class RedirectUrisTest extends TestCase
             RedirectUris::ensureTrailingSlash($request, TrailingSlash::Remove);
             $this->fail('A redirect was expected');
         } catch (RedirectException $e) {
-            $this->assertSame('https://example.test/foo', $e->getUrl());
+            $this->assertSame('/foo', $e->getUrl());
         }
     }
 
@@ -82,5 +82,36 @@ class RedirectUrisTest extends TestCase
 
         $uri = RedirectUris::replaceSegment($request, 'MyPart', 'my-part', TrailingSlash::Add);
         $this->assertSame('/my-part/', $uri->getPath());
+    }
+
+    public function testLocationIsRelativeAndKeepsTheQuery(): void
+    {
+        // The Host is client input: never reflect it in a cacheable redirect
+        $request = new BaseServerRequest('GET', 'http://evil.example:8080/Index/x?a=1', ['Host' => 'evil.example']);
+
+        $uri = RedirectUris::replaceSegment($request, 'Index', 'index');
+        $this->assertSame('/index/x?a=1', (string) $uri);
+
+        try {
+            RedirectUris::ensureTrailingSlash($request, TrailingSlash::Add);
+            $this->fail('A redirect was expected');
+        } catch (RedirectException $e) {
+            $this->assertSame('/Index/x/?a=1', $e->getUrl());
+        }
+    }
+
+    public function testLocationNeverBecomesANetworkPathReference(): void
+    {
+        $request = new BaseServerRequest('GET', 'https://example.test//evil.test/Index/');
+
+        $uri = RedirectUris::replaceSegment($request, 'Index', 'index', TrailingSlash::Add);
+        $this->assertSame('/evil.test/index/', (string) $uri);
+
+        try {
+            RedirectUris::ensureTrailingSlash(new BaseServerRequest('GET', 'https://example.test//evil.test'), TrailingSlash::Add);
+            $this->fail('A redirect was expected');
+        } catch (RedirectException $e) {
+            $this->assertSame('/evil.test/', $e->getUrl());
+        }
     }
 }

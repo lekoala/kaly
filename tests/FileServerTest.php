@@ -109,6 +109,32 @@ class FileServerTest extends TestCase
         $this->assertStringNotContainsString('AUDIT-PRIVATE-SENTINEL', (string) $response->getBody());
     }
 
+    public function testEncodedFilenamesAreServed(): void
+    {
+        Fs::putFile($this->base . '/public/my file.txt', 'spaced');
+        Fs::putFile($this->base . '/public/café.txt', 'accented');
+
+        foreach (['/my%20file.txt' => 'spaced', '/caf%C3%A9.txt' => 'accented'] as $uri => $body) {
+            $response = $this->serve('GET', (string) $uri);
+            try {
+                $this->assertSame(200, $response->getStatusCode(), (string) $uri);
+                $this->assertSame($body, (string) $response->getBody(), (string) $uri);
+            } finally {
+                $response->getBody()->close();
+            }
+        }
+    }
+
+    public function testAmbiguousEncodingsFallThrough(): void
+    {
+        Fs::putFile($this->base . '/public/sub/asset.txt', 'nested');
+
+        // An encoded separator, a double encoding, an encoded backslash or NUL
+        foreach (['/sub%2Fasset.txt', '/%252e%252e/private-note', '/sub%5Casset.txt', '/asset.txt%00'] as $uri) {
+            $this->assertSame(404, $this->serve('GET', $uri)->getStatusCode(), $uri);
+        }
+    }
+
     public function testPhpSourceIsNotServed(): void
     {
         $response = $this->serve('GET', '/sample.php');

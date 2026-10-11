@@ -56,6 +56,16 @@ explicit API client — curl, service-to-service — carries no ambient browser
 credential and generally does not. The middleware never guesses from a present
 `Authorization` header: the scope it is mounted on is the policy.
 
+`CsrfMiddleware` only checks unsafe methods, so it covers every write only if
+no write answers a safe one. Conventional routing keeps that invariant: an
+action without a verb suffix answers `GET` and `HEAD` only, a write is named
+`savePost` or `removeDelete` (see [Routing](routing.md#the-convention)). This is
+not CSRF protection by itself: `savePost()` still needs the middleware when the
+request is authenticated by a cookie. Every public method of a controller,
+including inherited and trait methods, is a conventional action: keep helpers
+and setters `protected`. A declared route chooses its methods explicitly; never
+map a write on `GET`.
+
 ## Caching authenticated responses
 
 A response built for an authenticated user must not be stored or replayed by
@@ -225,6 +235,29 @@ Short secrets such as six-digit codes need an HMAC rather than a plain hash: a
 leaked SHA-256 of a code is reversed by trying a million values, while the HMAC
 also needs the secret. Encryption is out of scope: use libsodium or a dedicated
 library such as CipherSweet, with its own keys.
+
+## Behind a reverse proxy
+
+A proxy that terminates TLS talks plain http to PHP: the request scheme is
+`http`, so the session and application cookies, which are `Secure` on https
+requests unless the `CookiePolicy` decides, would lose the flag. The client
+ip would be the proxy's. `Kaly\Http\Middleware\TrustedProxy` restores the
+scheme, host, port and client ip from the `X-Forwarded-*` headers, only when
+the peer (`REMOTE_ADDR`) is one of the configured proxies:
+
+```php
+use Kaly\Http\Middleware\TrustedProxy;
+
+$definitions->set(TrustedProxy::class, static fn(): TrustedProxy => new TrustedProxy(['10.0.0.0/8', 'fd00::/8']));
+$app->middleware()->incoming(TrustedProxy::class, priority: -100);
+```
+
+The proxy must overwrite these headers instead of appending to what the
+client sent: the first `X-Forwarded-Proto`/`Host`/`Port` value wins. The
+client ip is the nearest `X-Forwarded-For` hop that is not a trusted proxy,
+and `HttpContext::clientIp()` returns it. Redirects issued by the router are
+relative, they never reflect the Host. When https is the only way in, set
+`secure: true` on the `CookiePolicy` rather than relying on detection.
 
 ## What Kaly does not bundle
 

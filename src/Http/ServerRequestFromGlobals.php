@@ -18,7 +18,7 @@ use Psr\Http\Message\UriFactoryInterface;
  * their own PSR-7 request to `App::handle()`.
  *
  * It reports what the server received, nothing more: resolving proxy headers
- * (X-Forwarded-*) is the job of a trusted proxy middleware.
+ * (X-Forwarded-*) is the job of the TrustedProxy middleware.
  */
 final class ServerRequestFromGlobals
 {

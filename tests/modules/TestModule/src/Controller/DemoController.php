@@ -16,6 +16,21 @@ class DemoController extends AbstractController
         return 'hello demo';
     }
 
+    public function indexPost(): string
+    {
+        return 'demo posted';
+    }
+
+    public function lastPostGet(): string
+    {
+        return 'last post';
+    }
+
+    public function moveItemPost(int $id): string
+    {
+        return "moved {$id}";
+    }
+
     public function methodGet(): string
     {
         return 'get';

@@ -82,7 +82,7 @@ class SapiWorkerTest extends TestCase
     {
         $app = App::create(__DIR__)->debug(false)->routing(TrailingSlash::Add, true)->boot();
 
-        $this->assertSame('Server error', $this->cycle($app, '/test-module/index/middlewareexception/'));
+        $this->assertSame('Server error', $this->cycle($app, '/test-module/index/middleware-exception/'));
         $this->assertSame('hello', $this->cycle($app, '/test-module/'));
     }
 }
