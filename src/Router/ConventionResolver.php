@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Router;
 
+use Kaly\Di\Reflection;
 use Kaly\Ex;
 use Kaly\Http\Exception\MethodNotAllowedException;
 use Kaly\Http\Exception\RedirectException;
@@ -30,8 +31,8 @@ use ReflectionParameter;
  * - a trailing RequestInput parameter is built from the query and the body
  * - one canonical url per action: `/index/`, `/Cart/` and friends redirect
  *
- * It is the last resolver of a module (priority 1000). Reflection is memoized
- * in memory, per process: in a worker it is paid once.
+ * It is the last resolver of a module (priority 1000). Reflection goes through
+ * the kaly-di cache, per process: in a worker it is paid once.
  */
 final class ConventionResolver implements ResolverInterface
 {
@@ -51,15 +52,6 @@ final class ConventionResolver implements ResolverInterface
      */
     private const BARE_METHODS = ['GET', 'HEAD'];
 
-    /**
-     * Controller declarations never change during the life of the process.
-     * Only existing classes are kept: misses come from the url, caching them
-     * would let a worker grow without bound.
-     *
-     * @var array<string,ReflectionClass<object>>
-     */
-    private static array $reflections = [];
-
     public function __construct(
         private TrailingSlash $trailingSlash = TrailingSlash::Preserve,
     ) {}
@@ -73,7 +65,7 @@ final class ConventionResolver implements ResolverInterface
         // mine" and keeps the reason for the 404 debug page
         $m = new ConventionMatch($request->request, $request->segments);
         $controller = $this->findController($m, $request->module);
-        $reflection = $this->reflect($controller);
+        $reflection = Reflection::tryClass($controller);
         assert($reflection instanceof ReflectionClass);
         $action = $this->findAction($m, $reflection, $request->ownedActions);
         $params = $this->collectParameters($m, $reflection, $action);
@@ -118,20 +110,6 @@ final class ConventionResolver implements ResolverInterface
         return $path;
     }
 
-    /**
-     * @return ReflectionClass<object>|false
-     */
-    private function reflect(string $class): ReflectionClass|false
-    {
-        if (isset(self::$reflections[$class])) {
-            return self::$reflections[$class];
-        }
-        if (!class_exists($class)) {
-            return false;
-        }
-        return self::$reflections[$class] = new ReflectionClass($class);
-    }
-
     private function redirect(ConventionMatch $m, string $remove, string $replace = ''): RedirectException
     {
         return new RedirectException(RedirectUris::replaceSegment($m->request, $remove, $replace, $this->trailingSlash));
@@ -162,9 +140,10 @@ final class ConventionResolver implements ResolverInterface
         $controller = ($part ? $camelPart : self::DEFAULT_CONTROLLER) . self::CONTROLLER_SUFFIX;
         $class = $namespace . '\\' . self::CONTROLLER_NAMESPACE . '\\' . $controller;
 
-        // It must be autoloadable and instantiable
-        $reflection = $this->reflect($class);
-        if ($reflection === false) {
+        // It must be autoloadable and instantiable. Misses come from the url
+        // and are never cached, so a worker cannot grow without bound
+        $reflection = Reflection::tryClass($class);
+        if ($reflection === null) {
             throw new RouteNotFoundException("Route '{$path}' not found, '{$class}' doesn't exist");
         }
         if ($reflection->isAbstract()) {
