@@ -192,6 +192,7 @@ permit = [
     "@self",
     "@layer:kaly-foundations",
 ]
+reason = "The domain stays independent of HTTP, persistence and the framework lifecycle."
 
 [[guard.perimeter.rules]]
 namespace = "Booking\\Application\\"
@@ -200,6 +201,7 @@ permit = [
     "@layer:kaly-foundations",
     "Booking\\Domain\\**",
 ]
+reason = "Use cases orchestrate the domain; HTTP and storage reach them through Controller and Infrastructure."
 
 [[guard.perimeter.rules]]
 namespace = "Booking\\Controller\\"
@@ -217,6 +219,10 @@ permit = [
 namespace = "Booking\\Infrastructure\\"
 permit = ["@all"]
 ```
+
+A `reason` (Mago 1.55+) is printed with every breach of its rule: the build says why
+the boundary exists, not only that it was crossed, which is what a contributor — or an
+agent — needs to pick the right fix. Write one per principle, not one per rule.
 
 A namespace with no matching rule is denied, not allowed — every layer must be listed.
 `Infrastructure` is the exception: it gets `@all` because it is the layer that reaches

@@ -77,6 +77,7 @@ deny-from = [
     "Kaly\\Crypto\\**",
     "Kaly\\Util\\**",
 ]
+reason = "Core is the composition layer: it depends on every layer, no layer depends on it. Move the shared piece down, or let Core inject it."
 
 [[guard.perimeter.restrictions]]
 dependency = "Kaly\\Test\\**"
@@ -92,6 +93,7 @@ deny-from = [
     "Kaly\\Crypto\\**",
     "Kaly\\Util\\**",
 ]
+reason = "Kaly\\Test is a toolkit for application tests: production code never depends on it."
 
 # The remaining layers form an explicit order: a layer may depend on the ones
 # below it, never the reverse. Util and Clock are foundations, Log and Crypto
@@ -112,6 +114,7 @@ deny-from = [
     "Kaly\\Util\\**",
     "Kaly\\Clock\\**",
 ]
+reason = "Layers only depend downward (Util, Clock < Log, Crypto < Http < Router, Asset, I18n, View < Core): move the shared piece to the lower layer instead."
 
 [[guard.perimeter.restrictions]]
 dependency = "Kaly\\Crypto\\**"
@@ -120,6 +123,7 @@ deny-from = [
     "Kaly\\Clock\\**",
     "Kaly\\Log\\**",
 ]
+reason = "Layers only depend downward (Util, Clock < Log, Crypto < Http < Router, Asset, I18n, View < Core): move the shared piece to the lower layer instead."
 
 [[guard.perimeter.restrictions]]
 dependency = "Kaly\\Http\\**"
@@ -129,6 +133,7 @@ deny-from = [
     "Kaly\\Log\\**",
     "Kaly\\Crypto\\**",
 ]
+reason = "Layers only depend downward (Util, Clock < Log, Crypto < Http < Router, Asset, I18n, View < Core): move the shared piece to the lower layer instead."
 
 [[guard.perimeter.restrictions]]
 dependency = "Kaly\\Router\\**"
@@ -142,6 +147,7 @@ deny-from = [
     "Kaly\\I18n\\**",
     "Kaly\\View\\**",
 ]
+reason = "Layers only depend downward (Util, Clock < Log, Crypto < Http < Router, Asset, I18n, View < Core): move the shared piece to the lower layer instead."
 
 [[guard.perimeter.restrictions]]
 dependency = "Kaly\\Asset\\**"
@@ -155,6 +161,7 @@ deny-from = [
     "Kaly\\I18n\\**",
     "Kaly\\View\\**",
 ]
+reason = "Layers only depend downward (Util, Clock < Log, Crypto < Http < Router, Asset, I18n, View < Core): move the shared piece to the lower layer instead."
 
 [[guard.perimeter.restrictions]]
 dependency = "Kaly\\I18n\\**"
@@ -168,6 +175,7 @@ deny-from = [
     "Kaly\\Asset\\**",
     "Kaly\\View\\**",
 ]
+reason = "Layers only depend downward (Util, Clock < Log, Crypto < Http < Router, Asset, I18n, View < Core): move the shared piece to the lower layer instead."
 
 [[guard.perimeter.restrictions]]
 dependency = "Kaly\\View\\**"
@@ -181,3 +189,4 @@ deny-from = [
     "Kaly\\Asset\\**",
     "Kaly\\I18n\\**",
 ]
+reason = "Layers only depend downward (Util, Clock < Log, Crypto < Http < Router, Asset, I18n, View < Core): move the shared piece to the lower layer instead."

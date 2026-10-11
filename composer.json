@@ -33,7 +33,7 @@
         "symfony/polyfill-php84": "^1.30"
     },
     "require-dev": {
-        "carthage-software/mago": "^1.50",
+        "carthage-software/mago": "^1.55",
         "composer/ca-bundle": "^1.5",
         "latte/latte": "^3.0",
         "lekoala/kaly-tpl": "^0.2",
