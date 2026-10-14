@@ -76,6 +76,19 @@ persistence codec.
 - `Kaly\Util\Types` narrows one decoded field at a time (`stringOrNull()`,
   `listOrEmpty()`, …). Anything carrying domain semantics — statuses,
   domain dates, ids — stays in the domain.
+- `Kaly\Util\Cast` coerces loose input (form fields, env vars, url segments)
+  and returns `null` on failure instead of throwing.
+- `Kaly\Util\Assert` guarantees an expected invariant: it returns the narrowed
+  value or throws `InvalidArgumentException`. Reserve it for data expected to
+  be valid at that point (`$id = Assert::positiveInteger($data['id'] ?? null)`);
+  user-facing request validation with collected errors stays with
+  `Kaly\Validation\Validator`.
+
+> Assert guarantees an expected invariant. It does not sanitize, coerce, filter, or validate user input.
+
+Default failure messages name the expected type and the received type, never
+the received value, so sensitive configuration does not leak into logs. Pass
+an explicit `?string $message` to replace the default, including `''`.
 
 ## Environment, strings, files
 
