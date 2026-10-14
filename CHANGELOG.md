@@ -89,6 +89,11 @@
   preserve the files on 307/308 and discard them when switching to GET.
 - Application time conventions for `ClockInterface`, `Dates`, `FrozenClock`,
   persistence formats and localized template formatting.
+- `Kaly\Util\Assert` guarantees expected invariants, returning the narrowed
+  value or throwing `InvalidArgumentException`. It does not sanitize, coerce,
+  filter, or validate user input: coercion is `Cast`, silent fallback is
+  `Types`, and user-facing violations are `Validation\Validator`. Default
+  messages name the expected and received types, never the received value.
 
 ### Changed
 
