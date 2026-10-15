@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 - 2026-10-16
 
 ### Security
 
@@ -72,6 +72,8 @@
 - `Kaly\Test\RecordingTaskDispatcher` records tasks for assertions;
   `runAll()` runs them in dispatch order until the queue is empty.
 - `docs/tasks.md` documents the model and a Symfony Messenger adapter.
+  [lekoala/kaly-tasks](https://github.com/lekoala/kaly-tasks) provides a
+  durable PostgreSQL engine.
 
 ## 0.3.0 - 2026-10-09
 

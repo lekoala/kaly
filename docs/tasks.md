@@ -67,11 +67,14 @@ $app->configure(fn(Definitions $di) => $di->bind(TaskDispatcher::class, DirectTa
 neither deferred execution, nor durability, nor atomicity with the current
 transaction:
 
-| Dispatcher                                          | When `dispatch()` returns                                     |
-|-----------------------------------------------------|---------------------------------------------------------------|
-| `Kaly\Task\DirectTaskDispatcher`                    | The task has completed, or its exception propagates unchanged |
-| `Kaly\Test\RecordingTaskDispatcher`                 | The task is queued in memory                                  |
-| Durable engine (eg [Messenger](#symfony-messenger)) | The engine documents its own guarantees                       |
+| Dispatcher                          | When `dispatch()` returns                                     |
+|-------------------------------------|---------------------------------------------------------------|
+| `Kaly\Task\DirectTaskDispatcher`    | The task has completed, or its exception propagates unchanged |
+| `Kaly\Test\RecordingTaskDispatcher` | The task is queued in memory                                  |
+| Durable engine                      | The engine documents its own guarantees                       |
+
+Durable engines include [kaly-tasks](https://github.com/lekoala/kaly-tasks)
+(PostgreSQL) and [Symfony Messenger](#symfony-messenger).
 
 Both Kaly dispatchers reject a non-invocable object and accept closures. A
 durable engine may restrict tasks further, eg to persistable data.
