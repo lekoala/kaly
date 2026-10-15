@@ -60,6 +60,19 @@
   `App::profiling(serverTiming: true)` exports completed durations, including
   commit and request, to browser DevTools after response production.
 
+### Tasks
+
+- `Kaly\Task\TaskDispatcher` submits a task: a plain invocable object whose
+  constructor carries the data and whose `__invoke()` receives services from
+  the Injector. No interface, attribute or handler registry. `dispatch()`
+  promises neither deferred execution, nor durability, nor transactional
+  atomicity: each engine documents its guarantees. Kaly registers no engine.
+- `Kaly\Task\DirectTaskDispatcher` runs the task immediately and propagates
+  its exceptions unchanged.
+- `Kaly\Test\RecordingTaskDispatcher` records tasks for assertions;
+  `runAll()` runs them in dispatch order until the queue is empty.
+- `docs/tasks.md` documents the model and a Symfony Messenger adapter.
+
 ## 0.3.0 - 2026-10-09
 
 ### Added

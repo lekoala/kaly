@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Debugging
-nav_order: 23
+nav_order: 24
 ---
 # Debugging
 

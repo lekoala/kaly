@@ -304,8 +304,10 @@ the booted application's services. See the [console](recipes/console.md) and
 
 ## Workers and queues
 
-Kaly does not need to own a message bus. A worker library can be composed
-directly, and the application may expose a narrower port:
+Kaly does not need to own a message bus. [Tasks](tasks.md) are a deliberate,
+narrow exception: invocable objects with a single behavior, without events,
+subscribers or transports. For anything broader, a worker library can be
+composed directly, and the application may expose a narrower port:
 
 ```php
 interface CommandBus

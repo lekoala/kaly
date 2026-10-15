@@ -75,6 +75,7 @@ deny-from = [
     "Kaly\\Clock\\**",
     "Kaly\\Log\\**",
     "Kaly\\Crypto\\**",
+    "Kaly\\Task\\**",
     "Kaly\\Util\\**",
 ]
 reason = "Core is the composition layer: it depends on every layer, no layer depends on it. Move the shared piece down, or let Core inject it."
@@ -91,6 +92,7 @@ deny-from = [
     "Kaly\\Clock\\**",
     "Kaly\\Log\\**",
     "Kaly\\Crypto\\**",
+    "Kaly\\Task\\**",
     "Kaly\\Util\\**",
 ]
 reason = "Kaly\\Test is a toolkit for application tests: production code never depends on it."

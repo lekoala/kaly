@@ -7,7 +7,7 @@ nav_order: 22
 
 Kaly does not provide a `MailerInterface` and has no `Kaly\Mail` namespace. This is deliberate.
 
-> Kaly defines an abstraction when the framework needs a capability. Email delivery is an application service: Symfony Mailer already provides a complete standalone abstraction and transport ecosystem, so Kaly only documents how to wire it.
+> Kaly defines an abstraction when the framework itself needs a capability, or when it provides a small, reusable primitive with a concrete implementation and a stable contract — see [Tasks](tasks.md). It does not introduce interfaces merely to wrap application services or third-party libraries. Email delivery is such a case: Symfony Mailer already provides a complete standalone abstraction and transport ecosystem, so Kaly only documents how to wire it.
 
 Unlike `RendererInterface` (Kaly needs the concept "render this View"), there is no Kaly-specific concept for email. Re-creating an `Email` model would mean re-building `symfony/mime` (multiple addresses, CC/BCC, envelope sender, HTML/text multipart, attachments, inline CID, custom headers) in a worse version. So: use Symfony Mailer directly. It works standalone with `Transport::fromDsn()`, `Mailer` and `Mime\Email`; no FrameworkBundle needed.
 

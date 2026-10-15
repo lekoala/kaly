@@ -40,6 +40,7 @@ Use the sidebar to browse the guides. Start with
 - [Assets](assets.md)
 - [Logging](logging.md)
 - [Mailer](mailer.md)
+- [Tasks](tasks.md)
 - [Debugging](debugging.md)
 - [Utilities](utils.md)
 - [Benchmarks](benchmarks.md)
