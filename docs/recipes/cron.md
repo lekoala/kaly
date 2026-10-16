@@ -23,3 +23,6 @@ $app->container()->get(SendReminders::class)();
 
 No scheduler inside the framework, no simulated request: the schedule lives in
 cron (or systemd timers), the work in an application use case.
+
+Cron does not know whether the previous run is still going. When runs must not
+overlap, the use case takes a lock (see the [locking recipe](locking.md)).

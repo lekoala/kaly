@@ -350,10 +350,9 @@ $routes
 - **Order is outermost first**: module, then table groups and route. A middleware
   declared at several levels runs once, at its outermost place.
 - **A declared middleware always runs, or fails loudly.** An unknown class, or a
-  class that is not a PSR-15 middleware, throws when the table is
-  compiled (on its first use, at match or generation time; at first match for
-  the convention). An ignored auth middleware would be
-  an open door.
+  class that is not a PSR-15 middleware, throws when the table is compiled: on
+  first use, at match or generation time, or at first match for the convention.
+  An ignored auth middleware would be an open door.
 - The effective list is `$ctx->route()->middlewares`, and each one that entered is
   traced on the context like any other middleware.
 
@@ -374,13 +373,6 @@ guessing which explicit route was meant. Custom resolvers claim nothing
 automatically: a dynamic resolver that changes the reachability or the policy
 of controller actions belongs in a module without convention routing, or relies
 on module-level middleware.
-- **A declared middleware always runs, or fails loudly.** An unknown class, or a
-  class that is not a PSR-15 middleware, throws when the table is
-  compiled (on its first use, at match or generation time; at first match for
-  the convention). An ignored auth middleware would be
-  an open door.
-- The effective list is `$ctx->route()->middlewares`, and each one that entered is
-  traced on the context like any other middleware.
 
 Keep the layers apart: the router decides what is exposable, a routed middleware
 decides whether the actor may enter, and the use case or domain policy decides whether
