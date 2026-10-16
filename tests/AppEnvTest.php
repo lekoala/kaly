@@ -27,7 +27,8 @@ class AppEnvTest extends TestCase
         $this->base = sys_get_temp_dir() . '/kaly-app-env-' . uniqid();
         Fs::ensureDir($this->base);
         $this->envBackup = $_ENV;
-        foreach ([self::KEY, self::FALLBACK_KEY, App::IGNORE_DOT_ENV, App::IGNORE_DOT_ENV_LOCAL] as $key) {
+        // Explicitly enable file loading for these tests, regardless of PHPUnit's flag.
+        foreach ([self::KEY, self::FALLBACK_KEY, App::IGNORE_DOT_ENV] as $key) {
             $this->processBackup[$key] = getenv($key);
             putenv($key);
             unset($_ENV[$key]);
@@ -55,8 +56,6 @@ class AppEnvTest extends TestCase
             'empty process wins' => ['default', 'local', '', '', 'normal'],
             'empty local wins' => ['default', '', null, '', 'normal'],
             'empty default is defined' => ['', null, null, '', 'normal'],
-            'ignore local' => ['default', 'local', null, 'default', 'ignore-local'],
-            'ignore local without default' => [null, 'local', null, null, 'ignore-local'],
             'ignore both' => ['default', 'local', null, null, 'ignore-all'],
             'loadEnv false' => ['default', 'local', null, null, 'load-false'],
             'ignore files preserves process' => ['default', 'local', 'process', 'process', 'ignore-all'],
@@ -77,9 +76,6 @@ class AppEnvTest extends TestCase
         }
         if ($mode === 'existing') {
             $_ENV[self::KEY] = 'existing';
-        }
-        if ($mode === 'ignore-local') {
-            putenv(App::IGNORE_DOT_ENV_LOCAL . '=1');
         }
         if ($mode === 'ignore-all') {
             putenv(App::IGNORE_DOT_ENV . '=1');

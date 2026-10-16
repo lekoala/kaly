@@ -356,15 +356,15 @@ tracking an existing `.env`, remove any secrets it contains.
 
 In production, prefer environment variables injected by the server, Docker, Compose
 or a secrets manager; neither file is required. Set `IGNORE_DOT_ENV=1` or pass
-`loadEnv: false` to `App` to skip both files. `IGNORE_DOT_ENV_LOCAL=1` skips only
-the local file. Define these flags before constructing the app.
+`loadEnv: false` to `App` to skip both files. Define the flag before constructing
+the app.
 
-For tests, set the local-file flag in `phpunit.xml` before any app is constructed
-(as in Kaly's own PHPUnit configuration):
+For tests, define configuration explicitly and disable all env files in `phpunit.xml`
+before any app is constructed (as in Kaly's own PHPUnit configuration):
 
 ```xml
 <php>
-    <env name="IGNORE_DOT_ENV_LOCAL" value="1"/>
+    <env name="IGNORE_DOT_ENV" value="1"/>
 </php>
 ```
 

@@ -5,8 +5,8 @@
 ### Added
 
 - `App` automatically loads `.env.local` before `.env`, preserving existing
-  environment values. `IGNORE_DOT_ENV_LOCAL=1` skips the local file (enabled in
-  the PHPUnit configuration); `IGNORE_DOT_ENV=1` or `loadEnv: false` skips both.
+  environment values. `IGNORE_DOT_ENV=1` or `loadEnv: false` skips both files.
+  The PHPUnit configuration disables all env file loading by default.
   Version `.env` with safe defaults and ignore `.env.local` for local secrets.
   **Behavior change:** an existing `.env.local` is now loaded automatically;
   review its contents when upgrading and remove secrets before tracking `.env`.

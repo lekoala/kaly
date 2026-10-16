@@ -87,7 +87,6 @@ final class App implements RequestHandlerInterface
     public const DEBUG_LOGGER = 'debugLogger';
     // Env params
     public const IGNORE_DOT_ENV = 'IGNORE_DOT_ENV';
-    public const IGNORE_DOT_ENV_LOCAL = 'IGNORE_DOT_ENV_LOCAL';
     public const ENV_DEBUG = 'APP_DEBUG';
     public const ENV_TIMEZONE = 'APP_TIMEZONE';
     public const ENV_LOCALES = 'APP_LOCALES';
@@ -141,7 +140,7 @@ final class App implements RequestHandlerInterface
      * (see Paths).
      *
      * Load .env.local before .env without replacing existing values, unless
-     * IGNORE_DOT_ENV is enabled. IGNORE_DOT_ENV_LOCAL skips only .env.local.
+     * IGNORE_DOT_ENV is enabled.
      * APP_DEBUG and APP_TIMEZONE are applied.
      */
     public function __construct(string $dir, bool $loadEnv = true)
@@ -158,7 +157,7 @@ final class App implements RequestHandlerInterface
             $local = $this->paths->base . '/.env.local';
             $default = $this->paths->base . '/.env';
 
-            if (!Env::getBool(self::IGNORE_DOT_ENV_LOCAL) && is_file($local)) {
+            if (is_file($local)) {
                 Env::load($local);
             }
             if (is_file($default)) {
