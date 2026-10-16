@@ -287,5 +287,7 @@ The general doctrine for composing external libraries is in
 
 - [Doctrine](recipes/doctrine.md): shared factory, per-operation manager,
   explicit transactions;
-- [Cycle](recipes/cycle.md): shared ORM, disposable unit of work.
+- [Cycle](recipes/cycle.md): shared ORM, disposable unit of work;
+- [Transactions](recipes/transactions.md): a minimal PDO unit of work,
+  observation, and the advanced capabilities left to the application.
 
