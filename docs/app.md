@@ -142,7 +142,7 @@ incoming -> routing -> routed -> route middlewares -> dispatcher -> (kernel) -> 
 - **routing** is a structural step of the framework, not a configurable middleware. It
   matches the route and resolves the locale.
 - **routed** runs with a route already known: auth, authorization, CSRF, per route
-  rate limits...
+  rate limits (see the [rate limiting recipe](recipes/rate-limiting.md))...
 - **route middlewares** are the ones declared on a route, a group or a module,
   see [Routing](routing.md).
 - **outgoing** runs *on the response*, once the whole cycle produced one, whatever its

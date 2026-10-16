@@ -22,7 +22,9 @@ Kaly is an opinionated but lightweight application framework built on PHP standa
 - **Auth and browser security bundled:** request identity with permissions,
   session login, CSRF, CSP nonces and method override (see
   [docs/auth.md](docs/auth.md) and [docs/security.md](docs/security.md)).
-- **No rate-limit bundled:** provide your own PSR-15 middleware.
+- **Rate limiting:** compose a PSR-15 middleware with a shared limiter;
+  [Symfony RateLimiter](https://symfony.com/doc/current/rate_limiter.html) is
+  recommended (see the [rate limiting recipe](docs/recipes/rate-limiting.md)).
 
 ## Stability
 

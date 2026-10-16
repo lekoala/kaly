@@ -56,6 +56,7 @@
         "nesbot/carbon": "Rich DateTime-compatible date and time manipulation",
         "spomky-labs/otphp": "TOTP/HOTP second-factor authentication",
         "symfony/mailer": "Email delivery through SMTP, sendmail or supported providers",
+        "symfony/rate-limiter": "Shared rate limits in a PSR-15 middleware, through the rate-limiting recipe",
         "symfony/translation": "Full featured translations (ICU, loaders), through Kaly\\I18n\\Adapter\\SymfonyTranslator",
         "twig/twig": "Supported template engine, through Kaly\\View\\Adapter\\TwigRenderer",
         "web-auth/webauthn-lib": "WebAuthn/FIDO2 strong authentication and passkeys"
