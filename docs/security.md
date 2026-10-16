@@ -236,6 +236,27 @@ leaked SHA-256 of a code is reversed by trying a million values, while the HMAC
 also needs the secret. Encryption is out of scope: use libsodium or a dedicated
 library such as CipherSweet, with its own keys.
 
+### Signatures made by others
+
+`Hmac` verifies only what the application signed itself: its key comes from
+`APP_SECRET` and its output format is Kaly's. A webhook from a third party
+(GitHub, Stripe, a support desk) follows the provider's contract: its shared
+secret, its encoding (often hex, sometimes with a `sha256=` prefix or a
+timestamp), its message. Use the provider's SDK when it has one, otherwise
+compute the signature with `hash_hmac()` over the **raw** request body, never
+a re-encoded parsed payload, and compare with `hash_equals()`:
+
+```php
+$secret = Env::getString('SUPPORT_WEBHOOK_SECRET');
+$expected = hash_hmac('sha256', (string) $request->getBody(), $secret);
+$valid = hash_equals($expected, $request->getHeaderLine('X-Signature'));
+```
+
+Keep the provider secret in its own environment variable, never in logs, and
+reject the request before parsing it when the signature does not match. The
+signatures the application sends back, eg a callback url it later receives,
+are its own again and belong to `Hmac` with a dedicated purpose.
+
 ## Behind a reverse proxy
 
 A proxy that terminates TLS talks plain http to PHP: the request scheme is

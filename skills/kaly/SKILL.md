@@ -97,6 +97,19 @@ mutated request state.
 Read [auth and security](references/auth-and-security.md) when changing
 identity, permissions, login, sessions or browser security.
 
+## Bundled building blocks
+
+Before writing a helper, check what Kaly already ships: signatures
+(`Crypto\Secret`, `Crypto\Hmac`), password hashing, validation, typed
+`Env`/`Json`/`Assert`/`Dates` utilities, HTTP exceptions, file downloads,
+profiling and `Server-Timing`, request ids, task dispatch and test doubles.
+Sign what the application issues with `Hmac`, never a raw `hash_hmac()` over
+`APP_SECRET`; a third-party webhook signature follows the provider's format.
+
+Read the [toolkit](references/toolkit.md) when signing or verifying anything,
+handling secrets, measuring performance, debugging, parsing values, or
+writing tests.
+
 ## Before finalizing
 
 Check that the installed version supports the APIs used, code belongs to the
