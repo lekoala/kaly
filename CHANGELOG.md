@@ -6,6 +6,11 @@
 
 - `Env::parse()` parses and validates a `.env` file without touching the
   environment, eg to check a `.env.example` in a test.
+- `Kaly\Util\Args` parses the arguments of a CLI script against declared flags
+  and value options, and throws `Kaly\Ex` on unknown, repeated or malformed
+  options. See the console recipe.
+- A transactions recipe: a minimal PDO unit of work, observation, and the
+  advanced capabilities (join, savepoint, rollback-only) left to the application.
 
 ### Fixed
 

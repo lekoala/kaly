@@ -97,6 +97,8 @@ an explicit `?string $message` to replace the default, including `''`.
 - `Kaly\Util\Str` (multibyte case, slugs, encoding), `Kaly\Util\Fs`
   (dot-segment guard, recursive helpers), `Kaly\Util\Arr`,
   `Kaly\Util\Cast` and `Kaly\Util\Base64Url` round out the toolbox.
+- `Kaly\Util\Args` parses the arguments of a `bin/*.php` script against its
+  declared options. See the [console recipe](recipes/console.md#arguments).
 
 ### Filesystem paths
 
