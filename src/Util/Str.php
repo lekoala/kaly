@@ -162,18 +162,16 @@ final class Str
     }
 
     /**
-     * Truncate a string to the given length, stripping tags first.
+     * Truncate a string to the given number of characters, stripping tags and
+     * surrounding whitespace first. `$append` is not counted in `$chars`.
      */
     public static function truncate(?string $str, int $chars = 120, string $append = '...'): string
     {
-        if ($str === null) {
-            return '';
+        $str = trim(strip_tags($str ?? ''));
+        if (mb_strlen($str) <= $chars) {
+            return $str;
         }
-        $str = strip_tags($str);
-        if (strlen($str) > $chars) {
-            return substr($str, 0, $chars) . $append;
-        }
-        return $str;
+        return rtrim(mb_substr($str, 0, $chars)) . $append;
     }
 
     /**

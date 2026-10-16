@@ -12,6 +12,8 @@
 - `Env::load()` validates the whole file before writing any value: an invalid
   key at the end of the file no longer leaves the previous ones loaded.
 - `.env` errors name the file, and a syntax error keeps the line reported by PHP.
+- `Str::truncate()` counts characters instead of bytes, so it no longer cuts a
+  multibyte character in half, and trims surrounding whitespace.
 
 ## 0.4.0 - 2026-10-16
 

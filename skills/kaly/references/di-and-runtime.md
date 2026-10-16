@@ -29,6 +29,21 @@ when autowiring cannot determine them.
 
 Primitive constructor arguments normally need an explicit definition.
 
+Configure them in one `parameters()` call with named arguments; reserve
+`parameter()` for an isolated adjustment. Do not repeat `parameter()` for the
+same service:
+
+```php
+$di
+    ->parameters(
+        OpenAICompatibleProvider::class,
+        baseUrl: Env::getString('LLM_BASE_URL', 'https://api.example.com/v1'),
+        apiKey: Env::getString('LLM_API_KEY'),
+        model: Env::getString('LLM_MODEL', 'default-model'),
+    )
+    ->bind(LlmProvider::class, OpenAICompatibleProvider::class);
+```
+
 ## Clock and time
 
 Prefer `Psr\Clock\ClockInterface` for application logic that needs "now".

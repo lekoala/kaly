@@ -109,6 +109,10 @@ class UtilTest extends TestCase
         $this->assertSame('abc', Str::truncate('abc', 10));
         $this->assertSame('', Str::truncate(null));
         $this->assertSame('ab!', Str::truncate('abcdef', 2, '!'));
+        $this->assertSame('abc', Str::truncate("  <b>abc</b>\n", 3));
+        $this->assertSame('ab...', Str::truncate('ab cdef', 3));
+        $this->assertSame('éàü...', Str::truncate('éàüöç', 3));
+        $this->assertSame('éàü', Str::truncate('éàü', 3));
     }
 
     /**
