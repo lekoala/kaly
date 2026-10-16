@@ -359,10 +359,13 @@ mode, so INI specific conversions and interpolation do not apply: use the typed
 The `.env` syntax follows `parse_ini_file` in raw mode, with a few consequences worth
 knowing:
 
-- Comments: `;` starts a comment, either on its own line or at the end of a value.
-  `#` only starts a comment at the beginning of a line; an inline `#` is part of the
-  value (secrets containing `#` are therefore kept intact, but `"value" # note` yields
-  the literal `"value" # note`).
+- Comments: use `;`. It starts a comment either on its own line or at the end of a
+  value, even when the comment contains `=` (`; Example: TIMEOUT=30`).
+- `#` is not a reliable comment marker. A leading `#` line is ignored only when it
+  contains no `=`: `# Example: TIMEOUT=30` is parsed as an assignment to the key
+  `# Example: TIMEOUT`, which the loader then rejects as an invalid name. An inline
+  `#` is part of the value (secrets containing `#` are therefore kept intact, but
+  `"value" # note` yields the literal `"value" # note`).
 - Quotes: only double quotes are interpreted and stripped. Single quotes are kept
   literally, and a `;` inside them still starts a comment. Prefer double quotes.
 - Shell syntax is not supported: `export KEY=value` is rejected as an invalid
