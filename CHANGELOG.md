@@ -4,8 +4,14 @@
 
 ### Added
 
+- `App` automatically loads `.env.local` before `.env`, preserving existing
+  environment values. `IGNORE_DOT_ENV_LOCAL=1` skips the local file (enabled in
+  the PHPUnit configuration); `IGNORE_DOT_ENV=1` or `loadEnv: false` skips both.
+  Version `.env` with safe defaults and ignore `.env.local` for local secrets.
+  **Behavior change:** an existing `.env.local` is now loaded automatically;
+  review its contents when upgrading and remove secrets before tracking `.env`.
 - `Env::parse()` parses and validates a `.env` file without touching the
-  environment, eg to check a `.env.example` in a test.
+  environment, eg to check the versioned `.env` in a test.
 - `Kaly\Util\Args` parses the arguments of a CLI script against declared flags
   and value options, and throws `Kaly\Ex` on unknown, repeated or malformed
   options. See the console recipe.

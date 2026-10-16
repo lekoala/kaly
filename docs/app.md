@@ -25,14 +25,18 @@ prefixes); `create()` is the neutral building block (`Preserve`, no prefixes)
 for applications mastering their own topology. `run()` boots the app, builds the request from the PHP globals, handles it and emits the
 response. A failure during boot still produces a proper 500 (with details in debug mode).
 
-The app looks for a `.env` file in the base directory unless the `IGNORE_DOT_ENV`
-environment variable is set.
+The app loads `.env.local` before `.env` in the base directory, preserving existing
+environment values. Missing files are skipped. Set `IGNORE_DOT_ENV=1` to skip both.
+Version `.env` with safe defaults:
 
 ```
-APP_DEBUG=true
+APP_DEBUG=false
 APP_TIMEZONE=UTC
-APP_SECRET=...
+APP_SECRET=
 ```
+
+Keep secrets and development overrides such as `APP_DEBUG=true` in `.env.local`,
+which should be ignored by Git. See [Env variables](#env-variables).
 
 `APP_SECRET` is only read when something resolves `Kaly\Crypto\Secret`; see
 [Security](security.md#application-secret-and-signatures).
@@ -337,9 +341,35 @@ is a notification whose errors must not change the response.
 
 ## Env variables
 
-Any env variable can be defined in the application server, otherwise an `.env` file in
-the base directory is loaded (`parse_ini_file` format). Set `IGNORE_DOT_ENV` to skip the
-filesystem lookup.
+`App` loads `.env.local` and then `.env` from the base directory. Both are optional.
+The priority is **process environment > `.env.local` > `.env`**: loading a file only
+fills missing values, including when an existing value is empty.
+
+| File | Git | Purpose |
+| --- | --- | --- |
+| `.env` | Tracked | Safe defaults without secrets (`APP_DEBUG=false`) |
+| `.env.local` | Ignored | Local overrides and secrets (`APP_DEBUG=true` for development) |
+
+Add `.env.local` to your application's `.gitignore`. Separate `.env.example` and
+`.env.dist` files are unnecessary: the versioned `.env` is the reference. Before
+tracking an existing `.env`, remove any secrets it contains.
+
+In production, prefer environment variables injected by the server, Docker, Compose
+or a secrets manager; neither file is required. Set `IGNORE_DOT_ENV=1` or pass
+`loadEnv: false` to `App` to skip both files. `IGNORE_DOT_ENV_LOCAL=1` skips only
+the local file. Define these flags before constructing the app.
+
+For tests, set the local-file flag in `phpunit.xml` before any app is constructed
+(as in Kaly's own PHPUnit configuration):
+
+```xml
+<php>
+    <env name="IGNORE_DOT_ENV_LOCAL" value="1"/>
+</php>
+```
+
+There is no automatic environment-specific selection: `APP_ENV` does not control
+loading, and `.env.dev`, `.env.test` and compiled dotenv files are not loaded.
 
 `Env` reads `$_ENV` with a read-only `getenv()` fallback, so real environment variables
 are visible even when `variables_order` does not contain `E`. `$_SERVER` is deliberately
@@ -347,8 +377,7 @@ not consulted. Kaly never calls `putenv()`: values written by `Env::set()` or `E
 live in `$_ENV` (the `Env` view), while `getenv()` called directly still sees the original
 process value.
 
-Precedence is: process environment first, `.env` only fills the gaps. `Env::load()` skips
-keys that are already defined unless `$overwrite` is `true` (which then only replaces what
+`Env::load()` skips keys that are already defined unless `$overwrite` is `true` (which then only replaces what
 Kaly sees via `Env`). An explicit `null` in `$_ENV` counts as defined.
 
 The loader is strict: keys must be valid environment variable names
@@ -361,15 +390,16 @@ The whole file is validated before any value is written, so an invalid file load
 environment. A test can use it to keep a reference file valid:
 
 ```php
-public function testEnvExampleIsValid(): void
+public function testVersionedEnvIsValid(): void
 {
-    $env = Env::parse(dirname(__DIR__) . '/.env.example');
+    $env = Env::parse(dirname(__DIR__) . '/.env');
     $this->assertArrayHasKey('MAILER_DSN', $env);
 }
 ```
 
-The `.env` syntax follows `parse_ini_file` in raw mode, with a few consequences worth
-knowing:
+The file naming convention follows Symfony, but the syntax is PHP's
+`parse_ini_file` with `INI_SCANNER_RAW`, not Symfony Dotenv syntax. There is no variable
+interpolation. A few consequences worth knowing:
 
 - Comments: use `;`. It starts a comment either on its own line or at the end of a
   value, even when the comment contains `=` (`; Example: TIMEOUT=30`).

@@ -27,7 +27,7 @@ final class Env
      * interpolations do not leak into the environment. Only valid environment
      * variable names with string values are accepted.
      *
-     * Use it to check a `.env.example` in a test.
+     * Use it to check the versioned `.env` in a test.
      *
      * @return array<string,string>
      * @throws RuntimeException

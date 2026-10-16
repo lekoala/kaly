@@ -87,6 +87,7 @@ final class App implements RequestHandlerInterface
     public const DEBUG_LOGGER = 'debugLogger';
     // Env params
     public const IGNORE_DOT_ENV = 'IGNORE_DOT_ENV';
+    public const IGNORE_DOT_ENV_LOCAL = 'IGNORE_DOT_ENV_LOCAL';
     public const ENV_DEBUG = 'APP_DEBUG';
     public const ENV_TIMEZONE = 'APP_TIMEZONE';
     public const ENV_LOCALES = 'APP_LOCALES';
@@ -139,8 +140,9 @@ final class App implements RequestHandlerInterface
      * It only needs the base directory that contains the conventional folders
      * (see Paths).
      *
-     * It will look for a .env file in the base directory except if the
-     * IGNORE_DOT_ENV env flag is set. APP_DEBUG and APP_TIMEZONE are applied.
+     * Load .env.local before .env without replacing existing values, unless
+     * IGNORE_DOT_ENV is enabled. IGNORE_DOT_ENV_LOCAL skips only .env.local.
+     * APP_DEBUG and APP_TIMEZONE are applied.
      */
     public function __construct(string $dir, bool $loadEnv = true)
     {
@@ -152,9 +154,16 @@ final class App implements RequestHandlerInterface
         $this->hooks = new Hooks();
         $this->middleware = new Registry();
 
-        $envFile = $this->paths->base . '/.env';
-        if ($loadEnv && !Env::getBool(self::IGNORE_DOT_ENV) && is_file($envFile)) {
-            Env::load($envFile);
+        if ($loadEnv && !Env::getBool(self::IGNORE_DOT_ENV)) {
+            $local = $this->paths->base . '/.env.local';
+            $default = $this->paths->base . '/.env';
+
+            if (!Env::getBool(self::IGNORE_DOT_ENV_LOCAL) && is_file($local)) {
+                Env::load($local);
+            }
+            if (is_file($default)) {
+                Env::load($default);
+            }
         }
 
         if (Env::has(self::ENV_DEBUG)) {

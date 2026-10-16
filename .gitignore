@@ -4,6 +4,7 @@ vendor
 .trash
 .tmp
 *.log
+.env.local
 
 # demo
 demos/temp

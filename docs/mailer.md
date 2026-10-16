@@ -19,7 +19,7 @@ composer require symfony/mailer
 
 ## Wiring
 
-Bind Symfony's `MailerInterface` in the container. `App` loads the `.env` file, so `$_ENV['MAILER_DSN']` is available:
+Bind Symfony's `MailerInterface` in the container. `App` loads `.env.local` before `.env`, so `$_ENV['MAILER_DSN']` is available when defined there:
 
 ```php
 use Symfony\Component\Mailer\Mailer;

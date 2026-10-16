@@ -92,8 +92,8 @@ an explicit `?string $message` to replace the default, including `''`.
 
 ## Environment, strings, files
 
-- `Kaly\Util\Env` reads deployment values (`.env` fills the gaps, process
-  environment wins) for `module/config.php`. Details in [App](app.md).
+- `Kaly\Util\Env` reads deployment values for `module/config.php`. `App` loads
+  `.env.local` before `.env`; process environment wins. Details in [App](app.md).
 - `Kaly\Util\Str` (multibyte case, slugs, encoding), `Kaly\Util\Fs`
   (dot-segment guard, recursive helpers), `Kaly\Util\Arr`,
   `Kaly\Util\Cast` and `Kaly\Util\Base64Url` round out the toolbox.
