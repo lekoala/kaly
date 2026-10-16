@@ -25,6 +25,8 @@ Kaly is an opinionated but lightweight application framework built on PHP standa
 - **Rate limiting:** compose a PSR-15 middleware with a shared limiter;
   [Symfony RateLimiter](https://symfony.com/doc/current/rate_limiter.html) is
   recommended (see the [rate limiting recipe](docs/recipes/rate-limiting.md)).
+- **No HTTP client bundled:** outgoing calls go through any PSR-18 client, such as
+  Buzz or Symfony HttpClient (see the [HTTP client recipe](docs/recipes/http-client.md)).
 
 ## Stability
 

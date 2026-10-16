@@ -152,6 +152,11 @@ console shell
 database driver
 ```
 
+An HTTP client is the typical example: the infrastructure code depends on the
+PSR-18 `ClientInterface` and builds its requests with the PSR-17 factories, while the
+application-owned port (`WebhookSender`, `PaymentGateway`) hides the remote API. See
+the [HTTP client recipe](recipes/http-client.md).
+
 ## Composition roots
 
 Each module should compose the dependencies it owns in its `config.php`. Prefer
