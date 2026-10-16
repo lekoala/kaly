@@ -355,6 +355,18 @@ The loader is strict: keys must be valid environment variable names
 (`^[A-Za-z_][A-Za-z0-9_]*$`) and each value must be a string. The file is read in raw
 mode, so INI specific conversions and interpolation do not apply: use the typed
 `Env::getBool()` / `getInt()` / `getFloat()` / `getArray()` accessors to interpret values.
+The whole file is validated before any value is written, so an invalid file loads nothing.
+
+`Env::parse()` applies the same rules and returns the values without touching the
+environment. A test can use it to keep a reference file valid:
+
+```php
+public function testEnvExampleIsValid(): void
+{
+    $env = Env::parse(dirname(__DIR__) . '/.env.example');
+    $this->assertArrayHasKey('MAILER_DSN', $env);
+}
+```
 
 The `.env` syntax follows `parse_ini_file` in raw mode, with a few consequences worth
 knowing:

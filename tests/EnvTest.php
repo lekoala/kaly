@@ -195,6 +195,37 @@ class EnvTest extends TestCase
         Env::load(__DIR__ . '/data/env/array-value.env');
     }
 
+    public function testParseDoesNotTouchEnvironment(): void
+    {
+        $this->unsetProcessEnv('KALY_PARSED_ONLY');
+        $file = $this->writeTempEnv("; Example: KALY_PARSED_ONLY=30\nKALY_PARSED_ONLY=60\n");
+
+        $this->assertSame(['KALY_PARSED_ONLY' => '60'], Env::parse($file));
+        $this->assertFalse(Env::has('KALY_PARSED_ONLY'));
+    }
+
+    public function testInvalidFileLoadsNothing(): void
+    {
+        $this->unsetProcessEnv('KALY_BEFORE_INVALID');
+        $file = $this->writeTempEnv("KALY_BEFORE_INVALID=value\n# Example: TIMEOUT=30\n");
+
+        try {
+            Env::load($file);
+            $this->fail('An invalid file must be rejected');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('Invalid environment variable name `# Example: TIMEOUT`', $e->getMessage());
+        }
+        $this->assertFalse(Env::has('KALY_BEFORE_INVALID'));
+    }
+
+    public function testSyntaxErrorReportsLine(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/^Failed to parse `.+`: syntax error, .+ on line 2$/');
+
+        Env::parse($this->writeTempEnv("KALY_OK=1\n[broken\n"));
+    }
+
     public function testEmptyFileIsAccepted(): void
     {
         $result = Env::load(__DIR__ . '/data/env/empty.env');

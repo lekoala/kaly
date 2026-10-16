@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `Env::parse()` parses and validates a `.env` file without touching the
+  environment, eg to check a `.env.example` in a test.
+
+### Fixed
+
+- `Env::load()` validates the whole file before writing any value: an invalid
+  key at the end of the file no longer leaves the previous ones loaded.
+- `.env` errors name the file, and a syntax error keeps the line reported by PHP.
+
 ## 0.4.0 - 2026-10-16
 
 ### Security

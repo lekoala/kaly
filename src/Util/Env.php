@@ -21,11 +21,48 @@ use RuntimeException;
 final class Env
 {
     /**
-     * Load the .env and add the values to the $_ENV
+     * Parse and validate a .env file without touching the environment
      *
      * The file is parsed in raw mode so that INI specific conversions and
      * interpolations do not leak into the environment. Only valid environment
      * variable names with string values are accepted.
+     *
+     * Use it to check a `.env.example` in a test.
+     *
+     * @return array<string,string>
+     * @throws RuntimeException
+     */
+    public static function parse(string $envFile): array
+    {
+        error_clear_last();
+        $result = @parse_ini_file($envFile, false, INI_SCANNER_RAW);
+        if ($result === false) {
+            $reason = trim(error_get_last()['message'] ?? 'unknown error');
+            throw new RuntimeException("Failed to parse `{$envFile}`: {$reason}");
+        }
+        $env = [];
+        foreach ($result as $key => $value) {
+            // Only accept valid environment variable names
+            if (!is_string($key) || !preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $key)) {
+                throw new RuntimeException("Invalid environment variable name `{$key}` in `{$envFile}`");
+            }
+
+            // A .env entry is a name and a text value. INI array syntax would
+            // produce arrays (eg: FOO[]=bar), which we reject.
+            if (!is_string($value)) {
+                throw new RuntimeException("Environment variable `{$key}` must be a string in `{$envFile}`");
+            }
+
+            $env[$key] = $value;
+        }
+        return $env;
+    }
+
+    /**
+     * Load the .env and add the values to the $_ENV
+     *
+     * The whole file is validated by parse() before any value is written,
+     * so an invalid file leaves the environment untouched.
      *
      * Precedence is: process environment first, .env only fills the gaps.
      * With `$overwrite = false` (default) an already defined key is left
@@ -39,23 +76,8 @@ final class Env
      */
     public static function load(string $envFile, bool $overwrite = false): array
     {
-        $result = parse_ini_file($envFile, false, INI_SCANNER_RAW);
-        if ($result === false) {
-            throw new RuntimeException("Failed to parse `{$envFile}`");
-        }
         $env = [];
-        foreach ($result as $key => $value) {
-            // Only accept valid environment variable names
-            if (!is_string($key) || !preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $key)) {
-                throw new RuntimeException("Invalid environment variable name `{$key}`");
-            }
-
-            // A .env entry is a name and a text value. INI array syntax would
-            // produce arrays (eg: FOO[]=bar), which we reject.
-            if (!is_string($value)) {
-                throw new RuntimeException("Environment variable `{$key}` must be a string");
-            }
-
+        foreach (static::parse($envFile) as $key => $value) {
             // The real environment wins: a key already defined (even
             // explicitly set to null in $_ENV, or only visible via getenv)
             // is skipped unless overwrite is requested.
