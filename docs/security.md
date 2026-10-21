@@ -211,9 +211,9 @@ $valid = $codes->verify($context, $storedHash);
   with SQL equality.
 - **A signature is not a policy.** Expiry, attempt limits and single use stay
   the application's rules.
-- **Rotation.** Changing `APP_SECRET` invalidates every signature. That is fine
-  for short-lived codes; a long-lived stored format should carry a version so a
-  key ring can be added later.
+- **Rotation.** Replacing `APP_SECRET` makes existing signatures derived from
+  it fail against the new secret. Keeping old verification keys can preserve
+  them without changing their format; see [Secret rotation](#secret-rotation).
 
 ### Signature contract
 
@@ -236,10 +236,58 @@ leaked SHA-256 of a code is reversed by trying a million values, while the HMAC
 also needs the secret. Encryption is out of scope: use libsodium or a dedicated
 library such as CipherSweet, with its own keys.
 
+### Trust boundary
+
+An HMAC authenticates the signed bytes to parties holding the shared key. It
+does not identify which holder produced them: a verifier with the key can also
+forge signatures. Keep the secret outside the storage whose contents need
+protection, and use separate secrets for independent trust domains. Distinct
+purposes separate derived keys, but compromise of the root secret compromises
+every purpose derived from it.
+
+Sign every field that affects the intended operation, including its context
+(eg tenant or recipient), with an unambiguous encoding. Verify the exact signed
+bytes before reconstructing objects or invoking application code. For a queue,
+an allowlist of task types and argument validation constrain what can execute;
+they do not authenticate who submitted valid arguments.
+
+Signing is useful when someone can alter stored messages without access to the
+signing secret or a trusted dispatcher. This depends on access boundaries,
+whether the storage is SQLite, PostgreSQL or another backend. It does not
+prevent deletion, replay of an intact signed message, or abuse of an authorized
+producer. Authorization at execution, idempotency, expiry and attempt limits
+remain separate rules.
+
+### Secret rotation
+
+Use a dedicated `Secret` for a feature that needs its own rotation schedule,
+supplied by an application factory; `APP_SECRET` stays the default root. To
+rotate without invalidating stored signatures, sign with the new key and keep
+verifying with the old one:
+
+```php
+$signature = $new->sign($message);
+$valid = $new->verify($message, $signature) || $old->verify($message, $signature);
+```
+
+Across producers, consumers and long-lived workers, deploy in three stages:
+
+1. Keep signing with the old key; deploy verification of both keys everywhere,
+   including instances a rollback could bring back.
+2. Switch producers to the new key, still verifying both.
+3. Drop the old key once no message signed with it must remain usable: delayed
+   and failed tasks, retries, records restorable from backups.
+
+Rotation needs no key identifier, encoding change or new purpose. Re-sign
+stored data only after verifying it under a trusted key, otherwise you
+authenticate whatever is stored. A compromised key is not rotated but revoked:
+accepting it also accepts an attacker's signatures, so the affected records
+must be rejected or rebuilt from a trusted source.
+
 ### Signatures made by others
 
-`Hmac` verifies only what the application signed itself: its key comes from
-`APP_SECRET` and its output format is Kaly's. A webhook from a third party
+`Hmac` implements Kaly's signature contract using an explicitly supplied
+`Secret`, normally resolved from `APP_SECRET`. A webhook from a third party
 (GitHub, Stripe, a support desk) follows the provider's contract: its shared
 secret, its encoding (often hex, sometimes with a `sha256=` prefix or a
 timestamp), its message. Use the provider's SDK when it has one, otherwise

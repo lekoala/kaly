@@ -21,9 +21,13 @@
   options. See the console recipe.
 - A transactions recipe: a minimal PDO unit of work, observation, and the
   advanced capabilities (join, savepoint, rollback-only) left to the application.
+- The security guide documents the trust boundary of signatures and a staged
+  secret rotation with two `Hmac` instances.
 
 ### Fixed
 
+- `Hmac` rejects an empty purpose like `Secret::deriveKey()`, instead of
+  deriving a key from the bare `kaly.hmac:` prefix.
 - Locale negotiation works again when `APP_LOCALES` is set without url prefixes:
   the router still attaches the default locale to every route, but only an
   explicit route locale (`localeExplicit`) now wins over an incoming middleware

@@ -160,6 +160,26 @@ class CryptoTest extends TestCase
         $this->assertFalse($other->verify('payload', $signature));
     }
 
+    public function testHmacRejectsAnEmptyPurpose(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('A key purpose cannot be empty');
+        new Hmac(Secret::fromBase64Url(self::SECRET), '');
+    }
+
+    public function testHmacVerifiesWithARetiringSecretDuringRotation(): void
+    {
+        $old = new Hmac(Secret::fromBase64Url(self::SECRET), 'tasks:v1');
+        $new = new Hmac(Secret::fromBase64Url(Secret::generate()), 'tasks:v1');
+        $legacy = $old->sign('payload');
+        $current = $new->sign('payload');
+
+        foreach ([$legacy, $current] as $signature) {
+            $this->assertTrue($new->verify('payload', $signature) || $old->verify('payload', $signature));
+        }
+        $this->assertFalse($new->verify('payload', $legacy));
+    }
+
     public function testAppResolvesTheSecretFromTheEnvironmentOnDemand(): void
     {
         $_ENV[App::ENV_SECRET] = self::SECRET;

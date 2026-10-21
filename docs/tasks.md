@@ -79,6 +79,11 @@ Durable engines include [kaly-tasks](https://github.com/lekoala/kaly-tasks)
 Both Kaly dispatchers reject a non-invocable object and accept closures. A
 durable engine may restrict tasks further, eg to persistable data.
 
+For persistent queues, validating a task's name and arguments does not establish
+its origin. Signatures can detect changes by a storage writer who lacks the
+signing key, but authorization and replay protection remain application rules.
+See the [trust boundary](security.md#trust-boundary).
+
 The direct dispatcher is a production engine for short work that needs no
 deferred durability. Inside a transaction, it runs the task before the commit.
 

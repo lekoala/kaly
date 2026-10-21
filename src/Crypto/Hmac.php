@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Crypto;
 
+use InvalidArgumentException;
 use Kaly\Util\Base64Url;
 use LogicException;
 use SensitiveParameter;
@@ -36,6 +37,9 @@ final class Hmac
         Secret $secret,
         public readonly string $purpose,
     ) {
+        if ($purpose === '') {
+            throw new InvalidArgumentException('A key purpose cannot be empty');
+        }
         // The prefix separates HMAC keys from other keys derived for the same purpose.
         self::$keys ??= new \WeakMap();
         self::$keys[$this] = $secret->deriveKey('kaly.hmac:' . $purpose);
