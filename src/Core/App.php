@@ -376,20 +376,23 @@ final class App implements RequestHandlerInterface
                 $this->paths->ensureAll();
             }
 
-            $this->container = new Container($this->buildDefinitions());
-            $this->kernel = new Kernel(
-                $this->createRequestHandler(),
-                $this->container->get(ExceptionHandlerInterface::class),
-                $this->container->get(StreamFactoryInterface::class),
-                $this->hooks,
-                new OutgoingRunner($this->container, $this->middleware, $this->hooks->error(...)),
-                $this->container->get(SessionProviderInterface::class),
-                $this->container->get(CookiePolicy::class),
-                profiling: $this->profiling,
-                serverTiming: $this->serverTiming,
-            );
+            $definitions = $this->buildDefinitions();
+            $this->stage('boot-container', function () use ($definitions): void {
+                $this->container = new Container($definitions);
+                $this->kernel = new Kernel(
+                    $this->createRequestHandler(),
+                    $this->container->get(ExceptionHandlerInterface::class),
+                    $this->container->get(StreamFactoryInterface::class),
+                    $this->hooks,
+                    new OutgoingRunner($this->container, $this->middleware, $this->hooks->error(...)),
+                    $this->container->get(SessionProviderInterface::class),
+                    $this->container->get(CookiePolicy::class),
+                    profiling: $this->profiling,
+                    serverTiming: $this->serverTiming,
+                );
+            });
 
-            $this->hooks->boot($this);
+            $this->stage('boot-hooks', fn() => $this->hooks->boot($this));
 
             // Available only once everything above succeeded
             $this->booted = true;
@@ -515,7 +518,7 @@ final class App implements RequestHandlerInterface
      */
     private function buildDefinitions(): Definitions
     {
-        $definitions = $this->loadModules();
+        $definitions = $this->stage('boot-modules', $this->loadModules(...));
 
         // Whatever the app (modules, configure hooks) bound explicitly wins over
         // the framework defaults below. Capture this before they are applied:
@@ -666,7 +669,7 @@ final class App implements RequestHandlerInterface
         // composition. Everything above exists by now, so rebind() replaces
         // intentionally (a module service or a framework default alike),
         // while set()/bind() declare something new.
-        $this->hooks->configure($definitions);
+        $this->stage('boot-configure', fn() => $this->hooks->configure($definitions));
 
         if ($definitions->has(ErrorViewInterface::class) && !$definitions->has(ErrorPageInterface::class)) {
             $definitions->bind(ErrorPageInterface::class, ViewErrorPage::class);
@@ -775,6 +778,27 @@ final class App implements RequestHandlerInterface
             $container->get(UploadedFileFactoryInterface::class),
             $container->get(StreamFactoryInterface::class),
         ))->create();
+    }
+
+    /**
+     * Run one boot stage, recording its duration (even when it fails) if profiling is enabled.
+     *
+     * @template T
+     * @param Closure(): T $stage
+     * @return T
+     */
+    private function stage(string $name, Closure $stage): mixed
+    {
+        $profile = $this->bootProfile;
+        if ($profile === null) {
+            return $stage();
+        }
+        $start = hrtime(true);
+        try {
+            return $stage();
+        } finally {
+            $profile->record($name, hrtime(true) - $start);
+        }
     }
 
     /**

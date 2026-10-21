@@ -4,6 +4,10 @@
 
 ### Added
 
+- `App::bootProfile()` breaks boot into `boot-modules`, `boot-configure`,
+  `boot-container` and `boot-hooks` next to the `boot` total, so a slow boot
+  points to the application part responsible. A failed stage keeps its
+  duration.
 - `App` automatically loads `.env.local` before `.env`, preserving existing
   environment values. `IGNORE_DOT_ENV=1` or `loadEnv: false` skips both files.
   The PHPUnit configuration disables all env file loading by default.

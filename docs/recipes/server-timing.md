@@ -47,13 +47,32 @@ The boot profile belongs to the application instance and is read separately:
 ```php
 $app->boot();
 $boot = $app->bootProfile()?->metrics();
-// ['boot' => ['duration' => 12.4, 'count' => 1]] (illustrative)
+// [
+//   'boot-modules' => ['duration' => 3.4, 'count' => 1],
+//   'boot-configure' => ['duration' => 0.2, 'count' => 1],
+//   'boot-container' => ['duration' => 0.6, 'count' => 1],
+//   'boot-hooks' => ['duration' => 0.1, 'count' => 1],
+//   'boot' => ['duration' => 4.5, 'count' => 1],
+// ] (illustrative)
 ```
 
-Boot runs once per instance, including in workers. Its duration covers
-`App::boot()`, including boot hooks, and remains available if boot fails.
-It excludes constructing the App and loading the entry point or autoloader.
-It is never copied into request profiles or HTTP headers.
+The stages are sequential and cover the parts that depend on the application:
+
+| Metric | Boundary |
+| --- | --- |
+| `boot-modules` | Module discovery, each `config.php`, the definition merge and `whenAllLoaded` callbacks |
+| `boot-configure` | `configure` hooks |
+| `boot-container` | Container, request handler and kernel construction, including the services they resolve |
+| `boot-hooks` | `onBoot` hooks |
+| `boot` | The whole `App::boot()` call |
+
+The difference between `boot` and the sum of the stages is the work outside the
+measured stages: error handler setup, the framework's default definitions,
+the final lock and the profiling itself. Boot runs once per instance, including
+in workers. Its duration covers `App::boot()`, including boot hooks, and remains
+available if boot fails: a failed stage keeps its duration and the stages never
+reached are absent. It excludes constructing the App and loading the entry point
+or autoloader. It is never copied into request profiles or HTTP headers.
 
 ## Inspect and log
 
