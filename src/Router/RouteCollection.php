@@ -55,6 +55,11 @@ final class RouteCollection
         $entries = [];
         foreach ($definitions as $definition) {
             $reflection = new ReflectionClass($definition->controller);
+            if (!$reflection->hasMethod($definition->action)) {
+                throw new Ex(
+                    "Route '{$definition->pathFor(null)}' targets missing action '{$definition->controller}::{$definition->action}'",
+                );
+            }
             // Resolved and validated when the table is compiled: a declared
             // middleware that cannot run fails here, never silently
             $middlewares = Routes::normalizeMiddlewares($definition->middlewares, "route '" . $definition->pathFor(null) . "'");
@@ -76,6 +81,15 @@ final class RouteCollection
                     'reflection' => $reflection,
                 ];
             }
+            // A declared signature that the url can never satisfy is a
+            // declaration error, not a request that "does not match"
+            ActionSignature::assertSatisfiable(
+                $reflection->getMethod($definition->action),
+                $definition->pathFor(null),
+                $paramNames ?? [],
+                $definition->defaults,
+                $inputClass,
+            );
         }
         usort($entries, static function (array $a, array $b): int {
             if ($a['definition']->priority !== $b['definition']->priority) {

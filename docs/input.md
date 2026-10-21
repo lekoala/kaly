@@ -287,7 +287,7 @@ An action parameter typed as an object that is not a `RequestInput` is refused, 
 used to be filled from the container when it was optional:
 
 ```php
-// was silently injected, now an error at routing time
+// was silently injected, now an error (at table compile for a declared route)
 public function search(string $q = '', ?LoggerInterface $logger = null)
 ```
 

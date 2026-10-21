@@ -4,6 +4,17 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Unreleased: declared routes validate their action signature
+
+A declared route now fails when the table compiles if its action signature cannot be
+satisfied by the url: an unsupported object parameter (anything but a trailing
+`RequestInput`), a required scalar without a placeholder or default, or a placeholder
+no action parameter accepts. Previously the route silently answered `404`.
+
+Move services to the controller constructor, bind request data through a trailing
+`RequestInput`, and add the missing placeholders (or defaults) to the route. The error
+message names the route and the parameter.
+
 ## Unreleased: bare conventional actions are reads
 
 A conventional action without a verb suffix (`save()`, `index()`, `__invoke()`)

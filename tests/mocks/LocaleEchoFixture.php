@@ -14,6 +14,11 @@ class LocaleEchoFixture extends AbstractController
         return $this->ctx()->locale() . ':' . $locale;
     }
 
+    public function current(): string
+    {
+        return $this->ctx()->locale();
+    }
+
     public function greet(string $locale): View
     {
         return View::of('hello');

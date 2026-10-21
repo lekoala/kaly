@@ -51,10 +51,13 @@ final class RoutingHandler implements RequestHandlerInterface
             $route = $this->router->match($ctx->request());
             $ctx->useRoute($route);
 
-            // The route wins over a locale imposed by an incoming middleware,
-            // which in turn wins over content negotiation.
+            // An explicit route locale wins over a locale imposed by an
+            // incoming middleware, which in turn wins over content
+            // negotiation. The router always carries a locale (the default
+            // one), so only an explicit route locale may be imposed here.
             $imposed = $ctx->hasLocale() ? $ctx->locale() : null;
-            $ctx->useLocale($this->localeResolver->resolve($ctx->request(), $route->locale ?? $imposed));
+            $routeLocale = $route->localeExplicit ? $route->locale : null;
+            $ctx->useLocale($this->localeResolver->resolve($ctx->request(), $routeLocale ?? $imposed));
         } finally {
             if ($start !== null) {
                 $ctx->profile()?->record('routing', hrtime(true) - $start);

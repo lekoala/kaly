@@ -131,6 +131,11 @@ generation time — only mount and claim conflicts fail at boot):
   `405`: custom resolvers and the convention never get a chance to reinterpret it.
 - **Defaults are generate-only.** Every placeholder matches literally; a default only
   fills a missing parameter when generating an url.
+- **Action arguments are route arguments.** A route parameter must be a placeholder
+  or a declared default; at most one trailing `RequestInput` is built from the
+  request and consumes no placeholder. Any other object parameter, a required
+  scalar without a placeholder or default, or a placeholder no action parameter
+  accepts is a declaration error when the table compiles, never a silent 404.
 
 The table is compiled on its first use and kept in memory: a request only pays for
 the module it reaches, and a worker pays once. Kaly never writes a route cache.
@@ -254,8 +259,10 @@ $module->localized();   // its urls carry the locale: /fr/boutique/, /en/shop/
   compiles (paths).
 - `/fr/` alone, with `fr` the default locale, redirects to `/`.
 - The locale prefix is lowercase: `/FR/boutique/` redirects to `/fr/boutique/`.
-- The locale of the route wins over the one of a middleware and over the
-  `Accept-Language` negotiation (see [i18n](i18n.md)).
+- The locale explicitly chosen by the routing wins over the one of a
+  middleware and over the `Accept-Language` negotiation (see [i18n](i18n.md)).
+  The default locale attached to a route is not a choice and never blocks
+  negotiation.
 
 Without prefixes, translated paths stay usable wherever their full paths
 distinguish the languages — no prefix is consumed or added:

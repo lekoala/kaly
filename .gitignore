@@ -3,6 +3,7 @@ vendor
 .phpunit.cache
 .trash
 .tmp
+.temp
 *.log
 .env.local
 

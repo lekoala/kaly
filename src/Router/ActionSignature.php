@@ -88,6 +88,53 @@ final class ActionSignature
     }
 
     /**
+     * An explicit route is a declaration: its action must be callable with
+     * the placeholders, defaults and trailing input it declares.
+     *
+     * This is checked when the table compiles, so a signature that can never
+     * be satisfied is a developer error instead of a silent 404.
+     *
+     * @param list<string> $placeholders
+     * @param array<string,mixed> $defaults
+     * @throws Ex
+     */
+    public static function assertSatisfiable(
+        ReflectionMethod $method,
+        string $route,
+        array $placeholders,
+        array $defaults,
+        ?string $inputClass,
+    ): void {
+        $action = $method->getDeclaringClass()->getName() . '::' . $method->getName();
+        $params = $method->getParameters();
+        if ($inputClass !== null && $params !== []) {
+            array_pop($params);
+        }
+
+        $names = [];
+        foreach ($params as $param) {
+            $name = $param->getName();
+            if ($param->isVariadic()) {
+                continue;
+            }
+            if (self::hasClassType($param)) {
+                throw new Ex("Parameter '{$name}' of action '{$action}' must be a route scalar" . ' or a trailing ' . RequestInput::class);
+            }
+            $names[] = $name;
+            $satisfiedByRoute = in_array($name, $placeholders, true) || array_key_exists($name, $defaults);
+            if (!$satisfiedByRoute && !$param->isOptional() && !$param->isDefaultValueAvailable()) {
+                throw new Ex("Route '{$route}' has no placeholder or default for parameter '{$name}' of action '{$action}'");
+            }
+        }
+
+        foreach ($placeholders as $placeholder) {
+            if (!in_array($placeholder, $names, true)) {
+                throw new Ex("Route '{$route}' declares placeholder '{$placeholder}' but action '{$action}' has no such parameter");
+            }
+        }
+    }
+
+    /**
      * Coerce a url segment to the builtin type a parameter asks for.
      *
      * Coercion is strict: an invalid value does not match the route and

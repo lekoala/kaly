@@ -9,6 +9,7 @@ use Kaly\Router\RouteCollection;
 use Kaly\Router\RouteDefinition;
 use Kaly\Router\Routes;
 use Kaly\Tests\Mocks\RouteHandlerFixture;
+use Kaly\Tests\Mocks\SearchInput;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -29,7 +30,7 @@ class RouteCollectionTest extends TestCase
      *     priority?:int
      * } $overrides
      */
-    private function definition(string $path, string $action = 'show', array $overrides = []): RouteDefinition
+    private function definition(string $path, string $action = '__invoke', array $overrides = []): RouteDefinition
     {
         return new RouteDefinition(
             $overrides['path'] ?? $path,
@@ -48,8 +49,8 @@ class RouteCollectionTest extends TestCase
     {
         $this->expectException(Ex::class);
         new RouteCollection([
-            $this->definition('/a', 'show', ['name' => 'same', 'priority' => 10]),
-            $this->definition('/b', 'show', ['name' => 'same', 'priority' => 20]),
+            $this->definition('/a', '__invoke', ['name' => 'same', 'priority' => 10]),
+            $this->definition('/b', '__invoke', ['name' => 'same', 'priority' => 20]),
         ]);
     }
 
@@ -57,8 +58,8 @@ class RouteCollectionTest extends TestCase
     {
         $this->expectException(Ex::class);
         new RouteCollection([
-            $this->definition('/a', 'show', ['name' => 'same']),
-            $this->definition('/a', 'show', ['name' => 'same']),
+            $this->definition('/a', '__invoke', ['name' => 'same']),
+            $this->definition('/a', '__invoke', ['name' => 'same']),
         ]);
     }
 
@@ -76,7 +77,7 @@ class RouteCollectionTest extends TestCase
         $this->expectException(Ex::class);
         new RouteCollection([
             $this->definition('/users/{id}', 'show'),
-            $this->definition('/users/{slug}', 'show'),
+            $this->definition('/users/{slug}', 'slug'),
         ]);
     }
 
@@ -85,8 +86,8 @@ class RouteCollectionTest extends TestCase
         $this->expectException(Ex::class);
         $this->expectExceptionMessage('Colliding routes');
         new RouteCollection([
-            new RouteDefinition(['fr' => '/shared'], RouteHandlerFixture::class, 'show', ['GET']),
-            new RouteDefinition(['en' => '/shared'], RouteHandlerFixture::class, 'show', ['GET']),
+            new RouteDefinition(['fr' => '/shared'], RouteHandlerFixture::class, '__invoke', ['GET']),
+            new RouteDefinition(['en' => '/shared'], RouteHandlerFixture::class, '__invoke', ['GET']),
         ], false);
     }
 
@@ -95,20 +96,20 @@ class RouteCollectionTest extends TestCase
         $this->expectException(Ex::class);
         $this->expectExceptionMessage('cannot tell them apart');
         new RouteCollection([
-            new RouteDefinition(['fr' => '/shared', 'en' => '/shared'], RouteHandlerFixture::class, 'show', ['GET']),
+            new RouteDefinition(['fr' => '/shared', 'en' => '/shared'], RouteHandlerFixture::class, '__invoke', ['GET']),
         ], false);
     }
 
     public function testTranslatedPathsStayDisjointWithPrefixes(): void
     {
         $collection = new RouteCollection([
-            new RouteDefinition(['fr' => '/shared'], RouteHandlerFixture::class, 'show', ['GET']),
-            new RouteDefinition(['en' => '/shared'], RouteHandlerFixture::class, 'show', ['GET']),
+            new RouteDefinition(['fr' => '/shared'], RouteHandlerFixture::class, '__invoke', ['GET']),
+            new RouteDefinition(['en' => '/shared'], RouteHandlerFixture::class, '__invoke', ['GET']),
         ]);
         $this->assertSame(2, $collection->count());
 
         $single = new RouteCollection([
-            new RouteDefinition(['fr' => '/shared', 'en' => '/shared'], RouteHandlerFixture::class, 'show', ['GET']),
+            new RouteDefinition(['fr' => '/shared', 'en' => '/shared'], RouteHandlerFixture::class, '__invoke', ['GET']),
         ]);
         $this->assertSame(1, $single->count());
     }
@@ -116,7 +117,7 @@ class RouteCollectionTest extends TestCase
     public function testDistinctTranslatedPathsDoNotCollideWithoutPrefixes(): void
     {
         $collection = new RouteCollection([
-            new RouteDefinition(['fr' => '/medecins', 'nl' => '/artsen'], RouteHandlerFixture::class, 'show', ['GET']),
+            new RouteDefinition(['fr' => '/medecins', 'nl' => '/artsen'], RouteHandlerFixture::class, '__invoke', ['GET']),
         ], false);
         $this->assertSame(1, $collection->count());
     }
@@ -125,7 +126,7 @@ class RouteCollectionTest extends TestCase
     {
         $collection = new RouteCollection([
             $this->definition('/users/{id}', 'show', ['requirements' => ['id' => '\d+']]),
-            $this->definition('/users/{slug}', 'show', ['requirements' => ['slug' => '[a-z]+']]),
+            $this->definition('/users/{slug}', 'slug', ['requirements' => ['slug' => '[a-z]+']]),
         ]);
         $this->assertSame(2, $collection->count());
     }
@@ -142,7 +143,7 @@ class RouteCollectionTest extends TestCase
     {
         $collection = new RouteCollection([
             $this->definition('/users/{id}', 'show', ['priority' => 0]),
-            $this->definition('/users/{slug}', 'show', ['priority' => 10]),
+            $this->definition('/users/{slug}', 'slug', ['priority' => 10]),
         ]);
         $this->assertSame(2, $collection->count());
         $entries = $collection->entries();
@@ -151,7 +152,7 @@ class RouteCollectionTest extends TestCase
 
     public function testMutatingADefinitionAfterCompilationDoesNotAffectTheTable(): void
     {
-        $definition = $this->definition('/before', 'show', ['name' => 'test']);
+        $definition = $this->definition('/before', '__invoke', ['name' => 'test']);
         $collection = new RouteCollection([$definition]);
 
         // The declaration is still the mutable DSL object...
@@ -167,7 +168,7 @@ class RouteCollectionTest extends TestCase
     public function testByNameReturnsACopyThatCannotMutateTheTable(): void
     {
         $collection = new RouteCollection([
-            $this->definition('/before', 'show', ['name' => 'test']),
+            $this->definition('/before', '__invoke', ['name' => 'test']),
         ]);
 
         $found = $collection->byName('test');
@@ -182,16 +183,83 @@ class RouteCollectionTest extends TestCase
     {
         $routes = new Routes();
         $routes->map([], '/users/{id}', [RouteHandlerFixture::class, 'show']);
-        $routes->get('/users/{slug}', [RouteHandlerFixture::class, 'show']);
+        $routes->get('/users/{slug}', [RouteHandlerFixture::class, 'slug']);
         $this->expectException(Ex::class);
         new RouteCollection($routes->definitions());
+    }
+
+    public function testAMissingActionIsADeclarationError(): void
+    {
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage('targets missing action');
+
+        new RouteCollection([
+            $this->definition('/thing', 'missing'),
+        ]);
+    }
+
+    public function testAnObjectActionParameterIsADeclarationError(): void
+    {
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage('must be a route scalar');
+
+        new RouteCollection([
+            $this->definition('/thing', 'objectParam'),
+        ]);
+    }
+
+    public function testARequiredActionParameterNeedsAPlaceholderOrDefault(): void
+    {
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage("no placeholder or default for parameter 'id'");
+
+        new RouteCollection([
+            $this->definition('/thing', 'show'),
+        ]);
+    }
+
+    public function testATrailingInputNeedsNoPlaceholder(): void
+    {
+        $collection = new RouteCollection([
+            $this->definition('/search', 'withInput'),
+        ]);
+
+        $this->assertSame(SearchInput::class, $collection->entries()[0]['inputClass']);
+    }
+
+    public function testADefaultSatisfiesARequiredActionParameter(): void
+    {
+        $collection = new RouteCollection([
+            $this->definition('/thing', 'show', ['defaults' => ['id' => 7]]),
+        ]);
+
+        $this->assertSame(1, $collection->count());
+    }
+
+    public function testAnOptionalActionParameterNeedsNoPlaceholder(): void
+    {
+        $collection = new RouteCollection([
+            $this->definition('/thing', 'optional'),
+        ]);
+
+        $this->assertSame(1, $collection->count());
+    }
+
+    public function testAPlaceholderNeedsAnActionParameter(): void
+    {
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage("declares placeholder 'id'");
+
+        new RouteCollection([
+            $this->definition('/thing/{id}'),
+        ]);
     }
 
     public function testToArrayExposesMatchingOrder(): void
     {
         $collection = new RouteCollection([
             $this->definition('/users/{id}', 'show', ['name' => 'low', 'priority' => 0]),
-            $this->definition('/users/{slug}', 'show', ['name' => 'high', 'priority' => 10]),
+            $this->definition('/users/{slug}', 'slug', ['name' => 'high', 'priority' => 10]),
         ]);
         $rows = $collection->toArray();
         $this->assertSame('high', $rows[0]['name']);

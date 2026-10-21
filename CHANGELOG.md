@@ -20,6 +20,15 @@
 
 ### Fixed
 
+- Locale negotiation works again when `APP_LOCALES` is set without url prefixes:
+  the router still attaches the default locale to every route, but only an
+  explicit route locale (`localeExplicit`) now wins over an incoming middleware
+  and `Accept-Language`.
+- A declared route whose action signature can never be satisfied is a
+  declaration error when the table compiles instead of a silent `404`: an
+  unsupported object parameter (anything but a trailing `RequestInput`), a
+  required scalar with no placeholder or default, or a placeholder no action
+  parameter accepts.
 - `Env::load()` validates the whole file before writing any value: an invalid
   key at the end of the file no longer leaves the previous ones loaded.
 - `.env` errors name the file, and a syntax error keeps the line reported by PHP.
