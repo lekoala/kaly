@@ -9,6 +9,11 @@
   keys nearly exhausted, wasted memory, restarts, low hit rate), each naming the
   directive to change, and its raw metrics (bytes, counters, timestamps) for a
   health route or monitoring.
+- `Kaly\Core\Preload` records the files an application loads (boot plus
+  optional GET paths) and writes them as an `opcache.preload` script that only
+  compiles them, in dependency order and relative to its location: a file
+  depending on the bootstrap (alias, conditional declaration) or removed since
+  the recording never fails the pool startup.
 - A production guide: Composer flags, opcache settings, deploy resets and
   preloading. With preloading, a 20-module boot drops from ~4.7 ms to ~0.75 ms.
 
