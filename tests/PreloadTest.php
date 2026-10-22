@@ -7,11 +7,11 @@ namespace Kaly\Tests;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Core\Preload;
+use Kaly\Ex;
 use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Support\TempDir;
 use Kaly\Util\Fs;
 use PHPUnit\Framework\TestCase;
-use Psr\Http\Server\RequestHandlerInterface;
 use ReflectionClass;
 use TestModule\Controller\IndexController;
 
@@ -33,17 +33,22 @@ class PreloadTest extends TestCase
         TempDir::remove($this->dir);
     }
 
-    public function testRecordsTheApplicationAndTheRequestedPathsInDependencyOrder(): void
+    public function testRecordsTheApplicationAndTheRequestedPaths(): void
     {
-        $files = Preload::record($this->app(), ['/test-module/index/foo/', '/missing/'])->files();
+        $files = Preload::record($this->app(), ['/test-module/index/foo/'])->files();
 
-        $app = (string) (new ReflectionClass(App::class))->getFileName();
-        $this->assertContains($app, $files);
+        $this->assertContains((string) (new ReflectionClass(App::class))->getFileName(), $files);
         $this->assertContains((string) (new ReflectionClass(IndexController::class))->getFileName(), $files);
-        $this->assertSame(array_values(array_unique($files)), $files);
-        // App implements RequestHandlerInterface: the interface comes first
-        $handler = (string) (new ReflectionClass(RequestHandlerInterface::class))->getFileName();
-        $this->assertLessThan(array_search($app, $files, true), array_search($handler, $files, true));
+        // The entry script records, it is never part of the application
+        $this->assertNotContains(get_included_files()[0], $files);
+    }
+
+    public function testFailingPathFailsTheRecording(): void
+    {
+        $this->expectException(Ex::class);
+        $this->expectExceptionMessage('Preload path /missing/ answered 404');
+
+        Preload::record($this->app(), ['/missing/']);
     }
 
     public function testFilesBelowTheScriptAreRelativeToIt(): void
@@ -121,6 +126,9 @@ class PreloadTest extends TestCase
 
     private function requireOpcache(): void
     {
+        if (PHP_OS_FAMILY === 'Windows') {
+            $this->markTestSkipped('PHP does not support preloading on Windows');
+        }
         if ($this->php(['-r', 'echo (int) function_exists("opcache_get_status");'])[1] !== '1') {
             $this->markTestSkipped('Opcache is not available to the PHP binary');
         }

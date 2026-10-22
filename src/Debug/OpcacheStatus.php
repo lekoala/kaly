@@ -109,7 +109,7 @@ final class OpcacheStatus
      * Unix timestamps (0 when it never restarted), counters since opcache
      * started.
      *
-     * `validateTimestamps` and `preloadedClasses` describe deployment choices,
+     * `validateTimestamps` and the preload metrics describe deployment choices,
      * never problems: checking timestamps is valid when deploys do not reset
      * the cache, and a worker gains little from preloading.
      *
@@ -136,6 +136,7 @@ final class OpcacheStatus
      *     startTime: int,
      *     lastRestartTime: int,
      *     preloadedClasses: int,
+     *     preloadedMemoryBytes: int,
      * }
      */
     public function metrics(): array
@@ -145,7 +146,8 @@ final class OpcacheStatus
         $statistics = $this->section('opcache_statistics');
         $hits = $this->int($statistics, 'hits');
         $misses = $this->int($statistics, 'misses');
-        $classes = $this->section('preload_statistics')['classes'] ?? [];
+        $preload = $this->section('preload_statistics');
+        $classes = $preload['classes'] ?? [];
 
         return [
             'enabled' => ($this->status['opcache_enabled'] ?? false) === true,
@@ -170,6 +172,7 @@ final class OpcacheStatus
             'startTime' => $this->int($statistics, 'start_time'),
             'lastRestartTime' => $this->int($statistics, 'last_restart_time'),
             'preloadedClasses' => is_array($classes) ? count($classes) : 0,
+            'preloadedMemoryBytes' => $this->int($preload, 'memory_consumption'),
         ];
     }
 

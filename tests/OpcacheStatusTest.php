@@ -38,6 +38,7 @@ class OpcacheStatusTest extends TestCase
                 'startTime' => 1_800_000_000,
                 'lastRestartTime' => 1_800_003_600,
                 'preloadedClasses' => 0,
+                'preloadedMemoryBytes' => 0,
             ],
             $status->metrics(),
         );
@@ -127,9 +128,11 @@ class OpcacheStatusTest extends TestCase
     public function testPreloadedClassesAreCounted(): void
     {
         $status = self::opcacheStatus();
-        $status['preload_statistics'] = ['memory_consumption' => 1, 'classes' => ['A', 'B'], 'scripts' => ['a.php']];
+        $status['preload_statistics'] = ['memory_consumption' => 2048, 'classes' => ['A', 'B'], 'scripts' => ['a.php']];
 
-        $this->assertSame(2, (new OpcacheStatus(true, $status, self::configuration()))->metrics()['preloadedClasses']);
+        $metrics = (new OpcacheStatus(true, $status, self::configuration()))->metrics();
+        $this->assertSame(2, $metrics['preloadedClasses']);
+        $this->assertSame(2048, $metrics['preloadedMemoryBytes']);
     }
 
     public function testCurrentReadsThisProcess(): void

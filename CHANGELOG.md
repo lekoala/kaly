@@ -7,13 +7,14 @@
 - `Kaly\Debug\OpcacheStatus` reports the production problems of the opcache
   serving the request (disabled, full, restarting, memory, interned strings or
   keys nearly exhausted, wasted memory, restarts, low hit rate), each naming the
-  directive to change, and its raw metrics (bytes, counters, timestamps) for a
-  health route or monitoring.
+  directive to change, and its raw metrics (bytes, counters, timestamps,
+  preloaded classes and memory) for a health route or monitoring.
 - `Kaly\Core\Preload` records the files an application loads (boot plus
-  optional GET paths) and writes them as an `opcache.preload` script that only
-  compiles them, in dependency order and relative to its location: a file
-  depending on the bootstrap (alias, conditional declaration) or removed since
-  the recording never fails the pool startup.
+  optional GET paths, a path answering 4xx or 5xx fails the recording) and
+  writes them atomically as an `opcache.preload` script that only compiles
+  them, relative to its location: a file depending on the bootstrap (alias,
+  conditional declaration) or removed since the recording never fails the pool
+  startup. Run it in a dedicated CLI process.
 - A production guide: Composer flags, opcache settings, deploy resets and
   preloading. With preloading, a 20-module boot drops from ~4.7 ms to ~0.75 ms.
 
