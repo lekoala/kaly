@@ -16,7 +16,8 @@
   conditional declaration) or removed since the recording never fails the pool
   startup. Run it in a dedicated CLI process.
 - A production guide: Composer flags, opcache settings, deploy resets and
-  preloading. With preloading, a 20-module boot drops from ~4.7 ms to ~0.75 ms.
+  preloading. Over HTTP with a shared opcache, a classic request costs ~0.73 ms,
+  ~0.69 ms with preloading and ~0.31 ms in a worker.
 
 - `App` automatically loads `.env.local` before `.env`, preserving existing
   environment values. `IGNORE_DOT_ENV=1` or `loadEnv: false` skips both files.

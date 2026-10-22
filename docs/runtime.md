@@ -55,19 +55,19 @@ compiled on their first use, controller reflection is kept per class. It dies wi
 process, and the code cannot change under a running process, so there is nothing to
 invalidate.
 
-What a classic request pays is mostly PHP loading classes, which opcache and
-preloading remove, not Kaly's own work; booting once removes the rest. Measured
-by the Kaly performance lab on an Apple M1 Pro, 20 modules, medians:
+With a shared opcache, a classic request pays a boot of a fraction of a
+millisecond; booting once removes it. Measured over HTTP by the Kaly
+performance lab (FrankenPHP, PHP 8.4, 1 CPU, a JSON endpoint without I/O,
+median round trip):
 
 | | per request |
-| --- | --- |
-| PHP-FPM, opcache file cache | boot ~4.7 ms + first request ~1.4 ms |
-| PHP-FPM, preloading | boot ~0.75 ms + first request ~0.15 ms |
-| worker, after the first request | ~0.01 to 0.03 ms |
+| --- | ---: |
+| classic, shared opcache | ~0.73 ms |
+| worker | ~0.31 ms |
 
-See [Production](production.md) for the opcache and preloading setup. Boot does
-not grow with the number of routes: a url only compiles the routes of the module
-it reaches. It grows by about 15 µs per module.
+See [Production](production.md) for the opcache setup. Boot does not grow with
+the number of routes: a url only compiles the routes of the module it reaches.
+It grows by about 15 µs per module.
 
 ## Worker mode
 

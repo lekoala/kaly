@@ -5,19 +5,25 @@ nav_order: 20
 ---
 # Production
 
-Most of the time spent by a classic request (PHP-FPM, one process per
-request) is spent loading PHP classes, not running Kaly. Opcache settings, the
-Composer autoloader and preloading are the levers that change it; Kaly itself
-has no cache to warm. Measured by the Kaly performance lab on an Apple M1 Pro,
-PHP 8.3, 20 modules, medians:
+A classic request (PHP-FPM, FrankenPHP without a worker: one boot per
+request) pays the boot of the application each time. With a shared opcache,
+that boot is a fraction of a millisecond: opcache keeps every file compiled
+and its classes linked across requests. Kaly itself has no cache to warm.
+Measured over HTTP by the Kaly performance lab (FrankenPHP, PHP 8.4, 1 CPU,
+a JSON endpoint without I/O, sequential requests, median round trip):
 
-| Opcache | boot | first request |
-| --- | ---: | ---: |
-| file cache, timestamps validated | ~4.7 ms | ~1.4 ms |
-| preloading | ~0.75 ms | ~0.15 ms |
+| Mode | per request |
+| --- | ---: |
+| classic, shared opcache | ~0.73 ms |
+| classic, shared opcache and preloading | ~0.69 ms |
+| [worker](runtime.md#worker-mode) | ~0.31 ms |
 
-With preloading, the boot grows by about 15 µs per module. A
-[worker](runtime.md#worker-mode) pays the boot once per process instead.
+The setting that matters is a shared opcache sized for the application
+(below; the measure checks no file timestamps). Preloading saves a few hundredths of a millisecond on top of it; a
+worker removes the boot. Without a shared opcache, as in the CLI or with
+`opcache.file_cache_only`, each process compiles and links its classes again:
+a 20-module boot then takes ~4.7 ms instead of well under a millisecond. With
+classes already linked, the boot grows by about 15 µs per module.
 
 ## Composer
 
@@ -58,7 +64,9 @@ opcache then checks each file at most every `opcache.revalidate_freq` seconds
 ## Preloading
 
 `opcache.preload` declares classes once, when the FPM pool starts: requests
-then find them compiled and linked. `Kaly\Core\Preload` writes that script
+then find them compiled and linked. A shared opcache already keeps them
+across requests, so the gain is small (~0.05 ms per request above): preload
+when that matters to you, and only once opcache itself is right. `Kaly\Core\Preload` writes that script
 from what the application actually loads: it boots the application, handles
 the given GET paths, then lists every file the process included (classes,
 module `config.php`, ...). Classes it did not see are autoloaded as usual.
