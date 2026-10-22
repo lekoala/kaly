@@ -69,10 +69,27 @@ final class AssetPublisher
             return $resolved;
         }
 
-        foreach ($this->sources->all() as $namespace => $dir) {
-            $this->publishNamespace($namespace, $dir, $dest);
+        // Build the version aside, then rename it into place: a failed publish
+        // never leaves a partial version that a retry would trust as complete
+        $assetsDir = Fs::join($this->publicDir, 'assets');
+        Fs::ensureDir($assetsDir);
+        $pending = Fs::join($assetsDir, '.pending-' . $resolved . '-' . getmypid() . '-' . bin2hex(random_bytes(4)));
+        Fs::ensureDir($pending);
+        try {
+            foreach ($this->sources->all() as $namespace => $dir) {
+                $this->publishNamespace($namespace, $dir, $pending);
+            }
+            if (!@rename($pending, $dest)) {
+                if (!is_dir($dest)) {
+                    throw new RuntimeException("Could not publish assets to '{$dest}'");
+                }
+                // Another build published the same immutable version first
+                Fs::removeDir($pending);
+            }
+        } catch (\Throwable $e) {
+            Fs::removeDir($pending);
+            throw $e;
         }
-        Fs::ensureDir($dest);
 
         $this->writeVersionFile($resolved);
 

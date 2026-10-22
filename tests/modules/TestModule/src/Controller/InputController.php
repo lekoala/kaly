@@ -20,6 +20,12 @@ class InputController extends AbstractController
         return "{$id}:{$input->q}";
     }
 
+    // An optional scalar omitted from the url keeps its default before the input
+    public function pagedSearch(int $page = 1, ?SearchInput $input = null): string
+    {
+        return "{$page}:" . ($input->q ?? '');
+    }
+
     // A RequestInput must be the last parameter
     public function badOrder(SearchInput $input, int $id): string
     {

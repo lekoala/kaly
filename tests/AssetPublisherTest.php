@@ -169,6 +169,31 @@ class AssetPublisherTest extends TestCase
         $this->assertFileDoesNotExist($this->base . '/public/assets/v1/app/evil.php');
     }
 
+    public function testAFailedPublishDoesNotBlockTheRetry(): void
+    {
+        $this->seedHappyPath();
+        Fs::putFile($this->base . '/modules/Admin/assets/evil.php', '<?php echo 1;');
+        $publisher = new AssetPublisher($this->sources(), $this->base . '/public');
+
+        try {
+            $publisher->publish('v1');
+            $this->fail('A RuntimeException was expected');
+        } catch (RuntimeException $e) {
+            // The failure happened after the first namespace was published
+            $this->assertStringContainsString('.php', $e->getMessage());
+        }
+
+        // A failed publish never leaves a version a retry would trust as complete
+        $this->assertFileDoesNotExist($this->base . '/public/assets/v1');
+        $this->assertSame([], glob($this->base . '/public/assets/.pending-*') ?: []);
+
+        unlink($this->base . '/modules/Admin/assets/evil.php');
+        $this->assertSame('v1', $publisher->publish('v1'));
+        $this->assertSame('console.log(1);', Fs::getFile($this->base . '/public/assets/v1/admin/admin.js'));
+        $this->assertSame('export default 1;', Fs::getFile($this->base . '/public/assets/v1/app/components/dialog.js'));
+        $this->assertSame("v1\n", Fs::getFile($this->base . '/public/assets/.version'));
+    }
+
     public function testSymlinkFailsLoudly(): void
     {
         $this->seedHappyPath();

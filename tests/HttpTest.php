@@ -253,16 +253,19 @@ class HttpTest extends TestCase
         $this->assertSame(0.5, $quoted->qualityFor('application', 'json'));
     }
 
-    public function testContentRangeSendResponse(): void
+    public function testPartialResponseFromAHandlerIsEmittedAsIs(): void
     {
+        // A partial response is already prepared by its handler: the emitter
+        // must not apply the Content-Range offset a second time
         $headers = [
-            'Content-Range' => 'bytes 0-3/8',
+            'Content-Range' => 'bytes 5-9/10',
+            'Content-Length' => '5',
         ];
-        $code = 200;
-        $body = 'Test body';
+        $code = 206;
+        $body = '56789';
         $testResponse = new Response($code, $headers, $body);
 
-        $this->expectOutputString('Test');
+        $this->expectOutputString('56789');
 
         $emitter = new ResponseEmitter();
         $emitter->emit($testResponse);

@@ -6,7 +6,6 @@ namespace Kaly\Http;
 
 use InvalidArgumentException;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\StreamInterface;
 use RuntimeException;
 
 /**
@@ -20,6 +19,12 @@ use RuntimeException;
 final class ResponseEmitter implements ResponseEmitterInterface
 {
     public const EMPTY_RESPONSES = [100, 101, 102, 204, 205, 304];
+
+    /**
+     * The read size used when none is configured: file streams are never
+     * loaded whole in memory.
+     */
+    public const DEFAULT_BUFFER_LENGTH = 8192;
 
     /**
      * @var int|null
@@ -127,7 +132,8 @@ final class ResponseEmitter implements ResponseEmitterInterface
             return;
         }
 
-        // Get the body
+        // The body is the response body, already positioned and possibly
+        // already a partial payload: the emitter must not reapply any offset
         $body = $response->getBody();
 
         // If the body is not readable do not send any body to the client
@@ -135,20 +141,6 @@ final class ResponseEmitter implements ResponseEmitterInterface
             return;
         }
 
-        // Content-Range support
-        $range = self::parseContentRange($response->getHeaderLine('Content-Range'));
-        if (isset($range['unit']) && $range['unit'] === 'bytes') {
-            self::emitBodyRange($body, $range['first'], $range['last'], $this->bufferLength);
-            return;
-        }
-
-        // Send the body, no need to rewind because we send the whole thing
-        if (null === $this->bufferLength) {
-            echo $body->__toString();
-            return;
-        }
-
-        // Or send by chunk
         flush();
 
         // Rewind if possible
@@ -157,57 +149,9 @@ final class ResponseEmitter implements ResponseEmitterInterface
         }
 
         // Read by buffer length until end of file
+        $bufferLength = $this->bufferLength ?? self::DEFAULT_BUFFER_LENGTH;
         while (!$body->eof()) {
-            echo $body->read($this->bufferLength);
+            echo $body->read($bufferLength);
         }
-    }
-
-    /**
-     * Emits a range of the message body.
-     */
-    private static function emitBodyRange(StreamInterface $body, int $first, int $last, ?int $bufferLength = null): void
-    {
-        if ($bufferLength === null) {
-            $bufferLength = 4096;
-        }
-
-        // Total length to process
-        $length = $last - $first + 1;
-
-        // Go to first byte
-        if ($body->isSeekable()) {
-            $body->seek($first);
-        }
-
-        // Process by chunk
-        while ($length >= $bufferLength && !$body->eof()) {
-            $contents = $body->read($bufferLength);
-            $length -= strlen($contents);
-            echo $contents;
-        }
-
-        // Send the remaining
-        if ($length > 0 && !$body->eof()) {
-            echo $body->read($length);
-        }
-    }
-
-    /**
-     * Parse Content-Range header.
-     *
-     * @link http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.16
-     * @return array{unit:mixed,first:int,last:int,length:'*'|int}|null
-     */
-    private static function parseContentRange(string $header): ?array
-    {
-        if (preg_match('/(?P<unit>[\w]+)\s+(?P<first>\d+)-(?P<last>\d+)\/(?P<length>\d+|\*)/', $header, $matches)) {
-            return [
-                'unit' => $matches['unit'],
-                'first' => (int) $matches['first'],
-                'last' => (int) $matches['last'],
-                'length' => $matches['length'] === '*' ? '*' : (int) $matches['length'],
-            ];
-        }
-        return null;
     }
 }

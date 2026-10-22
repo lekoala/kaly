@@ -218,15 +218,16 @@ final class TableResolver implements ResolverInterface
             }
             $name = $param->getName();
             if (array_key_exists($name, $matches) && $matches[$name] !== '') {
+                $value = RoutePath::decode($matches[$name]);
                 $type = $param->getType();
                 if ($type instanceof ReflectionNamedType && $type->isBuiltin()) {
                     try {
-                        $out[] = ActionSignature::coerce($type->getName(), $matches[$name]);
+                        $out[] = ActionSignature::coerce($type->getName(), $value);
                     } catch (RouteNotFoundException) {
                         return null;
                     }
                 } else {
-                    $out[] = $matches[$name];
+                    $out[] = $value;
                 }
                 continue;
             }

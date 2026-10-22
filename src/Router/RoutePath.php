@@ -29,6 +29,18 @@ final class RoutePath
     }
 
     /**
+     * Decode one matched path segment for the application.
+     *
+     * This is the only decoding point: a value is decoded after the path has
+     * been split, so an encoded separator (`%2F`) stays inside the value it
+     * belongs to instead of opening a new segment.
+     */
+    public static function decode(string $segment): string
+    {
+        return rawurldecode($segment);
+    }
+
+    /**
      * Join route path parts with single slashes and a leading slash, without a
      * trailing slash except for the root path — unless the last part carries
      * one, which is preserved so explicit declarations keep their spelling.

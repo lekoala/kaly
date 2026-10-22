@@ -7,6 +7,8 @@ namespace Kaly\Tests;
 use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Router\ConventionResolver;
+use Kaly\Router\Route;
+use Kaly\Router\RouterInterface;
 use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\Uri;
@@ -35,6 +37,24 @@ class RouterTest extends TestCase
             $request = $request->withParsedBody($body);
         }
         return $app->handle($request);
+    }
+
+    private function match(string $path): Route
+    {
+        $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
+        $app->boot();
+
+        return $app
+            ->container()
+            ->get(RouterInterface::class)
+            ->match(HttpFactory::createRequestFromGlobals()->withUri(new Uri($path)));
+    }
+
+    public function testEveryVariadicSegmentIsCoerced(): void
+    {
+        $route = $this->match('/test-module/index/numbers/1/2/');
+
+        $this->assertSame([1, 2], $route->params);
     }
 
     public function testIntParameterIsCoerced(): void

@@ -76,6 +76,18 @@ class RequestInputTest extends TestCase
         $this->assertSame('12:hello', (string) $response->getBody());
     }
 
+    public function testAnOmittedOptionalParameterBeforeTheInputKeepsItsDefault(): void
+    {
+        // No segment for $page: its default is passed before the input
+        $response = $this->request('/test-module/input/paged-search/?q=hello');
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('1:hello', (string) $response->getBody());
+
+        $response = $this->request('/test-module/input/paged-search/2/?q=hello');
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('2:hello', (string) $response->getBody());
+    }
+
     public function testAnInvalidSegmentIsStillARoutingFailure(): void
     {
         // The route itself does not match: this is a 404, not a bad input

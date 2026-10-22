@@ -124,6 +124,26 @@ class ModuleRoutesTest extends TestCase
         $this->assertSame('/shop/featured/news/', $this->router()->url('test-module:shop.featured', ['tab' => 'news']));
     }
 
+    public function testGeneratedExplicitValuesAreDecodedForTheAction(): void
+    {
+        $router = $this->router();
+        $url = $router->url('test-module:shop.featured', ['tab' => 'café au lait']);
+        $this->assertSame('/shop/featured/caf%C3%A9%20au%20lait/', $url);
+        $this->assertSame('featured-café au lait', (string) $this->request($url)->getBody());
+
+        // An encoded separator belongs to the value: it never splits the path
+        $url = $router->url('test-module:shop.featured', ['tab' => 'a/b']);
+        $this->assertSame('/shop/featured/a%2Fb/', $url);
+        $this->assertSame('featured-a/b', (string) $this->request($url)->getBody());
+    }
+
+    public function testGeneratedConventionalValuesAreDecodedForTheAction(): void
+    {
+        $url = $this->router()->urlFor([DemoController::class, 'index'], ['café au lait']);
+        $this->assertSame('/test-module/demo/index/caf%C3%A9%20au%20lait/', $url);
+        $this->assertSame('hello café au lait', (string) $this->request($url)->getBody());
+    }
+
     public function testGenerationWithoutARequiredParamFails(): void
     {
         $this->expectException(RouteGenerationException::class);

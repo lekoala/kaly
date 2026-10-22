@@ -372,14 +372,16 @@ final class ConventionResolver implements ResolverInterface
         // A trailing RequestInput is supplied by the dispatcher, not by the url
         $m->inputClass = $this->extractInputClass($actionParams, $class, $action);
 
+        /** @var list<string> $values */
+        $values = array_map(RoutePath::decode(...), $m->parts);
         /** @var array<int<0,max>|string,mixed> $params */
-        $params = $m->parts;
+        $params = $values;
         $i = 0;
         $extra = false;
         foreach ($actionParams as $actionParam) {
             $paramName = $actionParam->getName();
 
-            $satisfiedByUrl = isset($m->parts[$i]);
+            $satisfiedByUrl = isset($values[$i]);
             if (!$actionParam->isOptional() && !$actionParam->isDefaultValueAvailable() && !$satisfiedByUrl) {
                 throw new RouteNotFoundException("Param '{$paramName}' is required for action '{$action}' on '{$class}'");
             }
@@ -397,10 +399,18 @@ final class ConventionResolver implements ResolverInterface
 
             // Strictly coerce and validate built-in typed parameters.
             // An invalid value does not match the route (404).
-            $value = $m->parts[$i] ?? '';
             $type = $actionParam->getType();
-            if ($type instanceof ReflectionNamedType && $value !== '' && $type->isBuiltin()) {
-                $params[$i] = ActionSignature::coerce($type->getName(), $value);
+            if ($type instanceof ReflectionNamedType && $type->isBuiltin()) {
+                if ($actionParam->isVariadic()) {
+                    // Every segment consumed by the variadic is an argument
+                    for ($j = $i, $count = count($values); $j < $count; $j++) {
+                        if ($values[$j] !== '') {
+                            $params[$j] = ActionSignature::coerce($type->getName(), $values[$j]);
+                        }
+                    }
+                } elseif (isset($values[$i]) && $values[$i] !== '') {
+                    $params[$i] = ActionSignature::coerce($type->getName(), $values[$i]);
+                }
             }
 
             if ($actionParam->isVariadic()) {

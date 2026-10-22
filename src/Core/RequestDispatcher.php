@@ -20,6 +20,7 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use ReflectionClass;
 use ReflectionException;
+use ReflectionMethod;
 use ReflectionNamedType;
 
 /**
@@ -95,7 +96,7 @@ final class RequestDispatcher implements RequestHandlerInterface
 
         // The trailing input is built from the query and the body
         if ($route->inputClass !== null) {
-            $arguments[] = $this->mapInput($request, $route->inputClass);
+            $arguments = $this->withInput($arguments, $class, $action, $request, $route->inputClass);
         }
 
         // The injector constructs controllers, it never supplies action
@@ -120,6 +121,34 @@ final class RequestDispatcher implements RequestHandlerInterface
         throw new Ex(
             'Controllers must return a ResponseInterface, a View, a JsonResult, an array or a string, got: ' . get_debug_type($result),
         );
+    }
+
+    /**
+     * Append the trailing input at the position the signature expects.
+     *
+     * The url may omit trailing optional parameters before the input; their
+     * declared defaults are supplied first so the input is never passed in
+     * the place of a route argument.
+     *
+     * @param array<int<0,max>|string,mixed> $arguments
+     * @param class-string $class
+     * @param class-string<RequestInput> $inputClass
+     * @return array<int<0,max>|string,mixed>
+     */
+    private function withInput(array $arguments, string $class, string $action, ServerRequestInterface $request, string $inputClass): array
+    {
+        $parameters = (new ReflectionMethod($class, $action))->getParameters();
+        $inputIndex = count($parameters) - 1;
+        for ($i = count($arguments); $i < $inputIndex; $i++) {
+            $parameter = $parameters[$i];
+            if (!$parameter->isOptional() || $parameter->isVariadic()) {
+                break;
+            }
+            $arguments[] = $parameter->getDefaultValue();
+        }
+        $arguments[] = $this->mapInput($request, $inputClass);
+
+        return $arguments;
     }
 
     /**

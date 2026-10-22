@@ -133,6 +133,14 @@ class IndexController extends AbstractController
         return $value ? 'true' : 'false';
     }
 
+    /**
+     * @return list<int>
+     */
+    public function numbers(int ...$numbers): array
+    {
+        return array_values($numbers);
+    }
+
     public function view(): View
     {
         return new View('@TestModule/view', ['title' => 'View test']);
