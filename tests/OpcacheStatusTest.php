@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 class OpcacheStatusTest extends TestCase
 {
-    public function testHealthyProductionCacheHasNoProblem(): void
+    public function testHealthyCacheHasNoProblemAndExposesRawMetrics(): void
     {
         $status = new OpcacheStatus(true, self::opcacheStatus(), self::configuration());
 
@@ -17,9 +17,26 @@ class OpcacheStatusTest extends TestCase
         $this->assertSame(
             [
                 'enabled' => true,
-                'memoryUsed' => 25.0,
-                'hitRate' => 99.0,
+                'validateTimestamps' => false,
+                'cacheFull' => false,
+                'restartPending' => false,
+                'restartInProgress' => false,
+                'memoryUsedBytes' => 25,
+                'memoryFreeBytes' => 75,
+                'memoryWastedBytes' => 0,
+                'internedStringsUsedBytes' => 40,
+                'internedStringsFreeBytes' => 60,
+                'keysUsed' => 300,
+                'keysMax' => 1000,
                 'scripts' => 300,
+                'hits' => 9900,
+                'misses' => 100,
+                'hitRatePercent' => 99.0,
+                'oomRestarts' => 0,
+                'hashRestarts' => 0,
+                'manualRestarts' => 1,
+                'startTime' => 1_800_000_000,
+                'lastRestartTime' => 1_800_003_600,
                 'preloadedClasses' => 0,
             ],
             $status->metrics(),
@@ -40,33 +57,54 @@ class OpcacheStatusTest extends TestCase
         $this->assertFalse((new OpcacheStatus(true, null, self::configuration()))->metrics()['enabled']);
     }
 
-    public function testTimestampValidationIsAProductionProblem(): void
+    public function testTimestampValidationIsADeploymentChoiceNotAProblem(): void
     {
         $status = new OpcacheStatus(true, self::opcacheStatus(), self::configuration(validateTimestamps: true));
 
-        $this->assertSame(
-            ['Opcache checks file timestamps, set opcache.validate_timestamps=0 and reset the cache on deploy'],
-            $status->problems(),
-        );
+        $this->assertSame([], $status->problems());
+        $this->assertTrue($status->metrics()['validateTimestamps']);
     }
 
-    public function testFullCacheNamesTheDirectiveToRaise(): void
+    public function testExhaustedLimitsNameTheDirectiveToRaise(): void
     {
         $status = self::opcacheStatus();
         $status['memory_usage'] = ['used_memory' => 80, 'free_memory' => 2, 'wasted_memory' => 18];
-        $status['interned_strings_usage'] = ['buffer_size' => 100, 'free_memory' => 1];
-        $status['opcache_statistics']['num_cached_keys'] = 1000;
+        $status['interned_strings_usage'] = ['used_memory' => 99, 'free_memory' => 1];
+        $status['opcache_statistics']['num_cached_keys'] = 960;
         $status['opcache_statistics']['oom_restarts'] = 2;
         $status['opcache_statistics']['hash_restarts'] = 1;
+        $status['cache_full'] = true;
 
         $this->assertSame(
             [
                 'Opcache memory is nearly full, raise opcache.memory_consumption',
                 'Opcache wastes 18% of its memory, restart it after deploys',
                 'Opcache interned strings buffer is nearly full, raise opcache.interned_strings_buffer',
-                'Opcache has no free key left, raise opcache.max_accelerated_files',
-                'Opcache restarted 3 time(s) because it was full, raise its limits',
+                'Opcache keys are nearly exhausted, raise opcache.max_accelerated_files',
+                'Opcache was restarted 3 time(s) for lack of memory or keys, raise its limits',
             ],
+            (new OpcacheStatus(true, $status, self::configuration()))->problems(),
+        );
+    }
+
+    public function testNativeFullAndRestartStatesAreReported(): void
+    {
+        $status = self::opcacheStatus();
+        $status['cache_full'] = true;
+        $status['restart_pending'] = true;
+
+        $this->assertSame(
+            [
+                'Opcache is restarting, scripts are compiled again until it completes',
+                'Opcache is full, raise opcache.memory_consumption or opcache.max_accelerated_files',
+            ],
+            (new OpcacheStatus(true, $status, self::configuration()))->problems(),
+        );
+
+        $status = self::opcacheStatus();
+        $status['restart_in_progress'] = true;
+        $this->assertSame(
+            ['Opcache is restarting, scripts are compiled again until it completes'],
             (new OpcacheStatus(true, $status, self::configuration()))->problems(),
         );
     }
@@ -81,7 +119,7 @@ class OpcacheStatusTest extends TestCase
         $status['opcache_statistics']['hits'] = 800;
         $status['opcache_statistics']['misses'] = 200;
         $this->assertSame(
-            ['Opcache hit rate is 80.0%, the cache is too small or keeps restarting'],
+            ['Opcache hit rate is 80.0%, check its limits and restarts'],
             (new OpcacheStatus(true, $status, self::configuration()))->problems(),
         );
     }
@@ -96,20 +134,23 @@ class OpcacheStatusTest extends TestCase
 
     public function testCurrentReadsThisProcess(): void
     {
-        $status = OpcacheStatus::current();
+        $metrics = OpcacheStatus::current()->metrics();
 
         // The test SAPI may run with or without opcache: only the shape is stable
-        $this->assertSame(['enabled', 'memoryUsed', 'hitRate', 'scripts', 'preloadedClasses'], array_keys($status->metrics()));
+        $this->assertArrayHasKey('enabled', $metrics);
+        $this->assertArrayHasKey('preloadedClasses', $metrics);
     }
 
     /**
-     * @return array{opcache_enabled: bool, cache_full: bool, memory_usage: array<string,int>, interned_strings_usage: array<string,int>, opcache_statistics: array<string,int>, preload_statistics?: array<string,mixed>}
+     * @return array{opcache_enabled: bool, cache_full: bool, restart_pending: bool, restart_in_progress: bool, memory_usage: array<string,int>, interned_strings_usage: array<string,int>, opcache_statistics: array<string,int>, preload_statistics?: array<string,mixed>}
      */
     private static function opcacheStatus(): array
     {
         return [
             'opcache_enabled' => true,
             'cache_full' => false,
+            'restart_pending' => false,
+            'restart_in_progress' => false,
             'memory_usage' => ['used_memory' => 25, 'free_memory' => 75, 'wasted_memory' => 0],
             'interned_strings_usage' => ['buffer_size' => 100, 'used_memory' => 40, 'free_memory' => 60],
             'opcache_statistics' => [
@@ -118,8 +159,11 @@ class OpcacheStatusTest extends TestCase
                 'max_cached_keys' => 1000,
                 'hits' => 9900,
                 'misses' => 100,
+                'start_time' => 1_800_000_000,
+                'last_restart_time' => 1_800_003_600,
                 'oom_restarts' => 0,
                 'hash_restarts' => 0,
+                'manual_restarts' => 1,
             ],
         ];
     }

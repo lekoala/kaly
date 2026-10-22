@@ -50,6 +50,11 @@ its own opcache, so `opcache_reset()` from a console command resets nothing
 served by FPM. For atomic symlink deploys, also pass the resolved path to PHP
 (nginx `$realpath_root`), or the old release stays cached under the symlink.
 
+When a deploy cannot reload PHP-FPM, keep `opcache.validate_timestamps=1`:
+opcache then checks each file at most every `opcache.revalidate_freq` seconds
+(2 by default), a small cost that keeps deploys visible. Never set
+`revalidate_freq=0` in production, it checks files on every request.
+
 ## Preloading
 
 `opcache.preload` declares classes once, when the FPM pool starts: requests
@@ -99,9 +104,9 @@ files. See [Runtime](runtime.md#worker-mode).
 ## Checking opcache
 
 `Kaly\Debug\OpcacheStatus` reports what is wrong with the opcache serving the
-current request: disabled or unreadable, validated timestamps, memory,
-interned strings or keys nearly exhausted, wasted memory, restarts caused by a
-full cache and a low hit rate. Each problem names the directive to change.
+current request: disabled or unreadable, full, restarting, memory, interned
+strings or keys nearly exhausted, wasted memory, restarts caused by a full
+cache and a low hit rate. Each problem names the directive to change.
 
 Opcache memory belongs to the SAPI, so read it from a request served by the
 FPM pool, never from a console command. Expose it on a route reserved to
@@ -115,7 +120,7 @@ final class HealthController
     public function opcache(): array
     {
         $status = OpcacheStatus::current();
-        return ['problems' => $status->problems(), ...$status->metrics()];
+        return ['problems' => $status->problems(), 'metrics' => $status->metrics()];
     }
 }
 ```
@@ -123,14 +128,37 @@ final class HealthController
 ```json
 {
     "problems": [],
-    "enabled": true,
-    "memoryUsed": 21.4,
-    "hitRate": 99.8,
-    "scripts": 412,
-    "preloadedClasses": 268
+    "metrics": {
+        "enabled": true,
+        "validateTimestamps": false,
+        "cacheFull": false,
+        "restartPending": false,
+        "restartInProgress": false,
+        "memoryUsedBytes": 54763520,
+        "memoryFreeBytes": 213671936,
+        "memoryWastedBytes": 0,
+        "internedStringsUsedBytes": 9437184,
+        "internedStringsFreeBytes": 24117248,
+        "keysUsed": 431,
+        "keysMax": 32531,
+        "scripts": 412,
+        "hits": 1832210,
+        "misses": 412,
+        "hitRatePercent": 100,
+        "oomRestarts": 0,
+        "hashRestarts": 0,
+        "manualRestarts": 0,
+        "startTime": 1792663200,
+        "lastRestartTime": 0,
+        "preloadedClasses": 268
+    }
 }
 ```
 
-`preloadedClasses` is 0 without preloading: that is a deployment choice, not a
-problem. Apply authentication or network restrictions to this route: it
-discloses the server configuration.
+Sizes are in bytes, times are Unix timestamps (0 when opcache never
+restarted), counters accumulate since opcache started: a restart or a low hit
+rate may be old news, so monitoring should compare two readings rather than
+alert on one. `validateTimestamps` and `preloadedClasses` describe deployment
+choices, not problems: validating timestamps is the right setting when deploys
+do not reset the cache. Apply authentication or network restrictions to this
+route: it discloses the server configuration.

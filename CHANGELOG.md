@@ -5,9 +5,10 @@
 ### Added
 
 - `Kaly\Debug\OpcacheStatus` reports the production problems of the opcache
-  serving the request (disabled, validated timestamps, memory, interned strings
-  or keys nearly exhausted, wasted memory, restarts, low hit rate), each naming
-  the directive to change, with a few metrics for a health route.
+  serving the request (disabled, full, restarting, memory, interned strings or
+  keys nearly exhausted, wasted memory, restarts, low hit rate), each naming the
+  directive to change, and its raw metrics (bytes, counters, timestamps) for a
+  health route or monitoring.
 - A production guide: Composer flags, opcache settings, deploy resets and
   preloading. With preloading, a 20-module boot drops from ~4.7 ms to ~0.75 ms.
 

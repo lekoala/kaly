@@ -44,7 +44,8 @@ final class OpcacheStatus
 
     /**
      * Each problem is a sentence naming the directive to change. Empty when
-     * the cache is healthy.
+     * the cache is healthy. Counters (restarts, hits) are cumulative since
+     * opcache started: compare two metrics() readings to see a trend.
      *
      * @return list<string>
      */
@@ -62,68 +63,112 @@ final class OpcacheStatus
         }
 
         $problems = [];
-        if ($this->directive('opcache.validate_timestamps')) {
-            $problems[] = 'Opcache checks file timestamps, set opcache.validate_timestamps=0 and reset the cache on deploy';
+        $metrics = $this->metrics();
+        if ($metrics['restartPending'] || $metrics['restartInProgress']) {
+            $problems[] = 'Opcache is restarting, scripts are compiled again until it completes';
         }
 
-        $memory = $this->section('memory_usage');
-        $used = $this->int($memory, 'used_memory');
-        $free = $this->int($memory, 'free_memory');
-        $wasted = $this->int($memory, 'wasted_memory');
-        $total = $used + $free + $wasted;
-        if ($total > 0 && ($free / $total) < self::MIN_FREE) {
+        $memory = $metrics['memoryUsedBytes'] + $metrics['memoryFreeBytes'] + $metrics['memoryWastedBytes'];
+        $memoryFull = $memory > 0 && ($metrics['memoryFreeBytes'] / $memory) < self::MIN_FREE;
+        if ($memoryFull) {
             $problems[] = 'Opcache memory is nearly full, raise opcache.memory_consumption';
         }
-        if ($total > 0 && ($wasted / $total) > self::MAX_WASTED) {
-            $problems[] = sprintf('Opcache wastes %d%% of its memory, restart it after deploys', round((100 * $wasted) / $total));
+        if ($memory > 0 && ($metrics['memoryWastedBytes'] / $memory) > self::MAX_WASTED) {
+            $problems[] = sprintf(
+                'Opcache wastes %d%% of its memory, restart it after deploys',
+                round((100 * $metrics['memoryWastedBytes']) / $memory),
+            );
         }
 
-        $strings = $this->section('interned_strings_usage');
-        $buffer = $this->int($strings, 'buffer_size');
-        if ($buffer > 0 && ($this->int($strings, 'free_memory') / $buffer) < self::MIN_FREE) {
+        $strings = $metrics['internedStringsUsedBytes'] + $metrics['internedStringsFreeBytes'];
+        if ($strings > 0 && ($metrics['internedStringsFreeBytes'] / $strings) < self::MIN_FREE) {
             $problems[] = 'Opcache interned strings buffer is nearly full, raise opcache.interned_strings_buffer';
         }
 
-        $statistics = $this->section('opcache_statistics');
-        $maxKeys = $this->int($statistics, 'max_cached_keys');
-        if ($maxKeys > 0 && $this->int($statistics, 'num_cached_keys') >= $maxKeys) {
-            $problems[] = 'Opcache has no free key left, raise opcache.max_accelerated_files';
+        $keysFull = $metrics['keysMax'] > 0 && (1 - ($metrics['keysUsed'] / $metrics['keysMax'])) < self::MIN_FREE;
+        if ($keysFull) {
+            $problems[] = 'Opcache keys are nearly exhausted, raise opcache.max_accelerated_files';
         }
-        $restarts = $this->int($statistics, 'oom_restarts') + $this->int($statistics, 'hash_restarts');
+        if ($metrics['cacheFull'] && !$memoryFull && !$keysFull) {
+            $problems[] = 'Opcache is full, raise opcache.memory_consumption or opcache.max_accelerated_files';
+        }
+
+        $restarts = $metrics['oomRestarts'] + $metrics['hashRestarts'];
         if ($restarts > 0) {
-            $problems[] = sprintf('Opcache restarted %d time(s) because it was full, raise its limits', $restarts);
+            $problems[] = sprintf('Opcache was restarted %d time(s) for lack of memory or keys, raise its limits', $restarts);
         }
-        $hits = $this->int($statistics, 'hits');
-        $lookups = $hits + $this->int($statistics, 'misses');
-        if ($lookups >= self::MIN_LOOKUPS && ((100 * $hits) / $lookups) < self::MIN_HIT_RATE) {
-            $problems[] = sprintf('Opcache hit rate is %.1F%%, the cache is too small or keeps restarting', (100 * $hits) / $lookups);
+        if (($metrics['hits'] + $metrics['misses']) >= self::MIN_LOOKUPS && $metrics['hitRatePercent'] < self::MIN_HIT_RATE) {
+            $problems[] = sprintf('Opcache hit rate is %.1F%%, check its limits and restarts', $metrics['hitRatePercent']);
         }
 
         return $problems;
     }
 
     /**
-     * The numbers worth watching, for a health endpoint or a log line.
-     * Preloading is a deployment choice, never a problem: `preloadedClasses`
-     * is 0 without it, and a worker gains little from it.
+     * Raw values for a health endpoint or monitoring: sizes in bytes, times as
+     * Unix timestamps (0 when it never restarted), counters since opcache
+     * started.
      *
-     * @return array{enabled: bool, memoryUsed: float, hitRate: float, scripts: int, preloadedClasses: int}
+     * `validateTimestamps` and `preloadedClasses` describe deployment choices,
+     * never problems: checking timestamps is valid when deploys do not reset
+     * the cache, and a worker gains little from preloading.
+     *
+     * @return array{
+     *     enabled: bool,
+     *     validateTimestamps: bool,
+     *     cacheFull: bool,
+     *     restartPending: bool,
+     *     restartInProgress: bool,
+     *     memoryUsedBytes: int,
+     *     memoryFreeBytes: int,
+     *     memoryWastedBytes: int,
+     *     internedStringsUsedBytes: int,
+     *     internedStringsFreeBytes: int,
+     *     keysUsed: int,
+     *     keysMax: int,
+     *     scripts: int,
+     *     hits: int,
+     *     misses: int,
+     *     hitRatePercent: float,
+     *     oomRestarts: int,
+     *     hashRestarts: int,
+     *     manualRestarts: int,
+     *     startTime: int,
+     *     lastRestartTime: int,
+     *     preloadedClasses: int,
+     * }
      */
     public function metrics(): array
     {
         $memory = $this->section('memory_usage');
-        $total = $this->int($memory, 'used_memory') + $this->int($memory, 'free_memory') + $this->int($memory, 'wasted_memory');
+        $strings = $this->section('interned_strings_usage');
         $statistics = $this->section('opcache_statistics');
         $hits = $this->int($statistics, 'hits');
-        $lookups = $hits + $this->int($statistics, 'misses');
-        $preload = $this->section('preload_statistics');
-        $classes = $preload['classes'] ?? [];
+        $misses = $this->int($statistics, 'misses');
+        $classes = $this->section('preload_statistics')['classes'] ?? [];
 
         return [
             'enabled' => ($this->status['opcache_enabled'] ?? false) === true,
-            'memoryUsed' => $total > 0 ? round((100 * $this->int($memory, 'used_memory')) / $total, 1) : 0.0,
-            'hitRate' => $lookups > 0 ? round((100 * $hits) / $lookups, 1) : 0.0,
+            'validateTimestamps' => $this->directive('opcache.validate_timestamps'),
+            'cacheFull' => ($this->status['cache_full'] ?? false) === true,
+            'restartPending' => ($this->status['restart_pending'] ?? false) === true,
+            'restartInProgress' => ($this->status['restart_in_progress'] ?? false) === true,
+            'memoryUsedBytes' => $this->int($memory, 'used_memory'),
+            'memoryFreeBytes' => $this->int($memory, 'free_memory'),
+            'memoryWastedBytes' => $this->int($memory, 'wasted_memory'),
+            'internedStringsUsedBytes' => $this->int($strings, 'used_memory'),
+            'internedStringsFreeBytes' => $this->int($strings, 'free_memory'),
+            'keysUsed' => $this->int($statistics, 'num_cached_keys'),
+            'keysMax' => $this->int($statistics, 'max_cached_keys'),
             'scripts' => $this->int($statistics, 'num_cached_scripts'),
+            'hits' => $hits,
+            'misses' => $misses,
+            'hitRatePercent' => ($hits + $misses) > 0 ? round((100 * $hits) / ($hits + $misses), 1) : 0.0,
+            'oomRestarts' => $this->int($statistics, 'oom_restarts'),
+            'hashRestarts' => $this->int($statistics, 'hash_restarts'),
+            'manualRestarts' => $this->int($statistics, 'manual_restarts'),
+            'startTime' => $this->int($statistics, 'start_time'),
+            'lastRestartTime' => $this->int($statistics, 'last_restart_time'),
             'preloadedClasses' => is_array($classes) ? count($classes) : 0,
         ];
     }
