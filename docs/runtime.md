@@ -55,16 +55,19 @@ compiled on their first use, controller reflection is kept per class. It dies wi
 process, and the code cannot change under a running process, so there is nothing to
 invalidate.
 
-The real optimization is to boot once. Measured with `composer bench` (see
-[Benchmarks](benchmarks.md)):
+What a classic request pays is mostly PHP loading classes, which opcache and
+preloading remove, not Kaly's own work; booting once removes the rest. Measured
+by the Kaly performance lab on an Apple M1 Pro, 20 modules, medians:
 
 | | per request |
 | --- | --- |
-| PHP-FPM, one process per request | autoload ~3 ms + boot ~7 ms + request ~3 ms |
-| worker, after the first request | ~0.02 to 0.1 ms |
+| PHP-FPM, opcache file cache | boot ~4.7 ms + first request ~1.4 ms |
+| PHP-FPM, preloading | boot ~0.75 ms + first request ~0.15 ms |
+| worker, after the first request | ~0.01 to 0.03 ms |
 
-Boot does not grow with the size of the application: a url only compiles the
-routes of the module it reaches.
+See [Production](production.md) for the opcache and preloading setup. Boot does
+not grow with the number of routes: a url only compiles the routes of the module
+it reaches. It grows by about 15 µs per module.
 
 ## Worker mode
 

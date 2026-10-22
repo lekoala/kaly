@@ -37,6 +37,7 @@ Use the sidebar to browse the guides. Start with
 - [DI](di.md)
 - [Persistence](database.md)
 - [Serving](serving.md)
+- [Production](production.md)
 - [Assets](assets.md)
 - [Logging](logging.md)
 - [Mailer](mailer.md)

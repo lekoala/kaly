@@ -4,6 +4,13 @@
 
 ### Added
 
+- `Kaly\Debug\OpcacheStatus` reports the production problems of the opcache
+  serving the request (disabled, validated timestamps, memory, interned strings
+  or keys nearly exhausted, wasted memory, restarts, low hit rate), each naming
+  the directive to change, with a few metrics for a health route.
+- A production guide: Composer flags, opcache settings, deploy resets and
+  preloading. With preloading, a 20-module boot drops from ~4.7 ms to ~0.75 ms.
+
 - `App` automatically loads `.env.local` before `.env`, preserving existing
   environment values. `IGNORE_DOT_ENV=1` or `loadEnv: false` skips both files.
   The PHPUnit configuration disables all env file loading by default.
