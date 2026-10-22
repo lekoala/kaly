@@ -9,7 +9,6 @@ use Kaly\Core\App;
 use Kaly\Core\ErrorHandler;
 use Kaly\Core\HttpContext;
 use Kaly\Debug\Profile;
-use Kaly\Di\ContainerException;
 use Kaly\Di\Definitions;
 use Kaly\Ex;
 use Kaly\Http\Session\ArraySession;
@@ -17,8 +16,6 @@ use Kaly\Http\Session\SessionInterface;
 use Kaly\Http\Session\SessionProviderInterface;
 use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Support\HttpFactory;
-use Kaly\Tests\Support\TempDir;
-use Kaly\Util\Fs;
 use Kaly\View\RenderEnvironmentInterface;
 use Kaly\View\RendererInterface;
 use Nyholm\Psr7\Response;
@@ -136,7 +133,6 @@ class ProfileTest extends TestCase
         });
         $response = $app->handle($this->request('/test-module/index/foo/'));
         $this->assertSame(200, $response->getStatusCode());
-        $this->assertNull($app->bootProfile());
         $this->assertFalse($response->hasHeader('Server-Timing'));
     }
 
@@ -294,90 +290,6 @@ class ProfileTest extends TestCase
         $this->assertStringContainsString('request;dur=', $header);
         $this->assertStringContainsString('commit;dur=', $header);
         $this->assertStringNotContainsString('boot;dur=', $header);
-    }
-
-    public function testBootIsSeparateAndNotRepeatedAcrossWorkerRequests(): void
-    {
-        $app = $this->app();
-        $app->boot();
-        $boot = $app->bootProfile()?->metrics();
-        $this->assertNotNull($boot);
-        $this->assertSame(['boot-modules', 'boot-configure', 'boot-container', 'boot-hooks', 'boot'], array_keys($boot));
-        foreach ($boot as $metric) {
-            $this->assertSame(1, $metric['count']);
-            $this->assertGreaterThanOrEqual(0, $metric['duration']);
-        }
-        $app->handle($this->request('/test-module/index/foo/'));
-        $app->handle($this->request('/test-module/index/foo/'));
-        $this->assertSame($boot, $app->bootProfile()?->metrics());
-    }
-
-    /**
-     * @return iterable<string,array{string,list<string>}>
-     */
-    public static function failedBootHooks(): iterable
-    {
-        yield 'configure' => ['configure', ['boot-modules', 'boot-configure', 'boot']];
-        yield 'onBoot' => ['onBoot', ['boot-modules', 'boot-configure', 'boot-container', 'boot-hooks', 'boot']];
-    }
-
-    /**
-     * @param list<string> $expected
-     */
-    #[DataProvider('failedBootHooks')]
-    public function testFailedBootRecordsTheStagesItReached(string $hook, array $expected): void
-    {
-        $app = $this->app();
-        $failure = new RuntimeException('Boot failed');
-        $app->$hook(static function () use ($failure): never {
-            throw $failure;
-        });
-        try {
-            $app->boot();
-            $this->fail('Boot must fail');
-        } catch (RuntimeException $ex) {
-            $this->assertSame($failure, $ex);
-        }
-        $this->assertSame($expected, array_keys($app->bootProfile()?->metrics() ?? []));
-        $this->assertFalse($app->isBooted());
-    }
-
-    public function testFailedServiceResolutionRecordsTheContainerStage(): void
-    {
-        $app = $this->app();
-        $failure = new RuntimeException('Service failed');
-        $app->configure(static function (Definitions $di) use ($failure): void {
-            $di->set(RequestHandlerInterface::class, static function () use ($failure): never {
-                throw $failure;
-            });
-        });
-        try {
-            $app->boot();
-            $this->fail('Boot must fail');
-        } catch (ContainerException $ex) {
-            $this->assertSame($failure, $ex->getPrevious());
-        }
-        $this->assertSame(['boot-modules', 'boot-configure', 'boot-container', 'boot'], array_keys($app->bootProfile()?->metrics() ?? []));
-        $this->assertFalse($app->isBooted());
-    }
-
-    public function testFailedModuleRecordsTheModuleStage(): void
-    {
-        $base = sys_get_temp_dir() . '/kaly-profile-' . uniqid();
-        try {
-            Fs::ensureDir($base . '/modules/Failing');
-            Fs::putFile($base . '/modules/Failing/config.php', '<?php throw new RuntimeException("Module failed");');
-            $app = App::create($base, loadEnv: false)->debug(false)->profiling();
-            try {
-                $app->boot();
-                $this->fail('Boot must fail');
-            } catch (RuntimeException $ex) {
-                $this->assertSame('Module failed', $ex->getMessage());
-            }
-            $this->assertSame(['boot-modules', 'boot'], array_keys($app->bootProfile()?->metrics() ?? []));
-        } finally {
-            TempDir::remove($base);
-        }
     }
 
     public function testIncomingShortCircuitHasNoRoutingOrControllerMetrics(): void

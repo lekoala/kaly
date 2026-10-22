@@ -42,37 +42,17 @@ It includes the other stages and time in request middleware. `controller` and
 the action is included in `controller`. Durations are not an additive breakdown.
 Stages that never run are absent. Failed stages are recorded in `finally`.
 
-The boot profile belongs to the application instance and is read separately:
+Profiles cover a request cycle, never the boot. Boot runs once per instance,
+including in workers; to observe it, time the call itself:
 
 ```php
+$start = hrtime(true);
 $app->boot();
-$boot = $app->bootProfile()?->metrics();
-// [
-//   'boot-modules' => ['duration' => 3.4, 'count' => 1],
-//   'boot-configure' => ['duration' => 0.2, 'count' => 1],
-//   'boot-container' => ['duration' => 0.6, 'count' => 1],
-//   'boot-hooks' => ['duration' => 0.1, 'count' => 1],
-//   'boot' => ['duration' => 4.5, 'count' => 1],
-// ] (illustrative)
+$bootMs = (hrtime(true) - $start) / 1e6;
 ```
 
-The stages are sequential and cover the parts that depend on the application:
-
-| Metric | Boundary |
-| --- | --- |
-| `boot-modules` | Module discovery, each `config.php`, the definition merge and `whenAllLoaded` callbacks |
-| `boot-configure` | `configure` hooks |
-| `boot-container` | Container, request handler and kernel construction, including the services they resolve |
-| `boot-hooks` | `onBoot` hooks |
-| `boot` | The whole `App::boot()` call |
-
-The difference between `boot` and the sum of the stages is the work outside the
-measured stages: error handler setup, the framework's default definitions,
-the final lock and the profiling itself. Boot runs once per instance, including
-in workers. Its duration covers `App::boot()`, including boot hooks, and remains
-available if boot fails: a failed stage keeps its duration and the stages never
-reached are absent. It excludes constructing the App and loading the entry point
-or autoloader. It is never copied into request profiles or HTTP headers.
+For a breakdown of the boot, use a profiler (SPX, Excimer, XHProf) rather than
+framework metrics.
 
 ## Inspect and log
 

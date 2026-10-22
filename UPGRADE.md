@@ -4,6 +4,17 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## Unreleased: boot profiling is removed
+
+`App::bootProfile()` is gone; `profiling()` now covers request cycles only. Time
+the boot yourself, or use a profiler (SPX, Excimer, XHProf) for a breakdown:
+
+```php
+$start = hrtime(true);
+$app->boot();
+$bootMs = (hrtime(true) - $start) / 1e6;
+```
+
 ## Unreleased: declared routes validate their action signature
 
 A declared route now fails when the table compiles if its action signature cannot be

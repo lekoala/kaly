@@ -122,9 +122,9 @@ A failing hook never masks the cycle: a broken error hook is recorded on the con
 
 ## Using middlewares
 
-Native stage measurements are opt-in with `$app->profiling()`, independently
-of debug mode. Each cycle owns its profile on `HttpContext::profile()`; boot
-is separate on `App::bootProfile()`. Enable final HTTP export with
+Native request-stage measurements are opt-in with `$app->profiling()`,
+independently of debug mode. Each cycle owns its profile on
+`HttpContext::profile()`. Enable final HTTP export with
 `$app->profiling(serverTiming: true)`. See the
 [Server-Timing recipe](recipes/server-timing.md) for boundaries, HTTP export
 and logging from terminate hooks.

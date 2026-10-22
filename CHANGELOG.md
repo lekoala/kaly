@@ -4,10 +4,6 @@
 
 ### Added
 
-- `App::bootProfile()` breaks boot into `boot-modules`, `boot-configure`,
-  `boot-container` and `boot-hooks` next to the `boot` total, so a slow boot
-  points to the application part responsible. A failed stage keeps its
-  duration.
 - `App` automatically loads `.env.local` before `.env`, preserving existing
   environment values. `IGNORE_DOT_ENV=1` or `loadEnv: false` skips both files.
   The PHPUnit configuration disables all env file loading by default.
@@ -42,6 +38,12 @@
 - `.env` errors name the file, and a syntax error keeps the line reported by PHP.
 - `Str::truncate()` counts characters instead of bytes, so it no longer cuts a
   multibyte character in half, and trims surrounding whitespace.
+
+### Removed
+
+- **Breaking:** `App::bootProfile()` is removed. `profiling()` measures request
+  cycles only; time `App::boot()` directly, or use a profiler for a breakdown.
+  Boot instrumentation belongs to benchmark tooling, not to the application.
 
 ## 0.4.0 - 2026-10-16
 

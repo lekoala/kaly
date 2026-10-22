@@ -33,7 +33,7 @@ $ctx->profile();    // optional native timings, enabled with App::profiling()
 
 Profiles belong to this cycle and are absent when profiling is disabled.
 The response-production duration is complete before terminate hooks; boot is
-tracked separately on `App::bootProfile()`. See the
+never part of it. See the
 [Server-Timing recipe](recipes/server-timing.md) for measured stages and export.
 
 Instead of probing the request:
