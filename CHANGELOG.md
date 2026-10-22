@@ -17,7 +17,8 @@
   startup. Run it in a dedicated CLI process.
 - A production guide: Composer flags, opcache settings, deploy resets and
   preloading. Over HTTP with a shared opcache, a classic request costs ~0.73 ms,
-  ~0.69 ms with preloading and ~0.31 ms in a worker.
+  ~0.69 ms with preloading and ~0.31 ms in a worker; for an application loading
+  ~1,700 classes per request, ~2.2 ms, ~1.5 ms and ~1.3 ms.
 
 - `App` automatically loads `.env.local` before `.env`, preserving existing
   environment values. `IGNORE_DOT_ENV=1` or `loadEnv: false` skips both files.
