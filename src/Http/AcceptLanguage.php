@@ -151,6 +151,9 @@ final class AcceptLanguage
             }
             // `q = 0.5` and `q="0.5"` are both seen in the wild
             $value = trim(trim(substr($piece, $eq + 1)), "\"'");
+            if (preg_match('/^(?:0(?:\.[0-9]{0,3})?|1(?:\.0{0,3})?)$/D', $value) !== 1) {
+                return 0.0;
+            }
             $quality = (float) $value;
             // A malformed or out of range weight means "not acceptable"
             // rather than a silent default

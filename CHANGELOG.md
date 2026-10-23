@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### Audit follow-up
+
+- `FileServer` applies hidden-path rules to the resolved file as well as the
+  requested path, preventing internal symlinks from exposing `.env`, `.git` or
+  other hidden paths while keeping public `.well-known` files available.
+- Regional translation catalogs share a locale identity across case and
+  underscore/hyphen spellings, both in memory and on disk. Application locales
+  use lowercase hyphenated tags. Two files for the same domain and locale in
+  one translation directory are rejected instead of choosing one implicitly.
+- A JSON request body no longer overrides a response content type refusal.
+  Accept and Accept-Language weights must be decimal values from 0 to 1 with
+  at most three fractional digits; malformed values are treated as refusals.
+- **Breaking:** conventional invokable urls omit the `__invoke` action segment:
+  `/slug/hello` replaces `/slug/__invoke/hello`. The literal `__invoke` remains
+  available as an ordinary action argument, and is never consumed as an action
+  name.
+
 ### Framework audit (2026-10-23)
 
 - **Breaking:** middleware registries lock after boot; register middleware before

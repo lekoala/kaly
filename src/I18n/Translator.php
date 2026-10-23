@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\I18n;
 
+use DirectoryIterator;
 use Kaly\Ex;
 
 /**
@@ -69,6 +70,7 @@ final class Translator implements TranslatorInterface
      */
     protected function getCatalog(string $name, string $locale): array
     {
+        $locale = Locale::normalize($locale);
         if (!isset($this->catalogs[$name][$locale])) {
             $this->buildCatalog($name, $locale);
         }
@@ -84,6 +86,7 @@ final class Translator implements TranslatorInterface
      */
     public function addToCatalog(string $name, string $locale, array $strings): self
     {
+        $locale = Locale::normalize($locale);
         if (!isset($this->catalogs[$name][$locale])) {
             $this->buildCatalog($name, $locale);
         }
@@ -111,8 +114,8 @@ final class Translator implements TranslatorInterface
         $merged = [];
         $found = false;
         foreach ($this->paths as $path) {
-            $file = $path . "/{$name}.{$locale}.php";
-            if (!is_file($file)) {
+            $file = $this->catalogFile($path, $name, $locale);
+            if ($file === null) {
                 continue;
             }
             $found = true;
@@ -128,6 +131,30 @@ final class Translator implements TranslatorInterface
         if ($found) {
             $this->catalogs[$name][$locale] = $merged;
         }
+    }
+
+    private function catalogFile(string $path, string $name, string $locale): ?string
+    {
+        if (!is_dir($path)) {
+            return null;
+        }
+        $match = null;
+        $prefix = $name . '.';
+        foreach (new DirectoryIterator($path) as $entry) {
+            $filename = $entry->getFilename();
+            if (!str_starts_with($filename, $prefix) || !str_ends_with($filename, '.php') || !$entry->isFile()) {
+                continue;
+            }
+            $fileLocale = substr($filename, strlen($prefix), -4);
+            if (Locale::normalize($fileLocale) !== $locale) {
+                continue;
+            }
+            if ($match !== null) {
+                throw new Ex("Duplicate translation catalogs for '{$name}.{$locale}' in '{$path}'");
+            }
+            $match = $entry->getPathname();
+        }
+        return $match;
     }
 
     /**

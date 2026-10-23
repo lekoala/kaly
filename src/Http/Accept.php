@@ -50,8 +50,13 @@ final class Accept
         }
 
         // A JSON body is a preference only when the client did not ask for HTML
-        $contentType = strtolower($request->getHeaderLine('Content-Type'));
-        return $html === 0.0 && (str_contains($contentType, '/json') || str_contains($contentType, '+json'));
+        $contentType = MediaType::parse($request->getHeaderLine('Content-Type'));
+        return (
+            $html === 0.0
+            && $contentType !== null
+            && ($contentType->subtype === 'json' || str_ends_with($contentType->subtype, '+json'))
+            && $accept->qualityFor($contentType->type, $contentType->subtype) > 0.0
+        );
     }
 
     public static function parse(string $header): self
@@ -216,6 +221,9 @@ final class Accept
             }
             // `q = 0.5` and `q="0.5"` are both seen in the wild
             $value = trim(trim(substr($piece, $eq + 1)), "\"'");
+            if (preg_match('/^(?:0(?:\.[0-9]{0,3})?|1(?:\.0{0,3})?)$/D', $value) !== 1) {
+                return 0.0;
+            }
             $quality = (float) $value;
             // A malformed or out of range weight means "not acceptable"
             // rather than a silent default

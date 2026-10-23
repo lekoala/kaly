@@ -57,9 +57,17 @@ final class FileServer implements MiddlewareInterface
             return $handler->handle($request);
         }
 
+        $root = realpath($this->publicDir);
+        $target = realpath($filename);
+        if ($root === false || $target === false) {
+            return $handler->handle($request);
+        }
+        $targetPath = str_replace(DIRECTORY_SEPARATOR, '/', Fs::relativePath($root, $target));
+        $checkedTarget = str_starts_with($targetPath, '.well-known/') ? substr($targetPath, strlen('.well-known/')) : $targetPath;
         if (
-            PublicFilePolicy::isForbiddenExtension(Fs::extension($filename))
-            || PublicFilePolicy::isForbiddenExtension(Fs::extension(realpath($filename) ?: $filename))
+            Fs::hasDotSegment($checkedTarget)
+            || PublicFilePolicy::isForbiddenExtension(Fs::extension($filename))
+            || PublicFilePolicy::isForbiddenExtension(Fs::extension($target))
         ) {
             return $handler->handle($request);
         }

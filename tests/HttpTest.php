@@ -270,4 +270,31 @@ class HttpTest extends TestCase
         $emitter = new ResponseEmitter();
         $emitter->emit($testResponse);
     }
+
+    public function testJsonRequestBodyCannotOverrideResponseRefusals(): void
+    {
+        foreach (['application/json;q=0, text/plain;q=1', '*/*;q=0', 'application/*;q=0', 'text/plain'] as $header) {
+            $request = (new BaseServerRequest('POST', '/'))
+                ->withHeader('Content-Type', 'application/json')
+                ->withHeader('Accept', $header);
+            $this->assertFalse(Accept::prefersJson($request), $header);
+        }
+        $request = (new BaseServerRequest('POST', '/'))->withHeader('Content-Type', 'application/json');
+        $this->assertTrue(Accept::prefersJson($request));
+        $this->assertTrue(Accept::prefersJson($request->withHeader('Accept', '*/*')));
+        $this->assertFalse(Accept::prefersJson($request->withHeader('Content-Type', 'application/jsonp')));
+        $this->assertFalse(Accept::prefersJson($request->withHeader('Content-Type', 'text/plain; note="+json"')));
+    }
+
+    public function testMediaAndLanguageWeightsRejectMalformedNumericStrings(): void
+    {
+        foreach (['0.8garbage', '1evil', '0e0', '+0.5', '.5', '0.1234', '1.001', '-0.1', '', 'NaN'] as $weight) {
+            $this->assertSame(0.0, Accept::parse('application/json;q=' . $weight)->qualityFor('application', 'json'), $weight);
+            $this->assertSame(0.0, \Kaly\Http\AcceptLanguage::parse('fr;q=' . $weight)->qualityFor('fr'), $weight);
+        }
+        foreach (['0' => 0.0, '0.' => 0.0, '0.125' => 0.125, '1' => 1.0, '1.000' => 1.0, '"0.5"' => 0.5] as $weight => $expected) {
+            $this->assertSame($expected, Accept::parse('application/json;q=' . $weight)->qualityFor('application', 'json'));
+            $this->assertSame($expected, \Kaly\Http\AcceptLanguage::parse('fr;q=' . $weight)->qualityFor('fr'));
+        }
+    }
 }

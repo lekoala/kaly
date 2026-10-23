@@ -50,6 +50,12 @@ final class Locale
         return strtolower(explode('-', str_replace('_', '-', $locale), 3)[0]);
     }
 
+    /** Normalize spelling without validating the locale. */
+    public static function normalize(string $locale): string
+    {
+        return strtolower(str_replace('_', '-', $locale));
+    }
+
     public static function isValid(string $locale): bool
     {
         try {

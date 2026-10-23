@@ -93,13 +93,14 @@ final class ConventionResolver implements ResolverInterface
         // spelled after their declaration whatever the case given here
         $action = (new ReflectionMethod($controller, $action))->getName();
         $baseAction = RestActionNaming::stripVerbSuffix($action);
+        $invokable = $action === RouterInterface::FALLBACK_ACTION;
 
         $path = '';
         $hasParams = $params !== [];
-        if ($controllerName !== self::DEFAULT_CONTROLLER || $baseAction !== self::DEFAULT_ACTION || $hasParams) {
+        if ($controllerName !== self::DEFAULT_CONTROLLER || !$invokable && $baseAction !== self::DEFAULT_ACTION || $hasParams) {
             $path .= '/' . Str::decamelize($controllerName);
         }
-        if ($baseAction !== self::DEFAULT_ACTION || $hasParams) {
+        if (!$invokable && ($baseAction !== self::DEFAULT_ACTION || $hasParams)) {
             $path .= '/' . self::segmentOf($action);
         }
         foreach ($params as $value) {
@@ -176,10 +177,10 @@ final class ConventionResolver implements ResolverInterface
         $class = $refl->getName();
 
         $testPart = $m->parts[0] ?? '';
-        if ($testPart !== '') {
-            // Action should be lowercase camelcase
-            $base = Str::camelize($testPart, false);
-
+        $base = Str::camelize($testPart, false);
+        // __invoke is the implicit default, never an action segment. The
+        // literal word is still available as an argument of that default.
+        if ($testPart !== '' && strcasecmp($base, RouterInterface::FALLBACK_ACTION) !== 0) {
             foreach ([$base, ...$this->candidates($base, $method)] as $candidate) {
                 if ($this->isOwnedAction($refl, $candidate, $owned)) {
                     throw new RouteNotFoundException(

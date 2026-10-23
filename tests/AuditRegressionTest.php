@@ -343,4 +343,37 @@ class AuditRegressionTest extends TestCase
         $this->assertSame(307, $response->getStatusCode());
         $this->assertSame('/test-module/demo', $response->getHeaderLine('Location'));
     }
+
+    public function testAppLocaleAndRegisteredRegionalCatalogHaveTheSameIdentity(): void
+    {
+        $app = (new App(__DIR__))
+            ->locales(['FR_be'])
+            ->routing(TrailingSlash::Preserve, true)
+            ->boot();
+        $this->assertSame(['fr-be'], $app->getLocales());
+        $translator = $app->container()->get(\Kaly\I18n\TranslatorInterface::class);
+        $this->assertInstanceOf(Translator::class, $translator);
+        $translator->addToCatalog('messages', 'fr-BE', ['regional' => 'Belgique']);
+        $this->assertSame('Belgique', $translator->translate('regional'));
+    }
+
+    public function testInvokableUrlsRoundTripWithoutAnExplicitActionSegment(): void
+    {
+        $app = (new App(__DIR__))
+            ->routing(TrailingSlash::Preserve, true)
+            ->boot();
+        $router = $app->container()->get(\Kaly\Router\RouterInterface::class);
+        $path = $router->urlFor(\TestModule\Controller\SlugController::class, ['hello']);
+        $this->assertSame('/test-module/slug/hello', $path);
+        $response = $app->handle(new ServerRequest('GET', $path));
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('hello', (string) $response->getBody());
+        foreach (['__invoke', '__Invoke', '__-invoke'] as $segment) {
+            $this->assertSame(404, $app->handle(new ServerRequest('GET', '/test-module/slug/' . $segment . '/hello'))->getStatusCode());
+        }
+        // The literal remains an ordinary slug; it must not be swallowed.
+        $response = $app->handle(new ServerRequest('GET', '/test-module/slug/__invoke'));
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('__invoke', (string) $response->getBody());
+    }
 }

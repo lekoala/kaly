@@ -228,4 +228,52 @@ class FileServerTest extends TestCase
         $this->assertSame(404, $response->getStatusCode());
         $this->assertStringNotContainsString('AUDIT-SOURCE-SENTINEL', (string) $response->getBody());
     }
+
+    public function testSymlinkTargetsMustRespectHiddenPathPolicy(): void
+    {
+        $files = [
+            '.env' => 'DOTFILE-SENTINEL',
+            '.git/config' => 'GIT-SENTINEL',
+            'nested/.private/secret.txt' => 'NESTED-SENTINEL',
+            '.well-known/.private/entry.txt' => 'HIDDEN-TOKEN-SENTINEL',
+        ];
+        foreach ($files as $target => $sentinel) {
+            Fs::putFile($this->base . '/public/' . $target, $sentinel);
+            $link = $this->base . '/public/readme.txt';
+            if (!@symlink($this->base . '/public/' . $target, $link)) {
+                $this->markTestSkipped('Symlinks are unavailable');
+            }
+            try {
+                foreach (['GET', 'HEAD'] as $method) {
+                    $response = $this->serve($method, '/readme.txt');
+                    $this->assertSame(404, $response->getStatusCode(), $target);
+                    $this->assertStringNotContainsString($sentinel, (string) $response->getBody());
+                }
+            } finally {
+                unlink($link);
+            }
+        }
+    }
+
+    public function testSymlinksToPublicFilesAndWellKnownTokensAreServed(): void
+    {
+        Fs::putFile($this->base . '/public/.well-known/acme-challenge/entry.txt', 'challenge');
+        foreach (['asset.txt' => 'hello static', '.well-known/acme-challenge/entry.txt' => 'challenge'] as $target => $body) {
+            $link = $this->base . '/public/readme.txt';
+            if (!@symlink($this->base . '/public/' . $target, $link)) {
+                $this->markTestSkipped('Symlinks are unavailable');
+            }
+            try {
+                $response = $this->serve('GET', '/readme.txt');
+                try {
+                    $this->assertSame(200, $response->getStatusCode());
+                    $this->assertSame($body, (string) $response->getBody());
+                } finally {
+                    $response->getBody()->close();
+                }
+            } finally {
+                unlink($link);
+            }
+        }
+    }
 }

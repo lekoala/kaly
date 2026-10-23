@@ -185,6 +185,13 @@ The last resolver of every module maps `controller/action/params`:
   action appears in a route table, only its explicit urls answer (see
   [Route middlewares](#route-middlewares)).
 
+An invokable controller uses the controller path followed directly by its
+arguments: `SlugController::__invoke('hello')` has the conventional url
+`/slug/hello`. `urlFor(SlugController::class, ['hello'])` generates that same path.
+`__invoke` is never an action segment; `/slug/__invoke` passes the literal string
+`'__invoke'` as its first argument. For an invokable `IndexController`, the root
+path is used without arguments, and `/index/{argument}` identifies its arguments.
+
 ### A custom resolver
 
 A resolver decides at runtime whether it knows the url, like pages stored in a

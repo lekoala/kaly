@@ -116,4 +116,51 @@ class TranslatorTest extends TestCase
         $this->assertNotSame($fr, $fr->withLocale('en'));
         $this->assertEquals('Test message', $fr->withLocale('en')->translate('global.test'));
     }
+
+    public function testEquivalentLocaleSpellingsShareOneInMemoryCatalog(): void
+    {
+        $translator = new Translator('fr-be');
+        $translator->addToCatalog('messages', 'fr-BE', ['regional' => 'Belgique']);
+        $translator->addToCatalog('messages', 'FR_be', ['other' => 'Autre']);
+        foreach (['fr-be', 'fr-BE', 'FR_be'] as $locale) {
+            $this->assertSame('Belgique', $translator->translate('regional', locale: $locale));
+            $this->assertSame('Autre', $translator->translate('other', locale: $locale));
+        }
+    }
+
+    public function testRegionalCatalogFilesUseNormalizedLocaleIdentity(): void
+    {
+        $path = sys_get_temp_dir() . '/kaly-regional-[catalog]-' . uniqid();
+        \Kaly\Util\Fs::ensureDir($path);
+        try {
+            foreach (['fr-BE', 'FR_be', 'fr-be'] as $fileLocale) {
+                $file = $path . '/messages.' . $fileLocale . '.php';
+                \Kaly\Util\Fs::putFile($file, '<?php return ["regional" => "Belgique"];');
+                $translator = (new Translator('en'))->addPath($path);
+                foreach (['fr-BE', 'fr_be', 'FR-be'] as $locale) {
+                    $this->assertSame('Belgique', $translator->translate('regional', locale: $locale));
+                }
+                unlink($file);
+            }
+        } finally {
+            \Kaly\Tests\Support\TempDir::remove($path);
+        }
+    }
+
+    public function testDuplicateCatalogFilesForEquivalentLocalesAreRejected(): void
+    {
+        $path = sys_get_temp_dir() . '/kaly-duplicate-catalog-' . uniqid();
+        \Kaly\Util\Fs::ensureDir($path);
+        try {
+            \Kaly\Util\Fs::putFile($path . '/messages.fr-BE.php', '<?php return [];');
+            \Kaly\Util\Fs::putFile($path . '/messages.fr_be.php', '<?php return [];');
+            $this->expectException(\Kaly\Ex::class);
+            $this->expectExceptionMessage('Duplicate translation catalogs');
+            (new Translator('fr-be'))
+                ->addPath($path)
+                ->translate('regional');
+        } finally {
+            \Kaly\Tests\Support\TempDir::remove($path);
+        }
+    }
 }

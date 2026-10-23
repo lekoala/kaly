@@ -69,7 +69,7 @@ final class LocaleResolver
             return $this->defaultLocale;
         }
         foreach ($this->allowedLocales as $allowed) {
-            if (strtolower(str_replace('_', '-', $locale)) === strtolower(str_replace('_', '-', $allowed))) {
+            if (Locale::normalize($locale) === Locale::normalize($allowed)) {
                 return $allowed;
             }
         }

@@ -34,6 +34,7 @@ use Kaly\Http\ResponseEmitterInterface;
 use Kaly\Http\ServerRequestFromGlobals;
 use Kaly\Http\Session\NativePhpSessionProvider;
 use Kaly\Http\Session\SessionProviderInterface;
+use Kaly\I18n\Locale;
 use Kaly\I18n\LocaleResolver;
 use Kaly\I18n\Translator;
 use Kaly\I18n\TranslatorInterface;
@@ -167,7 +168,7 @@ final class App implements RequestHandlerInterface
             $this->debug = Env::getBool(self::ENV_DEBUG);
         }
         if (Env::has(self::ENV_LOCALES)) {
-            $this->locales = array_values(array_map(strtolower(...), Env::getList(self::ENV_LOCALES)));
+            $this->locales = array_values(array_map(Locale::normalize(...), Env::getList(self::ENV_LOCALES)));
         }
         // Without APP_TIMEZONE Kaly leaves the global timezone alone:
         // php.ini or a date_default_timezone_set() done before boot survives.
@@ -236,7 +237,7 @@ final class App implements RequestHandlerInterface
     public function locales(array $locales): self
     {
         $this->assertNotBooted('locales');
-        $this->locales = array_values(array_map(strtolower(...), $locales));
+        $this->locales = array_values(array_map(Locale::normalize(...), $locales));
         return $this;
     }
 
