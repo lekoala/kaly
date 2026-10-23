@@ -2,55 +2,7 @@
 
 ## Unreleased
 
-### Audit follow-up
-
-- `FileServer` applies hidden-path rules to the resolved file as well as the
-  requested path, preventing internal symlinks from exposing `.env`, `.git` or
-  other hidden paths while keeping public `.well-known` files available.
-- Regional translation catalogs share a locale identity across case and
-  underscore/hyphen spellings, both in memory and on disk. Application locales
-  use lowercase hyphenated tags. Two files for the same domain and locale in
-  one translation directory are rejected instead of choosing one implicitly.
-- A JSON request body no longer overrides a response content type refusal.
-  Accept and Accept-Language weights must be decimal values from 0 to 1 with
-  at most three fractional digits; malformed values are treated as refusals.
-- **Breaking:** conventional invokable urls omit the `__invoke` action segment:
-  `/slug/hello` replaces `/slug/__invoke/hello`. The literal `__invoke` remains
-  available as an ordinary action argument, and is never consumed as an action
-  name.
-
-### Framework audit (2026-10-23)
-
-- **Breaking:** middleware registries lock after boot; register middleware before
-  boot or in an `onBoot()` hook. Module template namespaces use the module id
-  (`Booking` → `@booking`, `TestModule` → `@test-module`).
-- **Breaking:** `ForbiddenException`, `NotFoundException` and
-  `TooManyRequestsException` no longer accept a configurable status; their
-  optional previous exception follows the message. Framework failures in Asset,
-  I18n and Util now use `Kaly\Ex` instead of native argument/runtime exceptions.
-- **Behavior changes:** `Str::camelize()` preserves existing interior capitals
-  and underscores, and handles Unicode initials and empty words safely.
-  `Str::stringify()` retains numeric values. Application locale configuration
-  uses lowercase. Isolated array sessions ignore incoming ids, and the memory
-  session provider restores only known ids.
-- Fix route precedence and literal path matching, validate regex constraints at
-  compilation, correct conventional canonical redirects and invokable `index`
-  arguments, sanitize locale redirects and omit empty query strings.
-- Replace recursive translation fallbacks with a finite search, use the app
-  default locale, validate catalog paths and avoid caching nonexistent catalogs.
-  Translate errors before routing while preserving their original exception type.
-- Ignore malformed session cookies; validate Host and exception response headers;
-  prevent absolute request targets from overriding SAPI authority and scheme;
-  reject forbidden file sources reached through symlinks.
-- Respect specific content/language refusals, distinguish WOFF and WOFF2 MIME
-  types, scope input conflicts to DTO fields, reject JSON empty numeric strings
-  and reject NaN in range checks. Ignore invalid forwarded host ports atomically
-  and recognize IPv4-mapped IPv6 proxies against IPv4 networks.
-- Bound CSRF token decoding, compare Basic credentials through fixed-size hashes,
-  escape log line breaks and lock appends. Cookies and file logs accept the
-  application clock. Reuse cached controller reflections.
-- Decode stored test-client cookies, replay multipart redirects correctly and
-  allow asset pruning before publication.
+## 0.5.0 - 2026-10-23
 
 ### Added
 
@@ -69,13 +21,6 @@
   preloading. Over HTTP with a shared opcache, a classic request costs ~0.73 ms,
   ~0.69 ms with preloading and ~0.31 ms in a worker; for an application loading
   ~1,700 classes per request, ~2.2 ms, ~1.5 ms and ~1.3 ms.
-
-- `App` automatically loads `.env.local` before `.env`, preserving existing
-  environment values. `IGNORE_DOT_ENV=1` or `loadEnv: false` skips both files.
-  The PHPUnit configuration disables all env file loading by default.
-  Version `.env` with safe defaults and ignore `.env.local` for local secrets.
-  **Behavior change:** an existing `.env.local` is now loaded automatically;
-  review its contents when upgrading and remove secrets before tracking `.env`.
 - `Env::parse()` parses and validates a `.env` file without touching the
   environment, eg to check the versioned `.env` in a test.
 - `Kaly\Util\Args` parses the arguments of a CLI script against declared flags
@@ -85,11 +30,38 @@
   advanced capabilities (join, savepoint, rollback-only) left to the application.
 - The security guide documents the trust boundary of signatures and a staged
   secret rotation with two `Hmac` instances.
+- Cookies and file logs accept the application clock.
+
+### Changed
+
+- **Breaking:** middleware registries lock after boot; register middleware before
+  boot or in an `onBoot()` hook.
+- **Breaking:** module template namespaces use the module id
+  (`Booking` → `@booking`, `TestModule` → `@test-module`).
+- **Breaking:** `ForbiddenException`, `NotFoundException` and
+  `TooManyRequestsException` no longer accept a configurable status; their
+  optional previous exception follows the message.
+- **Breaking:** framework failures in Asset, I18n and Util now use `Kaly\Ex`
+  instead of native argument/runtime exceptions.
+- **Breaking:** conventional invokable urls omit the `__invoke` action segment:
+  `/slug/hello` replaces `/slug/__invoke/hello`. The literal `__invoke` remains
+  available as an ordinary action argument, and is never consumed as an action
+  name.
+- **Behavior change:** `Str::camelize()` preserves existing interior capitals
+  and underscores, and handles Unicode initials and empty words safely.
+- **Behavior change:** application locales use lowercase hyphenated tags.
+  Isolated array sessions ignore incoming ids, and the memory session provider
+  restores only known ids.
+- `App` automatically loads `.env.local` before `.env`, preserving existing
+  environment values. `IGNORE_DOT_ENV=1` or `loadEnv: false` skips both files.
+  The PHPUnit configuration disables all env file loading by default.
+  Version `.env` with safe defaults and ignore `.env.local` for local secrets.
+  **Behavior change:** an existing `.env.local` is now loaded automatically;
+  review its contents when upgrading and remove secrets before tracking `.env`.
+- Controller reflections are reused through the DI cache.
 
 ### Fixed
 
-- `Hmac` rejects an empty purpose like `Secret::deriveKey()`, instead of
-  deriving a key from the bare `kaly.hmac:` prefix.
 - Locale negotiation works again when `APP_LOCALES` is set without url prefixes:
   the router still attaches the default locale to every route, but only an
   explicit route locale (`localeExplicit`) now wins over an incoming middleware
@@ -104,6 +76,54 @@
 - `.env` errors name the file, and a syntax error keeps the line reported by PHP.
 - `Str::truncate()` counts characters instead of bytes, so it no longer cuts a
   multibyte character in half, and trims surrounding whitespace.
+- Static routes precede dynamic routes at equal priority, and static path
+  characters match literally. Regex constraints are validated at compilation.
+- Conventional canonical redirects handle numeric and mixed-case segments,
+  target the correct segment after a repeated prefix, and keep `index` available
+  as an invokable argument. Generated urls omit empty query strings.
+- Translation fallbacks use a finite search and the application default locale,
+  and nonexistent catalogs are not cached. Errors can be translated before
+  routing while preserving their original exception type.
+- Regional translation catalogs share a locale identity across case and
+  underscore/hyphen spellings, both in memory and on disk. Two files for the
+  same domain and locale in one translation directory are rejected instead of
+  choosing one implicitly.
+- Responses below 400 bypass problem JSON and diagnostic/error pages, and 401
+  responses support custom error pages.
+- Composer PSR-4 module detection normalizes paths and supports arrays of paths.
+- A JSON request body no longer overrides a response content type refusal.
+  Specific content/language refusals are respected. Accept and Accept-Language
+  weights must be decimal values from 0 to 1 with at most three fractional
+  digits; malformed values are treated as refusals.
+- WOFF and WOFF2 files use distinct MIME types.
+- Input conflicts are limited to DTO fields without duplicate violations, empty
+  numeric JSON strings are rejected, and range validation rejects NaN.
+- Invalid forwarded host ports are ignored atomically, and IPv4-mapped IPv6
+  proxies are recognized against IPv4 networks.
+- Numeric M.49 regions are parsed as countries, and locale resolution compares
+  locale spellings without case sensitivity.
+- `Str::stringify()` retains numeric values and tolerates invalid UTF-8 and
+  unsupported JSON values in array contexts.
+- Test-client cookies are decoded before replay, multipart redirects retain
+  parsed fields and uploads, and asset pruning checks for the version file
+  before reading it.
+
+### Security
+
+- `Hmac` rejects an empty purpose like `Secret::deriveKey()`, instead of
+  deriving a key from the bare `kaly.hmac:` prefix.
+- Malformed session cookies are ignored before native session startup.
+- Host and exception response headers are validated. Absolute request targets
+  cannot override the SAPI authority or scheme, and locale redirects use a
+  relative Location with the configured trailing-slash policy.
+- `FileServer` checks forbidden extensions and hidden-path rules on the resolved
+  file as well as the requested path, preventing internal symlinks from exposing
+  source files, `.env`, `.git` or other hidden paths while keeping public
+  `.well-known` files available.
+- Translation domains and locales are validated before including catalog files.
+- CSRF token lengths are checked before decoding, and Basic credentials are
+  compared through fixed-size hashes.
+- Log line breaks are escaped to prevent forged entries, and appends are locked.
 
 ### Removed
 
