@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Core;
 
 use Kaly\Auth\Authentication;
+use Kaly\Clock\SystemClock;
 use Kaly\Debug\Profile;
 use Kaly\Http\Cookie\CookiePolicy;
 use Kaly\Http\Cookie\Cookies;
@@ -16,6 +17,7 @@ use Kaly\Http\Session\SessionProviderInterface;
 use Kaly\Router\Route;
 use Kaly\Router\RouterInterface;
 use LogicException;
+use Psr\Clock\ClockInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
@@ -79,6 +81,7 @@ final class HttpContext
         private ?SessionProviderInterface $sessionProvider = null,
         private ?CookiePolicy $cookiePolicy = null,
         private ?Profile $profile = null,
+        private readonly ClockInterface $clock = new SystemClock(),
     ) {}
 
     /** Null when profiling is disabled; request duration is complete before terminate hooks. */
@@ -284,7 +287,7 @@ final class HttpContext
      */
     public function cookies(): Cookies
     {
-        return $this->cookies ??= new Cookies($this->request, $this->cookiePolicy());
+        return $this->cookies ??= new Cookies($this->request, $this->cookiePolicy(), $this->clock);
     }
 
     /**

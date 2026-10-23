@@ -6,7 +6,6 @@ namespace Kaly\Tests;
 
 use Kaly\Ex;
 use Kaly\Util\Args;
-use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -109,26 +108,26 @@ class ArgsTest extends TestCase
 
     public function testUndeclaredFlagIsAProgrammingError(): void
     {
-        $this->expectException(LogicException::class);
+        $this->expectException(\Kaly\Ex::class);
         self::parse([])->flag('format');
     }
 
     public function testUndeclaredValueIsAProgrammingError(): void
     {
-        $this->expectException(LogicException::class);
+        $this->expectException(\Kaly\Ex::class);
         self::parse([])->value('dry-run');
     }
 
     public function testOptionDeclaredTwiceIsAProgrammingError(): void
     {
-        $this->expectException(LogicException::class);
+        $this->expectException(\Kaly\Ex::class);
         $this->expectExceptionMessage('Option --format is declared more than once');
         Args::parse([], flags: ['format'], values: ['format']);
     }
 
     public function testInvalidOptionNameIsAProgrammingError(): void
     {
-        $this->expectException(LogicException::class);
+        $this->expectException(\Kaly\Ex::class);
         Args::parse([], flags: ['--dry-run']);
     }
 }

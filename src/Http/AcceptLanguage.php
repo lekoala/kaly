@@ -81,26 +81,18 @@ final class AcceptLanguage
             return null;
         }
 
-        $refused = array_filter(
-            $this->entries,
-            static fn(AcceptLanguageEntry $entry): bool => $entry->quality <= 0.0 && $entry->language !== '*',
-        );
         foreach ($this->entries as $entry) {
             if ($entry->quality <= 0.0) {
                 continue;
             }
             foreach ($allowed as $candidate) {
-                if (trim($candidate) === '' || !$this->matches($entry, strtolower(trim($candidate)))) {
-                    continue;
+                if (
+                    trim($candidate) !== ''
+                    && $this->matches($entry, strtolower(str_replace('_', '-', trim($candidate))))
+                    && $this->qualityFor($candidate) === $entry->quality
+                ) {
+                    return $candidate;
                 }
-                if ($entry->language === '*') {
-                    foreach ($refused as $refusal) {
-                        if ($this->matches($refusal, strtolower(trim($candidate)))) {
-                            continue 2;
-                        }
-                    }
-                }
-                return $candidate;
             }
         }
         return null;
@@ -114,42 +106,36 @@ final class AcceptLanguage
      */
     public function qualityFor(string $language): float
     {
-        $language = strtolower(trim($language));
-        $best = null;
+        $language = strtolower(str_replace('_', '-', trim($language)));
+        $best = 0.0;
         $bestSpecificity = -1;
         foreach ($this->entries as $entry) {
             if (!$this->matches($entry, $language)) {
                 continue;
             }
-            // An explicit entry is the client's real opinion; the wildcard
-            // only fills the gaps
-            $specificity = $entry->language === '*' ? 0 : 1;
-            if ($best === null || $specificity > $bestSpecificity) {
+            $specificity = $entry->language === '*' ? 0 : count(explode('-', str_replace('_', '-', $entry->language)));
+            if ($specificity > $bestSpecificity) {
                 $best = $entry->quality;
                 $bestSpecificity = $specificity;
             }
         }
-        return $best ?? 0.0;
+        return $best;
     }
 
     /**
      * Does the language tag match the entry, directly or by prefix?
      *
-     * Matching is forgiving in both directions, so "en-US" matches the
-     * supported "en" and the range "en-GB" matches a request for "en".
+     * Positive preferences can fall back to their language, so "en-US" can
+     * select supported "en". Refusals only apply to the named range and its
+     * descendants: refusing "en-GB" does not refuse generic "en".
      */
     private function matches(AcceptLanguageEntry $entry, string $language): bool
     {
-        $tag = strtolower($entry->language);
+        $tag = strtolower(str_replace('_', '-', $entry->language));
         if ($tag === '*' || $tag === $language) {
             return true;
         }
-        return (
-            str_starts_with($language, $tag . '-')
-            || str_starts_with($language, $tag . '_')
-            || str_starts_with($tag, $language . '-')
-            || str_starts_with($tag, $language . '_')
-        );
+        return str_starts_with($language, $tag . '-') || $entry->quality > 0.0 && str_starts_with($tag, $language . '-');
     }
 
     /**

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kaly\Util;
 
 use Kaly\Ex;
-use LogicException;
 
 /**
  * Command line arguments of a `bin/*.php` script, parsed against declared options.
@@ -100,7 +99,7 @@ final class Args
     public function flag(string $name): bool
     {
         if (!array_key_exists($name, $this->flags)) {
-            throw new LogicException("Flag --{$name} is not declared");
+            throw new Ex("Flag --{$name} is not declared");
         }
         return $this->flags[$name];
     }
@@ -111,7 +110,7 @@ final class Args
     public function value(string $name): ?string
     {
         if (!array_key_exists($name, $this->values)) {
-            throw new LogicException("Option --{$name} is not declared");
+            throw new Ex("Option --{$name} is not declared");
         }
         return $this->values[$name];
     }
@@ -146,12 +145,12 @@ final class Args
         $declared = [];
         foreach ($names as $name) {
             if (preg_match('/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/D', $name) !== 1) {
-                throw new LogicException(
+                throw new Ex(
                     "Option name \"{$name}\" must start with a letter or digit and contain only letters, digits, dashes or underscores",
                 );
             }
             if (isset($declared[$name]) || array_key_exists($name, $taken)) {
-                throw new LogicException("Option --{$name} is declared more than once");
+                throw new Ex("Option --{$name} is declared more than once");
             }
             $declared[$name] = $initial;
         }

@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Kaly\Asset;
 
-use InvalidArgumentException;
+use Kaly\Ex;
 use Kaly\Util\Env;
 use Kaly\Util\Fs;
-use RuntimeException;
 
 /**
  * Produces asset URLs. Like the router, it never checks that the file
@@ -61,13 +60,13 @@ final class Assets implements AssetsInterface
     /**
      * @return array{0:string,1:string} [namespace, path]
      *
-     * @throws InvalidArgumentException
+     * @throws Ex
      */
     public static function split(string $asset): array
     {
         $asset = trim(str_replace('\\', '/', $asset));
         if ($asset === '') {
-            throw new InvalidArgumentException('Asset name must not be empty');
+            throw new Ex('Asset name must not be empty');
         }
 
         $namespace = 'app';
@@ -75,14 +74,14 @@ final class Assets implements AssetsInterface
         if (str_starts_with($asset, '@')) {
             $slash = strpos($asset, '/');
             if ($slash === false || $slash <= 1 || $slash === (strlen($asset) - 1)) {
-                throw new InvalidArgumentException("Asset '{$asset}' must look like '@namespace/path'");
+                throw new Ex("Asset '{$asset}' must look like '@namespace/path'");
             }
             $namespace = substr($asset, 1, $slash - 1);
             $path = substr($asset, $slash + 1);
         }
 
         if (!preg_match('/^[a-z0-9][a-z0-9-]*$/D', $namespace)) {
-            throw new InvalidArgumentException("Invalid asset namespace '@{$namespace}'");
+            throw new Ex("Invalid asset namespace '@{$namespace}'");
         }
         self::assertValidPath($path, $asset);
 
@@ -90,7 +89,7 @@ final class Assets implements AssetsInterface
     }
 
     /**
-     * @throws InvalidArgumentException
+     * @throws Ex
      */
     public static function assertValidPath(string $path, string $original = ''): void
     {
@@ -103,7 +102,7 @@ final class Assets implements AssetsInterface
             || str_contains($path, "\0")
             || Fs::hasDotSegment($path)
         ) {
-            throw new InvalidArgumentException("Invalid asset path '{$original}'");
+            throw new Ex("Invalid asset path '{$original}'");
         }
     }
 
@@ -112,7 +111,7 @@ final class Assets implements AssetsInterface
      * APP_ASSETS_VERSION, then the `.version` file written by the publisher.
      * Resolved lazily so an application that never calls asset() never fails.
      *
-     * @throws RuntimeException When nothing was published
+     * @throws Ex When nothing was published
      */
     public function resolveVersion(): string
     {
@@ -139,6 +138,6 @@ final class Assets implements AssetsInterface
             }
         }
 
-        throw new RuntimeException('Assets have not been published: set APP_ASSETS_VERSION or run your asset publisher');
+        throw new Ex('Assets have not been published: set APP_ASSETS_VERSION or run your asset publisher');
     }
 }

@@ -27,7 +27,6 @@ class AlwaysOutgoingTest extends TestCase
     private function app(): App
     {
         $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
-        $app->boot();
         return $app;
     }
 

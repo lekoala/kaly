@@ -14,9 +14,9 @@ use Throwable;
  */
 class ForbiddenException extends HttpException
 {
-    public function __construct(string $message = '', int $code = 403, ?Throwable $previous = null)
+    public function __construct(string $message = '', ?Throwable $previous = null)
     {
-        parent::__construct($message ?: 'Forbidden', $code, [], $previous);
+        parent::__construct($message ?: 'Forbidden', 403, [], $previous);
     }
 
     public function getResponseBody(): string

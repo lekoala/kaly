@@ -217,4 +217,15 @@ class FileServerTest extends TestCase
             $app->shutdown();
         }
     }
+
+    public function testInternalSymlinkCannotExposeForbiddenSource(): void
+    {
+        $link = $this->base . '/public/readme.txt';
+        if (!@symlink($this->base . '/public/sample.php', $link)) {
+            $this->markTestSkipped('Symlinks are unavailable');
+        }
+        $response = $this->serve('GET', '/readme.txt');
+        $this->assertSame(404, $response->getStatusCode());
+        $this->assertStringNotContainsString('AUDIT-SOURCE-SENTINEL', (string) $response->getBody());
+    }
 }

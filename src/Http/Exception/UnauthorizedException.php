@@ -16,6 +16,9 @@ final class UnauthorizedException extends HttpException
 {
     public function __construct(string $challenge, string $message = 'Unauthorized')
     {
+        if (preg_match('/[\x00-\x08\x0A-\x1F\x7F]/', $challenge) === 1) {
+            throw new InvalidArgumentException('Challenge must not contain control characters');
+        }
         $challenge = trim($challenge);
 
         if ($challenge === '') {
@@ -23,5 +26,10 @@ final class UnauthorizedException extends HttpException
         }
 
         parent::__construct($message, 401, ['WWW-Authenticate' => $challenge]);
+    }
+
+    public function getResponseBody(): string
+    {
+        return '';
     }
 }

@@ -34,7 +34,6 @@ class HappyPathTest extends TestCase
     protected function setUp(): void
     {
         $this->app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
-        $this->app->boot();
 
         $this->app
             ->middleware()

@@ -174,7 +174,11 @@ final class Router implements RouterInterface
         }
         if ($locale === null && $localized && $all !== []) {
             $uri = $request->getUri();
-            throw new RedirectException($uri->withPath('/' . $this->locales[0] . '/' . ltrim($uri->getPath(), '/')));
+            throw new RedirectException(RedirectUris::toPath(
+                $request,
+                '/' . $this->locales[0] . '/' . ltrim($uri->getPath(), '/'),
+                $this->trailingSlash,
+            ));
         }
     }
 
@@ -417,8 +421,8 @@ final class Router implements RouterInterface
             TrailingSlash::Remove => RoutePath::withoutTrailingSlash($url),
             TrailingSlash::Preserve => $url,
         };
-        if ($query !== []) {
-            $url .= '?' . http_build_query($query);
+        if (($queryString = http_build_query($query)) !== '') {
+            $url .= '?' . $queryString;
         }
         return $url;
     }

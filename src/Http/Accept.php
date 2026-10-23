@@ -164,14 +164,19 @@ final class Accept
      */
     public function explicitQualityFor(string $type, string $subtype = '*'): float
     {
-        $best = null;
+        $best = 0.0;
+        $bestSpecificity = -1;
         foreach ($this->entries as $entry) {
             if ($entry->media->isWildcard() || !$entry->media->accepts($type, $subtype)) {
                 continue;
             }
-            $best = max($best ?? 0.0, $entry->quality);
+            $specificity = $entry->media->specificity();
+            if ($specificity > $bestSpecificity) {
+                $best = $entry->quality;
+                $bestSpecificity = $specificity;
+            }
         }
-        return $best ?? 0.0;
+        return $best;
     }
 
     /**
@@ -179,12 +184,7 @@ final class Accept
      */
     public function accepts(string $type, string $subtype = '*'): bool
     {
-        foreach ($this->entries as $entry) {
-            if ($entry->media->accepts($type, $subtype)) {
-                return true;
-            }
-        }
-        return false;
+        return $this->qualityFor($type, $subtype) > 0.0;
     }
 
     /**
@@ -196,7 +196,9 @@ final class Accept
     {
         $types = [];
         foreach ($this->entries as $entry) {
-            $types[] = (string) $entry->media;
+            if ($entry->quality > 0.0) {
+                $types[] = (string) $entry->media;
+            }
         }
         return $types;
     }

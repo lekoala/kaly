@@ -143,7 +143,7 @@ class IndexController extends AbstractController
 
     public function view(): View
     {
-        return new View('@TestModule/view', ['title' => 'View test']);
+        return new View('@test-module/view', ['title' => 'View test']);
     }
 
     public function noop(): string

@@ -71,10 +71,11 @@ class HttpExceptionTest extends TestCase
         $this->assertSame(307, (new RedirectException('/x'))->status());
     }
 
-    public function testTheStatusIsOverridable(): void
+    public function testPreviousExceptionDoesNotChangeStatus(): void
     {
-        $this->assertSame(418, (new NotFoundException('teapot', 418))->status());
-        $this->assertSame(401, (new ForbiddenException('token', 401))->status());
+        $previous = new Ex('Cause');
+        $this->assertSame(404, (new NotFoundException('Missing', $previous))->status());
+        $this->assertSame(403, (new ForbiddenException('Denied', $previous))->status());
     }
 
     /**

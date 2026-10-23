@@ -17,13 +17,9 @@ use Throwable;
  */
 class TooManyRequestsException extends HttpException
 {
-    public function __construct(
-        int|DateTimeInterface|null $retryAfter = null,
-        string $message = '',
-        int $code = 429,
-        ?Throwable $previous = null,
-    ) {
-        parent::__construct($message ?: 'Too many requests', $code, self::headers($retryAfter), $previous);
+    public function __construct(int|DateTimeInterface|null $retryAfter = null, string $message = '', ?Throwable $previous = null)
+    {
+        parent::__construct($message ?: 'Too many requests', 429, self::headers($retryAfter), $previous);
     }
 
     public function getResponseBody(): string

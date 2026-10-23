@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use InvalidArgumentException;
 use Kaly\Asset\AssetPublisher;
 use Kaly\Asset\Assets;
 use Kaly\Asset\AssetSources;
+use Kaly\Ex;
 use Kaly\Tests\Support\TempDir;
 use Kaly\Util\Fs;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 class AssetPublisherTest extends TestCase
 {
@@ -163,7 +162,7 @@ class AssetPublisherTest extends TestCase
         try {
             $publisher->publish('v1');
             $this->fail('A RuntimeException was expected');
-        } catch (RuntimeException $e) {
+        } catch (\Kaly\Ex $e) {
             $this->assertStringContainsString('.php', $e->getMessage());
         }
         $this->assertFileDoesNotExist($this->base . '/public/assets/v1/app/evil.php');
@@ -178,7 +177,7 @@ class AssetPublisherTest extends TestCase
         try {
             $publisher->publish('v1');
             $this->fail('A RuntimeException was expected');
-        } catch (RuntimeException $e) {
+        } catch (\Kaly\Ex $e) {
             // The failure happened after the first namespace was published
             $this->assertStringContainsString('.php', $e->getMessage());
         }
@@ -207,7 +206,7 @@ class AssetPublisherTest extends TestCase
         try {
             $publisher->publish('v1');
             $this->fail('A RuntimeException was expected');
-        } catch (RuntimeException $e) {
+        } catch (\Kaly\Ex $e) {
             $this->assertStringContainsString('ymlink', $e->getMessage());
         }
     }
@@ -217,7 +216,7 @@ class AssetPublisherTest extends TestCase
         $this->seedHappyPath();
         $publisher = new AssetPublisher($this->sources(), $this->base . '/public');
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         $publisher->publish('../evil');
     }
 
@@ -274,5 +273,11 @@ class AssetPublisherTest extends TestCase
         $assets = new Assets($this->sources(), $this->base . '/public', false);
 
         $this->assertSame("/assets/{$version}/app/app.js", $assets->url('app.js'));
+    }
+
+    public function testPruneBeforePublishDoesNothing(): void
+    {
+        $publisher = new AssetPublisher($this->sources(), $this->base . '/public');
+        $this->assertSame(0, $publisher->prune());
     }
 }

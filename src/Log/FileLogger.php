@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Kaly\Log;
 
+use Kaly\Clock\SystemClock;
 use Kaly\Util\Str;
+use Psr\Clock\ClockInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LogLevel;
@@ -18,8 +20,11 @@ final class FileLogger extends AbstractLogger
     protected string $destination;
     protected int $level;
 
-    public function __construct(string $destination, string $level = LogLevel::DEBUG)
-    {
+    public function __construct(
+        string $destination,
+        string $level = LogLevel::DEBUG,
+        private readonly ClockInterface $clock = new SystemClock(),
+    ) {
         $this->destination = $destination;
         $this->level = self::getNumericLevel($level);
     }
@@ -67,9 +72,9 @@ final class FileLogger extends AbstractLogger
         if (self::getNumericLevel($level) < $this->level) {
             return;
         }
-        $date = date('Y-m-d H:i:s');
-        $message = self::interpolate($message, $context);
+        $date = $this->clock->now()->format('Y-m-d H:i:s');
+        $message = str_replace(["\r", "\n"], ['\\r', '\\n'], self::interpolate($message, $context));
         $message = "[{$date}] [{$level}] {$message}";
-        file_put_contents($this->destination, $message . "\n", FILE_APPEND);
+        file_put_contents($this->destination, $message . "\n", FILE_APPEND | LOCK_EX);
     }
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\I18n;
 
-use RuntimeException;
+use Kaly\Ex;
 
 /**
  * The portable basic translation subset: PHP catalogs, message ids, domains,
@@ -76,7 +76,7 @@ final class Translator implements TranslatorInterface
         if (is_array($catalog)) {
             return $catalog;
         }
-        throw new RuntimeException('Ran into an invalid catalog value, check buildCatalog function');
+        throw new Ex('Ran into an invalid catalog value, check buildCatalog function');
     }
 
     /**
@@ -96,22 +96,38 @@ final class Translator implements TranslatorInterface
 
     protected function buildCatalog(string $name, string $locale): void
     {
+        if (
+            !Locale::isValid($locale)
+            || str_contains($locale, '/')
+            || str_contains($locale, '\\')
+            || $name === ''
+            || str_contains($name, '..')
+            || str_contains($name, '/')
+            || str_contains($name, '\\')
+            || str_contains($name, "\0")
+        ) {
+            throw new Ex('Invalid translation domain or locale');
+        }
         $merged = [];
+        $found = false;
         foreach ($this->paths as $path) {
             $file = $path . "/{$name}.{$locale}.php";
             if (!is_file($file)) {
                 continue;
             }
+            $found = true;
             $result = require $file;
             if (!is_array($result)) {
-                throw new RuntimeException("Translation file '{$file}' must return an array");
+                throw new Ex("Translation file '{$file}' must return an array");
             }
             // Later paths win key by key, without dropping the other messages
             foreach (self::flatten($result, $file) as $id => $translation) {
                 $merged[$id] = $translation;
             }
         }
-        $this->catalogs[$name][$locale] = $merged;
+        if ($found) {
+            $this->catalogs[$name][$locale] = $merged;
+        }
     }
 
     /**
@@ -136,7 +152,7 @@ final class Translator implements TranslatorInterface
             }
             foreach ($nested as $nestedId => $nestedValue) {
                 if (array_key_exists($nestedId, $flat)) {
-                    throw new RuntimeException("Ambiguous translation id '{$nestedId}' in '{$source}'");
+                    throw new Ex("Ambiguous translation id '{$nestedId}' in '{$source}'");
                 }
                 $flat[$nestedId] = $nestedValue;
             }
@@ -157,24 +173,14 @@ final class Translator implements TranslatorInterface
             $locale = $this->defaultLocale;
         }
         if (!$locale) {
-            throw new RuntimeException('No locale set for translation');
+            throw new Ex('No locale set for translation');
         }
-        $catalog = $this->getCatalog($domain, $locale);
-
-        // Presence is existence, never truthiness: '' and '0' are valid
-        if (array_key_exists($message, $catalog) && (is_string($catalog[$message]) || is_scalar($catalog[$message]))) {
-            return strtr((string) $catalog[$message], $parameters);
-        }
-
-        // Attempt fallback to lang
-        $lang = Locale::language($locale);
-        if ($locale !== $lang) {
-            return $this->translate($message, $parameters, $domain, $lang);
-        }
-
-        // Attempt fallback in default locale
-        if ($locale !== $this->defaultLocale && $this->defaultLocale) {
-            return $this->translate($message, $parameters, $domain, $this->defaultLocale);
+        $locales = array_unique([$locale, Locale::language($locale), $this->defaultLocale, Locale::language($this->defaultLocale)]);
+        foreach ($locales as $candidate) {
+            $catalog = $this->getCatalog($domain, $candidate);
+            if (array_key_exists($message, $catalog) && is_scalar($catalog[$message])) {
+                return strtr((string) $catalog[$message], $parameters);
+            }
         }
 
         // A missing key returns the id itself, formatted with the parameters

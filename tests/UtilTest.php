@@ -14,14 +14,14 @@ class UtilTest extends TestCase
     public function testCamelize(): void
     {
         $arr = [
-            'my_string' => 'My_String',
+            'my_string' => 'My_string',
             'my-string' => 'MyString',
             'mystring' => 'Mystring',
             'Mystring' => 'Mystring',
-            'MYSTRING' => 'Mystring',
-            'MySTRING' => 'Mystring',
+            'MYSTRING' => 'MYSTRING',
+            'MySTRING' => 'MySTRING',
             // utf 8 support
-            'MySTRINGÜ' => 'Mystringü',
+            'MySTRINGÜ' => 'MySTRINGÜ',
             'üstring' => 'Üstring',
         ];
         foreach ($arr as $str => $expected) {
@@ -32,7 +32,7 @@ class UtilTest extends TestCase
     public function testDecamelize(): void
     {
         $arr = [
-            'My_String' => 'my_string',
+            'My_string' => 'my_string',
             'myString' => 'my-string',
             'mySTRING' => 'my-string',
             'my_STR_ing' => 'my_str_ing',
@@ -121,8 +121,8 @@ class UtilTest extends TestCase
     public function testStringify(): void
     {
         $this->assertSame('text', Str::stringify('text'));
-        $this->assertSame('int', Str::stringify(42));
-        $this->assertSame('float', Str::stringify(3.5));
+        $this->assertSame('42', Str::stringify(42));
+        $this->assertSame('3.5', Str::stringify(3.5));
         $this->assertSame('(bool) true', Str::stringify(true));
         $this->assertSame('(bool) false', Str::stringify(false));
         $this->assertSame('null', Str::stringify(null));

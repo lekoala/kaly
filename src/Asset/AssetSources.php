@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Asset;
 
-use InvalidArgumentException;
+use Kaly\Ex;
 use Kaly\Util\Fs;
 
 /**
@@ -31,7 +31,7 @@ final class AssetSources
         foreach ($this->sources as $namespace => $dir) {
             $namespace = trim((string) $namespace);
             if ($namespace === '' || !preg_match('/^[a-z0-9][a-z0-9-]*$/D', $namespace)) {
-                throw new InvalidArgumentException("Invalid asset namespace '{$namespace}'");
+                throw new Ex("Invalid asset namespace '{$namespace}'");
             }
             $normalized[$namespace] = Fs::dir($dir);
         }
@@ -54,12 +54,12 @@ final class AssetSources
     /**
      * The absolute source directory of a namespace.
      *
-     * @throws InvalidArgumentException When the namespace is unknown
+     * @throws Ex When the namespace is unknown
      */
     public function get(string $namespace): string
     {
         if (!array_key_exists($namespace, $this->sources)) {
-            throw new InvalidArgumentException("Unknown asset namespace '@{$namespace}'");
+            throw new Ex("Unknown asset namespace '@{$namespace}'");
         }
         return $this->sources[$namespace];
     }

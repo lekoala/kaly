@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Http;
 
+use Kaly\Http\Exception\BadRequestException;
 use Psr\Http\Message\ServerRequestFactoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
@@ -85,15 +86,37 @@ final class ServerRequestFromGlobals
         $scheme = $https !== null && $https !== '' && strtolower($https) !== 'off' ? 'https' : 'http';
 
         $host = self::string($server, 'HTTP_HOST') ?? self::string($server, 'SERVER_NAME') ?? 'localhost';
+        if (
+            preg_match('/^(?:\[[0-9a-fA-F:.]+\]|[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?)(?::([0-9]{1,5}))?$/D', $host, $matches) !== 1
+            || isset($matches[1]) && ((int) $matches[1] < 1 || (int) $matches[1] > 65_535)
+        ) {
+            throw new BadRequestException('Invalid Host header');
+        }
+        if (str_starts_with($host, '[')) {
+            $end = strpos($host, ']');
+            if ($end === false || filter_var(substr($host, 1, $end - 1), FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) === false) {
+                throw new BadRequestException('Invalid Host header');
+            }
+        }
         $port = self::string($server, 'SERVER_PORT');
-        if (!str_contains($host, ':') && !str_starts_with($host, '[') && $port !== null && !in_array($port, ['80', '443'], true)) {
+        if (
+            !isset($matches[1])
+            && $port !== null
+            && ctype_digit($port)
+            && (int) $port > 0
+            && (int) $port <= 65_535
+            && !in_array($port, ['80', '443'], true)
+        ) {
             $host .= ':' . $port;
         }
 
         $target = self::string($server, 'REQUEST_URI') ?? '/';
-        // Absolute-form request target (eg: through a forward proxy)
         if (preg_match('#^[a-z][a-z0-9+.-]*://#i', $target) === 1) {
-            return $target;
+            $parts = parse_url($target);
+            if ($parts === false) {
+                throw new BadRequestException('Invalid request target');
+            }
+            $target = ($parts['path'] ?? '/') . (isset($parts['query']) ? '?' . $parts['query'] : '');
         }
         if (!str_contains($target, '?')) {
             $query = self::string($server, 'QUERY_STRING');
@@ -102,7 +125,7 @@ final class ServerRequestFromGlobals
             }
         }
 
-        return $scheme . '://' . $host . '/' . ltrim($target, '/');
+        return $scheme . '://' . $host . (str_starts_with($target, '/') ? $target : '/' . $target);
     }
 
     /**

@@ -69,8 +69,7 @@ class FinalScenarioTest extends TestCase
             ->routing(TrailingSlash::Preserve, false)
             ->configure(static function (Definitions $di): void {
                 $di->rebind(SessionProviderInterface::class, new MemorySessionProvider());
-            })
-            ->boot();
+            });
         $this->app->middleware()->incoming(FileServer::class, priority: -100)->incoming(PreventSensitivePathAccess::class);
     }
 
@@ -82,6 +81,7 @@ class FinalScenarioTest extends TestCase
 
     public function testOneBootServesEveryScenarioWithoutLeakingBetweenCycles(): void
     {
+        $this->app->boot();
         // Dotted application routes reach their handler, served files win first
         $client = TestClient::for($this->app);
         $client->get('/sitemap.xml')->assertStatus(200)->assertBody('invoked');

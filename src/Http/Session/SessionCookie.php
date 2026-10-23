@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Kaly\Http\Session;
 
-use InvalidArgumentException;
+use Kaly\Clock\SystemClock;
 use Kaly\Http\Cookie\CookiePolicy;
 use Kaly\Http\Cookie\SetCookieHeader;
+use Psr\Clock\ClockInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -25,10 +26,7 @@ final class SessionCookie
     public static function idFromRequest(ServerRequestInterface $request, string $name): ?string
     {
         $param = $request->getCookieParams()[$name] ?? null;
-        if ($param !== null && !is_string($param)) {
-            throw new InvalidArgumentException('Session cookie value must be a string');
-        }
-        return is_string($param) && $param !== '' ? $param : null;
+        return is_string($param) && preg_match('/^[a-zA-Z0-9,-]{1,128}$/D', $param) === 1 ? $param : null;
     }
 
     /**
@@ -58,6 +56,7 @@ final class SessionCookie
         CookieSessionInterface $session,
         ServerRequestInterface $request,
         ResponseInterface $response,
+        ClockInterface $clock = new SystemClock(),
     ): ResponseInterface {
         $session->close();
 
@@ -67,7 +66,7 @@ final class SessionCookie
         if ($session->isDestroyed()) {
             return $current === null
                 ? $response
-                : $response->withAddedHeader('Set-Cookie', SetCookieHeader::build($name, '', $session->getCookieParams(), true));
+                : $response->withAddedHeader('Set-Cookie', SetCookieHeader::build($name, '', $session->getCookieParams(), true, $clock));
         }
 
         $id = $session->getId();
@@ -75,6 +74,6 @@ final class SessionCookie
             return $response;
         }
 
-        return $response->withAddedHeader('Set-Cookie', SetCookieHeader::build($name, $id, $session->getCookieParams()));
+        return $response->withAddedHeader('Set-Cookie', SetCookieHeader::build($name, $id, $session->getCookieParams(), clock: $clock));
     }
 }

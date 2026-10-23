@@ -25,7 +25,8 @@ final class ContentType
     public const JPEG = 'image/jpeg';
     // others
     public const PDF = 'application/pdf';
-    public const WOFF = 'font/woff2';
+    public const WOFF = 'font/woff';
+    public const WOFF2 = 'font/woff2';
     public const XML = 'application/xml';
 
     /**
@@ -46,7 +47,8 @@ final class ContentType
             'jpg', 'jpeg' => self::JPEG,
             'gif' => self::GIF,
             'pdf' => self::PDF,
-            'woff', 'woff2' => self::WOFF,
+            'woff' => self::WOFF,
+            'woff2' => self::WOFF2,
             'xml' => self::XML,
             'csv' => self::CSV,
             default => Fs::contentType($filename),

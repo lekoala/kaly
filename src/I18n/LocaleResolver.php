@@ -68,10 +68,12 @@ final class LocaleResolver
         if (!Locale::isValid($locale)) {
             return $this->defaultLocale;
         }
-        if ($this->allowedLocales !== [] && !in_array($locale, $this->allowedLocales, true)) {
-            return $this->defaultLocale;
+        foreach ($this->allowedLocales as $allowed) {
+            if (strtolower(str_replace('_', '-', $locale)) === strtolower(str_replace('_', '-', $allowed))) {
+                return $allowed;
+            }
         }
-        return $locale;
+        return $this->allowedLocales === [] ? $locale : $this->defaultLocale;
     }
 
     public function getDefaultLocale(): string

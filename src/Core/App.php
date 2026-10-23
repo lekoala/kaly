@@ -167,7 +167,7 @@ final class App implements RequestHandlerInterface
             $this->debug = Env::getBool(self::ENV_DEBUG);
         }
         if (Env::has(self::ENV_LOCALES)) {
-            $this->locales = Env::getList(self::ENV_LOCALES);
+            $this->locales = array_values(array_map(strtolower(...), Env::getList(self::ENV_LOCALES)));
         }
         // Without APP_TIMEZONE Kaly leaves the global timezone alone:
         // php.ini or a date_default_timezone_set() done before boot survives.
@@ -236,7 +236,7 @@ final class App implements RequestHandlerInterface
     public function locales(array $locales): self
     {
         $this->assertNotBooted('locales');
-        $this->locales = array_values($locales);
+        $this->locales = array_values(array_map(strtolower(...), $locales));
         return $this;
     }
 
@@ -318,7 +318,7 @@ final class App implements RequestHandlerInterface
     }
 
     /**
-     * The middleware configuration. It can be used before or after boot:
+     * The middleware configuration, mutable until boot completes:
      *
      * ```php
      * $app->middleware()
@@ -377,9 +377,11 @@ final class App implements RequestHandlerInterface
                 $this->container->get(CookiePolicy::class),
                 profiling: $this->profiling,
                 serverTiming: $this->serverTiming,
+                clock: $this->container->get(ClockInterface::class),
             );
 
             $this->hooks->boot($this);
+            $this->middleware->lock();
 
             // Available only once everything above succeeded
             $this->booted = true;
@@ -427,6 +429,11 @@ final class App implements RequestHandlerInterface
             }
             $response = $this->handle($request ?? $this->requestFromGlobals());
         } catch (Throwable $ex) {
+            if ($this->container !== null && $ex instanceof \Kaly\Http\Exception\HttpExceptionInterface) {
+                $response = $this->container->get(ExceptionHandlerInterface::class)->toResponse($ex, $request);
+                $this->container->get(ResponseEmitterInterface::class)->emit($response);
+                return;
+            }
             ErrorHandler::setServerErrorCode(500);
             echo ErrorHandler::generateError($ex);
             return;
@@ -477,7 +484,7 @@ final class App implements RequestHandlerInterface
     }
 
     /**
-     * @return array{name?:string,autoload?:array{psr-4?:array<string,string>}}
+     * @return array{name?:string,autoload?:array{psr-4?:array<string,string|list<string>>}}
      */
     public function composerInfo(): array
     {
@@ -486,7 +493,7 @@ final class App implements RequestHandlerInterface
             return [];
         }
         // composer.json is decoded as a plain array; callers read well-formed entries only
-        /** @var array{name?:string,autoload?:array{psr-4?:array<string,string>}} $data */
+        /** @var array{name?:string,autoload?:array{psr-4?:array<string,string|list<string>>}} $data */
         $data = Json::decodeMap(Fs::getFile($filename));
         return $data;
     }
@@ -533,6 +540,10 @@ final class App implements RequestHandlerInterface
             if (!$definitions->has($interface)) {
                 $definitions->bind($interface, $className);
             }
+        }
+
+        if (!array_key_exists('defaultLocale', $definitions->parametersFor(Translator::class))) {
+            $definitions->parameter(Translator::class, 'defaultLocale', $this->locales[0] ?? 'en');
         }
 
         // A timezone is configuration, not an autowired DateTimeZone service.
@@ -621,7 +632,13 @@ final class App implements RequestHandlerInterface
                     // retention is the application's own PSR-3 binding.
                     $logDir = $this->paths->logs();
                     Fs::ensureDir($logDir);
-                    $definitions->set(self::DEBUG_LOGGER, new FileLogger(Fs::join($logDir, 'debug.log')));
+                    $definitions->set(
+                        self::DEBUG_LOGGER,
+                        static fn(Container $container): FileLogger => new FileLogger(
+                            Fs::join($logDir, 'debug.log'),
+                            clock: $container->get(ClockInterface::class),
+                        ),
+                    );
                 } else {
                     $definitions->set(self::DEBUG_LOGGER, NullLogger::class);
                 }
@@ -668,7 +685,12 @@ final class App implements RequestHandlerInterface
     private function loadModules(): Definitions
     {
         $psr4 = $this->composerInfo()['autoload']['psr-4'] ?? [];
-        $psr4Paths = array_flip($psr4);
+        $psr4Paths = [];
+        foreach ($psr4 as $paths) {
+            foreach ((array) $paths as $path) {
+                $psr4Paths[Fs::dir($path)] = true;
+            }
+        }
 
         $modules = [];
         $order = 0;

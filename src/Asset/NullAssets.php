@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Asset;
 
-use RuntimeException;
+use Kaly\Ex;
 
 /**
  * The `asset` template variable when no AssetsInterface is bound: the
@@ -15,6 +15,6 @@ final class NullAssets implements AssetsInterface
 {
     public function url(string $asset): string
     {
-        throw new RuntimeException("Cannot produce the url of asset '{$asset}': no " . AssetsInterface::class . ' is bound');
+        throw new Ex("Cannot produce the url of asset '{$asset}': no " . AssetsInterface::class . ' is bound');
     }
 }

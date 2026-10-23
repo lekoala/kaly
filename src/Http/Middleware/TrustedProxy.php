@@ -67,7 +67,7 @@ final readonly class TrustedProxy implements MiddlewareInterface
         }
 
         $host = self::first($request, 'X-Forwarded-Host');
-        if (preg_match(self::HOST, $host, $matches) === 1) {
+        if (preg_match(self::HOST, $host, $matches) === 1 && (!isset($matches[1]) || self::port($matches[1]) !== null)) {
             $port = isset($matches[1]) ? self::port($matches[1]) : null;
             $uri = $uri->withHost(isset($matches[1]) ? substr($host, 0, -strlen($matches[1]) - 1) : $host)->withPort($port);
             $portChanged = false;
@@ -112,6 +112,9 @@ final readonly class TrustedProxy implements MiddlewareInterface
         $packed = @inet_pton($ip);
         if ($packed === false) {
             return false;
+        }
+        if (strlen($packed) === 16 && substr($packed, 0, 12) === str_repeat("\0", 10) . "\xff\xff") {
+            $packed = substr($packed, 12);
         }
         foreach ($this->networks as [$network, $prefix]) {
             if (strlen($network) !== strlen($packed)) {

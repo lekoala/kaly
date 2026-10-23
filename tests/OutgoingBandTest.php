@@ -31,7 +31,6 @@ class OutgoingBandTest extends TestCase
     private function app(): App
     {
         $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
-        $app->boot();
         return $app;
     }
 
@@ -206,7 +205,6 @@ class OutgoingBandTest extends TestCase
         $app->configure(static function (Definitions $definitions) use ($logger): void {
             $definitions->rebind(App::DEBUG_LOGGER, $logger);
         });
-        $app->boot();
 
         $app->middleware()->outgoing(TestOutgoing::class);
         // A finalizer changes the status after the response was produced.

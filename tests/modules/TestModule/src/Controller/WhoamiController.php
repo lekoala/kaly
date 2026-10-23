@@ -14,6 +14,6 @@ class WhoamiController extends AbstractController
 {
     public function index(): View
     {
-        return new View('@TestModule/whoami');
+        return new View('@test-module/whoami');
     }
 }

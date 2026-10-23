@@ -281,7 +281,7 @@ class TypedTranslationTest extends TestCase
         $response = $this->handler()->toResponse($this->emailException(), new ServerRequest('GET', '/'));
 
         $this->assertSame(422, $response->getStatusCode());
-        $this->assertSame('This value is not a valid email address', (string) $response->getBody());
+        $this->assertSame('This email address is not valid', (string) $response->getBody());
     }
 
     public function testHandlerProducesLocalizedProblemJson(): void

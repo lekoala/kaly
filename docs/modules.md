@@ -291,3 +291,5 @@ composition per route would break singletons already resolved.
 > **Modules are always registered, but their runtime dependencies are demand driven.
 > Route specific behaviour belongs after routing, not in module registration.**
 
+Template namespaces use the module id, just like routes and assets: a module
+folder `Booking` registers `@booking/`, and `TestModule` registers `@test-module/`.

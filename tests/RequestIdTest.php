@@ -72,7 +72,6 @@ class RequestIdTest extends TestCase
     {
         $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->middleware()->outgoing(RequestIdHeader::class, always: true);
-        $app->boot();
         return $app;
     }
 }

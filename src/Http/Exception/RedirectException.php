@@ -62,6 +62,9 @@ class RedirectException extends HttpException
             throw new InvalidArgumentException("{$code} is not a redirect status, expected one of " . implode(', ', self::REDIRECT_CODES));
         }
         $this->url = (string) $url;
+        if (preg_match('/[\x00-\x08\x0A-\x1F\x7F]/', $this->url) === 1) {
+            throw new InvalidArgumentException('Redirect URL must not contain control characters');
+        }
 
         parent::__construct('You are being redirected to ' . $url, $code, ['Location' => $this->url], $previous);
     }

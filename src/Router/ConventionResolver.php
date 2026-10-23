@@ -112,7 +112,13 @@ final class ConventionResolver implements ResolverInterface
 
     private function redirect(ConventionMatch $m, string $remove, string $replace = ''): RedirectException
     {
-        return new RedirectException(RedirectUris::replaceSegment($m->request, $remove, $replace, $this->trailingSlash));
+        return new RedirectException(RedirectUris::replaceSegment(
+            $m->request,
+            $remove,
+            $replace,
+            $this->trailingSlash,
+            count(RoutePath::segments($m->request->getUri()->getPath())) - count($m->parts),
+        ));
     }
 
     /**
@@ -126,17 +132,6 @@ final class ConventionResolver implements ResolverInterface
         $part = $m->parts[0] ?? '';
         $camelPart = Str::camelize($part);
 
-        // Don't allow calling camelized parts, we use lowercase
-        if ($part && $part === $camelPart) {
-            throw $this->redirect($m, $camelPart, Str::decamelize($camelPart));
-        }
-
-        // Do not allow direct /index calls
-        $defaultController = strtolower(self::DEFAULT_CONTROLLER);
-        if ($part === $defaultController && count($m->parts) === 1) {
-            throw $this->redirect($m, $defaultController);
-        }
-
         $controller = ($part ? $camelPart : self::DEFAULT_CONTROLLER) . self::CONTROLLER_SUFFIX;
         $class = $namespace . '\\' . self::CONTROLLER_NAMESPACE . '\\' . $controller;
 
@@ -148,6 +143,14 @@ final class ConventionResolver implements ResolverInterface
         }
         if ($reflection->isAbstract()) {
             throw new RouteNotFoundException("Route '{$path}' not found, '{$class}' isn't instantiable");
+        }
+
+        $canonical = Str::decamelize(substr($reflection->getShortName(), 0, -strlen(self::CONTROLLER_SUFFIX)));
+        if ($part !== '' && $part !== $canonical) {
+            throw $this->redirect($m, $part, $canonical);
+        }
+        if ($part === strtolower(self::DEFAULT_CONTROLLER) && count($m->parts) === 1) {
+            throw $this->redirect($m, $part);
         }
 
         array_shift($m->parts);
@@ -187,8 +190,8 @@ final class ConventionResolver implements ResolverInterface
 
             // Do not allow controller/index to be called directly because it would create duplicated urls
             // This only applies if no other parameters is passed in the url
-            if ($base === self::DEFAULT_ACTION && count($m->parts) === 1) {
-                throw $this->redirect($m, self::DEFAULT_ACTION);
+            if ($base === self::DEFAULT_ACTION && count($m->parts) === 1 && $this->canonicalSegment($refl, $base, $owned) !== null) {
+                throw $this->redirect($m, $testPart);
             }
 
             $action = $this->selectAction($refl, $base, $method, $owned);

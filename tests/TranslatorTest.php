@@ -74,7 +74,7 @@ class TranslatorTest extends TestCase
     {
         $translator = new Translator('en');
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(\Kaly\Ex::class);
         $this->expectExceptionMessage("Ambiguous translation id 'hello.world' in 'added catalog'");
         $translator->addToCatalog('messages', 'en', [
             'hello.world' => 'Hello %name%',

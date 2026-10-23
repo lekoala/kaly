@@ -7,7 +7,7 @@ namespace Kaly\Tests;
 use DateInvalidTimeZoneException;
 use DateTime;
 use DateTimeZone;
-use InvalidArgumentException;
+use Kaly\Ex;
 use Kaly\Util\Dates;
 use PHPUnit\Framework\TestCase;
 
@@ -95,7 +95,7 @@ class DatesTest extends TestCase
         // America/Sao_Paulo sprang forward at midnight on 2018-11-04
         $this->assertNull(Dates::tryDate('2018-11-04', 'America/Sao_Paulo'));
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         Dates::date('2018-11-04', 'America/Sao_Paulo');
     }
 
@@ -126,7 +126,7 @@ class DatesTest extends TestCase
     {
         $this->assertNull(Dates::tryDate('2026-02-31'));
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         Dates::date('2026-02-31');
     }
 
@@ -210,7 +210,7 @@ class DatesTest extends TestCase
     {
         $this->assertNull(Dates::tryInstant('tomorrow'));
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         Dates::instant('tomorrow');
     }
 
@@ -232,7 +232,7 @@ class DatesTest extends TestCase
         $this->assertNull(Dates::tryInstant('2026-10-08T12:30:00'));
         $this->assertNull(Dates::tryInstant('2026-02-31T12:30:00Z'));
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         Dates::instant('2026-10-08T12:30:00');
     }
 
@@ -267,7 +267,7 @@ class DatesTest extends TestCase
         // A local time skipped by a DST transition is rejected with seconds too
         $this->assertNull(Dates::tryAt('2018-11-04', '00:30:15', 'America/Sao_Paulo'));
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         Dates::at('2026-10-07', '24:00');
     }
 

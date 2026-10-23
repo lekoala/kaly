@@ -8,7 +8,7 @@ use ArrayObject;
 use DateTime;
 use DateTimeImmutable;
 use DateTimeInterface;
-use InvalidArgumentException;
+use Kaly\Ex;
 use Kaly\Util\Assert;
 use PHPUnit\Framework\TestCase;
 use stdClass;
@@ -28,7 +28,7 @@ class AssertTest extends TestCase
 
     public function testNotNullRefusesNull(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         $this->expectExceptionMessage('Expected non-null value, got null');
         Assert::notNull(null);
     }
@@ -40,7 +40,7 @@ class AssertTest extends TestCase
         try {
             Assert::string(42);
             $this->fail('string should have failed');
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Kaly\Ex $exception) {
             $this->assertSame('Expected string, got int', $exception->getMessage());
         }
     }
@@ -53,7 +53,7 @@ class AssertTest extends TestCase
             try {
                 Assert::stringNotEmpty($value);
                 $this->fail('stringNotEmpty should have failed');
-            } catch (InvalidArgumentException $exception) {
+            } catch (\Kaly\Ex $exception) {
                 $this->assertSame('Expected non-empty string, got ' . get_debug_type($value), $exception->getMessage());
             }
         }
@@ -67,7 +67,7 @@ class AssertTest extends TestCase
             try {
                 Assert::integer($value);
                 $this->fail('integer should have failed');
-            } catch (InvalidArgumentException $exception) {
+            } catch (\Kaly\Ex $exception) {
                 $this->assertSame('Expected integer, got ' . get_debug_type($value), $exception->getMessage());
             }
         }
@@ -80,7 +80,7 @@ class AssertTest extends TestCase
             try {
                 Assert::positiveInteger($value);
                 $this->fail('positiveInteger should have failed');
-            } catch (InvalidArgumentException $exception) {
+            } catch (\Kaly\Ex $exception) {
                 $this->assertSame('Expected positive integer, got ' . get_debug_type($value), $exception->getMessage());
             }
         }
@@ -94,7 +94,7 @@ class AssertTest extends TestCase
             try {
                 Assert::boolean($value);
                 $this->fail('boolean should have failed');
-            } catch (InvalidArgumentException $exception) {
+            } catch (\Kaly\Ex $exception) {
                 $this->assertSame('Expected boolean, got ' . get_debug_type($value), $exception->getMessage());
             }
         }
@@ -104,7 +104,7 @@ class AssertTest extends TestCase
     {
         $this->assertSame([], Assert::array([]));
         $this->assertSame(['a' => 1], Assert::array(['a' => 1]));
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         Assert::array('foo');
     }
 
@@ -119,7 +119,7 @@ class AssertTest extends TestCase
         try {
             Assert::instanceOf(new ArrayObject(), stdClass::class);
             $this->fail('instanceOf should have failed');
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Kaly\Ex $exception) {
             $this->assertSame('Expected instance of stdClass, got ArrayObject', $exception->getMessage());
         }
     }
@@ -132,7 +132,7 @@ class AssertTest extends TestCase
             try {
                 Assert::isList($value);
                 $this->fail('isList should have failed');
-            } catch (InvalidArgumentException $exception) {
+            } catch (\Kaly\Ex $exception) {
                 $this->assertSame('Expected list, got ' . get_debug_type($value), $exception->getMessage());
             }
         }
@@ -147,7 +147,7 @@ class AssertTest extends TestCase
             try {
                 Assert::isMap($value);
                 $this->fail('isMap should have failed');
-            } catch (InvalidArgumentException $exception) {
+            } catch (\Kaly\Ex $exception) {
                 $this->assertSame('Expected map, got ' . get_debug_type($value), $exception->getMessage());
             }
         }
@@ -166,7 +166,7 @@ class AssertTest extends TestCase
         try {
             Assert::allInstanceOf([$first, 'invalid'], stdClass::class);
             $this->fail('allInstanceOf should have failed');
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Kaly\Ex $exception) {
             $this->assertSame('Expected list of stdClass, got element of type string', $exception->getMessage());
         }
     }
@@ -177,7 +177,7 @@ class AssertTest extends TestCase
             try {
                 Assert::allInstanceOf($value, stdClass::class);
                 $this->fail('allInstanceOf should have failed');
-            } catch (InvalidArgumentException $exception) {
+            } catch (\Kaly\Ex $exception) {
                 $this->assertSame('Expected list of stdClass, got ' . get_debug_type($value), $exception->getMessage());
             }
         }
@@ -191,10 +191,10 @@ class AssertTest extends TestCase
         try {
             Assert::keyExists(['a' => 1], 'b');
             $this->fail('keyExists should have failed');
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Kaly\Ex $exception) {
             $this->assertSame("Expected array with key 'b'", $exception->getMessage());
         }
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         Assert::keyExists('foo', 'a');
     }
 
@@ -208,7 +208,7 @@ class AssertTest extends TestCase
             try {
                 Assert::same($value, $expected);
                 $this->fail('same should have failed');
-            } catch (InvalidArgumentException $exception) {
+            } catch (\Kaly\Ex $exception) {
                 $this->assertSame(
                     'Expected identical ' . get_debug_type($expected) . ', got ' . get_debug_type($value),
                     $exception->getMessage(),
@@ -225,10 +225,10 @@ class AssertTest extends TestCase
         try {
             Assert::oneOf('a', ['A', 'b']);
             $this->fail('oneOf should have failed');
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Kaly\Ex $exception) {
             $this->assertSame('Expected one of the allowed values, got string', $exception->getMessage());
         }
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         Assert::oneOf(1, ['1', '2']);
     }
 
@@ -239,10 +239,10 @@ class AssertTest extends TestCase
         try {
             Assert::greaterThan(5, 5);
             $this->fail('greaterThan should have failed');
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Kaly\Ex $exception) {
             $this->assertSame('Expected number greater than 5', $exception->getMessage());
         }
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         Assert::greaterThan('6', 5);
     }
 
@@ -251,7 +251,7 @@ class AssertTest extends TestCase
         try {
             Assert::greaterThan(NAN, 5);
             $this->fail('greaterThan should have failed');
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Kaly\Ex $exception) {
             $this->assertSame('Expected number greater than a valid bound, got NAN', $exception->getMessage());
         }
     }
@@ -265,10 +265,10 @@ class AssertTest extends TestCase
         try {
             Assert::range(0, 1, 10);
             $this->fail('range should have failed');
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Kaly\Ex $exception) {
             $this->assertSame('Expected number between 1 and 10', $exception->getMessage());
         }
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         Assert::range('5', 1, 10);
     }
 
@@ -279,7 +279,7 @@ class AssertTest extends TestCase
             try {
                 Assert::range($value, $min, $max);
                 $this->fail('range should have failed');
-            } catch (InvalidArgumentException $exception) {
+            } catch (\Kaly\Ex $exception) {
                 $this->assertSame('Expected number within valid bounds, got NAN', $exception->getMessage());
             }
         }
@@ -287,7 +287,7 @@ class AssertTest extends TestCase
 
     public function testRangeGuardsBounds(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         $this->expectExceptionMessage('The minimum must not be greater than the maximum');
         Assert::range(5, 10, 1);
     }
@@ -298,10 +298,10 @@ class AssertTest extends TestCase
         try {
             Assert::startsWith('foobar', 'bar');
             $this->fail('startsWith should have failed');
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Kaly\Ex $exception) {
             $this->assertSame("Expected string starting with 'bar'", $exception->getMessage());
         }
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         Assert::startsWith(42, '4');
     }
 
@@ -311,10 +311,10 @@ class AssertTest extends TestCase
         try {
             Assert::contains('foobar', 'baz');
             $this->fail('contains should have failed');
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Kaly\Ex $exception) {
             $this->assertSame("Expected string containing 'baz'", $exception->getMessage());
         }
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         Assert::contains(null, 'x');
     }
 
@@ -324,16 +324,16 @@ class AssertTest extends TestCase
         try {
             Assert::matches('ABC', '/^[a-z]+$/');
             $this->fail('matches should have failed');
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Kaly\Ex $exception) {
             $this->assertSame('Expected string matching the pattern', $exception->getMessage());
         }
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         Assert::matches(42, '/^[0-9]+$/');
     }
 
     public function testMatchesGuardsInvalidPattern(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         $this->expectExceptionMessage('Invalid regular expression');
         Assert::matches('foo', '([');
     }
@@ -346,10 +346,10 @@ class AssertTest extends TestCase
         try {
             Assert::lengthBetween('toolong', 1, 3);
             $this->fail('lengthBetween should have failed');
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Kaly\Ex $exception) {
             $this->assertSame('Expected string length between 1 and 3', $exception->getMessage());
         }
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         Assert::lengthBetween(null, 0, 5);
     }
 
@@ -358,10 +358,10 @@ class AssertTest extends TestCase
         try {
             Assert::lengthBetween('foo', 5, 1);
             $this->fail('lengthBetween should have failed');
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Kaly\Ex $exception) {
             $this->assertSame('The minimum must not be greater than the maximum', $exception->getMessage());
         }
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         $this->expectExceptionMessage('Bounds must not be negative');
         Assert::lengthBetween('foo', -1, 5);
     }
@@ -371,14 +371,14 @@ class AssertTest extends TestCase
         try {
             Assert::string(42, 'Custom failure');
             $this->fail('string should have failed');
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Kaly\Ex $exception) {
             $this->assertSame('Custom failure', $exception->getMessage());
         }
         // Even an empty string is an explicit custom message
         try {
             Assert::string(42, '');
             $this->fail('string should have failed');
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Kaly\Ex $exception) {
             $this->assertSame('', $exception->getMessage());
         }
     }
@@ -388,7 +388,7 @@ class AssertTest extends TestCase
         try {
             Assert::stringNotEmpty(42);
             $this->fail('stringNotEmpty should have failed');
-        } catch (InvalidArgumentException $exception) {
+        } catch (\Kaly\Ex $exception) {
             $this->assertSame('Expected non-empty string, got int', $exception->getMessage());
         }
     }

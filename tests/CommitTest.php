@@ -35,7 +35,6 @@ class CommitTest extends TestCase
         $this->app->configure(static function (Definitions $di): void {
             $di->rebind(SessionProviderInterface::class, new ArraySessionProvider());
         });
-        $this->app->boot();
     }
 
     protected function tearDown(): void
@@ -146,7 +145,6 @@ class CommitTest extends TestCase
         $app->configure(static function (Definitions $di) use ($provider): void {
             $di->rebind(SessionProviderInterface::class, $provider);
         });
-        $app->boot();
 
         $app->middleware()->outgoing(new class implements OutgoingInterface {
             public function process(ResponseInterface $response, HttpContext $ctx): ResponseInterface
@@ -186,7 +184,6 @@ class CommitTest extends TestCase
                 }
             });
         });
-        $app->boot();
 
         $runs = 0;
         $app->middleware()->outgoing(new class($runs) implements OutgoingInterface {

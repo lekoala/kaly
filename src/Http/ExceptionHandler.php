@@ -7,6 +7,7 @@ namespace Kaly\Http;
 use Kaly\Http\Exception\HttpExceptionInterface;
 use Kaly\Util\Json;
 use Kaly\Validation\HasValidationResult;
+use Kaly\Validation\ValidationResult;
 use Kaly\Validation\Violation;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -41,8 +42,12 @@ final class ExceptionHandler implements ExceptionHandlerInterface
         protected ?ErrorPageInterface $errorPage = null,
     ) {}
 
-    public function toResponse(Throwable $exception, ?ServerRequestInterface $request = null): ResponseInterface
-    {
+    public function toResponse(
+        Throwable $exception,
+        ?ServerRequestInterface $request = null,
+        ?string $publicBody = null,
+        ?ValidationResult $validation = null,
+    ): ResponseInterface {
         $http = $exception instanceof HttpExceptionInterface ? $exception : null;
         if ($http === null) {
             $this->logger?->error($exception->getMessage(), ['exception' => $exception]);
@@ -61,15 +66,19 @@ final class ExceptionHandler implements ExceptionHandlerInterface
 
         // A public body the exception chose for itself (redirect, validation
         // message, explicit html/json...). A generic exception never has one.
-        $body = $http?->getResponseBody() ?? '';
+        $body = $publicBody ?? $http?->getResponseBody() ?? '';
 
         // The exception already decided the format
         if ($response->hasHeader('Content-Type')) {
             return $this->withBody($response, $body);
         }
 
+        if ($status < 400) {
+            return $this->withBody($response, $body);
+        }
+
         if ($request !== null && Accept::prefersJson($request)) {
-            return $this->problem($response, $exception, $body);
+            return $this->problem($response, $exception, $body, $validation);
         }
 
         if ($body !== '') {
@@ -106,8 +115,12 @@ final class ExceptionHandler implements ExceptionHandlerInterface
     /**
      * A problem details document (RFC 9457)
      */
-    protected function problem(ResponseInterface $response, Throwable $exception, string $body): ResponseInterface
-    {
+    protected function problem(
+        ResponseInterface $response,
+        Throwable $exception,
+        string $body,
+        ?ValidationResult $validation = null,
+    ): ResponseInterface {
         $problem = [
             'type' => 'about:blank',
             'title' => $response->getReasonPhrase(),
@@ -118,7 +131,7 @@ final class ExceptionHandler implements ExceptionHandlerInterface
         // failure exposes them: anything else is a 500 that leaks nothing.
         $errors =
             $exception instanceof HttpExceptionInterface && $exception instanceof HasValidationResult
-                ? $exception->validation()->violations()
+                ? ($validation ?? $exception->validation())->violations()
                 : [];
         if ($errors !== []) {
             $problem['errors'] = array_map(static fn(Violation $violation): array => [

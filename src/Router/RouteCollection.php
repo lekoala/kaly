@@ -25,7 +25,7 @@ use ReflectionClass;
  *
  * @internal
  *
- * @phpstan-type RouteEntry array{regex:string,locale:?string,paramNames:list<string>,definition:RouteDefinition,inputClass:class-string<RequestInput>|null,middlewares:list<class-string>,reflection:ReflectionClass<object>}
+ * @phpstan-type RouteEntry array{regex:string,specificity:array{int,int},locale:?string,paramNames:list<string>,definition:RouteDefinition,inputClass:class-string<RequestInput>|null,middlewares:list<class-string>,reflection:ReflectionClass<object>}
  */
 final class RouteCollection
 {
@@ -73,6 +73,13 @@ final class RouteCollection
                 $paramNames = $names;
                 $entries[] = [
                     'regex' => self::compilePath($path, $definition->requirements),
+                    'specificity' => [
+                        count(array_filter(
+                            explode('/', $path),
+                            static fn(string $part): bool => $part !== '' && !str_contains($part, '{'),
+                        )),
+                        -count($names),
+                    ],
                     'locale' => $locale === '*' ? null : $locale,
                     'paramNames' => $names,
                     'definition' => $definition,
@@ -95,7 +102,7 @@ final class RouteCollection
             if ($a['definition']->priority !== $b['definition']->priority) {
                 return $b['definition']->priority <=> $a['definition']->priority;
             }
-            return strlen($b['regex']) <=> strlen($a['regex']);
+            return $b['specificity'] <=> $a['specificity'];
         });
         $this->entries = $entries;
     }
@@ -333,15 +340,37 @@ final class RouteCollection
      */
     private static function compilePath(string $path, array $requirements): string
     {
-        $regex = preg_replace_callback(
-            '/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/',
-            static function (array $m) use ($requirements): string {
-                $fragment = $requirements[$m[1]] ?? '[^/]+';
-                return '(?P<' . $m[1] . '>' . $fragment . ')';
-            },
-            rtrim($path, '/'),
-        );
-        return '#^' . $regex . '/?$#';
+        $parts = preg_split('/(\{[a-zA-Z_][a-zA-Z0-9_]*\})/', rtrim($path, '/'), flags: PREG_SPLIT_DELIM_CAPTURE);
+        assert(is_array($parts));
+        $regex = '';
+        foreach ($parts as $part) {
+            if (preg_match('/^\{([a-zA-Z_][a-zA-Z0-9_]*)\}$/D', $part, $match) === 1) {
+                $fragment = $requirements[$match[1]] ?? '[^/]+';
+                $regex .= '(?P<' . $match[1] . '>' . self::escapeDelimiter($fragment) . ')';
+            } else {
+                $regex .= preg_quote($part, '#');
+            }
+        }
+        $regex = '#^' . $regex . '/?$#';
+        if (@preg_match($regex, '') === false) {
+            throw new Ex("Invalid route pattern '{$path}'");
+        }
+        return $regex;
+    }
+
+    private static function escapeDelimiter(string $fragment): string
+    {
+        $escaped = '';
+        $slashes = 0;
+        for ($index = 0, $length = strlen($fragment); $index < $length; $index++) {
+            $char = $fragment[$index];
+            if ($char === '#' && ($slashes % 2) === 0) {
+                $escaped .= '\\';
+            }
+            $escaped .= $char;
+            $slashes = $char === '\\' ? $slashes + 1 : 0;
+        }
+        return $escaped;
     }
 
     /**

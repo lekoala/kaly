@@ -260,9 +260,9 @@ class LazySessionTest extends TestCase
         ErrorHandler::configureDefaults(false);
         try {
             $this->assertNull($session->get('_auth'));
-            $this->assertNotNull($session->getId());
-            $this->assertNotSame('invalid/id', $session->getId());
-            $this->assertTrue($provider->commit($session, $request, new Response())->hasHeader('Set-Cookie'));
+            $this->assertNull($session->getId());
+            $this->assertFalse($session->isActive());
+            $this->assertFalse($provider->commit($session, $request, new Response())->hasHeader('Set-Cookie'));
         } finally {
             ErrorHandler::restoreDefaults();
         }

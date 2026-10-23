@@ -33,6 +33,8 @@ final class CookiePolicy
 {
     public const SAMESITE_MODES = ['None', 'Lax', 'Strict'];
 
+    public readonly ?string $sameSite;
+
     /**
      * @param 'None'|'Lax'|'Strict'|'none'|'lax'|'strict'|null $sameSite Canonicalised on the way in, so a
      *        policy can never hold a mode the Set-Cookie builder would drop
@@ -52,8 +54,6 @@ final class CookiePolicy
         }
         $this->sameSite = $canonical;
     }
-
-    public readonly ?string $sameSite;
 
     /**
      * The historical kaly baseline: the session cookie dies with the browser,

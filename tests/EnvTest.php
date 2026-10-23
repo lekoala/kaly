@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Kaly\Tests;
 
 use Kaly\Core\App;
+use Kaly\Ex;
 use Kaly\Util\Env;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 class EnvTest extends TestCase
 {
@@ -183,14 +183,14 @@ class EnvTest extends TestCase
 
     public function testRejectsInvalidKeyName(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(\Kaly\Ex::class);
         $this->expectExceptionMessage('Invalid environment variable name');
         Env::load(__DIR__ . '/data/env/invalid-key.env');
     }
 
     public function testRejectsArrayValue(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(\Kaly\Ex::class);
         $this->expectExceptionMessage('must be a string');
         Env::load(__DIR__ . '/data/env/array-value.env');
     }
@@ -212,7 +212,7 @@ class EnvTest extends TestCase
         try {
             Env::load($file);
             $this->fail('An invalid file must be rejected');
-        } catch (RuntimeException $e) {
+        } catch (\Kaly\Ex $e) {
             $this->assertStringContainsString('Invalid environment variable name `# Example: TIMEOUT`', $e->getMessage());
         }
         $this->assertFalse(Env::has('KALY_BEFORE_INVALID'));
@@ -220,7 +220,7 @@ class EnvTest extends TestCase
 
     public function testSyntaxErrorReportsLine(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(\Kaly\Ex::class);
         $this->expectExceptionMessageMatches('/^Failed to parse `.+`: syntax error, .+ on line 2$/');
 
         Env::parse($this->writeTempEnv("KALY_OK=1\n[broken\n"));
@@ -331,7 +331,7 @@ class EnvTest extends TestCase
 
     public function testRejectsShellExportPrefix(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(\Kaly\Ex::class);
         $this->expectExceptionMessage('Invalid environment variable name');
 
         Env::load($this->writeTempEnv("export KALY_EXPORTED=value\n"));

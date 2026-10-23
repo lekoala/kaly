@@ -185,8 +185,7 @@ final class ErrorViewTest extends TestCase
                 $di->set(ErrorViewInterface::class, $view);
                 $di->parameter(Assets::class, 'version', 'test');
                 $di->rebind(RendererInterface::class, new KalyTplRenderer(new ViewEngine(__DIR__ . '/adapters/kaly-tpl/errors')));
-            })
-            ->boot();
+            });
     }
 
     private function errorView(?string $template = 'error'): CountingErrorView

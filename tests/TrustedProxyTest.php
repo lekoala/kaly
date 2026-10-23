@@ -130,4 +130,16 @@ class TrustedProxyTest extends TestCase
         }
         $this->assertSame(count($invalid), $refused);
     }
+
+    public function testInvalidForwardedPortDoesNotHalfApplyItsHost(): void
+    {
+        $request = $this->forward(['10.0.0.0/8'], '10.1.2.3', ['X-Forwarded-Host' => 'evil.test:99999']);
+        $this->assertSame('http://backend.local:8080/path?q=1', (string) $request->getUri());
+    }
+
+    public function testMappedIpv4ProxyMatchesIpv4Cidr(): void
+    {
+        $request = $this->forward(['10.0.0.0/8'], '::ffff:10.1.2.3', ['X-Forwarded-Proto' => 'https']);
+        $this->assertSame('https', $request->getUri()->getScheme());
+    }
 }

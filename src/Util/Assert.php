@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Util;
 
+use Kaly\Ex;
+
 /**
  * Guarantees an expected invariant, throwing on failure.
  *
@@ -26,7 +28,7 @@ final class Assert
     public static function notNull(mixed $value, ?string $message = null): mixed
     {
         if ($value === null) {
-            throw new \InvalidArgumentException($message ?? 'Expected non-null value, got null');
+            throw new Ex($message ?? 'Expected non-null value, got null');
         }
         return $value;
     }
@@ -116,7 +118,7 @@ final class Assert
     public static function instanceOf(mixed $value, string $class, ?string $message = null): object
     {
         if (!$value instanceof $class) {
-            throw new \InvalidArgumentException($message ?? "Expected instance of {$class}, got " . get_debug_type($value));
+            throw new Ex($message ?? "Expected instance of {$class}, got " . get_debug_type($value));
         }
         /** @var T $value verified above */
         return $value;
@@ -173,11 +175,11 @@ final class Assert
     public static function allInstanceOf(mixed $value, string $class, ?string $message = null): array
     {
         if (!is_array($value) || !array_is_list($value)) {
-            throw new \InvalidArgumentException($message ?? "Expected list of {$class}, got " . get_debug_type($value));
+            throw new Ex($message ?? "Expected list of {$class}, got " . get_debug_type($value));
         }
         foreach ($value as $item) {
             if (!$item instanceof $class) {
-                throw new \InvalidArgumentException($message ?? "Expected list of {$class}, got element of type " . get_debug_type($item));
+                throw new Ex($message ?? "Expected list of {$class}, got element of type " . get_debug_type($item));
             }
         }
         /** @var list<T> $value verified above */
@@ -197,7 +199,7 @@ final class Assert
             self::fail('array', $value, $message);
         }
         if (!array_key_exists($key, $value)) {
-            throw new \InvalidArgumentException($message ?? "Expected array with key '{$key}'");
+            throw new Ex($message ?? "Expected array with key '{$key}'");
         }
         return $value;
     }
@@ -214,9 +216,7 @@ final class Assert
     public static function same(mixed $value, mixed $expected, ?string $message = null): mixed
     {
         if ($value !== $expected) {
-            throw new \InvalidArgumentException(
-                $message ?? 'Expected identical ' . get_debug_type($expected) . ', got ' . get_debug_type($value),
-            );
+            throw new Ex($message ?? 'Expected identical ' . get_debug_type($expected) . ', got ' . get_debug_type($value));
         }
         return $value;
     }
@@ -233,7 +233,7 @@ final class Assert
     public static function oneOf(mixed $value, array $values, ?string $message = null): mixed
     {
         if (!in_array($value, $values, true)) {
-            throw new \InvalidArgumentException($message ?? 'Expected one of the allowed values, got ' . get_debug_type($value));
+            throw new Ex($message ?? 'Expected one of the allowed values, got ' . get_debug_type($value));
         }
         return $value;
     }
@@ -250,10 +250,10 @@ final class Assert
             self::fail('int|float', $value, $message);
         }
         if (is_float($value) && is_nan($value) || is_float($bound) && is_nan($bound)) {
-            throw new \InvalidArgumentException($message ?? 'Expected number greater than a valid bound, got NAN');
+            throw new Ex($message ?? 'Expected number greater than a valid bound, got NAN');
         }
         if ($value <= $bound) {
-            throw new \InvalidArgumentException($message ?? "Expected number greater than {$bound}");
+            throw new Ex($message ?? "Expected number greater than {$bound}");
         }
         return $value;
     }
@@ -272,13 +272,13 @@ final class Assert
             self::fail('int|float', $value, $message);
         }
         if ($min > $max) {
-            throw new \InvalidArgumentException($message ?? 'The minimum must not be greater than the maximum');
+            throw new Ex($message ?? 'The minimum must not be greater than the maximum');
         }
         if (is_float($value) && is_nan($value) || is_float($min) && is_nan($min) || is_float($max) && is_nan($max)) {
-            throw new \InvalidArgumentException($message ?? 'Expected number within valid bounds, got NAN');
+            throw new Ex($message ?? 'Expected number within valid bounds, got NAN');
         }
         if ($value < $min || $value > $max) {
-            throw new \InvalidArgumentException($message ?? "Expected number between {$min} and {$max}");
+            throw new Ex($message ?? "Expected number between {$min} and {$max}");
         }
         return $value;
     }
@@ -293,7 +293,7 @@ final class Assert
             self::fail('string', $value, $message);
         }
         if (!str_starts_with($value, $needle)) {
-            throw new \InvalidArgumentException($message ?? "Expected string starting with '{$needle}'");
+            throw new Ex($message ?? "Expected string starting with '{$needle}'");
         }
         return $value;
     }
@@ -308,7 +308,7 @@ final class Assert
             self::fail('string', $value, $message);
         }
         if (!str_contains($value, $needle)) {
-            throw new \InvalidArgumentException($message ?? "Expected string containing '{$needle}'");
+            throw new Ex($message ?? "Expected string containing '{$needle}'");
         }
         return $value;
     }
@@ -323,13 +323,13 @@ final class Assert
     public static function matches(mixed $value, string $pattern, ?string $message = null): string
     {
         if (@preg_match($pattern, '') === false) {
-            throw new \InvalidArgumentException($message ?? 'Invalid regular expression');
+            throw new Ex($message ?? 'Invalid regular expression');
         }
         if (!is_string($value)) {
             self::fail('string', $value, $message);
         }
         if (preg_match($pattern, $value) !== 1) {
-            throw new \InvalidArgumentException($message ?? 'Expected string matching the pattern');
+            throw new Ex($message ?? 'Expected string matching the pattern');
         }
         return $value;
     }
@@ -344,23 +344,23 @@ final class Assert
     public static function lengthBetween(mixed $value, int $min, int $max, ?string $message = null): string
     {
         if ($min < 0 || $max < 0) {
-            throw new \InvalidArgumentException($message ?? 'Bounds must not be negative');
+            throw new Ex($message ?? 'Bounds must not be negative');
         }
         if ($min > $max) {
-            throw new \InvalidArgumentException($message ?? 'The minimum must not be greater than the maximum');
+            throw new Ex($message ?? 'The minimum must not be greater than the maximum');
         }
         if (!is_string($value)) {
             self::fail('string', $value, $message);
         }
         $length = mb_strlen($value, 'UTF-8');
         if ($length < $min || $length > $max) {
-            throw new \InvalidArgumentException($message ?? "Expected string length between {$min} and {$max}");
+            throw new Ex($message ?? "Expected string length between {$min} and {$max}");
         }
         return $value;
     }
 
     private static function fail(string $expected, mixed $actual, ?string $message): never
     {
-        throw new \InvalidArgumentException($message ?? "Expected {$expected}, got " . get_debug_type($actual));
+        throw new Ex($message ?? "Expected {$expected}, got " . get_debug_type($actual));
     }
 }

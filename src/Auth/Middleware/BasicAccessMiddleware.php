@@ -49,8 +49,8 @@ final readonly class BasicAccessMiddleware implements MiddlewareInterface
 
         // Both comparisons always run: folding them into one && would make the
         // answer to "is this username valid?" observable in the response time.
-        $userMatches = hash_equals($this->username, $basic['username'] ?? '');
-        $passwordMatches = hash_equals($this->password, $basic['password'] ?? '');
+        $userMatches = hash_equals(hash('sha256', $this->username, true), hash('sha256', $basic['username'] ?? '', true));
+        $passwordMatches = hash_equals(hash('sha256', $this->password, true), hash('sha256', $basic['password'] ?? '', true));
 
         if ($basic !== null && $userMatches && $passwordMatches) {
             return $handler->handle($request);

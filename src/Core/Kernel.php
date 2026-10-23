@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Kaly\Core;
 
+use Kaly\Clock\SystemClock;
 use Kaly\Core\Middleware\OutgoingRunner;
 use Kaly\Debug\Profile;
 use Kaly\Debug\ServerTiming;
 use Kaly\Http\Cookie\CookiePolicy;
 use Kaly\Http\ExceptionHandlerInterface;
 use Kaly\Http\Session\SessionProviderInterface;
+use Psr\Clock\ClockInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
@@ -50,11 +52,18 @@ final class Kernel implements RequestHandlerInterface
         private ?CookiePolicy $cookiePolicy = null,
         private bool $profiling = false,
         private bool $serverTiming = false,
+        private readonly ClockInterface $clock = new SystemClock(),
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $ctx = new HttpContext($request, $this->sessionProvider, $this->cookiePolicy, $this->profiling ? new Profile() : null);
+        $ctx = new HttpContext(
+            $request,
+            $this->sessionProvider,
+            $this->cookiePolicy,
+            $this->profiling ? new Profile() : null,
+            $this->clock,
+        );
         $ctx->bind($request);
 
         try {

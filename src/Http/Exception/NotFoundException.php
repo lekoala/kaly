@@ -15,9 +15,9 @@ use Throwable;
  */
 class NotFoundException extends HttpException
 {
-    public function __construct(string $message = '', int $code = 404, ?Throwable $previous = null)
+    public function __construct(string $message = '', ?Throwable $previous = null)
     {
-        parent::__construct($message ?: 'Not found', $code, [], $previous);
+        parent::__construct($message ?: 'Not found', 404, [], $previous);
     }
 
     public function getResponseBody(): string

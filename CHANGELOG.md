@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+### Framework audit (2026-10-23)
+
+- **Breaking:** middleware registries lock after boot; register middleware before
+  boot or in an `onBoot()` hook. Module template namespaces use the module id
+  (`Booking` → `@booking`, `TestModule` → `@test-module`).
+- **Breaking:** `ForbiddenException`, `NotFoundException` and
+  `TooManyRequestsException` no longer accept a configurable status; their
+  optional previous exception follows the message. Framework failures in Asset,
+  I18n and Util now use `Kaly\Ex` instead of native argument/runtime exceptions.
+- **Behavior changes:** `Str::camelize()` preserves existing interior capitals
+  and underscores, and handles Unicode initials and empty words safely.
+  `Str::stringify()` retains numeric values. Application locale configuration
+  uses lowercase. Isolated array sessions ignore incoming ids, and the memory
+  session provider restores only known ids.
+- Fix route precedence and literal path matching, validate regex constraints at
+  compilation, correct conventional canonical redirects and invokable `index`
+  arguments, sanitize locale redirects and omit empty query strings.
+- Replace recursive translation fallbacks with a finite search, use the app
+  default locale, validate catalog paths and avoid caching nonexistent catalogs.
+  Translate errors before routing while preserving their original exception type.
+- Ignore malformed session cookies; validate Host and exception response headers;
+  prevent absolute request targets from overriding SAPI authority and scheme;
+  reject forbidden file sources reached through symlinks.
+- Respect specific content/language refusals, distinguish WOFF and WOFF2 MIME
+  types, scope input conflicts to DTO fields, reject JSON empty numeric strings
+  and reject NaN in range checks. Ignore invalid forwarded host ports atomically
+  and recognize IPv4-mapped IPv6 proxies against IPv4 networks.
+- Bound CSRF token decoding, compare Basic credentials through fixed-size hashes,
+  escape log line breaks and lock appends. Cookies and file logs accept the
+  application clock. Reuse cached controller reflections.
+- Decode stored test-client cookies, replay multipart redirects correctly and
+  allow asset pruning before publication.
+
 ### Added
 
 - `Kaly\Debug\OpcacheStatus` reports the production problems of the opcache

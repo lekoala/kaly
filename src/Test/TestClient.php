@@ -322,8 +322,11 @@ final class TestClient
         if ($nextMethod === $method && $this->lastRequest['parsedBody'] !== null) {
             $options['parsedBody'] = $this->lastRequest['parsedBody'];
         }
-        if ($nextMethod === $method) {
+        if ($nextMethod === $method && $this->lastRequest['files'] !== []) {
             $options['files'] = $this->lastRequest['files'];
+            if ($body === null) {
+                unset($options['body']);
+            }
         }
 
         return $this->send($nextMethod, $uri, $options);
@@ -511,7 +514,7 @@ final class TestClient
                 unset($this->cookies[$name]);
                 continue;
             }
-            $this->cookies[$name] = $value;
+            $this->cookies[$name] = urldecode($value);
         }
     }
 }

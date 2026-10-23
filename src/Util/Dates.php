@@ -8,7 +8,7 @@ use DateInvalidTimeZoneException;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use InvalidArgumentException;
+use Kaly\Ex;
 use Throwable;
 
 /**
@@ -90,12 +90,12 @@ final class Dates
      * A midnight skipped by a DST transition has no midnight and is
      * rejected rather than silently normalized to another time.
      *
-     * @throws InvalidArgumentException When the value is not a calendar date
+     * @throws Ex When the value is not a calendar date
      * @throws DateInvalidTimeZoneException When the timezone string is unknown
      */
     public static function date(string $value, DateTimeZone|string|null $timezone = null): DateTimeImmutable
     {
-        return self::parseDate($value, $timezone) ?? throw new InvalidArgumentException("Invalid date '{$value}', expected Y-m-d");
+        return self::parseDate($value, $timezone) ?? throw new Ex("Invalid date '{$value}', expected Y-m-d");
     }
 
     /**
@@ -109,15 +109,11 @@ final class Dates
     /**
      * An RFC 3339 instant with an explicit offset.
      *
-     * @throws InvalidArgumentException When the value is not such an instant
+     * @throws Ex When the value is not such an instant
      */
     public static function instant(string $value): DateTimeImmutable
     {
-        return (
-            self::parseInstant($value) ?? throw new InvalidArgumentException(
-                "Invalid instant '{$value}', expected RFC 3339 with an explicit offset",
-            )
-        );
+        return self::parseInstant($value) ?? throw new Ex("Invalid instant '{$value}', expected RFC 3339 with an explicit offset");
     }
 
     /**
@@ -131,15 +127,13 @@ final class Dates
     /**
      * A `Y-m-d` date plus an `H:i` or `H:i:s` time in the given timezone.
      *
-     * @throws InvalidArgumentException When the pair is not a calendar date and time
+     * @throws Ex When the pair is not a calendar date and time
      * @throws DateInvalidTimeZoneException When the timezone string is unknown
      */
     public static function at(string $date, string $time, DateTimeZone|string|null $timezone = null): DateTimeImmutable
     {
         return (
-            self::parseAt($date, $time, $timezone) ?? throw new InvalidArgumentException(
-                "Invalid datetime '{$date} {$time}', expected Y-m-d H:i or Y-m-d H:i:s",
-            )
+            self::parseAt($date, $time, $timezone) ?? throw new Ex("Invalid datetime '{$date} {$time}', expected Y-m-d H:i or Y-m-d H:i:s")
         );
     }
 

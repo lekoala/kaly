@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use InvalidArgumentException;
 use Kaly\Asset\Assets;
 use Kaly\Asset\AssetSources;
+use Kaly\Ex;
 use Kaly\Tests\Support\TempDir;
 use Kaly\Util\Fs;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 class AssetTest extends TestCase
 {
@@ -84,7 +83,7 @@ class AssetTest extends TestCase
         try {
             $assets->url('app.js');
             $this->fail('A RuntimeException was expected');
-        } catch (RuntimeException $e) {
+        } catch (\Kaly\Ex $e) {
             $this->assertStringContainsString('have not been published', $e->getMessage());
         }
     }
@@ -124,7 +123,7 @@ class AssetTest extends TestCase
     {
         $assets = new Assets($this->sources, $this->base . '/public', true);
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         $assets->url($asset);
     }
 
@@ -132,7 +131,7 @@ class AssetTest extends TestCase
     {
         $assets = new Assets($this->sources, $this->base . '/public', true);
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\Kaly\Ex::class);
         $this->expectExceptionMessage("Unknown asset namespace '@site'");
         $assets->url('@site/site.js');
     }

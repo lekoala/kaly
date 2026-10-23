@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace Kaly\Asset;
 
-use InvalidArgumentException;
+use Kaly\Ex;
 use Kaly\Http\PublicFilePolicy;
 use Kaly\Util\Env;
 use Kaly\Util\Fs;
-use RuntimeException;
 
 /**
  * Publishes browser-ready asset sources to an immutable versioned directory:
@@ -45,7 +44,7 @@ final class AssetPublisher
      * Publish every source and write `public/assets/.version` atomically.
      * Returns the effective version.
      *
-     * @throws RuntimeException On symlinks or unreadable sources
+     * @throws Ex On symlinks or unreadable sources
      */
     public function publish(?string $version = null): string
     {
@@ -81,7 +80,7 @@ final class AssetPublisher
             }
             if (!@rename($pending, $dest)) {
                 if (!is_dir($dest)) {
-                    throw new RuntimeException("Could not publish assets to '{$dest}'");
+                    throw new Ex("Could not publish assets to '{$dest}'");
                 }
                 // Another build published the same immutable version first
                 Fs::removeDir($pending);
@@ -111,7 +110,8 @@ final class AssetPublisher
             return 0;
         }
 
-        $active = trim(Fs::getFile(Fs::join($assetsDir, Assets::VERSION_FILE)));
+        $versionFile = Fs::join($assetsDir, Assets::VERSION_FILE);
+        $active = is_file($versionFile) ? trim(Fs::getFile($versionFile)) : '';
 
         $versions = [];
         foreach (glob(Fs::join($assetsDir, '*'), GLOB_ONLYDIR) ?: [] as $dir) {
@@ -154,12 +154,12 @@ final class AssetPublisher
     }
 
     /**
-     * @throws InvalidArgumentException
+     * @throws Ex
      */
     public static function assertValidVersion(string $version): void
     {
         if ($version === '' || $version === '.' || $version === '..' || !preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]*$/D', $version)) {
-            throw new InvalidArgumentException("Invalid asset version '{$version}'");
+            throw new Ex("Invalid asset version '{$version}'");
         }
     }
 
@@ -169,7 +169,7 @@ final class AssetPublisher
             $target = Fs::join($dest, $namespace, str_replace('/', DIRECTORY_SEPARATOR, $relative));
             Fs::ensureDir(dirname($target));
             if (!copy($file, $target)) {
-                throw new RuntimeException("Could not publish '{$file}'");
+                throw new Ex("Could not publish '{$file}'");
             }
         }
     }
@@ -180,7 +180,7 @@ final class AssetPublisher
      *
      * @return array<string,string>
      *
-     * @throws RuntimeException
+     * @throws Ex
      */
     private function collect(string $namespace, string $dir): array
     {
@@ -189,7 +189,7 @@ final class AssetPublisher
             return $files;
         }
         if (is_link($dir)) {
-            throw new RuntimeException("Asset source '@{$namespace}' is a symlink: '{$dir}'");
+            throw new Ex("Asset source '@{$namespace}' is a symlink: '{$dir}'");
         }
 
         $iterator = new \RecursiveIteratorIterator(
@@ -205,14 +205,14 @@ final class AssetPublisher
                 continue;
             }
             if (is_link($pathname)) {
-                throw new RuntimeException("Asset symlink is not supported: '{$pathname}'");
+                throw new Ex("Asset symlink is not supported: '{$pathname}'");
             }
             if (!is_file($pathname)) {
                 continue;
             }
             $extension = Fs::extension($pathname);
             if (PublicFilePolicy::isForbiddenExtension($extension)) {
-                throw new RuntimeException("Asset extension '.{$extension}' is not publishable: '{$pathname}'");
+                throw new Ex("Asset extension '.{$extension}' is not publishable: '{$pathname}'");
             }
             $files[$relative] = $pathname;
         }

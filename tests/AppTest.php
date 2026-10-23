@@ -482,7 +482,6 @@ class AppTest extends TestCase
     public function testFailingIncomingMiddlewareReturnsResponse(): void
     {
         $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
-        $app->boot();
         $errors = 0;
         $app->middleware()->incoming(new class implements \Psr\Http\Server\MiddlewareInterface {
             public function process(
@@ -525,7 +524,6 @@ class AppTest extends TestCase
         $request = HttpFactory::createRequestFromGlobals();
         $request = $request->withUri(new Uri('/test-module/index/middleware/'));
         $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
-        $app->boot();
         $app->middleware()->incoming($middlewareInst);
         $response = $app->handle($request);
         $body = (string) $response->getBody();
@@ -541,7 +539,6 @@ class AppTest extends TestCase
     public function testRoutedBandKnowsTheRouteWhileIncomingDoesNot(): void
     {
         $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
-        $app->boot();
 
         $incomingRouted = null;
         $routedRoute = null;
@@ -568,7 +565,6 @@ class AppTest extends TestCase
     public function testExecutedMiddlewaresAreTrackedInPipelineOrder(): void
     {
         $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
-        $app->boot();
 
         $executed = [];
         $app
@@ -599,7 +595,6 @@ class AppTest extends TestCase
         $request = $request->withUri(new Uri('/test-module/index/middleware/'));
         $app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
         $app->debug(true);
-        $app->boot();
 
         // if condition returns true, it means execute
         $app->middleware()->incoming($middlewareInst, when: static function () use (&$flag): bool {

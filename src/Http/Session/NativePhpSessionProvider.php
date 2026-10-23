@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Kaly\Http\Session;
 
+use Kaly\Clock\SystemClock;
 use Kaly\Http\Cookie\CookiePolicy;
+use Psr\Clock\ClockInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -38,8 +40,11 @@ final class NativePhpSessionProvider implements SessionProviderInterface
      *  'save_path', cookie overrides (lifetime, path, domain, secure,
      *  httponly, samesite, partitioned).
      */
-    public function __construct(array $options = [], ?CookiePolicy $policy = null)
-    {
+    public function __construct(
+        array $options = [],
+        ?CookiePolicy $policy = null,
+        private readonly ClockInterface $clock = new SystemClock(),
+    ) {
         $this->options = $options;
         $this->policy = $policy ?? CookiePolicy::baseline();
     }
@@ -58,7 +63,7 @@ final class NativePhpSessionProvider implements SessionProviderInterface
     public function commit(SessionInterface $session, ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         if ($session instanceof CookieSessionInterface) {
-            return SessionCookie::commit($session, $request, $response);
+            return SessionCookie::commit($session, $request, $response, $this->clock);
         }
         return $response;
     }

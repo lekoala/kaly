@@ -7,6 +7,7 @@ namespace Kaly\Asset\Middleware;
 use InvalidArgumentException;
 use Kaly\Asset\Assets;
 use Kaly\Asset\AssetSources;
+use Kaly\Ex;
 use Kaly\Http\FileResponseFactory;
 use Kaly\Http\PublicFilePolicy;
 use Kaly\Util\Fs;
@@ -63,7 +64,7 @@ final class AssetServer implements MiddlewareInterface
         try {
             $root = $this->sources->get($namespace);
             Assets::assertValidPath($relative);
-        } catch (InvalidArgumentException) {
+        } catch (Ex) {
             return $handler->handle($request);
         }
 

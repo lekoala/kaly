@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Kaly\Http\Session;
 
+use Kaly\Clock\SystemClock;
 use Kaly\Http\Cookie\CookiePolicy;
+use Psr\Clock\ClockInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -26,8 +28,11 @@ final class ArraySessionProvider implements SessionProviderInterface
      * @param array<string,mixed> $options Passed to ArraySession ('name' plus
      *  cookie params). Explicit options win over the policy baseline.
      */
-    public function __construct(array $options = [], ?CookiePolicy $policy = null)
-    {
+    public function __construct(
+        array $options = [],
+        ?CookiePolicy $policy = null,
+        private readonly ClockInterface $clock = new SystemClock(),
+    ) {
         $this->options = $options;
         $this->policy = $policy ?? CookiePolicy::baseline();
     }
@@ -35,17 +40,13 @@ final class ArraySessionProvider implements SessionProviderInterface
     public function create(ServerRequestInterface $request): SessionInterface
     {
         $session = new ArraySession(SessionCookie::deriveOptions($this->options, $this->policy, $request), $this->policy);
-        $id = SessionCookie::idFromRequest($request, $session->getName());
-        if ($id !== null) {
-            $session->setId($id);
-        }
         return $session;
     }
 
     public function commit(SessionInterface $session, ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         if ($session instanceof CookieSessionInterface) {
-            return SessionCookie::commit($session, $request, $response);
+            return SessionCookie::commit($session, $request, $response, $this->clock);
         }
         return $response;
     }

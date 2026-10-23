@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Util;
 
-use RuntimeException;
+use Kaly\Ex;
 
 /**
  * Values loaded or written by Kaly live in $_ENV as strings.
@@ -30,7 +30,7 @@ final class Env
      * Use it to check the versioned `.env` in a test.
      *
      * @return array<string,string>
-     * @throws RuntimeException
+     * @throws Ex
      */
     public static function parse(string $envFile): array
     {
@@ -38,19 +38,19 @@ final class Env
         $result = @parse_ini_file($envFile, false, INI_SCANNER_RAW);
         if ($result === false) {
             $reason = trim(error_get_last()['message'] ?? 'unknown error');
-            throw new RuntimeException("Failed to parse `{$envFile}`: {$reason}");
+            throw new Ex("Failed to parse `{$envFile}`: {$reason}");
         }
         $env = [];
         foreach ($result as $key => $value) {
             // Only accept valid environment variable names
             if (!is_string($key) || !preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $key)) {
-                throw new RuntimeException("Invalid environment variable name `{$key}` in `{$envFile}`");
+                throw new Ex("Invalid environment variable name `{$key}` in `{$envFile}`");
             }
 
             // A .env entry is a name and a text value. INI array syntax would
             // produce arrays (eg: FOO[]=bar), which we reject.
             if (!is_string($value)) {
-                throw new RuntimeException("Environment variable `{$key}` must be a string in `{$envFile}`");
+                throw new Ex("Environment variable `{$key}` must be a string in `{$envFile}`");
             }
 
             $env[$key] = $value;
@@ -72,7 +72,7 @@ final class Env
      * seeing the original process value.
      *
      * @return array<string,string> Only the keys actually loaded
-     * @throws RuntimeException
+     * @throws Ex
      */
     public static function load(string $envFile, bool $overwrite = false): array
     {
@@ -163,13 +163,13 @@ final class Env
      * Get `string` value of an environment variable.
      * Empty or null values are converted to '' or set default
      *
-     * @throws RuntimeException
+     * @throws Ex
      */
     public static function getString(string $key, string $default = ''): string
     {
         $value = static::get($key) ?? $default;
         if (!is_string($value)) {
-            throw new RuntimeException("Env variable `{$key}` is not a string");
+            throw new Ex("Env variable `{$key}` is not a string");
         }
         return $value;
     }
@@ -178,7 +178,7 @@ final class Env
      * Get `int` value of an environment variable.
      * Empty or null values are converted to 0 or set default
      *
-     * @throws RuntimeException
+     * @throws Ex
      */
     public static function getInt(string $key, int $default = 0): int
     {
@@ -187,7 +187,7 @@ final class Env
             if (is_numeric($value)) {
                 $value = intval($value);
             } else {
-                throw new RuntimeException("Env variable `{$key}` is not a int");
+                throw new Ex("Env variable `{$key}` is not a int");
             }
         }
         return $value;
@@ -197,7 +197,7 @@ final class Env
      * Get `float` value of an environment variable.
      * Empty or null values are converted to 0 or set default
      *
-     * @throws RuntimeException
+     * @throws Ex
      */
     public static function getFloat(string $key, float $default = 0): float
     {
@@ -206,7 +206,7 @@ final class Env
             if (is_numeric($value)) {
                 $value = floatval($value);
             } else {
-                throw new RuntimeException("Env variable `{$key}` is not a float");
+                throw new Ex("Env variable `{$key}` is not a float");
             }
         }
         return $value;
@@ -220,19 +220,19 @@ final class Env
      *
      * @param array<mixed> $default
      * @return array<mixed>
-     * @throws RuntimeException
+     * @throws Ex
      */
     public static function getArray(string $key, array $default = [], string $separator = ';'): array
     {
         $value = static::get($key) ?? $default;
         if (is_string($value)) {
             if ($separator === '') {
-                throw new RuntimeException("Env variable `{$key}` is not an array");
+                throw new Ex("Env variable `{$key}` is not an array");
             }
             return Arr::splitList($value, $separator);
         }
         if (!is_array($value)) {
-            throw new RuntimeException("Env variable `{$key}` is not an array");
+            throw new Ex("Env variable `{$key}` is not an array");
         }
         return $value;
     }
@@ -246,19 +246,19 @@ final class Env
      *
      * @param list<string> $default
      * @return list<string>
-     * @throws RuntimeException
+     * @throws Ex
      */
     public static function getList(string $key, array $default = [], string $separator = ','): array
     {
         $value = static::get($key) ?? $default;
         if (is_string($value)) {
             if ($separator === '') {
-                throw new RuntimeException("Env variable `{$key}` is not an array");
+                throw new Ex("Env variable `{$key}` is not an array");
             }
             return Arr::splitList($value, $separator);
         }
         if (!is_array($value)) {
-            throw new RuntimeException("Env variable `{$key}` is not an array");
+            throw new Ex("Env variable `{$key}` is not an array");
         }
         /** @var list<string> $value */
         return array_values($value);
@@ -268,7 +268,7 @@ final class Env
      * Get `bool` value of an environment variable.
      * Empty or null values are converted to false or set default
      *
-     * @throws RuntimeException
+     * @throws Ex
      */
     public static function getBool(string $key, bool $default = false): bool
     {
@@ -283,7 +283,7 @@ final class Env
             };
         }
         if (!is_bool($value)) {
-            throw new RuntimeException("Env variable `{$key}` is not a bool");
+            throw new Ex("Env variable `{$key}` is not a bool");
         }
         return $value;
     }

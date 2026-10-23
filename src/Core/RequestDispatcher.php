@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Core;
 
 use Kaly\Di\Injector;
+use Kaly\Di\Reflection;
 use Kaly\Ex;
 use Kaly\Http\ContentType;
 use Kaly\Http\Input\InputMapperInterface;
@@ -20,7 +21,6 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use ReflectionClass;
 use ReflectionException;
-use ReflectionMethod;
 use ReflectionNamedType;
 
 /**
@@ -137,7 +137,9 @@ final class RequestDispatcher implements RequestHandlerInterface
      */
     private function withInput(array $arguments, string $class, string $action, ServerRequestInterface $request, string $inputClass): array
     {
-        $parameters = (new ReflectionMethod($class, $action))->getParameters();
+        $reflection = Reflection::tryClass($class);
+        assert($reflection !== null);
+        $parameters = $reflection->getMethod($action)->getParameters();
         $inputIndex = count($parameters) - 1;
         for ($i = count($arguments); $i < $inputIndex; $i++) {
             $parameter = $parameters[$i];

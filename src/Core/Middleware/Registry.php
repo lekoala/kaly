@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Core\Middleware;
 
 use Closure;
+use Kaly\Ex;
 use Psr\Http\Server\MiddlewareInterface;
 
 /**
@@ -59,6 +60,12 @@ final class Registry
     private array $sorted = [];
 
     private int $sequence = 0;
+    private bool $locked = false;
+
+    public function lock(): void
+    {
+        $this->locked = true;
+    }
 
     /**
      * Add a middleware that runs before routing
@@ -127,6 +134,9 @@ final class Registry
         ?Closure $when = null,
         bool $always = false,
     ): self {
+        if ($this->locked) {
+            throw new Ex('Middleware registry is locked after boot');
+        }
         if ($always && $band !== Band::Outgoing) {
             throw new \InvalidArgumentException('Only an outgoing middleware can be marked always');
         }
@@ -174,6 +184,9 @@ final class Registry
 
     public function clear(?Band $band = null): self
     {
+        if ($this->locked) {
+            throw new Ex('Middleware registry is locked after boot');
+        }
         $bands = $band === null ? Band::cases() : [$band];
 
         foreach ($bands as $case) {

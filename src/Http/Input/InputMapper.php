@@ -45,16 +45,28 @@ final class InputMapper implements InputMapperInterface
      */
     public function mapResult(ServerRequestInterface $request, string $class): InputResult
     {
+        $constructor = (new ReflectionClass($class))->getConstructor();
+        $parameters = $constructor?->getParameters() ?? [];
+        $fields = array_map(static fn(ReflectionParameter $parameter): string => $parameter->getName(), $parameters);
         [$data, $violations] = $this->merged($request);
+        $violations = array_values(array_filter($violations, static fn(Violation $violation): bool => in_array(
+            $violation->field,
+            $fields,
+            true,
+        )));
+        $conflicts = array_map(static fn(Violation $violation): ?string => $violation->field, $violations);
+        $form = !str_contains(strtolower($request->getHeaderLine('Content-Type')), 'json');
 
         $arguments = [];
-        $constructor = (new ReflectionClass($class))->getConstructor();
-        foreach ($constructor?->getParameters() ?? [] as $parameter) {
+        foreach ($parameters as $parameter) {
             $name = $parameter->getName();
+            if (in_array($name, $conflicts, true)) {
+                continue;
+            }
 
             // An empty value is not a value: a form always posts its empty
             // fields, and "" is only meaningful for a string.
-            $missing = !array_key_exists($name, $data) || $data[$name] === '' && !$this->isType($parameter, 'string');
+            $missing = !array_key_exists($name, $data) || $form && $data[$name] === '' && !$this->isType($parameter, 'string');
 
             if ($missing) {
                 if ($parameter->isDefaultValueAvailable()) {

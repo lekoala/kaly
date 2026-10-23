@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Kaly\Http\Cookie;
 
 use JsonSerializable;
+use Kaly\Clock\SystemClock;
+use Psr\Clock\ClockInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -42,6 +44,7 @@ final class Cookies implements JsonSerializable
     public function __construct(
         ServerRequestInterface $request,
         protected CookiePolicy $policy,
+        private readonly ClockInterface $clock = new SystemClock(),
     ) {
         $this->https = $request->getUri()->getScheme() === 'https';
         foreach ($request->getCookieParams() as $k => $v) {
@@ -227,6 +230,6 @@ final class Cookies implements JsonSerializable
      */
     protected function buildSetCookieHeader(string $name, string $value, array $params, bool $expire = false): string
     {
-        return SetCookieHeader::build($name, $value, $params, $expire);
+        return SetCookieHeader::build($name, $value, $params, $expire, $this->clock);
     }
 }

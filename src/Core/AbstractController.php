@@ -15,12 +15,9 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 abstract class AbstractController
 {
-    protected ServerRequestInterface $request;
-
-    public function __construct(ServerRequestInterface $request)
-    {
-        $this->request = $request;
-    }
+    public function __construct(
+        protected ServerRequestInterface $request,
+    ) {}
 
     /**
      * The context of the current request cycle: route, locale, response...

@@ -28,7 +28,6 @@ class WorkerTest extends TestCase
     protected function setUp(): void
     {
         $this->app = (new App(__DIR__))->routing(TrailingSlash::Add, true);
-        $this->app->boot();
     }
 
     protected function tearDown(): void

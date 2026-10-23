@@ -456,3 +456,8 @@ temporary `302` while the mapping is still being validated.
 
 
 
+Explicit routes are ordered by priority descending, then by the number of fully
+static segments descending, then by the number of placeholders ascending.
+Declaration order breaks ties. Placeholder names and regex lengths never affect
+precedence. Static path characters are literal; only `where()` constraints are
+regular expressions, validated when the table compiles.

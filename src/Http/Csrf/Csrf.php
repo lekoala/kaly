@@ -47,6 +47,9 @@ final class Csrf
             return false;
         }
 
+        if (strlen($token) !== 115) {
+            return false;
+        }
         $raw = Base64Url::decode($token);
 
         if ($raw === null || strlen($raw) !== self::MASKED_LENGTH) {

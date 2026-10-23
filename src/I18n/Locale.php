@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\I18n;
 
-use RuntimeException;
+use Kaly\Ex;
 
 /**
  * Stateless locale helpers.
@@ -29,14 +29,14 @@ final class Locale
     public static function parse(string $locale): array
     {
         $languagePart = '(?<language>[A-Za-z]{2,4})';
-        $scriptPart = '([_-](?<script>[A-Za-z]{4}|[0-9]{3}))?';
+        $scriptPart = '([_-](?<script>[A-Za-z]{4}))?';
         $countryPart = '([_-](?<country>[A-Za-z]{2}|[0-9]{3}))?';
         $privatePart = '([_-]x[_-](?<private>[A-Za-z0-9-_]+))';
         $pattern = "/^{$languagePart}{$scriptPart}{$countryPart}{$privatePart}?$/";
         $matches = [];
         $results = preg_match($pattern, $locale, $matches);
         if (!$results) {
-            throw new RuntimeException("Failed to parse locale string '{$locale}'");
+            throw new Ex("Failed to parse locale string '{$locale}'");
         }
         $matches = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
         $matches['script'] ??= '';
@@ -54,7 +54,7 @@ final class Locale
     {
         try {
             self::parse($locale);
-        } catch (RuntimeException) {
+        } catch (Ex) {
             return false;
         }
         return true;

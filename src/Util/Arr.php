@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kaly\Util;
 
+use Kaly\Ex;
+
 /**
  * Array helpers used by the framework and its consumers.
  *
@@ -81,7 +83,7 @@ final class Arr
     public static function splitList(string $value, string $separator = ','): array
     {
         if ($separator === '') {
-            throw new \InvalidArgumentException('Separator must not be empty');
+            throw new Ex('Separator must not be empty');
         }
         if ($value === '') {
             return [];

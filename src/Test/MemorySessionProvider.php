@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Kaly\Test;
 
+use Kaly\Clock\SystemClock;
 use Kaly\Http\Cookie\CookiePolicy;
 use Kaly\Http\Session\ArraySession;
 use Kaly\Http\Session\CookieSessionInterface;
 use Kaly\Http\Session\SessionCookie;
 use Kaly\Http\Session\SessionInterface;
 use Kaly\Http\Session\SessionProviderInterface;
+use Psr\Clock\ClockInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -35,6 +37,7 @@ final class MemorySessionProvider implements SessionProviderInterface
     public function __construct(
         private array $options = [],
         private ?CookiePolicy $policy = null,
+        private readonly ClockInterface $clock = new SystemClock(),
     ) {}
 
     public function create(ServerRequestInterface $request): SessionInterface
@@ -44,7 +47,7 @@ final class MemorySessionProvider implements SessionProviderInterface
             $this->policy,
         );
         $id = SessionCookie::idFromRequest($request, $session->getName());
-        if ($id !== null) {
+        if ($id !== null && isset($this->store[$id])) {
             $session->setId($id);
             foreach ($this->store[$id] ?? [] as $key => $value) {
                 $session->set($key, $value);
@@ -73,7 +76,7 @@ final class MemorySessionProvider implements SessionProviderInterface
         }
 
         if ($session instanceof CookieSessionInterface) {
-            return SessionCookie::commit($session, $request, $response);
+            return SessionCookie::commit($session, $request, $response, $this->clock);
         }
         return $response;
     }

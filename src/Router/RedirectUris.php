@@ -49,7 +49,7 @@ final class RedirectUris
     /**
      * Replace a path segment, reapplying the trailing slash policy.
      *
-     * Only the first whole-segment occurrence is replaced: removing the
+     * The first whole-segment occurrence at or after $segmentOffset is replaced: removing the
      * leading locale of `/fr/shop/fr/` gives `/shop/fr/`, and canonicalizing
      * `/Shop/product/Shop/` gives `/shop/product/Shop/`.
      *
@@ -61,13 +61,15 @@ final class RedirectUris
         string $remove,
         string $replace = '',
         TrailingSlash $trailingSlash = TrailingSlash::Preserve,
+        int $segmentOffset = 0,
     ): UriInterface {
         $uri = $request->getUri();
         $path = $uri->getPath();
         $replacement = $replace !== '' ? '/' . $replace : '';
         if ($remove !== '') {
             $search = '/' . $remove;
-            $offset = 0;
+            preg_match_all('#/[^/]+#', $path, $segments, PREG_OFFSET_CAPTURE);
+            $offset = $segments[0][$segmentOffset][1] ?? strlen($path);
             while (($pos = strpos($path, $search, $offset)) !== false) {
                 $end = $pos + strlen($search);
                 if ($end === strlen($path) || $path[$end] === '/') {
@@ -83,6 +85,16 @@ final class RedirectUris
             TrailingSlash::Remove => $path === '' ? '/' : RoutePath::withoutTrailingSlash($path),
             TrailingSlash::Preserve => $path === '' ? '/' : $path,
         });
+    }
+
+    public static function toPath(ServerRequestInterface $request, string $path, TrailingSlash $policy): UriInterface
+    {
+        $path = match ($policy) {
+            TrailingSlash::Add => RoutePath::withTrailingSlash($path),
+            TrailingSlash::Remove => $path === '' ? '/' : RoutePath::withoutTrailingSlash($path),
+            TrailingSlash::Preserve => $path === '' ? '/' : $path,
+        };
+        return self::local($request->getUri(), $path);
     }
 
     /**

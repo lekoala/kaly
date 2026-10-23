@@ -146,7 +146,7 @@ final class Str
     public static function stringify(mixed $val): string
     {
         if (is_array($val)) {
-            $val = json_encode($val, JSON_THROW_ON_ERROR);
+            $val = json_encode($val, JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR) ?: '[]';
         } elseif (is_object($val)) {
             if ($val instanceof Stringable) {
                 $val = (string) $val;
@@ -155,6 +155,8 @@ final class Str
             }
         } elseif (is_bool($val)) {
             $val = $val ? '(bool) true' : '(bool) false';
+        } elseif (is_int($val) || is_float($val)) {
+            $val = (string) $val;
         } elseif (!is_string($val)) {
             $val = get_debug_type($val);
         }
@@ -182,14 +184,12 @@ final class Str
      */
     public static function camelize(string $str, bool $firstChar = true): string
     {
-        if ($str === '') {
-            return $str;
-        }
-        $str = str_replace('-', ' ', $str);
-        $str = self::ucWords($str);
-        $str = str_replace(' ', '', $str);
+        $str = implode('', array_map(
+            static fn(string $part): string => mb_strtoupper(mb_substr($part, 0, 1)) . mb_substr($part, 1),
+            explode('-', $str),
+        ));
         if (!$firstChar) {
-            $str[0] = mb_strtolower($str[0]);
+            $str = mb_strtolower(mb_substr($str, 0, 1)) . mb_substr($str, 1);
         }
         return $str;
     }

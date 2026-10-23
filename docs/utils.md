@@ -79,7 +79,7 @@ persistence codec.
 - `Kaly\Util\Cast` coerces loose input (form fields, env vars, url segments)
   and returns `null` on failure instead of throwing.
 - `Kaly\Util\Assert` guarantees an expected invariant: it returns the narrowed
-  value or throws `InvalidArgumentException`. Reserve it for data expected to
+  value or throws `Kaly\Ex`. Reserve it for data expected to
   be valid at that point (`$id = Assert::positiveInteger($data['id'] ?? null)`);
   user-facing request validation with collected errors stays with
   `Kaly\Validation\Validator`.

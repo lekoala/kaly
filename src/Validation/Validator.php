@@ -105,7 +105,7 @@ final class Validator
             return $this;
         }
         if ($min !== null && $max !== null) {
-            if ($value < $min || $value > $max) {
+            if (is_nan((float) $value) || $value < $min || $value > $max) {
                 $this->add(new Violation($field, 'between', 'between', "This value must be between {$min} and {$max}", [
                     '%min%' => $min,
                     '%max%' => $max,
@@ -113,10 +113,10 @@ final class Validator
             }
             return $this;
         }
-        if ($min !== null && $value < $min) {
+        if ($min !== null && (is_nan((float) $value) || $value < $min)) {
             $this->add(new Violation($field, 'between_min', 'between_min', "This value must be at least {$min}", ['%min%' => $min]));
         }
-        if ($max !== null && $value > $max) {
+        if ($max !== null && (is_nan((float) $value) || $value > $max)) {
             $this->add(new Violation($field, 'between_max', 'between_max', "This value must be at most {$max}", ['%max%' => $max]));
         }
         return $this;

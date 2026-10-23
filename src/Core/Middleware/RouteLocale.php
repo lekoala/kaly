@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaly\Core\Middleware;
 
 use Kaly\Core\HttpContext;
+use Kaly\Di\Reflection;
 use Kaly\Ex;
 use Kaly\Http\Exception\NotFoundException;
 use Kaly\I18n\Locale;
@@ -14,7 +15,6 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use ReflectionClass;
 
 /**
  * Projects a route placeholder (eg `{locale}`) onto the request locale.
@@ -81,7 +81,8 @@ final readonly class RouteLocale implements MiddlewareInterface
         if (!class_exists($route->controller)) {
             throw new Ex("Route controller '{$route->controller}' does not exist for RouteLocale");
         }
-        $reflection = new ReflectionClass($route->controller);
+        $reflection = Reflection::tryClass($route->controller);
+        assert($reflection !== null);
 
         if (!$reflection->hasMethod($route->action)) {
             throw new Ex("Route action '{$route->action}' does not exist for RouteLocale");

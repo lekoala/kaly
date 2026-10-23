@@ -421,7 +421,7 @@ final class Module implements RouteScope
         if ($this->hasTemplates()) {
             $this->definitions->callback(RendererInterface::class, function (RendererInterface $renderer): void {
                 if ($renderer instanceof TemplatePathRegistryInterface) {
-                    $renderer->setPath($this->name, $this->templatesDir());
+                    $renderer->setPath($this->id(), $this->templatesDir());
                 }
             });
         }

@@ -30,7 +30,7 @@ class ContentTypeTest extends TestCase
             'gif' => ['loop.gif', ContentType::GIF],
             'pdf' => ['invoice.pdf', ContentType::PDF],
             'woff' => ['font.woff', ContentType::WOFF],
-            'woff2' => ['font.woff2', ContentType::WOFF],
+            'woff2' => ['font.woff2', ContentType::WOFF2],
             'xml' => ['feed.xml', ContentType::XML],
             'csv' => ['export.csv', ContentType::CSV],
         ];

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Kaly\Http\Cookie;
 
 use InvalidArgumentException;
+use Kaly\Clock\SystemClock;
+use Psr\Clock\ClockInterface;
 
 /**
  * Builds raw Set-Cookie header values.
@@ -37,8 +39,13 @@ final class SetCookieHeader
      *
      * @param array{lifetime?:int,path?:string,domain?:string,secure?:bool,httponly?:bool,samesite?:string,partitioned?:bool} $params
      */
-    public static function build(string $name, string $value, array $params, bool $expire = false): string
-    {
+    public static function build(
+        string $name,
+        string $value,
+        array $params,
+        bool $expire = false,
+        ClockInterface $clock = new SystemClock(),
+    ): string {
         $cookie = urlencode($name) . '=' . urlencode($value);
 
         if ($expire) {
@@ -46,7 +53,7 @@ final class SetCookieHeader
         } elseif (!empty($params['lifetime'])) {
             // lifetime is a duration, not an absolute timestamp
             $lifetime = intval($params['lifetime']);
-            $expires = gmdate('D, d M Y H:i:s T', time() + $lifetime);
+            $expires = gmdate('D, d M Y H:i:s T', $clock->now()->getTimestamp() + $lifetime);
             $cookie .= "; Expires={$expires}; Max-Age={$lifetime}";
         }
 

@@ -290,4 +290,13 @@ class TestClientStateTest extends TestCase
         $client->get('/me')->assertStatus(401);
         $this->assertSame([], $client->cookies());
     }
+
+    public function testMultipart307ReplaysParsedFields(): void
+    {
+        $client = TestClient::for($this->app);
+        $psr17 = new \Nyholm\Psr7\Factory\Psr17Factory();
+        $file = $psr17->createUploadedFile($psr17->createStream('document'), 8, UPLOAD_ERR_OK, 'document.txt');
+        $client->post('/forward-parsed', ['files' => ['document' => $file], 'form' => ['a' => '1']])->assertStatus(307);
+        $client->followRedirect()->assertStatus(200)->assertBody('POST:1');
+    }
 }
