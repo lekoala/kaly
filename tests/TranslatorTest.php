@@ -147,6 +147,36 @@ class TranslatorTest extends TestCase
         }
     }
 
+    public function testDirectoryIndexAvoidsRepeatedMissingCatalogLookups(): void
+    {
+        $path = sys_get_temp_dir() . '/kaly-missing-catalog-' . uniqid();
+        \Kaly\Util\Fs::ensureDir($path);
+        try {
+            \Kaly\Util\Fs::putFile($path . '/messages.fr.php', '<?php return ["hello" => "Bonjour"];');
+            $translator = (new Translator('en'))->addPath($path);
+            $this->assertSame('Bonjour', $translator->translate('hello', locale: 'fr-BE'));
+
+            // The directory index is reused even for another missing locale
+            \Kaly\Util\Fs::putFile($path . '/messages.fr-BE.php', '<?php return ["hello" => "Salut"];');
+            $this->assertSame('Bonjour', $translator->translate('hello', locale: 'FR_be'));
+            \Kaly\Util\Fs::putFile($path . '/messages.fr-CA.php', '<?php return ["hello" => "Allo"];');
+            $this->assertSame('Bonjour', $translator->translate('hello', locale: 'fr-CA'));
+            $this->assertSame('missing', $translator->translate('missing', locale: 'fr-BE'));
+            $this->assertSame('Salut', (new Translator('en'))
+                ->addPath($path)
+                ->translate('hello', locale: 'fr-BE'));
+
+            // Explicit additions still populate a previously missing catalog
+            $translator->addToCatalog('messages', 'fr-BE', ['hello' => 'Coucou']);
+            $this->assertSame('Coucou', $translator->translate('hello', locale: 'fr-BE'));
+
+            $translator->setPaths([$path]);
+            $this->assertSame('Allo', $translator->translate('hello', locale: 'fr-CA'));
+        } finally {
+            \Kaly\Tests\Support\TempDir::remove($path);
+        }
+    }
+
     public function testDuplicateCatalogFilesForEquivalentLocalesAreRejected(): void
     {
         $path = sys_get_temp_dir() . '/kaly-duplicate-catalog-' . uniqid();

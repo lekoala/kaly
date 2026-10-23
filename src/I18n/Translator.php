@@ -19,7 +19,8 @@ use Kaly\Ex;
  * LocalizedTranslator built from the locale resolved for the request.
  *
  * Catalogs are built lazily in memory, once per domain and locale: there is
- * no file cache, PHP files are the cache.
+ * no file cache, PHP files are the cache. Directory contents are indexed once
+ * per path, so missing catalogs need no repeated filesystem lookup.
  */
 final class Translator implements TranslatorInterface
 {
@@ -33,6 +34,10 @@ final class Translator implements TranslatorInterface
      * @var array<string>
      */
     protected array $paths = [];
+    /**
+     * @var array<string,array<string,list<string>>>
+     */
+    private array $catalogFiles = [];
     protected string $defaultLocale = 'en';
 
     public function __construct(string $defaultLocale = 'en')
@@ -56,12 +61,14 @@ final class Translator implements TranslatorInterface
     public function setPaths(array $paths): self
     {
         $this->paths = $paths;
+        $this->catalogFiles = [];
         return $this;
     }
 
     public function addPath(string $path): self
     {
         $this->paths[] = $path;
+        unset($this->catalogFiles[$path]);
         return $this;
     }
 
@@ -135,26 +142,31 @@ final class Translator implements TranslatorInterface
 
     private function catalogFile(string $path, string $name, string $locale): ?string
     {
-        if (!is_dir($path)) {
-            return null;
+        if (!isset($this->catalogFiles[$path])) {
+            $files = [];
+            if (is_dir($path)) {
+                foreach (new DirectoryIterator($path) as $entry) {
+                    $filename = $entry->getFilename();
+                    if (!str_ends_with($filename, '.php') || !$entry->isFile()) {
+                        continue;
+                    }
+                    $stem = substr($filename, 0, -4);
+                    $separator = strrpos($stem, '.');
+                    if ($separator === false) {
+                        continue;
+                    }
+                    $fileName = substr($stem, 0, $separator);
+                    $fileLocale = Locale::normalize(substr($stem, $separator + 1));
+                    $files[$fileName . '.' . $fileLocale][] = $entry->getPathname();
+                }
+            }
+            $this->catalogFiles[$path] = $files;
         }
-        $match = null;
-        $prefix = $name . '.';
-        foreach (new DirectoryIterator($path) as $entry) {
-            $filename = $entry->getFilename();
-            if (!str_starts_with($filename, $prefix) || !str_ends_with($filename, '.php') || !$entry->isFile()) {
-                continue;
-            }
-            $fileLocale = substr($filename, strlen($prefix), -4);
-            if (Locale::normalize($fileLocale) !== $locale) {
-                continue;
-            }
-            if ($match !== null) {
-                throw new Ex("Duplicate translation catalogs for '{$name}.{$locale}' in '{$path}'");
-            }
-            $match = $entry->getPathname();
+        $matches = $this->catalogFiles[$path][$name . '.' . $locale] ?? [];
+        if (count($matches) > 1) {
+            throw new Ex("Duplicate translation catalogs for '{$name}.{$locale}' in '{$path}'");
         }
-        return $match;
+        return $matches[0] ?? null;
     }
 
     /**

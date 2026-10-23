@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed
+
+- `Translator` indexes catalog filenames once per path, so locale fallbacks
+  no longer repeat directory scans or retain entries for missing locales.
+
 ## 0.5.0 - 2026-10-23
 
 ### Added
