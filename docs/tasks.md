@@ -74,7 +74,7 @@ transaction:
 | Durable engine                      | The engine documents its own guarantees                       |
 
 Durable engines include [kaly-tasks](https://github.com/lekoala/kaly-tasks)
-(PostgreSQL) and [Symfony Messenger](#symfony-messenger).
+(PostgreSQL, MySQL and SQLite) and [Symfony Messenger](#symfony-messenger).
 
 Both Kaly dispatchers reject a non-invocable object and accept closures. A
 durable engine may restrict tasks further, eg to persistable data.
@@ -86,6 +86,37 @@ See the [trust boundary](security.md#trust-boundary).
 
 The direct dispatcher is a production engine for short work that needs no
 deferred durability. Inside a transaction, it runs the task before the commit.
+
+## Scheduling
+
+`TaskDispatcher` exposes only `dispatch(object $task)`. Applications that need a
+deadline depend on `Kaly\Task\ScheduledTaskDispatcher`, which extends that contract
+with an optional absolute lower bound on the same method:
+
+```php
+use Kaly\Task\ScheduledTaskDispatcher;
+
+final readonly class SmsService
+{
+    public function __construct(private ScheduledTaskDispatcher $tasks) {}
+
+    public function send(string $deliveryId, DateTimeImmutable $scheduledAt): void
+    {
+        $this->tasks->dispatch(new DeliverSms($deliveryId), notBefore: $scheduledAt);
+    }
+}
+```
+
+Use an injected PSR-20 clock to express business dates, for example
+`$clock->now()->modify('+10 seconds')`. A past date is immediately eligible; a
+future date must be honored. Execution may be later, depending on polling and
+precision. Durable SQL engines keep database time for availability and leases.
+
+`DirectTaskDispatcher` implements only `TaskDispatcher`. Bind
+`ScheduledTaskDispatcher` explicitly to a capable engine: a direct binding does
+not satisfy a service's scheduling dependency. `RecordingTaskDispatcher` offers
+both capabilities for tests. When one engine serves both contracts, bind the
+scheduling interface and alias `TaskDispatcher` to that same instance.
 
 ## Testing
 
@@ -100,8 +131,10 @@ $useCase->publish('doc-123');
 $this->assertEquals([new GeneratePdf('doc-123')], $tasks->tasks());
 ```
 
-`runAll()` runs the queue in dispatch order until it is empty, including tasks
-dispatched by running tasks. Each task leaves the queue before it runs: on
+`runAll()` runs eligible tasks in dispatch order until none is due, including
+eligible tasks dispatched by running tasks. Future tasks remain recorded and do
+not block immediate tasks. Inject a `FrozenClock` into `RecordingTaskDispatcher`
+to advance time in tests without sleeping. Each task leaves the queue before it runs: on
 failure, the exception propagates and the following tasks stay pending.
 
 ```php
@@ -113,24 +146,38 @@ engine.
 
 ## Symfony Messenger
 
-Messenger can run the same tasks unchanged. One generic handler delegates
-every message of a dedicated bus to the Injector:
+Messenger can run the same tasks unchanged. This scheduling adapter requires
+a dedicated asynchronous bus whose transport honors delayed delivery. One
+generic handler delegates its messages to the Injector:
 
 ```php
+use Kaly\Clock\SystemClock;
 use Kaly\Di\Injector;
-use Kaly\Task\TaskDispatcher;
+use Kaly\Task\ScheduledTaskDispatcher;
+use Psr\Clock\ClockInterface;
 use Symfony\Component\Messenger\Handler\HandlersLocator;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
 
-final readonly class MessengerTaskDispatcher implements TaskDispatcher
+final readonly class ScheduledMessengerTaskDispatcher implements ScheduledTaskDispatcher
 {
     public function __construct(
         private MessageBusInterface $bus,
+        private ClockInterface $clock = new SystemClock(),
     ) {}
 
-    public function dispatch(object $task): void
+    public function dispatch(object $task, ?DateTimeImmutable $notBefore = null): void
     {
-        $this->bus->dispatch($task);
+        $stamps = [];
+        if ($notBefore !== null) {
+            $now = $this->clock->now();
+            $milliseconds = ($notBefore->getTimestamp() - $now->getTimestamp()) * 1000
+                + (int) ceil(((int) $notBefore->format('u') - (int) $now->format('u')) / 1000);
+            if ($milliseconds > 0) {
+                $stamps[] = new DelayStamp($milliseconds);
+            }
+        }
+        $this->bus->dispatch($task, $stamps);
     }
 }
 
@@ -145,3 +192,10 @@ $handlers = new HandlersLocator([
 - Messenger serializes with PHP `serialize()` by default: configure its
   serializer if stored tasks must be a controlled format.
 - Switching engines does not migrate tasks already waiting in the old one.
+
+Register this adapter as `ScheduledTaskDispatcher` only with a transport that
+honors `DelayStamp`. The adapter rounds up to milliseconds; transport precision
+and latency can delay execution further. Test the guarantee with that transport.
+An adapter for a synchronous or unsupported transport implements only
+`TaskDispatcher`, with `dispatch(object $task)` forwarding directly to the bus.
+Do not expose the scheduling interface behind a runtime capability flag.

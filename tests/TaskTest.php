@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use DateTimeImmutable;
 use InvalidArgumentException;
+use Kaly\Clock\FrozenClock;
 use Kaly\Di\Container;
 use Kaly\Di\Definitions;
 use Kaly\Di\Injector;
 use Kaly\Task\DirectTaskDispatcher;
+use Kaly\Task\ScheduledTaskDispatcher;
 use Kaly\Task\TaskDispatcher;
 use Kaly\Test\RecordingTaskDispatcher;
 use PHPUnit\Framework\TestCase;
+use Psr\Container\NotFoundExceptionInterface;
 use RuntimeException;
 use stdClass;
 
@@ -104,6 +108,39 @@ class TaskTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Task stdClass is not invocable');
         $tasks->dispatch(new stdClass());
+    }
+
+    public function testDirectBindingDoesNotProvideTheSchedulingCapability(): void
+    {
+        $container = new Container(Definitions::create()->bind(TaskDispatcher::class, DirectTaskDispatcher::class));
+        $container->get(TaskDispatcher::class)->dispatch(new TaskTestGeneratePdf('immediate'));
+        $this->assertSame(['immediate'], $container->get(TaskTestPdfGenerator::class)->generated);
+
+        $this->expectException(NotFoundExceptionInterface::class);
+        $container->get(ScheduledTaskDispatcher::class);
+    }
+
+    public function testRecordingDispatcherKeepsFutureTasksUntilTheirDeadline(): void
+    {
+        $clock = new FrozenClock(new DateTimeImmutable('2026-10-26T10:00:00.123456Z'));
+        $generator = new TaskTestPdfGenerator();
+        $tasks = new RecordingTaskDispatcher($clock);
+        $dispatcher = (new Container([ScheduledTaskDispatcher::class => $tasks]))->get(ScheduledTaskDispatcher::class);
+        $future = new TaskTestGeneratePdf('future');
+        $dispatcher->dispatch($future, notBefore: $clock->now()->modify('+1 microsecond'));
+        $tasks->dispatch(new TaskTestGeneratePdf('past'), notBefore: $clock->now()->modify('-1 second'));
+        $tasks->dispatch(new TaskTestGeneratePdf('now'), notBefore: $clock->now());
+        $tasks->dispatch(new TaskTestGeneratePdf('immediate'));
+        $injector = new Injector(new Container([TaskTestPdfGenerator::class => $generator]));
+
+        $tasks->runAll($injector);
+        $this->assertSame(['past', 'now', 'immediate'], $generator->generated);
+        $this->assertSame([$future], $tasks->tasks());
+
+        $clock->modify('+1 microsecond');
+        $tasks->runAll($injector);
+        $this->assertSame(['past', 'now', 'immediate', 'future'], $generator->generated);
+        $this->assertSame([], $tasks->tasks());
     }
 
     public function testRecordingDispatcherRecordsWithoutRunning(): void

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0 - 2026-10-26
+
+- Add `Kaly\Task\ScheduledTaskDispatcher`, extending the minimal `TaskDispatcher`
+  with optional `?DateTimeImmutable $notBefore`. Implementations guarantee future
+  deadlines; applications request this capability explicitly through injection.
+  `TaskDispatcher` and `DirectTaskDispatcher` keep their existing API.
+- `RecordingTaskDispatcher` implements `ScheduledTaskDispatcher`, records future
+  tasks and runs only eligible tasks with its injectable PSR-20 clock.
+- Document the two capabilities, shared container bindings and a scheduled
+  Messenger adapter requiring a transport that honors delayed delivery.
+
 ## 0.5.1 - 2026-10-26
 
 ### Changed
