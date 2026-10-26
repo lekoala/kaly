@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
+use InvalidArgumentException;
 use Kaly\Core\Hooks;
 use Kaly\Core\HttpContext;
 use Kaly\Core\Kernel;
@@ -15,6 +16,7 @@ use Kaly\Http\Session\NativePhpSessionProvider;
 use Kaly\Tests\Support\HttpFactory;
 use Kaly\Tests\Support\TempDir;
 use Kaly\Util\Fs;
+use LogicException;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -26,9 +28,18 @@ use Psr\Http\Server\RequestHandlerInterface;
 class SessionTest extends TestCase
 {
     private string $savePath;
+    private string $previousSavePath;
+    private string $previousName;
 
     protected function setUp(): void
     {
+        $savePath = session_save_path();
+        $name = session_name();
+        if ($savePath === false || $name === false) {
+            throw new LogicException('Native session configuration is unavailable');
+        }
+        $this->previousSavePath = $savePath;
+        $this->previousName = $name;
         $this->savePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'kaly-session-' . uniqid();
         Fs::ensureDir($this->savePath);
         session_save_path($this->savePath);
@@ -41,6 +52,9 @@ class SessionTest extends TestCase
             session_abort();
         }
         session_id('');
+        $_SESSION = [];
+        session_save_path($this->previousSavePath);
+        session_name($this->previousName);
         TempDir::remove($this->savePath);
     }
 
@@ -96,6 +110,95 @@ class SessionTest extends TestCase
         $this->assertNotSame($firstId, $second->getId());
         $this->assertNull($second->get('user'));
         $second->discard();
+    }
+
+    /** @return array<string, array{bool}> */
+    public static function storageStates(): array
+    {
+        return ['active' => [false], 'persisted' => [true]];
+    }
+
+    #[DataProvider('storageStates')]
+    public function testClearPersistsAnEmptySession(bool $closeBeforeClear): void
+    {
+        $session = new NativePhpSession();
+        $session->set('user', 'AUDIT-USER-A');
+        $session->set('optional', null);
+        $id = $session->getId();
+        $this->assertNotNull($id);
+        if ($closeBeforeClear) {
+            $session->close();
+        }
+
+        $session->clear();
+        $this->assertSame([], $session->all());
+        $this->assertSame($id, $session->getId());
+        $session->close();
+
+        $restored = new NativePhpSession();
+        $restored->setId($id);
+        $this->assertSame([], $restored->all());
+        $this->assertSame($id, $restored->getId());
+        $restored->destroy();
+    }
+
+    public function testExplicitSavePathControlsThePersistedStorage(): void
+    {
+        $customPath = $this->savePath . '/custom';
+        Fs::ensureDir($customPath);
+        $session = new NativePhpSession(['save_path' => $customPath]);
+        $this->assertSame($this->savePath, session_save_path());
+        $session->set('user', 'AUDIT-USER-A');
+        $id = $session->getId();
+        $this->assertNotNull($id);
+        $this->assertTrue($session->close());
+        $this->assertFileExists($customPath . '/sess_' . $id);
+        $this->assertFileDoesNotExist($this->savePath . '/sess_' . $id);
+
+        $restored = new NativePhpSession(['save_path' => $customPath]);
+        $restored->setId($id);
+        $this->assertSame('AUDIT-USER-A', $restored->get('user'));
+        $restored->destroy();
+    }
+
+    public function testCloseReportsWhetherItReleasedStorage(): void
+    {
+        $session = new NativePhpSession();
+        $this->assertFalse($session->close());
+        $session->set('user', 'AUDIT-USER-A');
+        $this->assertTrue($session->close());
+        $this->assertSame(PHP_SESSION_NONE, session_status());
+        $this->assertSame('', session_id());
+        $this->assertSame([], $_SESSION);
+        $this->assertFalse($session->close());
+        $session->destroy();
+    }
+
+    /** @return array<string, array{string}> */
+    public static function destructiveStorageEndings(): array
+    {
+        return ['discard' => ['discard'], 'destroy' => ['destroy']];
+    }
+
+    #[DataProvider('destructiveStorageEndings')]
+    public function testStorageReleaseResetsPhpStateAndIsolatesTheNextRequest(string $ending): void
+    {
+        $session = new NativePhpSession();
+        $session->set('user', 'AUDIT-USER-A');
+        $id = $session->getId();
+        $this->assertNotNull($id);
+        $session->$ending();
+        $this->assertSame(PHP_SESSION_NONE, session_status());
+        $this->assertSame('', session_id());
+        $this->assertSame([], $_SESSION);
+        $this->assertFalse($session->isActive());
+
+        $next = new NativePhpSession();
+        $this->assertNull($next->get('user'));
+        $next->set('user', 'AUDIT-USER-B');
+        $this->assertNotSame($id, $next->getId());
+        $this->assertSame('AUDIT-USER-B', $next->get('user'));
+        $next->destroy();
     }
 
     public function testCookieIdFromRequestIsRestored(): void
@@ -244,6 +347,8 @@ class SessionTest extends TestCase
         $second = new NativePhpSession();
         $this->assertFalse($second->isActive());
         $this->assertNull($second->get('_auth'));
+        $second->remove('_auth');
+        $second->clear();
         $this->assertFalse($second->close());
         $second->discard();
         $second->destroy();
@@ -439,6 +544,53 @@ class SessionTest extends TestCase
     {
         $session = new NativePhpSession(['name' => 'CUSTOMNAME']);
         $this->assertSame('CUSTOMNAME', $session->getName());
+        $session->set('user', 'AUDIT-USER-A');
+        $this->assertSame('CUSTOMNAME', session_name());
+        $session->destroy();
+    }
+
+    /** @return array<string, array{mixed}> */
+    public static function invalidSessionNames(): array
+    {
+        return ['empty' => [''], 'integer' => [123], 'boolean' => [true], 'array' => [[]]];
+    }
+
+    #[DataProvider('invalidSessionNames')]
+    public function testInvalidSessionNamesAreRejectedBeforeStorageStarts(mixed $name): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        new NativePhpSession(['name' => $name]);
+    }
+
+    /** @return array<string, array{string}> */
+    public static function removedSessionOptions(): array
+    {
+        return [
+            'rotation interval' => ['regen_interval'],
+            'expiry key' => ['expiry_key'],
+            'remember lifetime' => ['remember_lifetime'],
+            'remember key' => ['remember_key'],
+        ];
+    }
+
+    #[DataProvider('removedSessionOptions')]
+    public function testRemovedSessionOptionsAreRejectedEvenWhenNull(string $option): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        new NativePhpSession([$option => null]);
+    }
+
+    public function testNumericCookieLifetimeIsNormalizedAndEmitted(): void
+    {
+        $provider = $this->provider(['lifetime' => '1234']);
+        $request = $this->request();
+        $session = $provider->create($request);
+        assert($session instanceof NativePhpSession);
+        $this->assertSame(1234, $session->getCookieParams()['lifetime']);
+        $session->set('user', 'AUDIT-USER-A');
+        $response = $provider->commit($session, $request, HttpFactory::createResponse());
+        $this->assertStringContainsString('Max-Age=1234', $response->getHeaderLine('Set-Cookie'));
+        $session->destroy();
     }
 
     public function testRegenerateIdStartsAndRotatesAFreshSession(): void

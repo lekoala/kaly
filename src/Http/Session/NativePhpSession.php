@@ -29,7 +29,7 @@ use Throwable;
  * Concurrent runtimes must bind a SessionProviderInterface returning a
  * request-scoped SessionInterface implementation instead.
  *
- * @phpstan-type SessionOptions array{name?:string,save_path?:string,lifetime?:int,path?:string,domain?:string,secure?:bool,httponly?:bool,samesite?:string,partitioned?:bool}
+ * @phpstan-type SessionOptions array{name?:string,save_path?:string,lifetime?:int|numeric-string,path?:string,domain?:string,secure?:bool,httponly?:bool,samesite?:string,partitioned?:bool}
  *
  * @link https://github.com/upscalesoftware/swoole-session
  * @link https://github.com/yiisoft/session
@@ -189,8 +189,8 @@ final class NativePhpSession implements CookieSessionInterface
                 throw new Ex('Failed to destroy session');
             }
             self::$owner = null;
+            // PHP clears the native id, but leaves the session data global.
             $_SESSION = [];
-            session_id('');
         }
         // Also covers a session that was never started: the client cookie must
         // still be expired, otherwise the browser keeps a dangling session id
@@ -320,7 +320,7 @@ final class NativePhpSession implements CookieSessionInterface
         self::checkSessionCanStart();
 
         // The name is process-global in PHP: align it for this start only.
-        if ($this->name !== '' && $this->name !== session_name()) {
+        if ($this->name !== session_name()) {
             session_name($this->name);
         }
         session_id($this->sessionId ?? '');
@@ -341,7 +341,7 @@ final class NativePhpSession implements CookieSessionInterface
     /**
      * Checks whether the session can be started.
      */
-    public static function checkSessionCanStart(): void
+    private static function checkSessionCanStart(): void
     {
         if (session_status() === PHP_SESSION_DISABLED) {
             throw new Ex('PHP sessions are disabled');
@@ -359,9 +359,9 @@ final class NativePhpSession implements CookieSessionInterface
      *
      * @return array{lifetime:int,path:string,domain:string,secure:bool,httponly:bool,samesite:string,partitioned?:bool}
      */
-    public static function cookieDefaults(?CookiePolicy $policy = null): array
+    private static function cookieDefaults(CookiePolicy $policy): array
     {
-        return array_merge(session_get_cookie_params(), ($policy ?? CookiePolicy::baseline())->toArray());
+        return array_merge(session_get_cookie_params(), $policy->toArray());
     }
 
     /**

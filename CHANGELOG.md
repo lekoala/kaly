@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Changed
+
+- **Breaking:** `NativePhpSession::checkSessionCanStart()` and `cookieDefaults()`
+  are private implementation details; use the session provider and the instance's
+  `getCookieParams()` for session lifecycle and cookie configuration.
+
 ### Fixed
 
 - Native PHP sessions keep response cookie attributes on the session instance,
