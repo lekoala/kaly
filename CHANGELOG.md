@@ -10,6 +10,8 @@
 
 ### Fixed
 
+- `TestClient` URL-encodes cookie values when building request headers, so
+  decoded spaces, plus signs and delimiters survive subsequent requests.
 - Native PHP sessions keep response cookie attributes on the session instance,
   so starting storage no longer leaks cookie defaults into later requests.
 - `Translator` indexes catalog filenames once per path, so locale fallbacks

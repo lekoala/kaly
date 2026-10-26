@@ -68,6 +68,13 @@ attributes (domain, path, secure, expiry) are neither enforced nor stored.
 Explicit `cookies` win over the stored ones; `clearCookies()` resets the store
 and `cookies()` inspects it.
 
+Cookie values in the store, the `cookies` option and the request's cookie
+parameters are decoded strings. The client URL-encodes values when building
+the `Cookie` header. An explicit `Cookie` header is sent unchanged, regardless
+of header name casing; it is not parsed into cookie parameters. Those still
+come from the store and the `cookies` option. On redirect, the client rebuilds
+the header from the updated store instead of replaying the previous header.
+
 ```php
 $client->post('/login', ['form' => ['user' => 'ada']])->assertStatus(303);
 $client->followRedirect()->assertBody('user:42');

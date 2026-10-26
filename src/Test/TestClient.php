@@ -207,7 +207,7 @@ final class TestClient
         if ($merged !== [] && !$request->hasHeader('Cookie')) {
             $pairs = [];
             foreach ($merged as $name => $value) {
-                $pairs[] = $name . '=' . $value;
+                $pairs[] = $name . '=' . urlencode($value);
             }
             $request = $request->withHeader('Cookie', implode('; ', $pairs));
         }
