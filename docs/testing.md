@@ -144,6 +144,36 @@ call `SessionAuthentication::login()` with its user and permissions. Keep tests
 of the login form and credential validation on the real login flow. Kaly leaves
 the user lookup in that helper to the application. See [Auth](auth.md).
 
+## Mutation testing with Infection
+
+If you want to test the quality of your PHPUnit suite, not just that it passes,
+run mutation testing with [Infection](https://infection.github.io/guide/): it will
+mutate the code under test and verify whether your tests catch the change.
+
+```bash
+composer install
+composer infection
+```
+
+The project ships with a default configuration in `infection.json5` and the
+helper script in `composer.json`, so a run uses the repository's PHPUnit setup
+and the Kaly source tree directly. Run these commands with the PHP version used
+by the test suite and a working coverage driver (Xdebug with coverage enabled,
+PCOV, or phpdbg). With Xdebug, set `XDEBUG_MODE=coverage` in your shell if needed.
+Infection generates coverage automatically and runs the initial suite in random
+order; the tests must pass without warnings before mutations can run.
+
+To reuse coverage generated separately, provide PHPUnit XML coverage and JUnit
+reports (the Clover report from `composer phpunit:coverage` is not sufficient):
+
+```bash
+composer phpunit -- --coverage-xml=var/coverage/coverage-xml --log-junit=var/coverage/junit.xml
+composer infection -- --coverage=var/coverage
+```
+
+This is especially useful for the router, auth and input code where a single
+missed branch often hides a real regression.
+
 ## Slow tests
 
 In-process tests with `TestClient` should stay in the millisecond range. To

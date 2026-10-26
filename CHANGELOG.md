@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- Native PHP sessions keep response cookie attributes on the session instance,
+  so starting storage no longer leaks cookie defaults into later requests.
 - `Translator` indexes catalog filenames once per path, so locale fallbacks
   no longer repeat directory scans or retain entries for missing locales.
 

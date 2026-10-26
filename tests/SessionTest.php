@@ -17,6 +17,7 @@ use Kaly\Tests\Support\TempDir;
 use Kaly\Util\Fs;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -117,10 +118,57 @@ class SessionTest extends TestCase
 
     public function testPsr7CookieHandlingStaysDisabled(): void
     {
+        $session = new NativePhpSession();
+        $session->set('user', 'AUDIT-USER-A');
         // PHP never emits the session cookie itself: the provider writes the
         // Set-Cookie header on the PSR-7 response.
         $this->assertSame('0', ini_get('session.use_cookies'));
         $this->assertSame('KALYAUDIT', session_name());
+        $session->close();
+    }
+
+    /** @return array<string, array{string}> */
+    public static function nativeSessionEndings(): array
+    {
+        return ['close' => ['close'], 'discard' => ['discard'], 'destroy' => ['destroy']];
+    }
+
+    #[DataProvider('nativeSessionEndings')]
+    public function testCookieAttributesStayLocalThroughoutTheStorageLifecycle(string $ending): void
+    {
+        $before = session_get_cookie_params();
+        $params = [
+            'lifetime' => 1234,
+            'path' => '/private',
+            'domain' => 'example.test',
+            'secure' => true,
+            'httponly' => true,
+            'samesite' => 'Strict',
+            'partitioned' => true,
+        ];
+        $session = new NativePhpSession($params);
+        $this->assertEquals($params, $session->getCookieParams());
+        $snapshots = [session_get_cookie_params()];
+
+        $session->set('user', 'AUDIT-USER-A');
+        $snapshots[] = session_get_cookie_params();
+        $session->regenerateId();
+        $snapshots[] = session_get_cookie_params();
+        $session->$ending();
+        $snapshots[] = session_get_cookie_params();
+
+        // A new request inherits the original PHP defaults, not the last
+        // request's cookie attributes.
+        $next = new NativePhpSession([], new CookiePolicy());
+        $this->assertSame($before, $next->getCookieParams());
+        $next->set('user', 'AUDIT-USER-B');
+        $snapshots[] = session_get_cookie_params();
+        $next->destroy();
+        $session->destroy();
+        $snapshots[] = session_get_cookie_params();
+        foreach ($snapshots as $snapshot) {
+            $this->assertSame($before, $snapshot);
+        }
     }
 
     public function testCookieDefaultsComeFromPolicyNotFromPhpGlobals(): void
@@ -139,6 +187,7 @@ class SessionTest extends TestCase
 
     public function testConfiguredPolicyReachesTheSetCookieHeader(): void
     {
+        $before = session_get_cookie_params();
         $provider = new NativePhpSessionProvider([], new CookiePolicy(lifetime: 0, httpOnly: true, sameSite: 'Strict'));
         $session = $provider->create($this->request());
         $session->set('user', 'AUDIT-USER-A');
@@ -154,6 +203,7 @@ class SessionTest extends TestCase
         // is inferred from the request, subdomains are never included by default
         $this->assertStringContainsString('; Secure', $cookie);
         $this->assertStringNotContainsString('Domain=', $cookie);
+        $this->assertSame($before, session_get_cookie_params());
     }
 
     public function testExplicitCookieLifetimeSurvivesRotationOnALaterGet(): void

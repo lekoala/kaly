@@ -6,6 +6,7 @@ vendor
 .temp
 *.log
 .env.local
+var/
 
 # demo
 demos/temp

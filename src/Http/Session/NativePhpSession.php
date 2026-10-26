@@ -42,6 +42,10 @@ final class NativePhpSession implements CookieSessionInterface
 
     private CookiePolicy $policy;
     private string $name;
+    /**
+     * @var array{lifetime:int,path:string,domain:string,secure:bool,httponly:bool,samesite:string,partitioned?:bool}
+     */
+    private array $cookieParams;
     private ?string $sessionId = null;
     /**
      * Set by destroy(): the client cookie must be expired on commit even
@@ -49,8 +53,7 @@ final class NativePhpSession implements CookieSessionInterface
      */
     private bool $destroyed = false;
     /**
-     * Options passed to session_start(). Cookie settings carry the cookie_
-     * prefix.
+     * Storage options passed to session_start(), without cookie attributes.
      *
      * @link https://www.php.net/manual/en/session.configuration.php
      * @var array<string,mixed>
@@ -79,14 +82,11 @@ final class NativePhpSession implements CookieSessionInterface
         }
         $this->name = $name ?? session_name() ?: 'PHPSESSID';
 
-        $cookieParams = array_merge(self::cookieDefaults($this->policy), self::explicitCookieParams($options));
-        $cookieOptions = [];
-        foreach ($cookieParams as $k => $v) {
-            $cookieOptions["cookie_{$k}"] = $v;
-        }
+        $this->cookieParams = array_merge(self::cookieDefaults($this->policy), self::explicitCookieParams($options));
         // Built for a PSR-7 response: the session cookie belongs to the
         // response (see SessionCookie::commit), php must not send headers.
-        // Passed to session_start() only, the ini state stays untouched.
+        // Cookie attributes stay on the instance: passing them to
+        // session_start() would change PHP's global cookie defaults.
         $forward = $options;
         unset(
             $forward['name'],
@@ -98,17 +98,13 @@ final class NativePhpSession implements CookieSessionInterface
             $forward['samesite'],
             $forward['partitioned'],
         );
-        $this->options = array_merge(
-            $cookieOptions,
-            [
-                'use_cookies' => '0',
-                'use_only_cookies' => '1',
-                'use_trans_sid' => '0',
-                'use_strict_mode' => '1',
-                'cache_limiter' => '',
-            ],
-            $forward,
-        );
+        $this->options = array_merge([
+            'use_cookies' => '0',
+            'use_only_cookies' => '1',
+            'use_trans_sid' => '0',
+            'use_strict_mode' => '1',
+            'cache_limiter' => '',
+        ], $forward);
     }
 
     // #region SessionInterface (portable applicative contract)
@@ -276,28 +272,7 @@ final class NativePhpSession implements CookieSessionInterface
      */
     public function getCookieParams(): array
     {
-        $options = [];
-        foreach ($this->options as $k => $v) {
-            if (!str_starts_with($k, 'cookie_')) {
-                continue;
-            }
-            if (!is_scalar($v) && $v !== null) {
-                continue;
-            }
-            $options[str_replace('cookie_', '', $k)] = $v;
-        }
-        $params = [
-            'lifetime' => (int) ($options['lifetime'] ?? 0),
-            'path' => (string) ($options['path'] ?? '/'),
-            'domain' => (string) ($options['domain'] ?? ''),
-            'secure' => (bool) ($options['secure'] ?? false),
-            'httponly' => (bool) ($options['httponly'] ?? true),
-            'samesite' => (string) ($options['samesite'] ?? 'Lax'),
-        ];
-        if (array_key_exists('partitioned', $options)) {
-            $params['partitioned'] = (bool) $options['partitioned'];
-        }
-        return $params;
+        return $this->cookieParams;
     }
 
     // #endregion

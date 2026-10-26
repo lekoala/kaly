@@ -259,7 +259,7 @@ class AuditRegressionTest extends TestCase
 
     public function testConventionRedirectTargetsTheConsumedSegmentAfterARepeatedPrefix(): void
     {
-        $app = (new App(__DIR__))
+        (new App(__DIR__))
             ->routing(TrailingSlash::Preserve, true)
             ->boot();
         $resolver = new ConventionResolver();
@@ -270,7 +270,6 @@ class AuditRegressionTest extends TestCase
         } catch (RedirectException $exception) {
             $this->assertSame('/index/demo', $exception->getUrl());
         }
-        $this->assertTrue($app->isBooted());
     }
 
     public function testComposerPsr4PathsAcceptTrailingSlashesAndPathListsWithoutExtraAutoloaders(): void

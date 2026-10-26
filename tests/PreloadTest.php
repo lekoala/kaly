@@ -56,12 +56,18 @@ class PreloadTest extends TestCase
         $preload = Preload::record($this->app());
         $root = (string) realpath(__DIR__ . '/..');
 
-        $inside = $preload->script($root . '/preload.php');
+        $inside = $this->normalizeScript($preload->script($root . '/preload.php'));
         $this->assertStringContainsString("    __DIR__ . '/src/Core/App.php',\n", $inside);
-        $this->assertStringNotContainsString("'" . $root . '/src/', $inside);
+        $this->assertStringNotContainsString("'" . str_replace('\\', '/', $root) . '/src/', $inside);
 
-        $outside = $preload->script($this->dir . '/preload.php');
-        $this->assertStringContainsString('    ' . var_export($root . '/src/Core/App.php', true) . ",\n", $outside);
+        $outside = $this->normalizeScript($preload->script($this->dir . '/preload.php'));
+        $expected = '    ' . var_export(str_replace('\\', '/', $root . '/src/Core/App.php'), true) . ",\n";
+        $this->assertStringContainsString($expected, $outside);
+    }
+
+    private function normalizeScript(string $script): string
+    {
+        return str_replace('\\', '/', str_replace('\\\\', '\\', $script));
     }
 
     public function testPreloadedApplicationBootsAndServesARequest(): void
