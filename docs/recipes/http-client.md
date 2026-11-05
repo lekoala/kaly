@@ -267,6 +267,98 @@ $client = new Psr18Client(new MockHttpClient([
 ]));
 ```
 
+### Replay a HAR file
+
+Faking an integration by hand stops paying off when the payloads are large or the
+API has many endpoints. Browsers and HTTP clients export those exchanges in the
+HAR format from their network panel, and Symfony can serve them back:
+
+```bash
+composer require --dev "symfony/http-client:^7.4" psr/http-client
+```
+
+```php
+use Psr\Container\ContainerInterface;
+use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Psr18Client;
+use Symfony\Component\HttpClient\Test\HarFileResponseFactory;
+
+$definitions->set(ClientInterface::class, static function (ContainerInterface $container): ClientInterface {
+    return new Psr18Client(
+        new MockHttpClient(new HarFileResponseFactory(__DIR__ . '/fixtures/github.har')),
+        $container->get(ResponseFactoryInterface::class),
+        $container->get(StreamFactoryInterface::class),
+    );
+});
+```
+
+`HarFileResponseFactory` matches the method, the URL and the request body. A miss
+throws a PSR-18 `NetworkExceptionInterface` instead of reaching the network. In
+Symfony 7.4, repeated identical requests always replay the first matching entry;
+Symfony 8.2 consumes them in order.
+
+### Record and replay
+
+Symfony 8.2 (PHP 8.4) records the exchanges itself, so the archive comes from the
+real API rather than from a browser:
+
+```bash
+composer require --dev "symfony/http-client:^8.2" psr/http-client
+```
+
+```php
+use Psr\Container\ContainerInterface;
+use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+use Symfony\Component\HttpClient\HttpClient;
+use Symfony\Component\HttpClient\Psr18Client;
+use Symfony\Component\HttpClient\Recorder\RecorderConfiguration;
+use Symfony\Component\HttpClient\Recorder\RecorderMode;
+use Symfony\Component\HttpClient\RecorderHttpClient;
+
+$definitions->set(ClientInterface::class, static function (ContainerInterface $container): ClientInterface {
+    return new Psr18Client(
+        new RecorderHttpClient(
+            HttpClient::create(['timeout' => 10]),
+            new RecorderConfiguration(
+                RecorderMode::from(getenv('KALY_HTTP_RECORDING') ?: 'replay'),
+                __DIR__ . '/fixtures/github.har',
+            ),
+        ),
+        $container->get(ResponseFactoryInterface::class),
+        $container->get(StreamFactoryInterface::class),
+    );
+});
+```
+
+`replay` serves the archive and rejects a missing entry, `missing` serves it and
+records what it lacks, `record` makes the real request and rewrites the archive,
+and `passthrough` ignores the recorder. The modes are a property of the recorder:
+the application code keeps depending on `ClientInterface` only.
+
+A few traps, none of them handled by the decorator:
+
+- **Set the mode explicitly.** `RecorderConfiguration` defaults to `Passthrough`:
+  the `replay` fallback above is what keeps the test suite offline.
+- **Read the body.** A response is recorded only once it has been fully received.
+  Read it even for a `4xx` or `5xx` — `(string) $response->getBody()` through
+  PSR-18, `getContent(false)` or `toArray(false)` through the native API. A test
+  that only checks the status records nothing.
+- **Keep the fixtures deterministic.** Entries are matched on method, URL and body
+  after redaction, so a generated id, date or UUID breaks replay. Fix the test
+  data instead of editing the archive.
+- **Review the archive.** `DefaultRedactor` masks a deny-list (credentials,
+  `Authorization`, `Cookie`, common OAuth and SAML fields) plus the names given to
+  `new DefaultRedactor(['x-company-token'])`. That is not a promise that the file
+  is safe to publish: prefer hand-written fakes when the payload carries customer
+  data, and never commit a recording without reading it.
+- **One archive per test or per API.** The configuration is stateful and `record`
+  rewrites the file, so parallel runs clobber each other.
+
 ## Workers
 
 A client holds no request state, so one shared instance serves every request.
