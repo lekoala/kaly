@@ -333,7 +333,7 @@ final class Router implements RouterInterface
         }
         if (!$this->modules[$id]->hasConventionRouting()) {
             throw new RouteGenerationException(
-                "Module '{$id}' has no conventional urls: generate '{$controller}::{$action}' by its route name",
+                "Module '{$id}' has no conventional urls (withoutConventionRouting()): generate '{$controller}::{$action}' by its route name",
             );
         }
         if (isset($this->ownedActions($id)[RouteCollection::canonicalTarget($controller, $action)])) {
