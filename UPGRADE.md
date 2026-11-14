@@ -4,6 +4,17 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## 0.7: task interfaces come from kaly-contracts
+
+`Kaly\Task\TaskDispatcher` and `Kaly\Task\ScheduledTaskDispatcher` are now provided
+by `lekoala/kaly-contracts`, which Kaly requires. No PHP import and no binding
+changes. Applications using `kaly-tasks` must install a compatible version in the
+same `composer update`:
+
+```sh
+composer update lekoala/kaly lekoala/kaly-tasks --with-dependencies
+```
+
 ## Unreleased: boot profiling is removed
 
 `App::bootProfile()` is gone; `profiling()` now covers request cycles only. Time

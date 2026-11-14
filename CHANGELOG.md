@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Breaking (Composer only):** `Kaly\Task\TaskDispatcher` and
+  `ScheduledTaskDispatcher` move to `lekoala/kaly-contracts`, required by Kaly.
+  Namespaces and signatures are unchanged; update `kaly-tasks` in the same
+  `composer update`.
 - A stability policy (`docs/versioning.md`): tiers, derivation of the public
   surface, supported versions, behavioral stability and the detection ladder.
 - Mago Guard covers `Auth`, `Validation`, `Debug` and `Task`.

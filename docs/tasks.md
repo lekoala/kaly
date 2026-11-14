@@ -13,6 +13,11 @@ minimal dispatch contract, `Kaly\Task\TaskDispatcher`, and direct execution
 through its Injector. Persistent queues, workers and transport-specific
 guarantees belong to optional implementations.
 
+The two interfaces, `TaskDispatcher` and `ScheduledTaskDispatcher`, come from
+[`lekoala/kaly-contracts`](https://github.com/lekoala/kaly-contracts), a
+dependency of Kaly that depends on PHP only: an engine implements them without
+depending on Kaly. Their namespace stays `Kaly\Task`.
+
 ```php
 $this->tasks->dispatch(new GeneratePdf($documentId));
 ```
