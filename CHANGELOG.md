@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Behavior change:** generating an url with a path parameter that is exactly
+  `.` or `..` throws `RouteGenerationException` (`url()` and `urlFor()`), since
+  clients remove dot segments. Values merely containing dots, and query string
+  parameters, are unaffected.
+
 ## 0.7.0 - 2026-11-14
 
 - **Breaking (Composer only):** `Kaly\Task\TaskDispatcher` and

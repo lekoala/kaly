@@ -324,6 +324,12 @@ of producing an url no route would match. `urlFor()` on an action owned by
 explicit routing fails the same way and points at the route name, instead of
 producing a conventional url no route answers.
 
+Path parameters are percent-encoded, so slashes, spaces or accents survive the
+round trip. A value that is exactly `.` or `..` fails instead: clients remove
+dot segments from urls (even encoded as `%2E`), so the url would reach another
+resource. `.env` or `article.html` are ordinary values, and a query string
+parameter is never a path segment.
+
 Within a request, the context generates for the request locale — no need to
 pass it around:
 

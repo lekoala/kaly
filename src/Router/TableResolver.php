@@ -163,7 +163,8 @@ final class TableResolver implements ResolverInterface
             if (!is_scalar($value)) {
                 throw new RouteGenerationException("Parameter '{$name}' of route '{$definition->name}' is not scalar");
             }
-            $path = str_replace('{' . $name . '}', rawurlencode((string) $value), $path);
+            $segment = RoutePath::encode((string) $value, "parameter '{$name}' of route '{$definition->name}'");
+            $path = str_replace('{' . $name . '}', $segment, $path);
         }
         return $path;
     }

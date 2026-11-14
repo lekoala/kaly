@@ -116,6 +116,9 @@ reason = "Kaly\\Test is a toolkit for application tests: production code never d
 #   Core                              composition; everything
 #   Test                              toolkit; everything (unrestricted)
 #
+# Validation sits above Util rather than beside it: Http maps input through it.
+# This is a deliberate correction of the first plan, which placed it lower.
+#
 # Debug and Task stand apart: they depend on no Kaly layer (Debug only on
 # Kaly\Ex, Task only on kaly-di) and only Core and Test may depend on them.
 # Auth, Validation, Debug and Task are mutually independent: none imports another.

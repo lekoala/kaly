@@ -492,6 +492,49 @@ class RouterContractTest extends TestCase
         $this->assertSame([$value], $router->match(self::request($conventional))->params);
     }
 
+    /**
+     * @return iterable<string,array{string}>
+     */
+    public static function dotSegments(): iterable
+    {
+        yield 'current' => ['.'];
+        yield 'parent' => ['..'];
+    }
+
+    #[DataProvider('dotSegments')]
+    public function testADotSegmentValueIsRefusedByGeneration(string $value): void
+    {
+        // Clients remove dot segments: the url would reach another resource
+        $router = new Router([$this->shopModule()], null, [], TrailingSlash::Remove);
+
+        try {
+            $router->url('test-module:product', ['slug' => $value]);
+            $this->fail('url() must refuse a dot segment');
+        } catch (RouteGenerationException $e) {
+            $this->assertStringContainsString("'slug'", $e->getMessage());
+        }
+
+        try {
+            $router->urlFor([SlugController::class], [$value]);
+            $this->fail('urlFor() must refuse a dot segment');
+        } catch (RouteGenerationException $e) {
+            $this->assertStringContainsString(SlugController::class, $e->getMessage());
+        }
+
+        // A query string value is not a path segment
+        $this->assertSame('/shop/item/1?page=' . rawurlencode($value), $router->url('test-module:item', ['id' => 1, 'page' => $value]));
+    }
+
+    public function testValuesMerelyContainingDotsAreGenerated(): void
+    {
+        $router = new Router([$this->shopModule()], null, [], TrailingSlash::Remove);
+
+        foreach (['.env', '...', 'article.html', '.a.'] as $value) {
+            $this->assertSame([$value], $router->match(self::request($router->url('test-module:product', ['slug' => $value])))->params);
+            $this->assertSame([$value], $router->match(self::request($router->urlFor([SlugController::class], [$value])))->params);
+        }
+    }
+
     // #endregion
 
     // #region Dynamic resolution

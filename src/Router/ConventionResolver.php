@@ -103,9 +103,9 @@ final class ConventionResolver implements ResolverInterface
         if (!$invokable && ($baseAction !== self::DEFAULT_ACTION || $hasParams)) {
             $path .= '/' . self::segmentOf($action);
         }
-        foreach ($params as $value) {
+        foreach ($params as $index => $value) {
             if (is_scalar($value)) {
-                $path .= '/' . rawurlencode((string) $value);
+                $path .= '/' . RoutePath::encode((string) $value, "argument {$index} of '{$controller}::{$action}'");
             }
         }
         return $path;
