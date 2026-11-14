@@ -98,6 +98,7 @@ deny-from = [
     "Kaly\\Util\\**",
     "Kaly\\Validation\\**",
     "Kaly\\Debug\\**",
+    "Kaly\\Auth\\**",
 ]
 reason = "Kaly\\Test is a toolkit for application tests: production code never depends on it."
 

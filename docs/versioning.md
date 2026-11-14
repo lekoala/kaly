@@ -78,8 +78,10 @@ The promise covers documented behavior, not only signatures:
 - `404` and `405` responses, and that a `405` is authoritative: a path known
   for other methods is never reinterpreted by a later resolver;
 - canonical redirects: `307` by default, so the HTTP method is preserved;
-- route precedence: declared table, convention, then resolvers in declaration
-  order, claims as separate islands;
+- route precedence: a module's resolvers run by priority (lowest first), then
+  declaration order — the route table at 0 (the position of its first
+  `routes()` call), custom resolvers at 0 unless given another priority, the
+  convention at 1000 — and claims are separate islands;
 - the error page, locale resolution and session cookies.
 
 A helper declared internal may still shape public behavior: `Str::camelize()`
