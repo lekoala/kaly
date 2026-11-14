@@ -280,6 +280,89 @@ ports are best kept silent on that difference — nested `transactional()`
 should fail fast rather than simulate savepoints. A future savepoint need is
 an explicit capability, not a silent change of meaning.
 
+## Day to day: schema, seed data and test databases
+
+Kaly ships no console and no migration tool. The application runs its tools
+from small scripts that boot the same composition as the web entry point, so a
+script and a request see the same connection.
+
+### Migrations
+
+Use the migration tool of the chosen stack. Doctrine Migrations runs without a
+console bundle, on the connection the container already builds:
+
+```php
+// bin/migrate.php
+$app = require dirname(__DIR__) . '/bootstrap.php';
+$connection = $app->boot()->container()->get(Connection::class);
+
+$factory = DependencyFactory::fromConnection(
+    new ConfigurationArray(['migrations_paths' => ['App\Migrations' => dirname(__DIR__) . '/migrations']]),
+    new ExistingConnection($connection),
+);
+$factory->getMetadataStorage()->ensureInitialized();
+$plan = $factory->getMigrationPlanCalculator()->getPlanUntilVersion(
+    $factory->getVersionAliasResolver()->resolveVersionAlias('latest'),
+);
+$factory->getMigrator()->migrate($plan, (new MigratorConfiguration())->setAllOrNothing(true));
+```
+
+The version table is the ordinary one, so the official CLI can still inspect
+the state. Migrations run as a deployment step, never during boot: a boot that
+migrates races with every other process booting at the same time.
+
+### Seed data
+
+Seed data is not a migration: content changes without the schema changing. Keep
+one reproducible seed, the same in development, CI and tests, and a reset that
+rebuilds a disposable database from nothing: drop the schema, migrate, seed. A
+destructive script asks for an explicit flag (`--force`), so a wrong
+`DATABASE_URL` does not wipe a real database by accident.
+
+### The test database
+
+Tests use a database of their own, chosen by the environment (`DATABASE_URL` in
+`phpunit.xml`), never the development one. Prepare it once per test process —
+create it if missing, reset the schema, migrate, seed — then reset its rows
+before each test.
+
+Two reset strategies exist, and the choice depends on what the tests exercise:
+
+| | Transaction rolled back after each test | Truncate and seed before each test |
+|---|---|---|
+| Speed | Fastest | Slower, proportional to the seed |
+| Code that commits (an HTTP request through the application unit of work) | Breaks: the port fails fast on a nested transaction, or the commit escapes the rollback | Works |
+| A worker on its own connection | Cannot see uncommitted rows | Works |
+| External effects (mail, HTTP calls, files) | Not rolled back | Not rolled back either: replace them in tests |
+
+The rollback only covers one connection and work that never commits. As soon as
+tests send real requests through a unit of work, or run a task worker the way
+production does, truncate and seed is the reset that matches reality.
+External effects are never covered by a database reset: rebind them to a
+recording implementation in the test composition.
+
+```php
+protected function setUp(): void
+{
+    TestDatabase::reset(); // TRUNCATE ... RESTART IDENTITY CASCADE, then seed
+
+    $app = require dirname(__DIR__) . '/bootstrap.php';
+    $app->configure(fn(Definitions $di) => $di->rebind(MailerInterface::class, $this->mailer));
+    $this->app = $app->boot();
+    $this->client = TestClient::for($this->app);
+}
+
+protected function tearDown(): void
+{
+    $this->app->shutdown();
+}
+```
+
+A fresh application per test keeps the container's shared services, and the
+connection they hold, from leaking state between tests. Several requests on the
+same booted application are still worth a dedicated test: that is what a
+worker runtime does. See [Testing](testing.md).
+
 ## Recipes
 
 The general doctrine for composing external libraries is in

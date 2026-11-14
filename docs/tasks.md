@@ -81,6 +81,9 @@ transaction:
 Durable engines include [kaly-tasks](https://github.com/lekoala/kaly-tasks)
 (PostgreSQL, MySQL and SQLite) and [Symfony Messenger](#symfony-messenger).
 
+To decide between a direct call, a synchronous event, a task and a
+transactional outbox, see [Events](events.md).
+
 Both Kaly dispatchers reject a non-invocable object and accept closures. A
 durable engine may restrict tasks further, eg to persistable data.
 

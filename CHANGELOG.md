@@ -12,6 +12,10 @@
 - `TableResolver` and `ConventionResolver` are marked `@internal`.
 - The testing guide documents `App::shutdown()` to restore the error handler
   installed by `boot()`.
+- The persistence guide covers migrations, seed data and the test database,
+  including when a rollback is not a valid reset.
+- A new events guide: explicit call, PSR-14, tasks and transactional outbox,
+  chosen by what the reaction must guarantee.
 
 ## 0.7.0 - 2026-11-14
 
