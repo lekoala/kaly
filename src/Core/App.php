@@ -18,6 +18,7 @@ use Kaly\Core\Middleware\RouteRunner;
 use Kaly\Core\Middleware\Runner;
 use Kaly\Crypto\Secret;
 use Kaly\Di\Container;
+use Kaly\Di\DefinitionException;
 use Kaly\Di\Definitions;
 use Kaly\Ex;
 use Kaly\Http\Cookie\CookiePolicy;
@@ -721,9 +722,33 @@ final class App implements RequestHandlerInterface
         usort($modules, static fn(Module $a, Module $b): int => $a->getPriority() <=> $b->getPriority());
         $this->modules = $modules;
 
+        // Modules declare services without a provenance label: the owner of
+        // each id is tracked here, so a conflict names both config.php files.
         $definitions = new Definitions();
+        $owners = [];
         foreach ($modules as $module) {
-            $definitions->merge($module->definitions());
+            $incoming = $module->definitions();
+            $ids = [...array_keys($incoming->getValues()), ...array_keys($incoming->getAliases())];
+            try {
+                $definitions->merge($incoming);
+            } catch (DefinitionException $e) {
+                $conflicts = array_map(
+                    static fn(string $id): string => "'{$id}' (module '{$owners[$id]}' and module '{$module->name()}')",
+                    array_values(array_filter($ids, static fn(string $id): bool => isset($owners[$id]))),
+                );
+                if ($conflicts === []) {
+                    throw $e;
+                }
+                throw new Ex(
+                    'Services defined by two modules: '
+                    . implode(', ', $conflicts)
+                    . ': merge never overrides, use rebind() in whenAllLoaded() or App::configure() for an intentional replacement',
+                    previous: $e,
+                );
+            }
+            foreach ($ids as $id) {
+                $owners[$id] = $module->name();
+            }
         }
 
         // Second pass to allow conditional features across modules

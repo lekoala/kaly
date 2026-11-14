@@ -62,7 +62,8 @@ final class RouteCollection
             }
             // Resolved and validated when the table is compiled: a declared
             // middleware that cannot run fails here, never silently
-            $middlewares = Routes::normalizeMiddlewares($definition->middlewares, "route '" . $definition->pathFor(null) . "'");
+            $declaredOn = "route '{$definition->pathFor(null)}'" . ($definition->name !== null ? " ('{$definition->name}')" : '');
+            $middlewares = Routes::normalizeMiddlewares($definition->middlewares, $declaredOn);
             $inputClass = self::trailingInputClass($reflection, $definition->action);
             $paramNames = null;
             foreach ($definition->paths() as $locale => $path) {

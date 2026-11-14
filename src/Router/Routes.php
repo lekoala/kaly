@@ -287,10 +287,10 @@ final class Routes
         $valid = [];
         foreach ($middlewares as $middleware) {
             if (!class_exists($middleware)) {
-                throw new Ex("Middleware '{$middleware}' declared on '{$declaredOn}' does not exist");
+                throw new Ex("Middleware '{$middleware}' declared on {$declaredOn} does not exist");
             }
             if (!is_a($middleware, MiddlewareInterface::class, true)) {
-                throw new Ex("Middleware '{$middleware}' declared on '{$declaredOn}' is not a PSR-15 request middleware");
+                throw new Ex("Middleware '{$middleware}' declared on {$declaredOn} is not a PSR-15 request middleware");
             }
             $valid[] = $middleware;
         }

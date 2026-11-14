@@ -85,7 +85,7 @@ class RouteMiddlewareTest extends TestCase
     public function testAnUnknownMiddlewareFailsAtBoot(): void
     {
         $this->expectException(Ex::class);
-        $this->expectExceptionMessage("Middleware 'Nope\\Missing' declared on 'route '/x'' does not exist");
+        $this->expectExceptionMessage("Middleware 'Nope\\Missing' declared on route '/x' does not exist");
 
         new RouteCollection([new RouteDefinition('/x', ShopController::class, 'health', middlewares: ['Nope\\Missing'])]);
     }

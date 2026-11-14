@@ -17,6 +17,8 @@ parameters:
     - identifier: argument.type
       path: tests/CookiePolicyTest.php
     - identifier: argument.type
+      path: tests/DiagnosticsTest.php
+    - identifier: argument.type
       path: tests/OutgoingRunnerTest.php
     - identifier: argument.type
       path: tests/RouteMiddlewareTest.php

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- A stability policy (`docs/versioning.md`): tiers, derivation of the public
+  surface, supported versions, behavioral stability and the detection ladder.
+- Mago Guard covers `Auth`, `Validation`, `Debug` and `Task`.
+- An optional, exclusive `routes.php` convention for the routing of a module,
+  required explicitly from `config.php`.
+- A service defined by two modules fails at boot naming both modules; a missing
+  route middleware names the route; `urlFor()` in a module without convention
+  names `withoutConventionRouting()`.
+
 ## 0.6.0 - 2026-10-26
 
 - Add `Kaly\Task\ScheduledTaskDispatcher`, extending the minimal `TaskDispatcher`

@@ -134,8 +134,8 @@ is detected when it runs.
 | `localized()` without locale prefixes, or with undeclared locales | Boot (module registration) |
 | Per-locale paths in a non localized module, prefixes enabled | Table compilation |
 | Unresolvable constructor dependency | First resolution |
-| Binding to a missing class | First resolution |
-| Conflicting `merge()` | Boot |
+| Binding to a missing class | Boot with `zend.assertions=1` (development), first resolution otherwise |
+| Service defined by two modules (`merge()` conflict) | Boot, naming both modules |
 
 Known limits, kept on purpose:
 
