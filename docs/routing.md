@@ -7,9 +7,10 @@ nav_order: 7
 
 > Every url belongs to exactly one module, which resolves it alone
 
-To know how `/boutique/...` behaves, open `modules/Shop/config.php`: that is where
-the module declares its mount, its routes, its resolvers and whether it is localized.
-There is no global route file.
+To know how `/boutique/...` behaves, open `modules/Shop/routes.php` if it exists,
+`modules/Shop/config.php` otherwise: that is where the module declares its mount, its
+routes, its claims, its resolvers and whether it is localized (see
+[routes.php](modules.md#routesphp)). There is no global route file.
 
 `APP_LOCALES` describes the i18n languages, never a url topology. Url prefixes
 and the trailing-slash policy are configured explicitly, before boot:

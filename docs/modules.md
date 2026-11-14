@@ -19,8 +19,9 @@ part of the app when a `config.php` binds it.
 ## Layout
 
 Every folder of `modules/` containing a `config.php` is a module. `config.php` is the
-only required file — it may be empty — and the only file booted per module: services
-and routing are both declared there.
+only required file — it may be empty — and the only file Kaly loads per module. It
+declares the services, and the routing too unless the module keeps it in a
+[`routes.php`](#routesphp) that `config.php` requires explicitly.
 
 ```text
 modules/
@@ -29,6 +30,7 @@ modules/
     src/
   Site/
     config.php
+    routes.php
     src/
     templates/
   Admin/
@@ -43,6 +45,7 @@ modules/
 | Path         | Role                                                          |
 | ------------ | ------------------------------------------------------------- |
 | `config.php` | local composition root, required                              |
+| `routes.php` | optional; when present, all the routing of the module ([below](#routesphp)) |
 | `src/`       | the classes, under the module namespace                        |
 | `templates/` | registered under the module name (see [Views](views.md))       |
 | `assets/`    | browser-ready static files of the module (see [Assets](assets.md)) |
@@ -140,6 +143,74 @@ $di->set(HugeClient::class, new HugeClient(...));
 // prefer: built on first get()
 $di->set(HugeClient::class, fn() => new HugeClient(...));
 ```
+
+### routes.php
+
+A module may move its routing to a `routes.php` next to `config.php`. Kaly never
+discovers this file: `config.php` requires it explicitly, so `config.php` stays the
+only file booted per module.
+
+```php
+// modules/Shop/config.php
+return static function (Module $module, Definitions $di): void {
+    (require __DIR__ . '/routes.php')($module);
+
+    $di->bind(CartRepository::class, SqlCartRepository::class);
+};
+```
+
+```php
+// modules/Shop/routes.php
+return static function (Module $module): void {
+    $module->mount('boutique');
+
+    $module->routes(static function (Routes $routes): void {
+        $routes->get('/cart', [CartController::class, 'index'])->name('cart');
+    });
+
+    $module->claim('/help', static function (Routes $routes): void {
+        $routes->get('/', [HelpController::class, 'index'])->name('help');
+    });
+
+    $module->resolver(CmsPageResolver::class);
+};
+```
+
+A small module keeps everything in `config.php`:
+
+```php
+// modules/Blog/config.php
+return static function (Module $module, Definitions $di): void {
+    $module->mount('blog');
+
+    $module->routes(static function (Routes $routes): void {
+        $routes->get('/contact', [ContactController::class, 'index'])->name('contact');
+    });
+
+    $di->bind(MailerInterface::class, SmtpMailer::class);
+};
+```
+
+The convention is optional, but **exclusive when present**: if a module has a
+`routes.php`, all its routing is there — `mount()`, `localized()`, `routes()`,
+`claim()`, `resolver()`, `withoutConventionRouting()`, module middleware — and
+`config.php` only declares services. Otherwise, all the routing is in `config.php`.
+Nothing in between: whether the file exists tells where to look.
+
+- **Extract when it reads better**, typically for a claim, a custom resolver, or
+  around ten declarations. A conventional module, or one with two actions, keeps
+  its routing in `config.php` — or has none, like a module routed by convention
+  only.
+- **`require`, never `require_once`.** The file returns a closure: a second
+  inclusion (tests booting several applications) would return `true` instead.
+- **Static analysis** sees `require` as `mixed`: type the closure when PHPStan
+  asks for it (`/** @var Closure(Module): void $routes */ $routes = require …;`).
+- **No services in `routes.php`**: it receives the module only, never the
+  definitions.
+- **`routes.php` never lists every url.** Conventional urls come from the
+  controllers and dynamic ones from the resolvers. An application wanting an
+  explicit inventory drops the convention with `withoutConventionRouting()` and
+  declares each route.
 
 ### Values and configuration objects
 
