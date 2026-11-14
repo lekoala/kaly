@@ -45,4 +45,5 @@ Use the sidebar to browse the guides. Start with
 - [Debugging](debugging.md)
 - [Utilities](utils.md)
 - [Benchmarks](benchmarks.md)
+- [Versioning](versioning.md)
 
