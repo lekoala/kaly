@@ -22,6 +22,18 @@ $client->get('/hello')
 
 `TestClient::for()` needs the container, so the app must be booted.
 
+Booting installs a process-wide error handler that converts PHP errors to
+exceptions. Call `$app->shutdown()` in `tearDown()` to restore the previous
+handler and error settings: PHPUnit reports a test that leaves a handler
+behind as risky.
+
+```php
+protected function tearDown(): void
+{
+    $this->app->shutdown();
+}
+```
+
 Use `App::default()` when the test targets the behavior of a recommended Kaly
 application; use `App::create()` with an explicit `routing()` configuration
 when the routing convention itself is a precondition of the test.

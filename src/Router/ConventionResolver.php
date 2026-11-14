@@ -33,6 +33,8 @@ use ReflectionParameter;
  *
  * It is the last resolver of a module (priority 1000). Reflection goes through
  * the kaly-di cache, per process: in a worker it is paid once.
+ *
+ * @internal Built by the Router from the module declaration
  */
 final class ConventionResolver implements ResolverInterface
 {

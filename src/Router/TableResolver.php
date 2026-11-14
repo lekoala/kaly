@@ -18,6 +18,8 @@ use ReflectionNamedType;
  * A path known for other methods only is an authoritative 405: the resolvers
  * that follow never get a chance to reinterpret it.
  *
+ * @internal Built by the Router from Module::routes() and Module::claim()
+ *
  * @phpstan-import-type RouteEntry from RouteCollection
  */
 final class TableResolver implements ResolverInterface

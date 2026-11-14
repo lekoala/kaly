@@ -6,6 +6,12 @@
   `.` or `..` throws `RouteGenerationException` (`url()` and `urlFor()`), since
   clients remove dot segments. Values merely containing dots, and query string
   parameters, are unaffected.
+- `RoutePath::encode()`, the counterpart of `decode()`, for application url
+  generators. The routing guide documents that custom resolvers receive raw
+  segments, and how to generate the url of a page a resolver answers.
+- `TableResolver` and `ConventionResolver` are marked `@internal`.
+- The testing guide documents `App::shutdown()` to restore the error handler
+  installed by `boot()`.
 
 ## 0.7.0 - 2026-11-14
 

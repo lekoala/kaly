@@ -205,7 +205,8 @@ final class PageResolver implements ResolverInterface
 
     public function resolve(RouteRequest $request): ?Route
     {
-        $page = $this->pages->findByPath($request->segments);
+        $segments = array_map(RoutePath::decode(...), $request->segments);
+        $page = $this->pages->findByPath(implode('/', $segments));
         if ($page === null) {
             return null;    // not mine: the next resolver tries
         }
@@ -220,6 +221,32 @@ $module->resolver(PageResolver::class, priority: 500); // after the table, befor
 `RouteRequest` carries the remaining `segments`, the consumed `prefix`, the module
 namespace and the `locale`. A resolver given as a class is resolved from the
 container: it is a shared service, keep it free of per-request state.
+
+The `segments` are raw: still percent-encoded, split on `/` before any
+decoding. Decode each one with `RoutePath::decode()`, as the table and the
+convention do after matching, so that an encoded slash (`%2F`) stays inside its
+segment.
+
+A resolver decides whether an url exists, it never enumerates them: the router
+cannot generate the url of a CMS page. Generation belongs to an application
+service that knows where the module is mounted, and encodes each segment with
+`RoutePath::encode()`, the counterpart of `decode()` that also refuses `.` and
+`..` (see [Generating urls](#generating-urls)):
+
+```php
+final readonly class PageUrlGenerator
+{
+    // The Pages module is mounted on the root
+    public function page(Page $page): string
+    {
+        $segments = RoutePath::segments($page->path);
+        return '/' . implode('/', array_map(
+            static fn(string $segment): string => RoutePath::encode($segment, "the url of page '{$page->path}'"),
+            $segments,
+        ));
+    }
+}
+```
 
 ## Claims
 

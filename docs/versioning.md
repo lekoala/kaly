@@ -166,7 +166,7 @@ waits for the witness application.
 | Area | Symbols |
 |---|---|
 | Composition | `Core\App`, `Core\Module`, `Core\Paths`, `Di\Definitions` (kaly-di), `Util\Env` |
-| Routing | `Router\Routes`, `Router\RouterInterface`, `Router\TrailingSlash`, `Router\RestActionNaming`, `Http\Exception\RedirectException` |
+| Routing | `Router\Routes`, `Router\RouterInterface`, `Router\RoutePath`, `Router\TrailingSlash`, `Router\RestActionNaming`, `Http\Exception\RedirectException` |
 | Request cycle | `Core\HttpContext`, `Core\AbstractController`, `Core\ViewResponder`, `Http\JsonResult`, `Http\FileResponseFactory`, `Http\ConditionalRequest`, `Http\RequestUtils` |
 | Input and validation | `Http\Input\RequestInput`, `Http\Input\InputMapperInterface`, `Validation\Validator`, `Validation\ValidationResult`, `Validation\Violation`, `Core\ViolationMessageResolver` |
 | Errors | `Ex`, `Http\Exception\HttpException` and its subclasses, `Http\ExceptionHandlerInterface`, `Core\LocalizedExceptionHandler` |
@@ -210,3 +210,8 @@ They keep the `Kaly\Task` namespace.
   through `App::onBoot()`/`onError()`/`onTerminate()` and the fixed routing step.
 - `RouteCollection::toArray()` is `@internal`: the test suite uses it to verify
   route contracts; applications list routes through `urlFor()` instead.
+- `TableResolver` and `ConventionResolver` are `@internal`: the router builds
+  them from the module declaration. An application declares tables through
+  `Module::routes()` and `claim()`, and tests them through requests.
+- `RoutePath` is promised: a custom resolver decodes its raw segments with
+  `decode()`, and an application url generator encodes with `encode()`.
