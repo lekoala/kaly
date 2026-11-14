@@ -62,6 +62,25 @@ scoped is static — except PHP's own `$_SESSION`, which is why concurrent
 runtimes bind a `SessionProviderInterface` returning request-scoped storage.
 See [Http context](http-context.md) and [Runtime](runtime.md).
 
+## Layers
+
+Namespaces depend downward only. `composer mago:guard` enforces the order
+(`mago.toml`, `[guard.perimeter]`):
+
+```text
+Util, Clock                       foundations
+Log, Crypto, Validation           foundations + Util
+Http                              protocol; foundations + Log, Validation
+Router, Asset, I18n, View, Auth   domains; Http + foundations
+Core                              composition; everything
+Test                              toolkit for application tests; everything
+```
+
+`Debug` and `Task` stand apart: they depend on no Kaly layer, and only `Core`
+and `Test` depend on them. `Auth`, `Validation`, `Debug` and `Task` are mutually
+independent; `Http` is the only link between `Auth` and `Validation`. No
+production layer depends on `Core` or `Test`.
+
 ## PHP attributes
 
 In Kaly, attributes may describe and enrich the application; explicit

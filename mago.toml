@@ -77,6 +77,8 @@ deny-from = [
     "Kaly\\Crypto\\**",
     "Kaly\\Task\\**",
     "Kaly\\Util\\**",
+    "Kaly\\Validation\\**",
+    "Kaly\\Debug\\**",
 ]
 reason = "Core is the composition layer: it depends on every layer, no layer depends on it. Move the shared piece down, or let Core inject it."
 
@@ -94,29 +96,44 @@ deny-from = [
     "Kaly\\Crypto\\**",
     "Kaly\\Task\\**",
     "Kaly\\Util\\**",
+    "Kaly\\Validation\\**",
+    "Kaly\\Debug\\**",
 ]
 reason = "Kaly\\Test is a toolkit for application tests: production code never depends on it."
 
 # The remaining layers form an explicit order: a layer may depend on the ones
-# below it, never the reverse. Util and Clock are foundations, Log and Crypto
-# build on them, Http is the protocol, Router/Asset/I18n/View are domains, Core composes
-# everything. Encoding the order this way also makes a cycle impossible outside
-# Core and Test, and outside the Util/Clock pair, which are peer foundations.
+# below it, never the reverse. Util and Clock are foundations, Log, Crypto and
+# Validation build on them, Http is the protocol, Router/Asset/I18n/View/Auth are
+# domains, Core composes everything. Encoding the order this way also makes a
+# cycle impossible outside Core and Test, and outside the Util/Clock pair, which
+# are peer foundations.
 #
-#   Util, Clock                  foundations
-#   Log, Crypto                  foundations + Util
-#   Http                         protocol; foundations + Log
-#   Router, Asset, I18n, View    domains; Http + foundations
-#   Core                         composition; everything
-#   Test                         toolkit; everything (unrestricted)
+#   Util, Clock                       foundations
+#   Log, Crypto, Validation           foundations + Util
+#   Http                              protocol; foundations + Log, Validation
+#   Router, Asset, I18n, View, Auth   domains; Http + foundations
+#   Core                              composition; everything
+#   Test                              toolkit; everything (unrestricted)
+#
+# Debug and Task stand apart: they depend on no Kaly layer (Debug only on
+# Kaly\Ex, Task only on kaly-di) and only Core and Test may depend on them.
+# Auth, Validation, Debug and Task are mutually independent: none imports another.
+# Http is the only legitimate link between Auth and Validation.
+#
+# Mago has no allow-list: what a namespace may not import is written in the
+# deny-from of each layer it must not reach, and who may not import it in its
+# own rule below.
 
 [[guard.perimeter.restrictions]]
 dependency = "Kaly\\Log\\**"
 deny-from = [
     "Kaly\\Util\\**",
     "Kaly\\Clock\\**",
+    "Kaly\\Validation\\**",
+    "Kaly\\Debug\\**",
+    "Kaly\\Task\\**",
 ]
-reason = "Layers only depend downward (Util, Clock < Log, Crypto < Http < Router, Asset, I18n, View < Core): move the shared piece to the lower layer instead."
+reason = "Layers only depend downward (Util, Clock < Log, Crypto, Validation < Http < Router, Asset, I18n, View, Auth < Core): move the shared piece to the lower layer instead."
 
 [[guard.perimeter.restrictions]]
 dependency = "Kaly\\Crypto\\**"
@@ -124,8 +141,11 @@ deny-from = [
     "Kaly\\Util\\**",
     "Kaly\\Clock\\**",
     "Kaly\\Log\\**",
+    "Kaly\\Validation\\**",
+    "Kaly\\Debug\\**",
+    "Kaly\\Task\\**",
 ]
-reason = "Layers only depend downward (Util, Clock < Log, Crypto < Http < Router, Asset, I18n, View < Core): move the shared piece to the lower layer instead."
+reason = "Layers only depend downward (Util, Clock < Log, Crypto, Validation < Http < Router, Asset, I18n, View, Auth < Core): move the shared piece to the lower layer instead."
 
 [[guard.perimeter.restrictions]]
 dependency = "Kaly\\Http\\**"
@@ -134,8 +154,11 @@ deny-from = [
     "Kaly\\Clock\\**",
     "Kaly\\Log\\**",
     "Kaly\\Crypto\\**",
+    "Kaly\\Validation\\**",
+    "Kaly\\Debug\\**",
+    "Kaly\\Task\\**",
 ]
-reason = "Layers only depend downward (Util, Clock < Log, Crypto < Http < Router, Asset, I18n, View < Core): move the shared piece to the lower layer instead."
+reason = "Layers only depend downward (Util, Clock < Log, Crypto, Validation < Http < Router, Asset, I18n, View, Auth < Core): move the shared piece to the lower layer instead."
 
 [[guard.perimeter.restrictions]]
 dependency = "Kaly\\Router\\**"
@@ -148,8 +171,12 @@ deny-from = [
     "Kaly\\Asset\\**",
     "Kaly\\I18n\\**",
     "Kaly\\View\\**",
+    "Kaly\\Auth\\**",
+    "Kaly\\Validation\\**",
+    "Kaly\\Debug\\**",
+    "Kaly\\Task\\**",
 ]
-reason = "Layers only depend downward (Util, Clock < Log, Crypto < Http < Router, Asset, I18n, View < Core): move the shared piece to the lower layer instead."
+reason = "Layers only depend downward (Util, Clock < Log, Crypto, Validation < Http < Router, Asset, I18n, View, Auth < Core): move the shared piece to the lower layer instead."
 
 [[guard.perimeter.restrictions]]
 dependency = "Kaly\\Asset\\**"
@@ -162,8 +189,12 @@ deny-from = [
     "Kaly\\Router\\**",
     "Kaly\\I18n\\**",
     "Kaly\\View\\**",
+    "Kaly\\Auth\\**",
+    "Kaly\\Validation\\**",
+    "Kaly\\Debug\\**",
+    "Kaly\\Task\\**",
 ]
-reason = "Layers only depend downward (Util, Clock < Log, Crypto < Http < Router, Asset, I18n, View < Core): move the shared piece to the lower layer instead."
+reason = "Layers only depend downward (Util, Clock < Log, Crypto, Validation < Http < Router, Asset, I18n, View, Auth < Core): move the shared piece to the lower layer instead."
 
 [[guard.perimeter.restrictions]]
 dependency = "Kaly\\I18n\\**"
@@ -176,8 +207,12 @@ deny-from = [
     "Kaly\\Router\\**",
     "Kaly\\Asset\\**",
     "Kaly\\View\\**",
+    "Kaly\\Auth\\**",
+    "Kaly\\Validation\\**",
+    "Kaly\\Debug\\**",
+    "Kaly\\Task\\**",
 ]
-reason = "Layers only depend downward (Util, Clock < Log, Crypto < Http < Router, Asset, I18n, View < Core): move the shared piece to the lower layer instead."
+reason = "Layers only depend downward (Util, Clock < Log, Crypto, Validation < Http < Router, Asset, I18n, View, Auth < Core): move the shared piece to the lower layer instead."
 
 [[guard.perimeter.restrictions]]
 dependency = "Kaly\\View\\**"
@@ -190,5 +225,76 @@ deny-from = [
     "Kaly\\Router\\**",
     "Kaly\\Asset\\**",
     "Kaly\\I18n\\**",
+    "Kaly\\Auth\\**",
+    "Kaly\\Validation\\**",
+    "Kaly\\Debug\\**",
+    "Kaly\\Task\\**",
 ]
-reason = "Layers only depend downward (Util, Clock < Log, Crypto < Http < Router, Asset, I18n, View < Core): move the shared piece to the lower layer instead."
+reason = "Layers only depend downward (Util, Clock < Log, Crypto, Validation < Http < Router, Asset, I18n, View, Auth < Core): move the shared piece to the lower layer instead."
+
+[[guard.perimeter.restrictions]]
+dependency = "Kaly\\Validation\\**"
+deny-from = [
+    "Kaly\\Util\\**",
+    "Kaly\\Clock\\**",
+    "Kaly\\Log\\**",
+    "Kaly\\Crypto\\**",
+    "Kaly\\Auth\\**",
+    "Kaly\\Debug\\**",
+    "Kaly\\Task\\**",
+]
+reason = "Validation builds on Util only: Http and the domains may depend on it, foundations and the other standalone layers (Auth, Debug, Task) may not."
+
+[[guard.perimeter.restrictions]]
+dependency = "Kaly\\Auth\\**"
+deny-from = [
+    "Kaly\\Util\\**",
+    "Kaly\\Clock\\**",
+    "Kaly\\Log\\**",
+    "Kaly\\Crypto\\**",
+    "Kaly\\Http\\**",
+    "Kaly\\Router\\**",
+    "Kaly\\Asset\\**",
+    "Kaly\\I18n\\**",
+    "Kaly\\View\\**",
+    "Kaly\\Validation\\**",
+    "Kaly\\Debug\\**",
+    "Kaly\\Task\\**",
+]
+reason = "Auth is a domain built on Http: only Core composes it, and no other layer or domain depends on it."
+
+[[guard.perimeter.restrictions]]
+dependency = "Kaly\\Debug\\**"
+deny-from = [
+    "Kaly\\Util\\**",
+    "Kaly\\Clock\\**",
+    "Kaly\\Log\\**",
+    "Kaly\\Crypto\\**",
+    "Kaly\\Http\\**",
+    "Kaly\\Router\\**",
+    "Kaly\\Asset\\**",
+    "Kaly\\I18n\\**",
+    "Kaly\\View\\**",
+    "Kaly\\Auth\\**",
+    "Kaly\\Validation\\**",
+    "Kaly\\Task\\**",
+]
+reason = "Debug is standalone observability: only Core and Test may depend on it, so a layer reports through what Core injects instead."
+
+[[guard.perimeter.restrictions]]
+dependency = "Kaly\\Task\\**"
+deny-from = [
+    "Kaly\\Util\\**",
+    "Kaly\\Clock\\**",
+    "Kaly\\Log\\**",
+    "Kaly\\Crypto\\**",
+    "Kaly\\Http\\**",
+    "Kaly\\Router\\**",
+    "Kaly\\Asset\\**",
+    "Kaly\\I18n\\**",
+    "Kaly\\View\\**",
+    "Kaly\\Auth\\**",
+    "Kaly\\Validation\\**",
+    "Kaly\\Debug\\**",
+]
+reason = "Task contracts are standalone: only Core and Test may depend on them, applications bind them in the container."
