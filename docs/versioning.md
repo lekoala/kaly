@@ -63,6 +63,7 @@ an interface listed in the inventory with this rule in mind.
 | Twig, through `TwigRenderer` | 3 |
 | Latte, through `LatteRenderer` | 3 |
 | Symfony Translation, through `SymfonyTranslator` | 7 |
+| `lekoala/kaly-contracts` (task interfaces) | 1 |
 
 Adding support for a new major of a dependency is a **minor** change, as long as
 the majors already promised stay supported. Raising the PHP minimum or dropping
@@ -191,10 +192,14 @@ All symbols are under `Kaly\`.
 | `View\RendererInterface`, `View\RenderEnvironmentInterface` | Template engines |
 | `I18n\TranslatorInterface`, `I18n\Translatable` | Translation backends, translatable values |
 | `Asset\AssetsInterface` | Asset url strategy |
-| `Task\TaskDispatcher`, `Task\ScheduledTaskDispatcher` | Background tasks |
+| `Task\TaskDispatcher`, `Task\ScheduledTaskDispatcher` | Background tasks, provided by `lekoala/kaly-contracts` |
 
 PSR-15 `MiddlewareInterface` and PSR-11 containers are standards, not Kaly
 contracts.
+
+The task interfaces live in `lekoala/kaly-contracts`, a PHP-only package frozen at
+1.0, so that engines such as `kaly-tasks` implement them without depending on Kaly.
+They keep the `Kaly\Task` namespace.
 
 ### Findings
 

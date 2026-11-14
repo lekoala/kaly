@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 - 2026-11-14
 
 - **Breaking (Composer only):** `Kaly\Task\TaskDispatcher` and
   `ScheduledTaskDispatcher` move to `lekoala/kaly-contracts`, required by Kaly.

@@ -15,7 +15,7 @@ same `composer update`:
 composer update lekoala/kaly lekoala/kaly-tasks --with-dependencies
 ```
 
-## Unreleased: boot profiling is removed
+## 0.5: boot profiling is removed
 
 `App::bootProfile()` is gone; `profiling()` now covers request cycles only. Time
 the boot yourself, or use a profiler (SPX, Excimer, XHProf) for a breakdown:
@@ -26,7 +26,7 @@ $app->boot();
 $bootMs = (hrtime(true) - $start) / 1e6;
 ```
 
-## Unreleased: declared routes validate their action signature
+## 0.5: declared routes validate their action signature
 
 A declared route now fails when the table compiles if its action signature cannot be
 satisfied by the url: an unsupported object parameter (anything but a trailing
@@ -37,7 +37,7 @@ Move services to the controller constructor, bind request data through a trailin
 `RequestInput`, and add the missing placeholders (or defaults) to the route. The error
 message names the route and the parameter.
 
-## Unreleased: bare conventional actions are reads
+## 0.4: bare conventional actions are reads
 
 A conventional action without a verb suffix (`save()`, `index()`, `__invoke()`)
 now answers `GET` and `HEAD` only; other methods get a `405`. Rename every action
