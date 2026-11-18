@@ -59,6 +59,7 @@ class RouterContractTest extends TestCase
                 $routes->post('/save', [AliasController::class, 'savePost'])->name('save');
                 $routes->get('/featured/{tab}', [ShopController::class, 'featured'])->name('featured')->default('tab', 'all');
                 $routes->get('/edit/{id}', [InputController::class, 'edit'])->name('edit');
+                $routes->get('/flag/{value}', [IndexController::class, 'typedBool'])->name('flag');
             })
             ->claim('/aide', static function (Routes $routes): void {
                 $routes->get('/{slug}', [ShopController::class, 'show'])->name('help');
@@ -104,6 +105,8 @@ class RouterContractTest extends TestCase
         yield 'post' => ['test-module:save', [], 'POST', AliasController::class, 'savePost', []];
         yield 'generate-only default' => ['test-module:featured', [], 'GET', ShopController::class, 'featured', ['all']];
         yield 'trailing input' => ['test-module:edit', ['id' => 3], 'GET', InputController::class, 'edit', [3]];
+        yield 'bool true' => ['test-module:flag', ['value' => true], 'GET', IndexController::class, 'typedBool', [true]];
+        yield 'bool false' => ['test-module:flag', ['value' => false], 'GET', IndexController::class, 'typedBool', [false]];
         yield 'claim' => ['test-module:help', ['slug' => 'faq'], 'GET', ShopController::class, 'show', ['faq']];
     }
 
@@ -200,6 +203,21 @@ class RouterContractTest extends TestCase
     }
 
     // #endregion
+
+    public function testConventionalBoolArgumentsRoundTrip(): void
+    {
+        foreach ([true, false] as $value) {
+            $module = (new Module(__DIR__ . '/modules/TestModule'))->mount('shop');
+            $module->autoloadFiles();
+            $router = new Router([$module], null, [], TrailingSlash::Add);
+
+            // (string) false is empty: both booleans have a segment
+            $url = $router->urlFor([IndexController::class, 'typedBool'], [$value]);
+
+            $this->assertSame('/shop/index/typed-bool/' . ($value ? '1' : '0') . '/', $url);
+            $this->assertSame([$value], $router->match(self::request($url))->params);
+        }
+    }
 
     // #region Canonicalization
 

@@ -168,7 +168,14 @@ final class TableResolver implements ResolverInterface
             if (!is_scalar($value)) {
                 throw new RouteGenerationException("Parameter '{$name}' of route '{$definition->name}' is not scalar");
             }
-            $segment = RoutePath::encode((string) $value, "parameter '{$name}' of route '{$definition->name}'");
+            // (string) false is '': encode both booleans as the segments the
+            // matcher already accepts
+            if (is_bool($value)) {
+                $value = $value ? '1' : '0';
+            } else {
+                $value = (string) $value;
+            }
+            $segment = RoutePath::encode($value, "parameter '{$name}' of route '{$definition->name}'");
             $path = str_replace('{' . $name . '}', $segment, $path);
         }
         return $path;

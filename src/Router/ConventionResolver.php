@@ -107,7 +107,14 @@ final class ConventionResolver implements ResolverInterface
         }
         foreach ($params as $index => $value) {
             if (is_scalar($value)) {
-                $path .= '/' . RoutePath::encode((string) $value, "argument {$index} of '{$controller}::{$action}'");
+                // (string) false is '': encode both booleans as the segments
+                // the matcher already accepts
+                if (is_bool($value)) {
+                    $value = $value ? '1' : '0';
+                } else {
+                    $value = (string) $value;
+                }
+                $path .= '/' . RoutePath::encode($value, "argument {$index} of '{$controller}::{$action}'");
             }
         }
         return $path;

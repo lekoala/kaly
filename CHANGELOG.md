@@ -31,6 +31,9 @@
 - A route whose action cannot receive the path parameters no longer contributes
   to a 405 `Allow` header: the request is a 404 for that route and the next
   resolver can answer it.
+- Generating an url with a boolean argument now writes `1` or `0`: `(string)
+  false` is empty, so the segment disappeared and `false` produced an url no
+  route matched.
 
 ## 0.7.0 - 2026-11-14
 
