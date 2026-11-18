@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.0 - 2026-11-18
 
 - **Breaking (dependency upgrade):** Kaly requires `lekoala/kaly-di` `^0.5`.
   `Kaly\Di\Container` is final, and `Injector` rejects signatures with
