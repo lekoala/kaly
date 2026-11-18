@@ -237,8 +237,10 @@ final class RouteCollection
     {
         /**
          * Path variants sharing a canonical pattern, per priority. Normalizing
-         * methods and canonicalizing paths once per variant keeps compilation
-         * linear in the table size instead of quadratic in every pair.
+         * methods and canonicalizing paths once per variant removes the
+         * systematic all-pairs scan: compilation is linear when canonical
+         * patterns differ, and only variants that share both a priority and a
+         * pattern are compared pairwise to decide the collision.
          *
          * @var array<int,array<string,list<array{definition:int,locale:string,path:string,methods:list<string>}>>> $groups
          */
