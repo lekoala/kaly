@@ -11,6 +11,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LogLevel;
 use RuntimeException;
+use Stringable;
 
 /**
  * A dead simple logger. You can set the base log level. Any message below this level will be ignored.
@@ -82,11 +83,10 @@ final class FileLogger extends AbstractLogger
 
     /**
      * @param string $level
-     * @param string $message
      * @param array<string,mixed> $context
      * @return void
      */
-    public function log($level, $message, array $context = []): void
+    public function log($level, string|Stringable $message, array $context = []): void
     {
         if (!$this->destination) {
             return;

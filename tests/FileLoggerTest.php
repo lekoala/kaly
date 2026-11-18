@@ -67,7 +67,7 @@ class FileLoggerTest extends TestCase
             }
         };
 
-        $this->logger()->info($message, ['value' => 'ok']);
+        $this->logger()->log('info', $message, ['value' => 'ok']);
 
         $this->assertSame("[2026-01-01 12:00:00] [info] test ok\n", (string) file_get_contents($this->file));
     }
