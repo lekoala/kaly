@@ -25,6 +25,9 @@
 - `FileLogger` interpolates only the placeholders a message contains and
   describes a response by its status and headers, so logging never consumes or
   closes the response body and an unused context value is never converted.
+- A HEAD response replaces its body without closing the original stream: a
+  handler that keeps and reuses a response in a worker now serves the next GET
+  intact, while an unowned body is still released.
 
 ## 0.7.0 - 2026-11-14
 

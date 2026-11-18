@@ -89,10 +89,12 @@ final class Kernel implements RequestHandlerInterface
             $response = ServerTiming::apply($response, $ctx->profile());
         }
         if ($isHead) {
-            // Never read: the stream may be large, unseekable or compressed
-            $content = $response->getBody();
+            // Never read: the stream may be large, unseekable or compressed.
+            // Replace the body and drop the kernel's reference instead of
+            // closing it: the stream may belong to a response the handler
+            // keeps and serves again, eg in a worker. Without another owner,
+            // dropping the reference releases it.
             $response = $response->withBody($this->streams->createStream());
-            $content->close();
         }
         $ctx->complete($response);
         $this->hooks->terminate($ctx);

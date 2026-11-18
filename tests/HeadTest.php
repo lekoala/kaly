@@ -94,96 +94,133 @@ class HeadTest extends TestCase
         $this->assertFalse($head->hasHeader('Content-Length'));
     }
 
-    public function testTheContentIsNeverReadButReleased(): void
+    public function testTheContentIsNeverReadAndIsReleasedWithoutAnotherOwner(): void
     {
-        $content = new class(Stream::create('unreadable')) implements StreamInterface {
-            public bool $closed = false;
-
-            public function __construct(
-                private StreamInterface $inner,
-            ) {}
-
-            public function __toString(): string
-            {
-                throw new RuntimeException('Read');
-            }
-
-            public function close(): void
-            {
-                $this->closed = true;
-                $this->inner->close();
-            }
-
-            public function detach()
-            {
-                return $this->inner->detach();
-            }
-
-            public function getSize(): ?int
-            {
-                return null;
-            }
-
-            public function tell(): int
-            {
-                return 0;
-            }
-
-            public function eof(): bool
-            {
-                return false;
-            }
-
-            public function isSeekable(): bool
-            {
-                return false;
-            }
-
-            public function seek(int $offset, int $whence = SEEK_SET): void
-            {
-                throw new RuntimeException('Seek');
-            }
-
-            public function rewind(): void
-            {
-                throw new RuntimeException('Rewind');
-            }
-
-            public function isWritable(): bool
-            {
-                return false;
-            }
-
-            public function write(string $string): int
-            {
-                throw new RuntimeException('Write');
-            }
-
-            public function isReadable(): bool
-            {
-                return true;
-            }
-
-            public function read(int $length): string
-            {
-                throw new RuntimeException('Read');
-            }
-
-            public function getContents(): string
-            {
-                throw new RuntimeException('Read');
-            }
-
-            public function getMetadata(?string $key = null): mixed
-            {
-                return $this->inner->getMetadata($key);
-            }
+        $released = false;
+        $bodyRef = null;
+        $onRelease = static function () use (&$released): void {
+            $released = true;
         };
 
-        $head = $this->kernel(static fn(): ResponseInterface => new Response(200, [], $content))->handle(new ServerRequest('HEAD', '/'));
+        $kernel = $this->kernel(static function () use ($onRelease, &$bodyRef): ResponseInterface {
+            $content = new class(Stream::create('unreadable'), $onRelease) implements StreamInterface {
+                public function __construct(
+                    private StreamInterface $inner,
+                    private Closure $onRelease,
+                ) {}
+
+                public function __destruct()
+                {
+                    ($this->onRelease)();
+                }
+
+                public function __toString(): string
+                {
+                    throw new RuntimeException('Read');
+                }
+
+                public function close(): void
+                {
+                    $this->inner->close();
+                }
+
+                public function detach()
+                {
+                    return $this->inner->detach();
+                }
+
+                public function getSize(): ?int
+                {
+                    return null;
+                }
+
+                public function tell(): int
+                {
+                    return 0;
+                }
+
+                public function eof(): bool
+                {
+                    return false;
+                }
+
+                public function isSeekable(): bool
+                {
+                    return false;
+                }
+
+                public function seek(int $offset, int $whence = SEEK_SET): void
+                {
+                    throw new RuntimeException('Seek');
+                }
+
+                public function rewind(): void
+                {
+                    throw new RuntimeException('Rewind');
+                }
+
+                public function isWritable(): bool
+                {
+                    return false;
+                }
+
+                public function write(string $string): int
+                {
+                    throw new RuntimeException('Write');
+                }
+
+                public function isReadable(): bool
+                {
+                    return true;
+                }
+
+                public function read(int $length): string
+                {
+                    throw new RuntimeException('Read');
+                }
+
+                public function getContents(): string
+                {
+                    throw new RuntimeException('Read');
+                }
+
+                public function getMetadata(?string $key = null): mixed
+                {
+                    return $this->inner->getMetadata($key);
+                }
+            };
+            $bodyRef = \WeakReference::create($content);
+
+            return new Response(200, [], $content);
+        });
+
+        $head = $kernel->handle(new ServerRequest('HEAD', '/'));
 
         $this->assertSame('', (string) $head->getBody());
-        $this->assertTrue($content->closed);
+        // The kernel holds no reference: without another owner the body is freed
+        $this->assertTrue($released);
+        $this->assertNull($bodyRef?->get());
+    }
+
+    public function testASharedResponseSurvivesAHeadRequest(): void
+    {
+        $shared = new Response(200, ['Content-Length' => '2', 'Content-Type' => 'text/plain'], 'ok');
+        $kernel = $this->kernel(static fn(): ResponseInterface => $shared);
+
+        $first = $kernel->handle(new ServerRequest('GET', '/'));
+        $this->assertSame(2, strlen((string) $first->getBody()));
+        $this->assertSame('2', $first->getHeaderLine('Content-Length'));
+
+        $head = $kernel->handle(new ServerRequest('HEAD', '/'));
+        $this->assertSame(200, $head->getStatusCode());
+        $this->assertSame('', (string) $head->getBody());
+        $this->assertSame('2', $head->getHeaderLine('Content-Length'));
+
+        // A worker reuses the handler response: HEAD must not close its body
+        $next = $kernel->handle(new ServerRequest('GET', '/'));
+        $this->assertSame(200, $next->getStatusCode());
+        $this->assertSame('2', $next->getHeaderLine('Content-Length'));
+        $this->assertSame('ok', (string) $next->getBody());
     }
 
     public function testAnErrorResponseIsBodylessToo(): void
