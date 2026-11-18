@@ -36,6 +36,9 @@
   route matched.
 - Asset urls encode each path component: a file named `logo#2.svg` is now
   reachable through its generated url instead of being cut at the fragment.
+- `Translator::setPaths()` and `addPath()` invalidate the merged catalogs, so a
+  new path takes effect and a removed path stops answering; entries added with
+  `addToCatalog()` are kept aside and re-applied.
 
 ## 0.7.0 - 2026-11-14
 

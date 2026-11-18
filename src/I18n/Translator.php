@@ -31,6 +31,13 @@ final class Translator implements TranslatorInterface
      */
     protected array $catalogs = [];
     /**
+     * Explicit entries added with addToCatalog(), kept aside so path changes
+     * rebuild the path catalogs without losing them
+     *
+     * @var array<string,array<string,array<string,mixed>>>
+     */
+    protected array $added = [];
+    /**
      * @var array<string>
      */
     protected array $paths = [];
@@ -62,6 +69,8 @@ final class Translator implements TranslatorInterface
     {
         $this->paths = $paths;
         $this->catalogFiles = [];
+        // Merged catalogs depend on every path: rebuild them on next use
+        $this->catalogs = [];
         return $this;
     }
 
@@ -69,6 +78,8 @@ final class Translator implements TranslatorInterface
     {
         $this->paths[] = $path;
         unset($this->catalogFiles[$path]);
+        // Existing catalogs were built without this path
+        $this->catalogs = [];
         return $this;
     }
 
@@ -94,30 +105,20 @@ final class Translator implements TranslatorInterface
     public function addToCatalog(string $name, string $locale, array $strings): self
     {
         $locale = Locale::normalize($locale);
-        if (!isset($this->catalogs[$name][$locale])) {
-            $this->buildCatalog($name, $locale);
-        }
-        // Later additions win key by key, exactly like later paths
+        self::assertValidIdentity($name, $locale);
+        // Later additions win key by key, exactly like later paths. They are
+        // kept aside and applied by buildCatalog(), so a later setPaths() or
+        // addPath() cannot drop them while it rebuilds the path catalogs.
         foreach (self::flatten($strings, 'added catalog') as $id => $translation) {
-            $this->catalogs[$name][$locale][$id] = $translation;
+            $this->added[$name][$locale][$id] = $translation;
         }
+        unset($this->catalogs[$name][$locale]);
         return $this;
     }
 
     protected function buildCatalog(string $name, string $locale): void
     {
-        if (
-            !Locale::isValid($locale)
-            || str_contains($locale, '/')
-            || str_contains($locale, '\\')
-            || $name === ''
-            || str_contains($name, '..')
-            || str_contains($name, '/')
-            || str_contains($name, '\\')
-            || str_contains($name, "\0")
-        ) {
-            throw new Ex('Invalid translation domain or locale');
-        }
+        self::assertValidIdentity($name, $locale);
         $merged = [];
         $found = false;
         foreach ($this->paths as $path) {
@@ -135,8 +136,29 @@ final class Translator implements TranslatorInterface
                 $merged[$id] = $translation;
             }
         }
+        // Explicit additions win over every path, whatever the path list
+        foreach ($this->added[$name][$locale] ?? [] as $id => $translation) {
+            $merged[$id] = $translation;
+            $found = true;
+        }
         if ($found) {
             $this->catalogs[$name][$locale] = $merged;
+        }
+    }
+
+    private static function assertValidIdentity(string $name, string $locale): void
+    {
+        if (
+            !Locale::isValid($locale)
+            || str_contains($locale, '/')
+            || str_contains($locale, '\\')
+            || $name === ''
+            || str_contains($name, '..')
+            || str_contains($name, '/')
+            || str_contains($name, '\\')
+            || str_contains($name, "\0")
+        ) {
+            throw new Ex('Invalid translation domain or locale');
         }
     }
 

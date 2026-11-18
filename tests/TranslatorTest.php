@@ -86,12 +86,34 @@ class TranslatorTest extends TestCase
     {
         $translator = new Translator('en');
         $translator->addPath(__DIR__ . '/data/lang-overrides/first');
+
+        // Build the merged catalog before the second path exists
+        $this->assertSame('First wins', $translator->translate('shared'));
+
         $translator->addPath(__DIR__ . '/data/lang-overrides/second');
 
         // The second path overrides 'shared' without dropping 'first.only'
         $this->assertSame('Second wins', $translator->translate('shared'));
         $this->assertSame('First only', $translator->translate('first.only'));
         $this->assertSame('Second only', $translator->translate('second.only'));
+
+        // Replacing the path list drops catalogs loaded from removed paths
+        $translator->setPaths([__DIR__ . '/data/lang-overrides/second']);
+        $this->assertSame('Second wins', $translator->translate('shared'));
+        $this->assertSame('first.only', $translator->translate('first.only'));
+    }
+
+    public function testExplicitEntriesSurvivePathChanges(): void
+    {
+        $translator = new Translator('en');
+        $translator->addPath(__DIR__ . '/data/lang-overrides/first');
+        $translator->addToCatalog('messages', 'en', ['added' => 'Added']);
+        $this->assertSame('Added', $translator->translate('added'));
+
+        $translator->setPaths([__DIR__ . '/data/lang-overrides/second']);
+
+        $this->assertSame('Second wins', $translator->translate('shared'));
+        $this->assertSame('Added', $translator->translate('added'));
     }
 
     public function testLocalizedTranslatorDoesNotLeakBetweenRenders(): void
