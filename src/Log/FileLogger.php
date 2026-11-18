@@ -51,11 +51,33 @@ final class FileLogger extends AbstractLogger
     {
         $replace = [];
         foreach ($context as $key => $val) {
-            $replace['{' . $key . '}'] = $val instanceof ResponseInterface
-                ? 'Response: ' . Str::truncate((string) $val->getBody())
-                : Str::stringify($val);
+            $placeholder = '{' . $key . '}';
+            // Resolve only what the message prints: converting a response body
+            // eagerly consumes a stream the message may never mention
+            if (!str_contains($message, $placeholder)) {
+                continue;
+            }
+            $replace[$placeholder] = $val instanceof ResponseInterface ? self::describeResponse($val) : Str::stringify($val);
         }
         return strtr($message, $replace);
+    }
+
+    /**
+     * Status and headers only: the body belongs to the client, it may be a
+     * large or unseekable stream, and logging must never consume it.
+     */
+    private static function describeResponse(ResponseInterface $response): string
+    {
+        $description = 'Response: ' . $response->getStatusCode();
+        $reason = $response->getReasonPhrase();
+        if ($reason !== '') {
+            $description .= ' ' . $reason;
+        }
+        $type = $response->getHeaderLine('Content-Type');
+        if ($type !== '') {
+            $description .= ' (' . $type . ')';
+        }
+        return $description;
     }
 
     /**

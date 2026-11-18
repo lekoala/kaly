@@ -22,6 +22,9 @@
 - Route table compilation normalizes methods and canonical patterns once per
   path instead of once per pair: an 800-route table now compiles in ~4 ms
   instead of ~500 ms.
+- `FileLogger` interpolates only the placeholders a message contains and
+  describes a response by its status and headers, so logging never consumes or
+  closes the response body and an unused context value is never converted.
 
 ## 0.7.0 - 2026-11-14
 
