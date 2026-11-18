@@ -17,6 +17,7 @@ use Kaly\Router\Router;
 use Kaly\Router\RouteRequest;
 use Kaly\Router\Routes;
 use Kaly\Router\TrailingSlash;
+use Kaly\Tests\Mocks\DefaultValueFixture;
 use Kaly\Tests\Mocks\RouteHandlerFixture;
 use Kaly\Tests\Support\HttpFactory;
 use Nyholm\Psr7\ServerRequest as BaseServerRequest;
@@ -315,6 +316,33 @@ class RouterHierarchyFixesTest extends TestCase
         $route = $this->match($router, '/shop/item/draft/', 'POST');
         $this->assertSame(RouteHandlerFixture::class, $route->controller);
         $this->assertSame('__invoke', $route->action);
+    }
+
+    public function testAnotherMethodNeverEvaluatesADefaultValue(): void
+    {
+        DefaultValueFixture::$constructed = 0;
+        $module = $this->module()->routes(function (Routes $routes): void {
+            // GET first: its default object must not run while POST is routed
+            $routes->get('/item', [DefaultValueFixture::class, 'read']);
+            $routes->post('/item', [DefaultValueFixture::class, 'write']);
+        });
+        $router = new Router([$module], null, [], TrailingSlash::Add);
+
+        $route = $this->match($router, '/shop/item/', 'POST');
+        $this->assertSame('write', $route->action);
+        $this->assertSame(0, DefaultValueFixture::$constructed);
+
+        try {
+            $this->match($router, '/shop/item/', 'PATCH');
+            $this->fail('A 405 was expected');
+        } catch (MethodNotAllowedException $e) {
+            $this->assertEqualsCanonicalizing(['GET', 'HEAD', 'POST'], $e->getAllowedMethods());
+        }
+        $this->assertSame(0, DefaultValueFixture::$constructed);
+
+        // The matching GET is the only request that evaluates the default
+        $this->assertSame('read', $this->match($router, '/shop/item/', 'GET')->action);
+        $this->assertSame(1, DefaultValueFixture::$constructed);
     }
 
     public function testMountPerLocaleWithoutLocalizedFailsAtBoot(): void

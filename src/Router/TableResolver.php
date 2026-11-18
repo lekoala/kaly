@@ -109,19 +109,27 @@ final class TableResolver implements ResolverInterface
             }
 
             $definition = $entry['definition'];
+            $methods = Method::normalizeList($definition->methods);
+            $matchesMethod = $methods === [] || in_array($method, $methods, true);
+
             // A route that cannot consume this path is not a candidate for any
             // method: it must not contribute to Allow, or the 405 would hide
-            // the resolver that can actually answer the request
-            $params = $this->coerceParams($entry, $matches);
-            if ($params === null) {
-                continue;
-            }
-
-            $methods = Method::normalizeList($definition->methods);
-            if ($methods !== [] && !in_array($method, $methods, true)) {
+            // the resolver that can actually answer the request. Another
+            // method validates without reading default values: a default
+            // expression may construct objects and only the matching method
+            // will actually call the action.
+            if (!$matchesMethod) {
+                if ($this->coerceParams($entry, $matches, resolveDefaults: false) === null) {
+                    continue;
+                }
                 foreach ($methods as $m) {
                     $allowed[$m] = true;
                 }
+                continue;
+            }
+
+            $params = $this->coerceParams($entry, $matches);
+            if ($params === null) {
                 continue;
             }
 
@@ -211,9 +219,13 @@ final class TableResolver implements ResolverInterface
      *
      * @param RouteEntry $entry
      * @param array<array-key,string> $matches
+     * @param bool $resolveDefaults Whether a missing path value may read the
+     *   action's default value. False while collecting Allow for another
+     *   method: evaluating a default expression can construct objects and must
+     *   wait for the request that matches the route.
      * @return array<int<0,max>|string,mixed>|null Null when the entry does not match.
      */
-    private function coerceParams(array $entry, array $matches): ?array
+    private function coerceParams(array $entry, array $matches, bool $resolveDefaults = true): ?array
     {
         $reflection = $entry['reflection'];
         $action = $entry['definition']->action;
@@ -245,11 +257,15 @@ final class TableResolver implements ResolverInterface
                 continue;
             }
             if (array_key_exists($name, $entry['definition']->defaults)) {
-                $out[] = $entry['definition']->defaults[$name];
+                if ($resolveDefaults) {
+                    $out[] = $entry['definition']->defaults[$name];
+                }
                 continue;
             }
             if ($param->isOptional() || $param->isDefaultValueAvailable()) {
-                $out[] = $param->getDefaultValue();
+                if ($resolveDefaults) {
+                    $out[] = $param->getDefaultValue();
+                }
                 continue;
             }
             return null;

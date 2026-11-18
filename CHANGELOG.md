@@ -31,6 +31,9 @@
 - A route whose action cannot receive the path parameters no longer contributes
   to a 405 `Allow` header: the request is a 404 for that route and the next
   resolver can answer it.
+- Collecting a 405 `Allow` header no longer evaluates another route method's
+  default values: a default object is constructed only when its own method
+  matches the request.
 - Generating an url with a boolean argument now writes `1` or `0`: `(string)
   false` is empty, so the segment disappeared and `false` produced an url no
   route matched.
