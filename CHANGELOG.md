@@ -41,7 +41,8 @@
   reachable through its generated url instead of being cut at the fragment.
 - `Translator::setPaths()` and `addPath()` invalidate the merged catalogs, so a
   new path takes effect and a removed path stops answering; entries added with
-  `addToCatalog()` are kept aside and re-applied.
+  `addToCatalog()` are kept aside and re-applied. An addition updates an
+  already loaded catalog in place, so stable paths never reload their files.
 - `FileLogger` accepts a `Stringable` message, as its PSR-3 interface promises,
   and interpolates it as a string.
 

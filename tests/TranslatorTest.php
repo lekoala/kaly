@@ -6,6 +6,7 @@ namespace Kaly\Tests;
 
 use Kaly\I18n\LocalizedTranslator;
 use Kaly\I18n\Translator;
+use Kaly\Tests\Mocks\CatalogLoadFixture;
 use PHPUnit\Framework\TestCase;
 
 class TranslatorTest extends TestCase
@@ -114,6 +115,39 @@ class TranslatorTest extends TestCase
 
         $this->assertSame('Second wins', $translator->translate('shared'));
         $this->assertSame('Added', $translator->translate('added'));
+    }
+
+    public function testStablePathsAreNotReloadedByExplicitEntries(): void
+    {
+        $path = sys_get_temp_dir() . '/kaly-stable-catalog-' . uniqid();
+        \Kaly\Util\Fs::ensureDir($path);
+        \Kaly\Util\Fs::putFile(
+            $path . '/messages.en.php',
+            '<?php \\Kaly\\Tests\\Mocks\\CatalogLoadFixture::$loads++; return [\'shared\' => \'From file\'];',
+        );
+        CatalogLoadFixture::$loads = 0;
+        try {
+            $translator = (new Translator('en'))->addPath($path);
+            $this->assertSame('From file', $translator->translate('shared'));
+            $this->assertSame(1, CatalogLoadFixture::$loads);
+
+            $translator->addToCatalog('messages', 'en', ['first' => 'First']);
+            $this->assertSame('First', $translator->translate('first'));
+            $translator->addToCatalog('messages', 'en', ['second' => 'Second']);
+            $this->assertSame('Second', $translator->translate('second'));
+
+            // Stable paths: the catalog is updated in place, files load once
+            $this->assertSame(1, CatalogLoadFixture::$loads);
+
+            // A path change still rebuilds and re-applies explicit entries
+            $translator->setPaths([$path]);
+            $this->assertSame('From file', $translator->translate('shared'));
+            $this->assertSame('First', $translator->translate('first'));
+            $this->assertSame(2, CatalogLoadFixture::$loads);
+        } finally {
+            CatalogLoadFixture::$loads = 0;
+            \Kaly\Tests\Support\TempDir::remove($path);
+        }
     }
 
     public function testLocalizedTranslatorDoesNotLeakBetweenRenders(): void

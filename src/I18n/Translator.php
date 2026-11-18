@@ -107,12 +107,18 @@ final class Translator implements TranslatorInterface
         $locale = Locale::normalize($locale);
         self::assertValidIdentity($name, $locale);
         // Later additions win key by key, exactly like later paths. They are
-        // kept aside and applied by buildCatalog(), so a later setPaths() or
-        // addPath() cannot drop them while it rebuilds the path catalogs.
+        // kept aside for the next path change and applied to the catalog that
+        // is already loaded, so a stable path list never reloads its files.
+        $catalog = $this->catalogs[$name][$locale] ?? null;
         foreach (self::flatten($strings, 'added catalog') as $id => $translation) {
             $this->added[$name][$locale][$id] = $translation;
+            if ($catalog !== null) {
+                $catalog[$id] = $translation;
+            }
         }
-        unset($this->catalogs[$name][$locale]);
+        if ($catalog !== null) {
+            $this->catalogs[$name][$locale] = $catalog;
+        }
         return $this;
     }
 
