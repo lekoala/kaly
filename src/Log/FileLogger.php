@@ -95,7 +95,9 @@ final class FileLogger extends AbstractLogger
             return;
         }
         $date = $this->clock->now()->format('Y-m-d H:i:s');
-        $message = str_replace(["\r", "\n"], ['\\r', '\\n'], self::interpolate($message, $context));
+        // The interface accepts string|Stringable: convert after the level
+        // filter, before interpolation expects a string
+        $message = str_replace(["\r", "\n"], ['\\r', '\\n'], self::interpolate((string) $message, $context));
         $message = "[{$date}] [{$level}] {$message}";
         file_put_contents($this->destination, $message . "\n", FILE_APPEND | LOCK_EX);
     }

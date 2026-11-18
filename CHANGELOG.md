@@ -39,6 +39,8 @@
 - `Translator::setPaths()` and `addPath()` invalidate the merged catalogs, so a
   new path takes effect and a removed path stops answering; entries added with
   `addToCatalog()` are kept aside and re-applied.
+- `FileLogger` accepts a `Stringable` message, as its PSR-3 interface promises,
+  and interpolates it as a string.
 
 ## 0.7.0 - 2026-11-14
 
