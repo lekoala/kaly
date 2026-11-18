@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.9.0 - 2026-11-18
+
+- **Breaking:** the view contracts come from `lekoala/kaly-contracts` 1.1.
+  `Kaly\View\RendererInterface`, `TemplateLocatorInterface` and
+  `TemplatePathRegistryInterface` keep the `Kaly\View` namespace, but
+  `render()` now takes `(string $template, array $data = [], array $shared = [])`:
+  the page's data and the render's shared capabilities travel as two arrays, and
+  when a renderer is called directly, a shared name wins over a page local.
+  `RenderEnvironmentInterface` is removed: the reserved-name policy lives once
+  in `ViewResponder`, which rejects page data colliding with a capability before
+  the engine runs. The adapters no longer repeat the check. See `UPGRADE.md`.
+- **kaly-tpl adapter:** an HTTP failure thrown inside a template keeps the status
+  it chose. kaly-tpl wraps every application exception in a `ViewException`, so
+  `KalyTplRenderer` surfaces an `HttpExceptionInterface` from the wrapped chain
+  instead of letting a deliberate 404 answer as a render error (500). Locked by an
+  end-to-end request test.
+- **kaly-tpl adapter:** an optional `formatterFor` callback maps the locale of the
+  render's `i18n` capability to the `ValueFormatter` of that render (kaly-tpl
+  0.4), so a multilingual worker formats dates and money in the locale of the
+  request without mutating the shared engine. The engine default is unchanged
+  without the callback.
+- `Kaly\Core\RenderEnvironment` is the typed capability bag of a render: its
+  `variables()` keys are the reserved names, and it no longer implements an
+  interface.
+
 ## 0.8.0 - 2026-11-18
 
 - **Breaking (dependency upgrade):** Kaly requires `lekoala/kaly-di` `^0.5`.

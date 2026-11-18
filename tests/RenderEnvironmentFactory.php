@@ -36,6 +36,16 @@ trait RenderEnvironmentFactory
         );
     }
 
+    /**
+     * The shared variables a ViewResponder hands to a renderer.
+     *
+     * @return array<string,mixed>
+     */
+    protected function renderShared(string $locale, ?RouterInterface $router = null): array
+    {
+        return $this->renderEnvironment($locale, $router)->variables();
+    }
+
     protected function stubAssets(): AssetsInterface
     {
         return new class implements AssetsInterface {

@@ -22,7 +22,6 @@ use Kaly\Router\UrlView;
 use Kaly\Tests\Mocks\DispatcherController;
 use Kaly\Tpl\ViewEngine;
 use Kaly\View\Adapter\KalyTplRenderer;
-use Kaly\View\RenderEnvironmentInterface;
 use Kaly\View\RendererInterface;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
@@ -138,7 +137,7 @@ class RequestDispatcherTest extends TestCase
     public function testViewIsRendered(): void
     {
         $renderer = new class implements RendererInterface {
-            public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
+            public function render(string $template, array $data = [], array $shared = []): string
             {
                 $title = $data['title'] ?? null;
                 return $template . ':' . (is_scalar($title) ? (string) $title : '');
@@ -153,9 +152,9 @@ class RequestDispatcherTest extends TestCase
     public function testRenderReceivesALocalizedTranslator(): void
     {
         $renderer = new class implements RendererInterface {
-            public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
+            public function render(string $template, array $data = [], array $shared = []): string
             {
-                $i18n = $environment?->variables()['i18n'] ?? null;
+                $i18n = $shared['i18n'] ?? null;
                 assert($i18n instanceof LocalizedTranslator);
                 return $i18n->locale() . ':' . $i18n->translate('global.test');
             }
@@ -172,9 +171,9 @@ class RequestDispatcherTest extends TestCase
     public function testRouteLocaleWinsOverHeaders(): void
     {
         $renderer = new class implements RendererInterface {
-            public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
+            public function render(string $template, array $data = [], array $shared = []): string
             {
-                $i18n = $environment?->variables()['i18n'] ?? null;
+                $i18n = $shared['i18n'] ?? null;
 
                 return $i18n instanceof LocalizedTranslator ? $i18n->locale() : '';
             }
@@ -195,7 +194,7 @@ class RequestDispatcherTest extends TestCase
     public function testI18nIsReservedAndRejectedInViewData(): void
     {
         $renderer = new class implements RendererInterface {
-            public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
+            public function render(string $template, array $data = [], array $shared = []): string
             {
                 return '';
             }
@@ -209,9 +208,9 @@ class RequestDispatcherTest extends TestCase
     public function testRenderReceivesAUrlGeneratorBoundToTheRequestLocale(): void
     {
         $renderer = new class implements RendererInterface {
-            public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
+            public function render(string $template, array $data = [], array $shared = []): string
             {
-                $url = $environment?->variables()['url'] ?? null;
+                $url = $shared['url'] ?? null;
                 if (!$url instanceof UrlView) {
                     return '';
                 }
@@ -230,7 +229,7 @@ class RequestDispatcherTest extends TestCase
     public function testUrlIsReservedAndRejectedInViewData(): void
     {
         $renderer = new class implements RendererInterface {
-            public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
+            public function render(string $template, array $data = [], array $shared = []): string
             {
                 return '';
             }
@@ -253,7 +252,7 @@ class RequestDispatcherTest extends TestCase
     public function testViewResultWithStatusAnswersWithThatStatus(): void
     {
         $renderer = new class implements RendererInterface {
-            public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
+            public function render(string $template, array $data = [], array $shared = []): string
             {
                 $title = $data['title'] ?? null;
                 return $template . ':' . (is_scalar($title) ? (string) $title : '');

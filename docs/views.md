@@ -9,7 +9,9 @@ Kaly is renderer agnostic. The core only exposes:
 
 - `Kaly\View\View` — a controller result: `View::of('@module/template', $data)`;
   `withStatus(404)` answers with another status code;
-- `Kaly\View\RendererInterface` — `render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string`;
+- `Kaly\View\RendererInterface` — `render(string $template, array $data = [], array $shared = []): string`,
+  provided by [`lekoala/kaly-contracts`](https://github.com/lekoala/kaly-contracts) like the task
+  interfaces: an adapter for any engine can be written and tested against the contract alone;
 - optional capabilities `TemplateLocatorInterface` (`has()`) and `TemplatePathRegistryInterface` (`setPath()`).
 
 Controllers return a `View`; the dispatcher delegates to `Kaly\Core\ViewResponder`,
@@ -20,13 +22,13 @@ An `array` is returned as JSON (200), a
 `Kaly\Http\JsonResult::of($data, 201)` as JSON with its status code and headers,
 a `string` as HTML. If no renderer is configured, returning a `View` throws.
 
-## Page data and render environment
+## Page data and shared capabilities
 
-A render carries two distinct things:
+A render carries two distinct things, as two separate arrays:
 
 ```text
-$data         page data owned by the application (a user, a product...)
-$environment  reserved capabilities contributed by Kaly for this render
+$data    page data owned by the application (a user, a product...)
+$shared  the capabilities Kaly contributes to the whole render
 ```
 
 They travel separately, so page data can never silently replace a capability.
@@ -41,18 +43,19 @@ The six capabilities are reserved for the whole render:
 | `csrf` | the CSRF token and the field names |
 | `csp` | the CSP nonce of the response |
 
-Whenever an environment is provided, page data containing one of these names is
-rejected with a `Kaly\Ex` before the engine runs. A standalone `render()` without
-an environment injects no capability and stays free to use such names as
-ordinary locals.
+`ViewResponder` rejects page data containing one of these names with a
+`Kaly\Ex` before the engine runs. The reserved names are simply the keys of the
+shared array: the typed `Kaly\Core\RenderEnvironment` is built by `ViewResponder`
+and composes the domains; it holds references, not copies, so CSRF and CSP stay
+lazy and `auth` observes the request authentication. Each render gets its own
+capabilities, and an adapter never stores them on a shared engine: two renders
+never leak a locale, a token or a nonce into each other.
 
-The renderer receives `Kaly\View\RenderEnvironmentInterface`, which exposes the
-capabilities as variables and enforces the reserved names. The typed
-`Kaly\Core\RenderEnvironment` is built by `ViewResponder` and composes the
-domains; it holds references, not copies, so CSRF and CSP stay lazy and `auth`
-observes the request authentication. Each render gets its own environment, and an
-adapter never stores it on a shared engine: two renders never leak a locale, a
-token or a nonce into each other.
+A renderer called directly, outside the responder, applies the contract rule
+instead: when a name exists in both `$data` and `$shared`, the shared value
+wins, and `$shared` may be empty. What a composed template scope (layout,
+partial) receives stays the engine's own scoping rule: Twig's
+`include ... only`, for instance, drops the parent context on purpose.
 
 ## Engine syntax
 
@@ -76,6 +79,37 @@ context: keep the two distinct.
 Use `$v->date($date)`, `$v->time($date)` and `$v->datetime($date)` for localized
 display. Keep persistence and serialization formats at their own boundaries;
 the view formatter handles presentation styles such as `short` and `medium`.
+
+A kaly-tpl engine formats with the locale configured on the engine
+(`$engine->locale(...)`), which suits an application that serves one locale. A
+multilingual worker keeps that default and derives the formatter of each render
+from the locale of the request:
+
+```php
+use Kaly\Tpl\DefaultValueFormatter;
+use Kaly\Tpl\ValueFormatter;
+use Kaly\View\Adapter\KalyTplRenderer;
+use Kaly\View\RendererInterface;
+
+$formatters = [
+    'fr' => new DefaultValueFormatter('fr_BE', 'EUR', new DateTimeZone('Europe/Brussels')),
+    'nl' => new DefaultValueFormatter('nl_BE', 'EUR', new DateTimeZone('Europe/Brussels')),
+];
+
+$definitions->set(RendererInterface::class, new KalyTplRenderer(
+    $engine,
+    formatterFor: function (string $locale): ?ValueFormatter {
+        return $formatters[$locale] ?? null;
+    },
+));
+```
+
+The callback receives the locale the `i18n` capability carries and returns the
+formatter for that render only — kaly-tpl 0.4 threads it through the page, its
+partials and its layouts, and the shared engine is never mutated. Returning
+`null` (an unknown locale) keeps the engine default. Keep the formatter
+instances in the map: `DefaultValueFormatter` reuses its ICU formatters across
+calls, an advantage a fresh instance per render would lose.
 
 ### Twig
 
@@ -168,7 +202,7 @@ $definitions->set(RendererInterface::class, new LatteRenderer($latte));
 ### kaly-tpl (lightweight native PHP)
 
 ```bash
-composer require lekoala/kaly-tpl:^0.2
+composer require lekoala/kaly-tpl:^0.4
 ```
 
 ```php

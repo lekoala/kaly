@@ -17,7 +17,6 @@ use Kaly\I18n\Translator;
 use Kaly\Router\Route;
 use Kaly\Router\RouterInterface;
 use Kaly\Tests\Mocks\DispatcherController;
-use Kaly\View\RenderEnvironmentInterface;
 use Kaly\View\RendererInterface;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
@@ -97,10 +96,11 @@ final class CapturingRenderer implements RendererInterface
 
     /**
      * @param array<string,mixed> $data
+     * @param array<string,mixed> $shared
      */
-    public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
+    public function render(string $template, array $data = [], array $shared = []): string
     {
-        $csp = $environment?->variables()['csp'] ?? null;
+        $csp = $shared['csp'] ?? null;
 
         if ($csp instanceof Csp) {
             $this->csp = $csp;

@@ -57,6 +57,7 @@ final class ViewResponder
         if ($this->renderer === null) {
             throw new Ex('A View was returned but no renderer is configured: bind a Kaly\View\RendererInterface implementation');
         }
+        $renderer = $this->renderer;
         if (!$ctx->hasLocale()) {
             $ctx->useLocale($this->localeResolver->resolve($ctx->request()));
         }
@@ -73,11 +74,34 @@ final class ViewResponder
             csrf: new CsrfView($csrf, $ctx->session(...)),
             csp: $ctx->csp(),
         );
-        $environment->assertCompatible($view->data);
+        $shared = $environment->variables();
+        $this->assertNoReservedVariable($view->data, $shared);
 
         return $this->responseFactory
             ->createResponse($view->status)
             ->withHeader('Content-Type', ContentType::HTML)
-            ->withBody($this->streamFactory->createStream($this->renderer->render($view->template, $view->data, $environment)));
+            ->withBody($this->streamFactory->createStream($renderer->render($view->template, $view->data, $shared)));
+    }
+
+    /**
+     * Page data can never replace a capability of the render.
+     *
+     * @param array<string,mixed> $data
+     * @param array<string,mixed> $shared
+     */
+    private function assertNoReservedVariable(array $data, array $shared): void
+    {
+        $reserved = array_keys(array_intersect_key($shared, $data));
+        if ($reserved === []) {
+            return;
+        }
+
+        sort($reserved);
+        $names = implode("', '", $reserved);
+        throw new Ex(
+            count($reserved) === 1
+                ? "View data cannot contain the reserved variable '{$names}'"
+                : "View data cannot contain the reserved variables '{$names}'",
+        );
     }
 }

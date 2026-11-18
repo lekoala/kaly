@@ -146,6 +146,12 @@ class IndexController extends AbstractController
         return new View('@test-module/view', ['title' => 'View test']);
     }
 
+    public function throwingView(): View
+    {
+        // The template deliberately throws a client-facing HTTP failure
+        return new View('@test-module/throwing');
+    }
+
     public function noop(): string
     {
         return '';

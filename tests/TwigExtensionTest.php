@@ -32,10 +32,7 @@ class TwigExtensionTest extends TestCase
     {
         $renderer = new TwigRenderer($this->twig());
 
-        $this->assertSame(
-            'Message de test:fr:home:/assets/app.css',
-            trim($renderer->render('uses.twig', [], $this->renderEnvironment('fr'))),
-        );
+        $this->assertSame('Message de test:fr:home:/assets/app.css', trim($renderer->render('uses.twig', [], $this->renderShared('fr'))));
     }
 
     public function testMissingCapabilityFailsExplicitly(): void
@@ -53,14 +50,14 @@ class TwigExtensionTest extends TestCase
 
         $this->expectException(RuntimeError::class);
         $this->expectExceptionMessage("The url() function requires the 'url' render capability");
-        $renderer->render('include.twig', [], $this->renderEnvironment('fr'));
+        $renderer->render('include.twig', [], $this->renderShared('fr'));
     }
 
     public function testIncludeOnlyWithCapabilitiesWorks(): void
     {
         $renderer = new TwigRenderer($this->twig());
 
-        $this->assertSame('fr:home', trim($renderer->render('include_with.twig', [], $this->renderEnvironment('fr'))));
+        $this->assertSame('fr:home', trim($renderer->render('include_with.twig', [], $this->renderShared('fr'))));
     }
 
     public function testInstallingTwiceIsIdempotent(): void
@@ -69,10 +66,7 @@ class TwigExtensionTest extends TestCase
         new TwigRenderer($twig);
         $renderer = new TwigRenderer($twig);
 
-        $this->assertSame(
-            'Message de test:fr:home:/assets/app.css',
-            trim($renderer->render('uses.twig', [], $this->renderEnvironment('fr'))),
-        );
+        $this->assertSame('Message de test:fr:home:/assets/app.css', trim($renderer->render('uses.twig', [], $this->renderShared('fr'))));
     }
 
     public function testConflictingFilterIsRejected(): void
@@ -144,10 +138,7 @@ class TwigExtensionTest extends TestCase
         $twig->addFunction(new TwigFunction('greet', static fn(): string => 'hi'));
         $renderer = new TwigRenderer($twig);
 
-        $this->assertSame(
-            'Message de test:fr:home:/assets/app.css',
-            trim($renderer->render('uses.twig', [], $this->renderEnvironment('fr'))),
-        );
+        $this->assertSame('Message de test:fr:home:/assets/app.css', trim($renderer->render('uses.twig', [], $this->renderShared('fr'))));
     }
 
     public function testAlreadyInitializedEnvironmentIsRejected(): void

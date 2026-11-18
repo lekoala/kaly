@@ -63,7 +63,7 @@ an interface listed in the inventory with this rule in mind.
 | Twig, through `TwigRenderer` | 3 |
 | Latte, through `LatteRenderer` | 3 |
 | Symfony Translation, through `SymfonyTranslator` | 7 |
-| `lekoala/kaly-contracts` (task interfaces) | 1 |
+| `lekoala/kaly-contracts` (task and view interfaces) | 1 (view since 1.1) |
 
 Adding support for a new major of a dependency is a **minor** change, as long as
 the majors already promised stay supported. Raising the PHP minimum or dropping
@@ -191,7 +191,7 @@ All symbols are under `Kaly\`.
 | `Http\ExceptionHandlerInterface`, `Http\ErrorPageInterface`, `Http\DebugPageInterface`, `Core\ErrorViewInterface` | Error handling and rendering |
 | `Http\Session\SessionProviderInterface`, `Http\Session\SessionInterface` | Session storage for concurrent runtimes |
 | `Core\Middleware\OutgoingInterface` | Outgoing middleware |
-| `View\RendererInterface`, `View\RenderEnvironmentInterface` | Template engines |
+| `View\RendererInterface` | Template engines, provided by `lekoala/kaly-contracts` |
 | `I18n\TranslatorInterface`, `I18n\Translatable` | Translation backends, translatable values |
 | `Asset\AssetsInterface` | Asset url strategy |
 | `Task\TaskDispatcher`, `Task\ScheduledTaskDispatcher` | Background tasks, provided by `lekoala/kaly-contracts` |
@@ -199,9 +199,10 @@ All symbols are under `Kaly\`.
 PSR-15 `MiddlewareInterface` and PSR-11 containers are standards, not Kaly
 contracts.
 
-The task interfaces live in `lekoala/kaly-contracts`, a PHP-only package frozen at
-1.0, so that engines such as `kaly-tasks` implement them without depending on Kaly.
-They keep the `Kaly\Task` namespace.
+The task and view interfaces live in `lekoala/kaly-contracts`, a PHP-only
+package (the task interfaces frozen at 1.0, the view interfaces at 1.1), so that
+engines such as `kaly-tasks` or template adapters implement them without
+depending on Kaly. They keep the `Kaly\Task` and `Kaly\View` namespaces.
 
 ### Findings
 

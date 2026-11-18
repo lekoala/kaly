@@ -16,7 +16,6 @@ use Kaly\Http\Session\SessionInterface;
 use Kaly\Http\Session\SessionProviderInterface;
 use Kaly\Router\TrailingSlash;
 use Kaly\Tests\Support\HttpFactory;
-use Kaly\View\RenderEnvironmentInterface;
 use Kaly\View\RendererInterface;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\Uri;
@@ -334,7 +333,7 @@ class ProfileTest extends TestCase
         $app->middleware()->routed($probe);
         $app->configure(static function (Definitions $di): void {
             $di->rebind(RendererInterface::class, new class implements RendererInterface {
-                public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
+                public function render(string $template, array $data = [], array $shared = []): string
                 {
                     throw new RuntimeException('Render failed');
                 }

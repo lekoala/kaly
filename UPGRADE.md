@@ -4,6 +4,38 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## 0.9: view contracts come from kaly-contracts 1.1
+
+`Kaly\View\RendererInterface`, `Kaly\View\TemplateLocatorInterface` and
+`Kaly\View\TemplatePathRegistryInterface` are now provided by
+`lekoala/kaly-contracts`, which Kaly requires. No import and no binding change:
+the namespaces stay `Kaly\View`.
+
+`render()` changed shape: the environment object is gone and the reserved
+capabilities travel as a third array argument.
+
+```php
+// Before
+public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string;
+
+// After
+public function render(string $template, array $data = [], array $shared = []): string;
+```
+
+- A custom renderer no longer receives a typed environment: it receives the
+  capabilities as an array, and never needs to know their names or types.
+- A renderer called directly applies the contract rule: when a name exists in
+  `$data` and `$shared`, the shared value wins.
+- `RenderEnvironmentInterface` is removed. Kaly rejects page data colliding with
+  a reserved capability (`i18n`, `url`, `asset`, `auth`, `csrf`, `csp`) in
+  `ViewResponder`, once, with the same `Kaly\Ex` as before; the adapters no
+  longer repeat the check.
+- Applications using a provided adapter change nothing beyond the constraints:
+
+```sh
+composer update lekoala/kaly lekoala/kaly-contracts lekoala/kaly-tpl --with-dependencies
+```
+
 ## kaly-di 0.5
 
 Kaly now requires `lekoala/kaly-di` `^0.5`. If your application constrains

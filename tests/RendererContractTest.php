@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Kaly\Tests;
 
-use Kaly\Core\RenderEnvironment;
-use Kaly\Ex;
 use Kaly\Tpl\ViewEngine;
 use Kaly\View\Adapter\KalyTplRenderer;
 use Kaly\View\Adapter\LatteRenderer;
@@ -61,7 +59,7 @@ class RendererContractTest extends TestCase
     {
         $renderer = $factory();
 
-        $output = $renderer->render($template, ['pageLocal' => 'foo'], $this->renderEnvironment('fr'));
+        $output = $renderer->render($template, ['pageLocal' => 'foo'], $this->renderShared('fr'));
 
         $this->assertSame('caps:fr:Message de test:fr:home:/assets/app.css:no:csrf:nonce|page:foo', trim($output));
     }
@@ -74,35 +72,36 @@ class RendererContractTest extends TestCase
     {
         $renderer = $factory();
 
-        $this->assertStringContainsString('fr:Message de test', $renderer->render($template, [], $this->renderEnvironment('fr')));
-        $this->assertStringContainsString('en:Test message', $renderer->render($template, [], $this->renderEnvironment('en')));
+        $this->assertStringContainsString('fr:Message de test', $renderer->render($template, [], $this->renderShared('fr')));
+        $this->assertStringContainsString('en:Test message', $renderer->render($template, [], $this->renderShared('en')));
         // Back to fr: no residue of the previous render
-        $this->assertStringContainsString('fr:Message de test', $renderer->render($template, [], $this->renderEnvironment('fr')));
+        $this->assertStringContainsString('fr:Message de test', $renderer->render($template, [], $this->renderShared('fr')));
     }
 
     /**
      * @param callable(): RendererInterface $factory
      */
     #[DataProvider('renderers')]
-    public function testReservedNamesCollideBeforeTheEngine(callable $factory, string $template): void
+    public function testASharedCapabilityWinsOverAPageLocal(callable $factory, string $template): void
     {
         $renderer = $factory();
 
-        foreach (RenderEnvironment::RESERVED as $name) {
-            try {
-                $renderer->render($template, [$name => null], $this->renderEnvironment('fr'));
-                $this->fail("Expected a collision error for '{$name}'");
-            } catch (Ex $e) {
-                $this->assertSame("View data cannot contain the reserved variable '{$name}'", $e->getMessage());
-            }
-        }
+        // A renderer called directly applies the contract rule: the shared
+        // value wins. ViewResponder rejects such page data before calling.
+        $output = $renderer->render(
+            $template,
+            ['i18n' => 'not a translator', 'url' => 'not a generator', 'pageLocal' => 'foo'],
+            $this->renderShared('fr'),
+        );
+
+        $this->assertSame('caps:fr:Message de test:fr:home:/assets/app.css:no:csrf:nonce|page:foo', trim($output));
     }
 
     /**
      * @param callable(): RendererInterface $factory
      */
     #[DataProvider('renderers')]
-    public function testWithoutEnvironmentReservedNamesAreOrdinaryData(callable $factory, string $template): void
+    public function testWithoutSharedDataReservedNamesAreOrdinaryData(callable $factory, string $template): void
     {
         $renderer = $factory();
 
@@ -112,7 +111,7 @@ class RendererContractTest extends TestCase
             default => 'plain',
         };
 
-        // No environment: 'i18n' is a plain page local and no capability is injected
+        // No shared data: 'i18n' is a plain page local and no capability is injected
         $data = ['name' => 'World', 'i18n' => 'allowed', 'url' => 'also allowed'];
         $this->assertSame('World', trim($renderer->render($plain, $data)));
     }
@@ -121,7 +120,7 @@ class RendererContractTest extends TestCase
     {
         $renderer = new KalyTplRenderer(new ViewEngine(__DIR__ . '/adapters/kaly-tpl/caps'));
 
-        $body = $renderer->render('page', ['pageLocal' => 'foo'], $this->renderEnvironment('fr'));
+        $body = $renderer->render('page', ['pageLocal' => 'foo'], $this->renderShared('fr'));
 
         $this->assertStringContainsString('caps:Message de test:fr:home:/assets/app.css:no:csrf:ok', $body);
         $this->assertStringContainsString('page:foo', $body);

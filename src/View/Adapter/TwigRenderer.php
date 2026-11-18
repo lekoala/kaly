@@ -6,7 +6,6 @@ namespace Kaly\View\Adapter;
 
 use Kaly\Ex;
 use Kaly\View\Adapter\Twig\KalyExtension;
-use Kaly\View\RenderEnvironmentInterface;
 use Kaly\View\RendererInterface;
 use Kaly\View\TemplateLocatorInterface;
 use Kaly\View\TemplatePathRegistryInterface;
@@ -34,18 +33,14 @@ final class TwigRenderer implements RendererInterface, TemplateLocatorInterface,
     }
 
     /**
+     * The shared capabilities win over page locals sharing their names.
+     *
      * @param array<string,mixed> $data
+     * @param array<string,mixed> $shared
      */
-    public function render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
+    public function render(string $template, array $data = [], array $shared = []): string
     {
-        if ($environment !== null) {
-            $environment->assertCompatible($data);
-        }
-
-        return $this->twig->render($template, [
-            ...$data,
-            ...($environment?->variables() ?? []),
-        ]);
+        return $this->twig->render($template, [...$data, ...$shared]);
     }
 
     public function has(string $template): bool
