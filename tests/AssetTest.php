@@ -88,6 +88,16 @@ class AssetTest extends TestCase
         }
     }
 
+    public function testPathSegmentsAreEncoded(): void
+    {
+        $dev = new Assets($this->sources, $this->base . '/public', true);
+        $this->assertSame('/_assets/app/icons/logo%232.svg', $dev->url('icons/logo#2.svg'));
+        $this->assertSame('/_assets/app/my%20file.js', $dev->url('my file.js'));
+
+        $prod = new Assets($this->sources, $this->base . '/public', false, '8af319c42d');
+        $this->assertSame('/assets/8af319c42d/app/icons/logo%232.svg', $prod->url('icons/logo#2.svg'));
+    }
+
     public function testUrlDoesNotCheckFileExistence(): void
     {
         $assets = new Assets($this->sources, $this->base . '/public', true);

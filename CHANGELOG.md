@@ -34,6 +34,8 @@
 - Generating an url with a boolean argument now writes `1` or `0`: `(string)
   false` is empty, so the segment disappeared and `false` produced an url no
   route matched.
+- Asset urls encode each path component: a file named `logo#2.svg` is now
+  reachable through its generated url instead of being cut at the fragment.
 
 ## 0.7.0 - 2026-11-14
 

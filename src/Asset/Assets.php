@@ -48,13 +48,24 @@ final class Assets implements AssetsInterface
         // Fail fast on unknown namespaces; existence of the file itself is
         // deliberately not checked here.
         $this->sources->get($namespace);
+        $encoded = self::encodePath($path);
 
         if ($this->dev) {
-            return $this->baseUrl . self::DEV_PREFIX . $namespace . '/' . $path;
+            return $this->baseUrl . self::DEV_PREFIX . $namespace . '/' . $encoded;
         }
 
         $version = $this->resolveVersion();
-        return $this->baseUrl . '/assets/' . $version . '/' . $namespace . '/' . $path;
+        return $this->baseUrl . '/assets/' . $version . '/' . $namespace . '/' . $encoded;
+    }
+
+    /**
+     * Encode each path component, keeping the directory separators: a file
+     * name may contain `#`, `?`, spaces or unicode, and the browser must not
+     * read them as fragment or query delimiters.
+     */
+    private static function encodePath(string $path): string
+    {
+        return implode('/', array_map(rawurlencode(...), explode('/', $path)));
     }
 
     /**

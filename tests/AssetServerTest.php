@@ -144,6 +144,20 @@ class AssetServerTest extends TestCase
         $this->assertSame(404, $this->serve('POST', '/_assets/app/app.js')->getStatusCode());
     }
 
+    public function testEncodedFileNameIsServed(): void
+    {
+        Fs::ensureDir($this->base . '/assets/icons');
+        Fs::putFile($this->base . '/assets/icons/logo#2.svg', '<svg></svg>');
+
+        $response = $this->serve('GET', '/_assets/app/icons/logo%232.svg');
+        try {
+            $this->assertSame(200, $response->getStatusCode());
+            $this->assertSame('<svg></svg>', (string) $response->getBody());
+        } finally {
+            $response->getBody()->close();
+        }
+    }
+
     public function testOtherPrefixesAreIgnored(): void
     {
         $this->assertSame(404, $this->serve('GET', '/assets/app/app.js')->getStatusCode());
