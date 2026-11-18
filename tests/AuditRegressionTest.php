@@ -324,11 +324,9 @@ class AuditRegressionTest extends TestCase
     public function testCookieValuesAreDecodedBeforeTheyAreReplayed(): void
     {
         $app = (new App(__DIR__))->routing(TrailingSlash::Preserve, true);
-        $app->middleware()->outgoing(static fn(\Psr\Http\Message\ResponseInterface $response): \Psr\Http\Message\ResponseInterface => $response->withHeader('Set-Cookie', SetCookieHeader::build(
-            'name',
-            'a+b %',
-            [],
-        )));
+        $app->middleware()->outgoing(static fn(
+            \Psr\Http\Message\ResponseInterface $response,
+        ): \Psr\Http\Message\ResponseInterface => $response->withHeader('Set-Cookie', SetCookieHeader::build('name', 'a+b %', [])));
         $app->boot();
         $client = \Kaly\Test\TestClient::for($app);
         $client->get('/');

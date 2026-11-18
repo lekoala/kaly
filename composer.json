@@ -34,7 +34,7 @@
         "symfony/polyfill-php84": "^1.30"
     },
     "require-dev": {
-        "carthage-software/mago": "^1.55",
+        "carthage-software/mago": "1.60.2",
         "composer/ca-bundle": "^1.5",
         "infection/infection": "^0.35.8",
         "latte/latte": "^3.0",
