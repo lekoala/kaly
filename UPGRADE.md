@@ -30,11 +30,22 @@ public function render(string $template, array $data = [], array $shared = []): 
   a reserved capability (`i18n`, `url`, `asset`, `auth`, `csrf`, `csp`) in
   `ViewResponder`, once, with the same `Kaly\Ex` as before; the adapters no
   longer repeat the check.
-- Applications using a provided adapter change nothing beyond the constraints:
+- `Kaly\Core\RenderEnvironment::RESERVED` and `assertCompatible()` are removed.
+  Use the keys of `variables()` to inspect an environment's capability names.
+  For direct rendering, pass `variables()` as `$shared`. For controller views,
+  `ViewResponder` validates the page data.
 
-```sh
-composer update lekoala/kaly lekoala/kaly-contracts lekoala/kaly-tpl --with-dependencies
-```
+Set the application's `lekoala/kaly` constraint to `^0.9` in `composer.json`.
+If the application declares `lekoala/kaly-contracts` directly, make sure its
+constraint allows 1.1. If it uses `KalyTplRenderer`, set its
+`lekoala/kaly-tpl` constraint to `^0.4`. The adapter uses the per-render
+formatter argument introduced in 0.4, even when no formatter callback is
+configured.
+
+For an application using `KalyTplRenderer`, run
+`composer update lekoala/kaly lekoala/kaly-tpl --with-all-dependencies`.
+If the application uses another renderer, run
+`composer update lekoala/kaly --with-all-dependencies`.
 
 ## kaly-di 0.5
 

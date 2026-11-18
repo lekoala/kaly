@@ -437,9 +437,9 @@ templates and renderer.
 
 Error views pass through `Kaly\Core\ViewResponder`, just like controller views.
 They receive `i18n`, `url`, `asset`, `auth`, `csrf` and `csp`, bound to the current
-request. With kaly-tpl 0.2 these helpers also reach layouts and partials. Reading
-authentication or the CSRF field name does not create a session; requesting a CSRF
-token can create one, as in an ordinary view.
+request. The kaly-tpl adapter also passes these helpers to layouts and partials.
+Reading authentication or the CSRF field name does not create a session.
+Requesting a CSRF token can create one, as in an ordinary view.
 
 A routing failure may occur before a locale is established. In that case, Kaly
 uses `LocaleResolver` to negotiate from the request locale attribute,

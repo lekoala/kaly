@@ -33,6 +33,9 @@
         "psr/log": "^1.0 || ^2.0 || ^3.0",
         "symfony/polyfill-php84": "^1.30"
     },
+    "conflict": {
+        "lekoala/kaly-tpl": "<0.4"
+    },
     "require-dev": {
         "carthage-software/mago": "1.60.2",
         "composer/ca-bundle": "^1.5",
@@ -54,7 +57,7 @@
         "latte/latte": "Recommended template language, through Kaly\\View\\Adapter\\LatteRenderer",
         "kriswallsmith/buzz": "Small PSR-18 HTTP client, through the http-client recipe",
         "lekoala/kaly-forms": "Server-rendered HTML forms with progressive enhancement, through the kaly-forms recipe",
-        "lekoala/kaly-tpl": "Lightweight native PHP templates, through Kaly\\View\\Adapter\\KalyTplRenderer",
+        "lekoala/kaly-tpl": "Lightweight native PHP templates, through Kaly\\View\\Adapter\\KalyTplRenderer (requires ^0.4)",
         "nyholm/psr7": "Recommended PSR-7 implementation for your application",
         "nesbot/carbon": "Rich DateTime-compatible date and time manipulation",
         "spomky-labs/otphp": "TOTP/HOTP second-factor authentication",

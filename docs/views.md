@@ -150,8 +150,8 @@ is deliberately limited to `render()`. Twig, Latte and kaly-tpl each have their
 own composition mechanism, and the contract must not embed one engine's feature.
 A controller chooses the view; the template chooses its layout.
 
-With kaly-tpl 0.2 the capabilities are forwarded as per-render shared data:
-they are available in the page, layouts, includes and `each()` templates. Page
+The kaly-tpl adapter forwards the capabilities as per-render shared data.
+They are available in the page, layouts, includes and `each()` templates. Page
 data stays local to the root template; pass any page values needed by a layout
 or partial explicitly:
 

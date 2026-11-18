@@ -20,10 +20,11 @@
   render's `i18n` capability to the `ValueFormatter` of that render (kaly-tpl
   0.4), so a multilingual worker formats dates and money in the locale of the
   request without mutating the shared engine. The engine default is unchanged
-  without the callback.
+  without the callback. **Breaking (Composer):** kaly-tpl remains optional, and
+  versions below 0.4 are incompatible with Kaly 0.9.
 - `Kaly\Core\RenderEnvironment` is the typed capability bag of a render: its
-  `variables()` keys are the reserved names, and it no longer implements an
-  interface.
+  `variables()` keys are the reserved names. The `RESERVED` constant and
+  `assertCompatible()` method are removed.
 
 ## 0.8.0 - 2026-11-18
 

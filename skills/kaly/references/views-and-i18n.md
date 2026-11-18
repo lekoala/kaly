@@ -8,13 +8,13 @@ A controller can return a view such as:
 return View::of('@booking/appointment', ['appointment' => $appointment]);
 ```
 
-Kaly deliberately keeps `RendererInterface` minimal:
+The `RendererInterface` from `lekoala/kaly-contracts` 1.1 has a single method.
 
 ```php
-render(string $template, array $data = [], ?RenderEnvironmentInterface $environment = null): string
+render(string $template, array $data = [], array $shared = []): string
 ```
 
-Page data and the reserved render environment travel separately. Do not merge
+Page data and the shared render capabilities travel separately. Do not merge
 capabilities into application view data, and do not make application code depend
 on engine-specific layout concepts at the Kaly renderer boundary.
 
@@ -37,21 +37,19 @@ csrf
 csp
 ```
 
-Treat these as framework-provided capabilities, not application view data.
-
-Do not attempt to pass reserved names as controller data: whenever an environment
-is provided, page data containing one of them is rejected with a `Kaly\Ex` before
-the engine runs. A standalone `render()` without an environment injects no
-capability and may use such names as ordinary locals.
+Keep controller view data free of these names. `ViewResponder` rejects a
+collision with a `Kaly\Ex` before the engine runs. When calling `render()`
+directly, a name present in both arrays resolves to the value in `$shared`.
+With an empty `$shared` array, these names can be used as ordinary locals.
 
 With kaly-tpl, application locals remain isolated between templates: pass
 application data explicitly to partials and layouts when they need it.
 
-With Kaly's kaly-tpl 0.2 adapter, the six reserved capabilities are forwarded as
-`sharedData` for the current render, reaching layouts, includes and `each()`
-templates. Do not pass them again in layout/partial data or register them as
-engine globals: a collision is rejected. The names are `i18n`, `url`, `asset`,
-`auth`, `csrf` and `csp`, reserved by `Kaly\Core\RenderEnvironment`.
+The Kaly adapter uses the per-render API introduced in kaly-tpl 0.4. It forwards
+the capabilities as `sharedData` for the current render, reaching layouts,
+includes and `each()` templates. Do not pass them again in layout or partial
+data or register them as engine globals, since the engine rejects those
+collisions.
 
 Do not introduce process-global request state to make template variables
 implicitly available.
