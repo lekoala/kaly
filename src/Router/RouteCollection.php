@@ -235,31 +235,55 @@ final class RouteCollection
      */
     private function failOnCollisions(array $definitions, bool $localePrefixes): void
     {
-        $count = count($definitions);
-        for ($i = 0; $i < $count; $i++) {
-            for ($j = $i + 1; $j < $count; $j++) {
-                $a = $definitions[$i];
-                $b = $definitions[$j];
-                if ($a->priority !== $b->priority || !self::methodsOverlap($a->methods, $b->methods)) {
-                    continue;
-                }
-                foreach ($a->paths() as $localeA => $pathA) {
-                    foreach ($b->paths() as $localeB => $pathB) {
-                        if ($localePrefixes && $localeA !== '*' && $localeB !== '*' && $localeA !== $localeB) {
+        /**
+         * Path variants sharing a canonical pattern, per priority. Normalizing
+         * methods and canonicalizing paths once per variant keeps compilation
+         * linear in the table size instead of quadratic in every pair.
+         *
+         * @var array<int,array<string,list<array{definition:int,locale:string,path:string,methods:list<string>}>>> $groups
+         */
+        $groups = [];
+        foreach ($definitions as $index => $definition) {
+            $methods = self::normalizeMethods($definition->methods);
+            foreach ($definition->paths() as $locale => $path) {
+                $groups[$definition->priority][self::canonicalPattern($path, $definition->requirements)][] = [
+                    'definition' => $index,
+                    'locale' => $locale,
+                    'path' => $path,
+                    'methods' => $methods,
+                ];
+            }
+        }
+
+        foreach ($groups as $priority => $patterns) {
+            foreach ($patterns as $variants) {
+                $count = count($variants);
+                for ($i = 0; $i < $count; $i++) {
+                    for ($j = $i + 1; $j < $count; $j++) {
+                        $a = $variants[$i];
+                        $b = $variants[$j];
+                        // Variants of one declaration are compared by the
+                        // dedicated pass below when locale prefixes are off
+                        if ($a['definition'] === $b['definition']) {
                             continue;
                         }
-                        if (self::canonicalPattern($pathA, $a->requirements) !== self::canonicalPattern($pathB, $b->requirements)) {
+                        if ($localePrefixes && $a['locale'] !== '*' && $b['locale'] !== '*' && $a['locale'] !== $b['locale']) {
                             continue;
                         }
+                        if (!self::methodsOverlap($a['methods'], $b['methods'])) {
+                            continue;
+                        }
+                        $first = $definitions[$a['definition']];
+                        $second = $definitions[$b['definition']];
                         throw new Ex(sprintf(
                             "Colliding routes '%s' (%s::%s) and '%s' (%s::%s) with the same priority %d: disambiguate with priorities or requirements",
-                            $pathA,
-                            $a->controller,
-                            $a->action,
-                            $pathB,
-                            $b->controller,
-                            $b->action,
-                            $a->priority,
+                            $a['path'],
+                            $first->controller,
+                            $first->action,
+                            $b['path'],
+                            $second->controller,
+                            $second->action,
+                            $priority,
                         ));
                     }
                 }
@@ -286,13 +310,11 @@ final class RouteCollection
     }
 
     /**
-     * @param string[] $a
-     * @param string[] $b
+     * @param list<string> $a Normalized methods
+     * @param list<string> $b Normalized methods
      */
     private static function methodsOverlap(array $a, array $b): bool
     {
-        $a = self::normalizeMethods($a);
-        $b = self::normalizeMethods($b);
         if ($a === [] || $b === []) {
             return true;
         }
