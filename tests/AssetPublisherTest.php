@@ -10,6 +10,7 @@ use Kaly\Asset\AssetSources;
 use Kaly\Ex;
 use Kaly\Tests\Support\TempDir;
 use Kaly\Util\Fs;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class AssetPublisherTest extends TestCase
@@ -238,24 +239,41 @@ class AssetPublisherTest extends TestCase
         $this->assertDirectoryExists($this->base . '/public/assets/v4');
     }
 
-    public function testPruneNeverRemovesTheLiveVersion(): void
+    /**
+     * @return array<string, array{list<string>}>
+     */
+    public static function liveVersionBuilds(): array
+    {
+        return [
+            'named builds' => [['v1', 'v2', 'v3']],
+            // Numeric directory names become integer array keys in prune()
+            'decimal build numbers' => [['101', '102', '103']],
+        ];
+    }
+
+    /**
+     * @param list<string> $versions
+     */
+    #[DataProvider('liveVersionBuilds')]
+    public function testPruneNeverRemovesTheLiveVersion(array $versions): void
     {
         $this->seedHappyPath();
         $publisher = new AssetPublisher($this->sources(), $this->base . '/public');
-        $publisher->publish('v1');
-        $publisher->publish('v2');
-        $publisher->publish('v3');
+        [$first, $second, $third] = $versions;
+        $publisher->publish($first);
+        $publisher->publish($second);
+        $publisher->publish($third);
 
-        // Rolled back: v1 is live but the oldest on disk
-        touch($this->base . '/public/assets/v1', time() - 300);
-        touch($this->base . '/public/assets/v2', time() - 200);
-        touch($this->base . '/public/assets/v3', time() - 100);
-        Fs::putFile($this->base . '/public/assets/.version', "v1\n");
+        // Rolled back: the first build is live but the oldest on disk
+        touch($this->base . "/public/assets/{$first}", time() - 300);
+        touch($this->base . "/public/assets/{$second}", time() - 200);
+        touch($this->base . "/public/assets/{$third}", time() - 100);
+        Fs::putFile($this->base . '/public/assets/.version', "{$first}\n");
 
         $this->assertSame(1, $publisher->prune(keep: 1));
-        $this->assertDirectoryExists($this->base . '/public/assets/v1');
-        $this->assertFileDoesNotExist($this->base . '/public/assets/v2');
-        $this->assertDirectoryExists($this->base . '/public/assets/v3');
+        $this->assertDirectoryExists($this->base . "/public/assets/{$first}");
+        $this->assertFileDoesNotExist($this->base . "/public/assets/{$second}");
+        $this->assertDirectoryExists($this->base . "/public/assets/{$third}");
     }
 
     public function testPruneWithoutPublishedAssetsIsNoop(): void

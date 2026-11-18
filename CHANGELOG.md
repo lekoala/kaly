@@ -16,6 +16,9 @@
   including when a rollback is not a valid reset.
 - A new events guide: explicit call, PSR-14, tasks and transactional outbox,
   chosen by what the reaction must guarantee.
+- `AssetPublisher::prune()` keeps the live version when its build number is
+  numeric: PHP turned the directory name into an integer array key, so the
+  comparison with `.version` never matched and a rolled-back build was removed.
 
 ## 0.7.0 - 2026-11-14
 

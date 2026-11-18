@@ -126,7 +126,9 @@ final class AssetPublisher
         $position = 0;
         foreach (array_keys($versions) as $version) {
             $position++;
-            if ($position <= $keep || $version === $active) {
+            // PHP turns a numeric directory name into an integer key: compare
+            // the string form, or a rolled-back build such as '101' is removed
+            if ($position <= $keep || (string) $version === $active) {
                 continue;
             }
             Fs::removeDir(Fs::join($assetsDir, (string) $version));
