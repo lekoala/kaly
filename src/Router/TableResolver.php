@@ -91,7 +91,7 @@ final class TableResolver implements ResolverInterface
 
     /**
      * The first route matching the path for this method, collecting the
-     * methods of the routes that match the path only.
+     * methods of the routes that match the path and can receive its parameters.
      *
      * @param array<string,true> $allowed
      */
@@ -109,16 +109,19 @@ final class TableResolver implements ResolverInterface
             }
 
             $definition = $entry['definition'];
+            // A route that cannot consume this path is not a candidate for any
+            // method: it must not contribute to Allow, or the 405 would hide
+            // the resolver that can actually answer the request
+            $params = $this->coerceParams($entry, $matches);
+            if ($params === null) {
+                continue;
+            }
+
             $methods = Method::normalizeList($definition->methods);
             if ($methods !== [] && !in_array($method, $methods, true)) {
                 foreach ($methods as $m) {
                     $allowed[$m] = true;
                 }
-                continue;
-            }
-
-            $params = $this->coerceParams($entry, $matches);
-            if ($params === null) {
                 continue;
             }
 

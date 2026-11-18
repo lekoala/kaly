@@ -12,6 +12,7 @@ use Kaly\Router\RedirectUris;
 use Kaly\Router\ResolverInterface;
 use Kaly\Router\Route;
 use Kaly\Router\RouteGenerationException;
+use Kaly\Router\RouteNotFoundException;
 use Kaly\Router\Router;
 use Kaly\Router\RouteRequest;
 use Kaly\Router\Routes;
@@ -272,6 +273,48 @@ class RouterHierarchyFixesTest extends TestCase
         } catch (MethodNotAllowedException $e) {
             $this->assertSame(['GET', 'HEAD'], $e->getAllowedMethods());
         }
+    }
+
+    public function testANonContributingParamMatchDoesNotHideTheNextResolver(): void
+    {
+        $module = $this
+            ->module()
+            ->routes(function (Routes $routes): void {
+                $routes->get('/item/{id}', [RouteHandlerFixture::class, 'show']);
+            })
+            ->resolver(new class implements ResolverInterface {
+                public function resolve(RouteRequest $request): ?Route
+                {
+                    if ($request->request->getMethod() === 'POST' && $request->segments === ['item', 'draft']) {
+                        return $request->route(RouteHandlerFixture::class, '__invoke');
+                    }
+                    return null;
+                }
+            });
+        $router = new Router([$module], null, [], TrailingSlash::Add);
+
+        // The GET route accepts /item/42 for its own method...
+        $this->assertSame(42, $this->match($router, '/shop/item/42/')->params[0]);
+        try {
+            // ...so another method on the same path is a real 405
+            $this->match($router, '/shop/item/42/', 'POST');
+            $this->fail('A 405 was expected');
+        } catch (MethodNotAllowedException $e) {
+            $this->assertSame(['GET', 'HEAD'], $e->getAllowedMethods());
+        }
+
+        // /item/draft is not an int parameter: the GET route is a 404 and
+        // must not claim the path in Allow
+        $notFound = false;
+        try {
+            $this->match($router, '/shop/item/draft/');
+        } catch (RouteNotFoundException) {
+            $notFound = true;
+        }
+        $this->assertTrue($notFound, 'The GET route must be a 404 for /item/draft');
+        $route = $this->match($router, '/shop/item/draft/', 'POST');
+        $this->assertSame(RouteHandlerFixture::class, $route->controller);
+        $this->assertSame('__invoke', $route->action);
     }
 
     public function testMountPerLocaleWithoutLocalizedFailsAtBoot(): void

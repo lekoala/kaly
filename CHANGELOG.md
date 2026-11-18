@@ -28,6 +28,9 @@
 - A HEAD response replaces its body without closing the original stream: a
   handler that keeps and reuses a response in a worker now serves the next GET
   intact, while an unowned body is still released.
+- A route whose action cannot receive the path parameters no longer contributes
+  to a 405 `Allow` header: the request is a 404 for that route and the next
+  resolver can answer it.
 
 ## 0.7.0 - 2026-11-14
 
