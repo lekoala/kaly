@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Breaking (dependency upgrade):** Kaly requires `lekoala/kaly-di` `^0.5`.
+  `Kaly\Di\Container` is final, and `Injector` rejects signatures with
+  by-reference parameters and checks the types of supplied arguments even when
+  PHP assertions are disabled. See `UPGRADE.md` for migration details.
 - **Behavior change:** generating an url with a path parameter that is exactly
   `.` or `..` throws `RouteGenerationException` (`url()` and `urlFor()`), since
   clients remove dot segments. Values merely containing dots, and query string

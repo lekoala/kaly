@@ -4,6 +4,25 @@ Kaly is `0.x`: breaking changes are made deliberately, in favor of a smaller and
 sharper API, rather than piled up behind aliases. Each section lists what changed and
 how to migrate.
 
+## kaly-di 0.5
+
+Kaly now requires `lekoala/kaly-di` `^0.5`. If your application constrains
+`kaly-di` directly, update that constraint and resolve both packages together.
+
+- `Kaly\Di\Container` is final. Move custom bindings and configuration into
+  `Definitions`, using factories to construct services and callbacks to
+  configure them. This keeps construction and shared instances under the
+  container's control.
+- `Injector::invoke()` and `Injector::make()` reject signatures that declare a
+  by-reference parameter, including optional parameters. Reflection could not
+  preserve the caller's reference. Call the function or constructor inside a
+  closure so PHP handles the references directly, for example
+  `$injector->invoke(static fn () => sscanf('25 items', '%d %s'))`.
+- Supplied arguments and configured constructor parameters must match the
+  declared type even with PHP assertions disabled. Pass values of the declared
+  type, such as `false` for a `bool` parameter. This avoids coercions such as
+  Reflection turning the string `'false'` into `true`.
+
 ## 0.7: task interfaces come from kaly-contracts
 
 `Kaly\Task\TaskDispatcher` and `Kaly\Task\ScheduledTaskDispatcher` are now provided

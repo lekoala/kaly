@@ -57,8 +57,8 @@ Any dependency of a resolved class is injected automatically from the container.
   (same shared instance, no second callback run);
 - `parameter(string $id, string $name, mixed $value)` — supply one constructor argument;
 - `parameters(string $id, mixed ...$params)` — supply constructor arguments by name;
-- `callback(string $id, callable $callback)` — run a callback once the service is
-  instantiated;
+- `callback(string $id, Closure $fn, ?string $name = null)` — run a closure once
+  the service is instantiated, with an optional name;
 - `merge(Definitions $other)`, `has(string $id)`, `lock()`.
 
 Merging is additive: an id defined on both sides is a conflict, even with the
