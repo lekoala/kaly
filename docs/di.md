@@ -148,6 +148,44 @@ Keep these reads in the composition root. Introduce a policy or options object o
 when it is a meaningful dependency, as described in
 [Modules](modules.md#values-and-configuration-objects).
 
+## Check bindings with Mago
+
+[kaly-mago](https://github.com/lekoala/kaly-mago) is an optional development
+extension for Mago. Its `kaly/di` plugin checks explicit `bind()` calls when
+both class references can be resolved statically. It reports incompatible
+implementations, unknown constructor parameter names and clearly incompatible
+scalar values. It checks the arguments on each `bind()` call, even when a later
+`parameters()` call would replace a value at runtime.
+
+The extension uses Mago 1.60.2 and the kaly-di API with constructor arguments
+in the third position of `bind()`. To try the development version, install it
+from GitHub in your application:
+
+```bash
+composer config repositories.kaly-mago vcs https://github.com/lekoala/kaly-mago.git
+composer require --dev lekoala/kaly-mago:dev-main
+```
+
+Create `.mago/worker.php` with the application's Composer autoloader.
+
+```php
+<?php
+
+require dirname(__DIR__) . '/vendor/autoload.php';
+
+(new Mago\Sdk\Worker(Kaly\Mago\KalyExtension::create()))->run();
+```
+
+Register the worker in `mago.toml`.
+
+```toml
+[extension-hosts.kaly]
+command = ["php", ".mago/worker.php"]
+```
+
+Include the directories that declare bindings, such as `modules/`, in
+`[source].paths` and run `vendor/bin/mago analyze`.
+
 ## Stateful services and request lifetime
 
 Shared services must be re-entrant: in a worker the container outlives the

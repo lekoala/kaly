@@ -127,6 +127,7 @@ See [UPGRADE.md](UPGRADE.md) when updating.
 
 - Online: [https://lekoala.github.io/kaly/](https://lekoala.github.io/kaly/)
 - Raw Markdown in [`docs/`](docs/) stays readable directly on GitHub
+- [Check dependency injection bindings with Mago](docs/di.md#check-bindings-with-mago)
 - Local preview: `composer docs` (requires Ruby + Bundler, serves the Jekyll site with live reload)
 
 ## Testing

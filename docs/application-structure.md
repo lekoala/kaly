@@ -258,6 +258,9 @@ Mago's structural rules can check some naming and modifier conventions too; this
 profile simply does not pretend to check everything. The three points above stay
 conventions that review and [Runtime](runtime.md) discipline must hold.
 
+To check dependency injection declarations during `mago analyze`, see
+[Check bindings with Mago](di.md#check-bindings-with-mago).
+
 ## Where does an integration go?
 
 The rule that decides everything else:

@@ -215,6 +215,11 @@ $engine = new ViewEngine(__DIR__ . '/views');
 $definitions->set(RendererInterface::class, new KalyTplRenderer($engine));
 ```
 
+Mago's PHP analyzer can also check kaly-tpl's `.phtml` files. Add `phtml` to
+`[source].extensions` alongside `php`, include your template directories in
+`[source].paths`, and supply `@var` annotations or let kaly-tpl generate them
+during a debug render. See the [Mago recipe for kaly-tpl views](https://github.com/lekoala/kaly-mago#analyze-kaly-tpl-views-with-mago).
+
 ### Twig (also supported)
 
 ```bash
