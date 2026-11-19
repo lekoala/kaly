@@ -48,7 +48,8 @@ Any dependency of a resolved class is injected automatically from the container.
 `Definitions` is `final`. The main methods are:
 
 - `bind(string $abstract, string $concrete)` — map an abstract id to a concrete class
-  (note the **abstract → concrete** order);
+  (note the **abstract → concrete** order). Versions of kaly-di after 0.5 also
+  accept an optional array of named constructor arguments;
 - `set(string $id, string|object $value)` — register an object, a class name, or a
   factory closure;
 - `rebind(string $id, string|object $value)` — intentionally replace an existing
@@ -97,35 +98,38 @@ definitions.
 
 The container resolves objects, not scalar configuration entries. A string passed
 to `set()` denotes a class name: `set('appName', 'my-app')` is invalid. Supply
-scalars with `parameter()` / `parameters()`, or pass them directly in a factory.
+scalars with `bind()`, `parameter()` or `parameters()`, or pass them directly
+in a factory.
 
 For example, an application's `SearchClient` implements `SearchInterface` and takes
 `string $url` and `string $apiKey` constructor arguments:
 
 ```php
-use Kaly\Di\Definitions;
 use Kaly\Util\Env;
 
-$di
-    ->bind(SearchInterface::class, SearchClient::class)
-    ->parameters(
-        SearchClient::class,
-        url: Env::getString('SEARCH_URL'),
-        apiKey: Env::getString('SEARCH_API_KEY'),
-    );
+$di->bind(SearchInterface::class, SearchClient::class, [
+    'url' => Env::getString('SEARCH_URL'),
+    'apiKey' => Env::getString('SEARCH_API_KEY'),
+]);
 ```
 
-Object dependencies are still autowired. Parameters configured for a concrete class
-apply when it is resolved through a binding too; parameters for the requested
-service id take precedence over the class parameters. Parameter names must match
-the constructor. These parameters configure container construction;
+This example uses the third argument of `bind()`, introduced after kaly-di 0.5.
+With kaly-di 0.5, use `parameters(SearchInterface::class, ...)` after the
+two-argument binding.
+
+Object dependencies are still autowired. The array configures
+`SearchInterface::class`, so its values take precedence over any defaults
+configured for `SearchClient::class`. A later `parameters()` call for the
+interface can add or replace values. Use `parameters()` on a concrete class to
+configure it for autowiring. Parameter names must match the constructor.
+These parameters configure container construction;
 `Injector::make()` does not read them.
 
 Here `Env` is read during registration. To read a value only when the service is
 built, supply a parameter closure, for example:
 
 ```php
-$di->parameter(SearchClient::class, 'url', static fn() => Env::getString('SEARCH_URL'));
+$di->parameter(SearchInterface::class, 'url', static fn() => Env::getString('SEARCH_URL'));
 ```
 
 A parameter closure receives the container and returns the argument value. Choose

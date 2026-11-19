@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- The DI guide shows how to configure constructor arguments per binding with
+  versions of kaly-di after 0.5. See `UPGRADE.md` for the breaking change to
+  positional provenance labels when upgrading kaly-di.
+
 ## 0.9.0 - 2026-11-18
 
 - **Breaking:** the view contracts come from `lekoala/kaly-contracts` 1.1.

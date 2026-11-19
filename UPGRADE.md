@@ -47,6 +47,20 @@ For an application using `KalyTplRenderer`, run
 If the application uses another renderer, run
 `composer update lekoala/kaly --with-all-dependencies`.
 
+## kaly-di releases after 0.5
+
+When upgrading kaly-di beyond 0.5, move a positional third argument to
+`Definitions::bind()` to the named `source:` argument. The third position now
+accepts an array of constructor arguments scoped to the abstract service id.
+
+```php
+// Before
+$di->bind(StorageInterface::class, DatabaseStorage::class, 'core');
+
+// After
+$di->bind(StorageInterface::class, DatabaseStorage::class, source: 'core');
+```
+
 ## kaly-di 0.5
 
 Kaly now requires `lekoala/kaly-di` `^0.5`. If your application constrains
