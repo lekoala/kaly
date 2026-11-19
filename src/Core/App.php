@@ -722,8 +722,7 @@ final class App implements RequestHandlerInterface
         usort($modules, static fn(Module $a, Module $b): int => $a->getPriority() <=> $b->getPriority());
         $this->modules = $modules;
 
-        // Modules declare services without a provenance label: the owner of
-        // each id is tracked here, so a conflict names both config.php files.
+        // Track each service's owning module so a conflict names both modules.
         $definitions = new Definitions();
         $owners = [];
         foreach ($modules as $module) {

@@ -49,17 +49,23 @@ If the application uses another renderer, run
 
 ## kaly-di releases after 0.5
 
-When upgrading kaly-di beyond 0.5, move a positional third argument to
-`Definitions::bind()` to the named `source:` argument. The third position now
-accepts an array of constructor arguments scoped to the abstract service id.
+When upgrading kaly-di beyond 0.5, remove provenance arguments from `set()`,
+`bind()`, `bindConvention()` and `rebind()`, and remove calls to `sourceFor()`.
+Kaly reports module ownership when it assembles service definitions. The third
+argument to `bind()` now accepts a constructor argument array scoped to the
+abstract service id.
 
 ```php
 // Before
 $di->bind(StorageInterface::class, DatabaseStorage::class, 'core');
 
 // After
-$di->bind(StorageInterface::class, DatabaseStorage::class, source: 'core');
+$di->bind(StorageInterface::class, DatabaseStorage::class);
 ```
+
+`rebind()` retains the parameters and callbacks registered under the service id
+by default. Pass `resetConfiguration: true` to clear them when the replacement
+succeeds.
 
 ## kaly-di 0.5
 

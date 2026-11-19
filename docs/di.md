@@ -64,7 +64,8 @@ Any dependency of a resolved class is injected automatically from the container.
 
 Merging is additive: an id defined on both sides is a conflict, even with the
 same value. A failed merge leaves the object unchanged and reports every
-collision with its provenance.
+conflicting id. During application boot, Kaly also names the two modules that
+declared each conflicting service.
 
 ```php
 $definitions
@@ -93,6 +94,11 @@ the construction of a dependency once its consumer needs it.
 The definitions are locked once the application has loaded them: no service can be
 registered afterwards. Constructing a standalone `Container` also locks the supplied
 definitions.
+
+By default, `rebind()` keeps the constructor parameters and callbacks registered
+under the service id. With kaly-di versions after 0.5, use
+`rebind($id, $replacement, resetConfiguration: true)` to clear them when the
+replacement succeeds.
 
 ## Constructor values
 
